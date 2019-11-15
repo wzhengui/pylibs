@@ -594,11 +594,11 @@ class schism_grid_ll(schism_grid):
 
         #read parents' elnode and bndinfo
         if gd!=None:
-           gp=args[0]
            pattrs=['i34','elnode','nob','nobn','iobn','nlb','nlbn','ilbn','island']
            for pattr in pattrs:
-               if hasattr(gp,pattr):
-                  exec('self.'+pattr+'=gp.'+pattr)
+               print(hasattr(gd,pattr))
+               if hasattr(gd,pattr):
+                  exec('self.'+pattr+'=gd.'+pattr)
 
 class schism_bpfile(object):
     def __init__(self):
