@@ -577,8 +577,8 @@ class schism_grid_ll(schism_grid):
     def __init__(self):
         pass
 
-    def read_hgrid(self,fname,gd=None):
-        #gd=read_schism_grid('hgrid.gr3')
+    def read_hgrid(self,fname,gr3=None):
+        #gr3=read_schism_grid('hgrid.gr3')
         with open(fname,'r') as fid:
             lines0=fid.readlines()
         lines=remove_tail(lines0)
@@ -593,12 +593,11 @@ class schism_grid_ll(schism_grid):
         self.dp=num[:,3]
 
         #read parents' elnode and bndinfo
-        if gd!=None:
+        if gr3!=None:
            pattrs=['i34','elnode','nob','nobn','iobn','nlb','nlbn','ilbn','island']
            for pattr in pattrs:
-               print(hasattr(gd,pattr))
-               if hasattr(gd,pattr):
-                  exec('self.'+pattr+'=gd.'+pattr)
+               if hasattr(gr3,pattr):
+                  exec('self.'+pattr+'=gr3.'+pattr)
 
 class schism_bpfile(object):
     def __init__(self):
@@ -650,11 +649,11 @@ def read_schism_hgrid(fname):
 #    gd.plot_grid()
     return gd
 
-def read_schism_hgrid_ll(fname,gd=None):
-    #read hgrid.ll  
-    #gd=read_schism_grid('hgrid.gr3')
+def read_schism_hgrid_ll(fname,gr3=None):
+    #read hgrid.ll
+    #gr3=read_schism_grid('hgrid.gr3')
     gd=schism_grid_ll()
-    gd.read_hgrid(fname,gd)
+    gd.read_hgrid(fname,gr3)
     return gd
 
 def read_schism_bpfile(fname):
