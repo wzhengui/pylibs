@@ -1,0 +1,4 @@
+.*
+*.so
+misc_modules.so.0
+!.gitignore

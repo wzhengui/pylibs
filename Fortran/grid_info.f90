@@ -64,7 +64,7 @@ subroutine read_grid_info(Grid)
         if(nx(j,i,k)>k) nx(j,i,k)=nx(j,i,k)-k
         if(nx(j,i,k)<1.or.nx(j,i,k)>k) then
           write(errmsg,*)'INIT: nx wrong',i,j,k,nx(j,i,k)
-          call abort(errmsg)
+          call grid_abort(errmsg)
         endif
       enddo !j
     enddo !i
@@ -73,7 +73,7 @@ subroutine read_grid_info(Grid)
 
   !open grid file
   open(14,file=trim(adjustl(Grid)),status='old',iostat=istat)
-  if(istat/=0) call abort('failed in open hgrid.gr3')
+  if(istat/=0) call grid_abort('failed in open hgrid.gr3')
   
   read(14,*); read(14,*) ne,np
 
@@ -81,10 +81,10 @@ subroutine read_grid_info(Grid)
   lexist=.false.; inquire(file='hgrid.ll',exist=lexist)
   if(lexist) then
     allocate(lon(np),lat(np),lonctr(ne),latctr(ne),stat=istat)
-    if(istat/=0) call abort('failed in alloc. lon')
+    if(istat/=0) call grid_abort('failed in alloc. lon')
  
      open(15,file='hgrid.ll',status='old',iostat=istat)
-     if(istat/=0) call abort('failed in open hgrid.ll')
+     if(istat/=0) call grid_abort('failed in open hgrid.ll')
      read(15,*); read(15,*)
      do i=1,np
        read(15,*) itmp,lon(i),lat(i),tmp
@@ -95,7 +95,7 @@ subroutine read_grid_info(Grid)
   
   !read node coordinates, element to node table
   allocate(xnd(np),ynd(np),dp(np),xctr(ne),yctr(ne),dpe(ne),i34(ne),elnode(max_i34,ne),area(ne),stat=istat)
-  if(istat/=0) call abort('failed in alloc. xnd')
+  if(istat/=0) call grid_abort('failed in alloc. xnd')
   do i=1,np
     read(14,*) itmp,xnd(i),ynd(i),dp(i)
   enddo
@@ -123,14 +123,14 @@ subroutine read_grid_info(Grid)
     
     if(area(ie)<0) then
       write(errmsg,*)'area(ie)<0,wrong orientation:',ie,elnode(1:i34(ie),ie)
-      call abort(errmsg)
+      call grid_abort(errmsg)
     endif
   enddo !i
 
 
   !count number of element connected to each node
   allocate(nne(np),stat=istat)
-  if(istat/=0) call abort('failed in alloc. nne')
+  if(istat/=0) call grid_abort('failed in alloc. nne')
 
   nne=0
   do ie=1,ne
@@ -147,7 +147,7 @@ subroutine read_grid_info(Grid)
       write(11,*)'hanging node:',ip
       found=.true.
     endif
-    if(found) call abort('hanging node found, check hgrid.gr3')
+    if(found) call grid_abort('hanging node found, check hgrid.gr3')
   enddo
 
   !maximum number of elements around a node
@@ -158,7 +158,7 @@ subroutine read_grid_info(Grid)
   
   !buld node to-element table
   allocate(indel(mnei,np),stat=istat) 
-  if(istat/=0) call abort('failed in alloc. indel')
+  if(istat/=0) call grid_abort('failed in alloc. indel')
 
   nne=0; indel=0
   do ie=1,ne
@@ -178,7 +178,7 @@ subroutine read_grid_info(Grid)
 
   !build element-side-element table
   allocate(ic3(max_i34,ne),stat=istat) 
-  if(istat/=0) call abort('failed in alloc. indel')
+  if(istat/=0) call grid_abort('failed in alloc. indel')
   
   do ie=1,ne
     do i=1,i34(ie)
@@ -200,7 +200,7 @@ subroutine read_grid_info(Grid)
 
       if(jj>1) then
          write(errmsg,*)'more than one neigbr issue,',ie,n1,n2,jj
-         call abort(errmsg)
+         call grid_abort(errmsg)
       endif
 
       je=ic3(i,ie)
@@ -208,7 +208,7 @@ subroutine read_grid_info(Grid)
         do k=1,i34(je)
           if(elnode(nx(1,k,i34(je)),je)==n1.and.elnode(nx(2,k,i34(je)),je)==n2) then
             write(*,*)'element ',ie, ' and ',je, ' have opposite orientation',n1,n2
-            call abort('Elements have opposite orientation ')
+            call grid_abort('Elements have opposite orientation ')
           endif
         enddo
       endif
@@ -218,7 +218,7 @@ subroutine read_grid_info(Grid)
   
   !build element-side index table
   allocate(elside(max_i34,ne),stat=istat)
-  if(istat/=0) call abort('failed in alloc. elside')
+  if(istat/=0) call grid_abort('failed in alloc. elside')
 
   ns=0;elside=0
   do ie=1,ne
@@ -237,7 +237,7 @@ subroutine read_grid_info(Grid)
           enddo
           if(l==0) then
             write(errmsg,'(a,10i6)')'grid_subs: wrong ball info',ie,j,ns 
-            call abort(errmsg)
+            call grid_abort(errmsg)
           endif
           elside(l,je)=ns
         endif
@@ -255,15 +255,15 @@ subroutine read_grid_info(Grid)
       endif
     enddo
   enddo
-  if(found) call abort('side is missing') 
+  if(found) call grid_abort('side is missing') 
   
   if(ns<ne.or.ns<np) then !side number should be larger than elem. and node num.
-    call abort('ns<ne or ns<np')
+    call grid_abort('ns<ne or ns<np')
   endif
 
   !alloc. side arrays
   allocate(isdel(2,ns),isidenode(2,ns),xcj(ns),ycj(ns),dps(ns),distj(ns),stat=istat)
-  if(istat/=0) call abort('failed in alloc. isdel')
+  if(istat/=0) call grid_abort('failed in alloc. isdel')
 
 
   !side-element, side-node table
@@ -306,12 +306,12 @@ subroutine read_grid_info(Grid)
   enddo
   if(neta/=nt) then
     write(errmsg,*) 'neta/= total # of open bnd nodes',neta,nt
-    call abort(errmsg)
+    call grid_abort(errmsg)
   endif
   
   !alloc. arrays
   allocate(isbnd(np),nond(nope),iond(mnond,nope),stat=istat)
-  if(istat/=0) call abort('failed in alloc. isbnd')
+  if(istat/=0) call grid_abort('failed in alloc. isbnd')
   !read open bnd. segments and nodes
   rewind(14); read(14,*); read(14,*)
   do i=1,np; read(14,*); enddo
@@ -328,7 +328,7 @@ subroutine read_grid_info(Grid)
     enddo !i
     if(iond(1,k)==iond(nond(k),k)) then
       write(errmsg,*) 'Looped open bnd:',k
-      call abort(errmsg)
+      call grid_abort(errmsg)
     endif
   enddo !k
   
@@ -351,12 +351,12 @@ subroutine read_grid_info(Grid)
   enddo !k
   if(nvel/=nt) then
     write(errmsg,*) 'nvel/= total # of land bnd nodes',nvel,nt
-    call abort(errmsg)
+    call grid_abort(errmsg)
   endif
 
   !alloc. arrayrs for land bnd. 
   allocate(nlnd(nland),ilnd(mnlnd,nland),stat=istat)
-  if(istat/=0) call abort('failed in alloc. nlnd')
+  if(istat/=0) call grid_abort('failed in alloc. nlnd')
   rewind(14); read(14,*); read(14,*)
   do i=1,np; read(14,*); enddo
   do i=1,ne; read(14,*); enddo
@@ -377,7 +377,7 @@ subroutine read_grid_info(Grid)
 
   !open bnd node flag isbnode (different from isbnd)
   allocate(isbnode(2,np),stat=istat)
-  if(istat/=0) call abort('failed in alloc. isbnode')
+  if(istat/=0) call grid_abort('failed in alloc. isbnode')
   isbnode=0
   do k=1,nope
     do j=1,nond(k)
@@ -387,7 +387,7 @@ subroutine read_grid_info(Grid)
       elseif(isbnode(2,ip)==0) then
         isbnode(2,ip)=k
       else
-        call abort('wrong for isbnode')
+        call grid_abort('wrong for isbnode')
       endif
     enddo
   enddo !k
@@ -395,7 +395,7 @@ subroutine read_grid_info(Grid)
   !Allocate and count global boundary side assigned to open boundary segments 
   if(allocated(nosd)) deallocate(nosd);
   allocate(nosd(nope),stat=istat)
-  if(istat/=0) call abort('failed in alloc. nosd')
+  if(istat/=0) call grid_abort('failed in alloc. nosd')
   nosd=0
   do ie=1,ne
     Lsg1: do j=1,i34(ie)
@@ -421,7 +421,7 @@ subroutine read_grid_info(Grid)
   !Allocate and count global boundary side assigned to open boundary segments 
   if(allocated(iosd)) deallocate(iosd);
   allocate(iosd(mnosd,nope),stat=istat)
-  if(istat/=0) call abort('failed in alloc. iosd')
+  if(istat/=0) call grid_abort('failed in alloc. iosd')
   iosd=0; nosd=0
   do ie=1,ne
     Lsg2: do j=1,i34(ie)
@@ -443,7 +443,7 @@ subroutine read_grid_info(Grid)
   !Allocate and count boundary elements assigned to open boundary segments 
   if(allocated(noe)) deallocate(noe)
   allocate(noe(nope),stat=istat)
-  if(istat/=0) call abort('failed in alloc. noe')
+  if(istat/=0) call grid_abort('failed in alloc. noe')
   noe=0
   Leg1: do ie=1,ne
     do j=1,i34(ie)
@@ -465,7 +465,7 @@ subroutine read_grid_info(Grid)
   !Allocate and count boundary elements assigned to open boundary segments 
   if(allocated(ioe)) deallocate(ioe)
   allocate(ioe(mnoe,nope),stat=istat)
-  if(istat/=0) call abort('failed in alloc. noe')
+  if(istat/=0) call grid_abort('failed in alloc. noe')
   noe=0; ioe=0;
   Leg2: do ie=1,ne
     do j=1,i34(ie)
@@ -482,7 +482,7 @@ subroutine read_grid_info(Grid)
 
   !Allocate and classify global boundary elements and sides
   allocate(isbe(2,ne),isbs(2,ns),stat=istat)
-  if(istat/=0) call abort('failed in alloc. isbe')
+  if(istat/=0) call grid_abort('failed in alloc. isbe')
   isbe=0; isbs=0
   do k=1,nope
     do j=1,noe(k)
@@ -504,7 +504,7 @@ subroutine read_grid_info(Grid)
  
 end subroutine read_grid_info
 
-subroutine abort(errmsg)
+subroutine grid_abort(errmsg)
   implicit none
   character(*),optional,intent(in) :: errmsg
 
@@ -512,7 +512,7 @@ subroutine abort(errmsg)
     write(*,*)errmsg
   endif
   stop
-end subroutine abort
+end subroutine grid_abort
 
 function signa(x1,x2,x3,y1,y2,y3)
 !-------------------------------------------------------------------------------
