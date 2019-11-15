@@ -4,6 +4,7 @@ from pylib import *
 #compile
 #os.system('gcc tidal_analysis.c nrutil.c -lm; mv a.out tidal_analyze');
 
+#sys.exit()
 #generate tidal consitituents. 
 tide_name=['O1','K1','Q1','P1','M2','S2','K2','N2'];
 C=loadz('tide_fac_const.npz');
