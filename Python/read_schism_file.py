@@ -499,7 +499,7 @@ class schism_grid(object):
                 pn.append(ind[0])
         pn=array(pn)
 
-        # for all trignales and first triganges of quads--
+        # for the 2nd trignale of quads--
         fp=self.i34==4; ind0=nonzero(fp);
         if sum(ind0)!=0:
             x1=self.x[self.elnode[fp,0]][None,:]; x2=self.x[self.elnode[fp,2]][None,:]; x3=self.x[self.elnode[fp,3]][None,:]
@@ -577,7 +577,8 @@ class schism_grid_ll(schism_grid):
     def __init__(self):
         pass
 
-    def read_hgrid(self,fname,*args):
+    def read_hgrid(self,fname,gd=None):
+        #gd=read_schism_grid('hgrid.gr3')
         with open(fname,'r') as fid:
             lines0=fid.readlines()
         lines=remove_tail(lines0)
@@ -592,11 +593,12 @@ class schism_grid_ll(schism_grid):
         self.dp=num[:,3]
 
         #read parents' elnode and bndinfo
-        gp=args[0]
-        pattrs=['i34','elnode','nob','nobn','iobn','nlb','nlbn','ilbn','island']
-        for pattr in pattrs:
-            if hasattr(gp,pattr):
-                exec('self.'+pattr+'=gp.'+pattr)
+        if gd!=None:
+           gp=args[0]
+           pattrs=['i34','elnode','nob','nobn','iobn','nlb','nlbn','ilbn','island']
+           for pattr in pattrs:
+               if hasattr(gp,pattr):
+                  exec('self.'+pattr+'=gp.'+pattr)
 
 class schism_bpfile(object):
     def __init__(self):
@@ -648,10 +650,11 @@ def read_schism_hgrid(fname):
 #    gd.plot_grid()
     return gd
 
-def read_schism_hgrid_ll(fname,*args):
-    #read_schism_hgrid_ll(fname,*args):
+def read_schism_hgrid_ll(fname,gd=None):
+    #read hgrid.ll  
+    #gd=read_schism_grid('hgrid.gr3')
     gd=schism_grid_ll()
-    gd.read_hgrid(fname,*args)
+    gd.read_hgrid(fname,gd)
     return gd
 
 def read_schism_bpfile(fname):
