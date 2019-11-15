@@ -98,9 +98,10 @@ nvrt=h.vgrid.nvrt;
 kbp=h.hgrid.kbp00;
 np=h.hgrid.np;
 
+fp=kbp==0; kbp(fp)=1;
 %---incremental index for every column--
 if h.i23d==3
-    %-----index base----
+    %-----index base----    
     nlevel=nvrt-kbp+1;
     cum_nlevel=cumsum(nlevel);
     index0=repmat(cum_nlevel',nvrt,1);

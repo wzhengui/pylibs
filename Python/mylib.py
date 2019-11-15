@@ -378,11 +378,13 @@ def mdivide(A,B):
     return squeeze(B2@A2)
 
 def lpfilt(data,delta_t,cutoff_f):
+    #import gc
     #low pass filter for 1D (data[time]) or 2D (data[time,array]) array;
     ds=data.shape
     mn=data.mean(axis=0)
     data=data-mn
     P=fft(data,axis=0)
+    #data=None; gc.collect()
     N=ds[0];
     filt=ones(N)
     k=int(floor(cutoff_f*N*delta_t))
