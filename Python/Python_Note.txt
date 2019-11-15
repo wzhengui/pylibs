@@ -1,0 +1,52 @@
+# this is the note for python learning
+
+#-----------------------------------------------------------------------------
+# grid
+#-----------------------------------------------------------------------------
+1) plot grid and bp file
+   g.plot_bnd(PlotSep=1,c='r')
+   g.plot_grid(ax='None',ec='k',linewidth=0.1,fc='None',plotz=1,clim=[0,20])
+   bp.plot_station(c='r',marker='.',ms=10)
+
+#-----------------------------------------------------------------------------
+# system command 
+#-----------------------------------------------------------------------------
+1) catch the output of system commands: lines=os.popen("pwd").readlines()
+2) check file is dir or file: os.path.isdir, or os.path.isfile
+3) get system enviromental variabls: os.environ['viz3']
+4) reload a module: importlib.reload(sys.modules['read_schism_file'])
+5) get base name: os.path.basename(bdir)
+6) change dircetory: os.chdir(bdir)
+7) evaluate string as python expression: exec('zdata=1.0')
+
+#-----------------------------------------------------------------------------
+# python skills 
+#-----------------------------------------------------------------------------
+1) joint a list:   sentence = ['this','is','a','sentence']; '-'.join(sentence)
+2) how to tell whether file is binary: file "file.txt" | grep -vq 'ASCII' && echo "$FILE is binary"
+3) read npz data: Si=loadz('sed.npz'); Si=Si.sed[()];
+4) get intersect: intersect1d(x,y); get intersection index: in1d(x,y) and in1d(y,x)
+5) for loop with condition: xy4=[s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)] 
+6) constrcut a empty list: iproc=[[] for i in range(nproc)]
+7) Plot Polygons:
+     xy4=c_[self.x,self.y][self.elnode];
+     xy4=[s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)]
+     hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=cdpe,**args)
+     hg.set(array=dpe) 
+     colorbar(hg);
+     ax.add_collection(hg)
+     ax.autoscale_view()
+8) print a list:  print("{:20s}:".format(ki)+', '.join("{:10s}".format(vi) for vi in v))
+9) time delay:  import time;  time.sleep(60)
+10) filter: syi=sp.signal.savgol_filter(oyi1, 11, 3)
+  
+
+#-----------------------------------------------------------------------------
+# install modules 
+#-----------------------------------------------------------------------------
+on HPC: pip install netCDF4 --user
+on Windows: do "pip isntall netCDF4" in dos cmd window
+location of modules: ~/.local/lib/python3.6/site-packages
+install a specific version: pip install -v python==3.5.3 --user
+install a specific version: brew install python@3.5.3
+
