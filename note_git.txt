@@ -1,1 +1,35 @@
+#--------------------------------------------------------------
 #note for git, Zhengui Wang
+#--------------------------------------------------------------
+
+
+#setup remote branch
+git push -u origin local_branch; or git push origin -u remote_branch:local_branch
+
+#delete branches
+git push origin --delete remote_branch
+git branch --delete[-d] local_branch; or git branch -D local_branch
+
+#show remote and local branches
+git remote show origin
+git remote -vv #show my permission in remote branches
+git branch -vv  #show remote track
+git branch -a  #show all local and remote branches
+
+#--------------------------------------------------------------
+#only checkout subdirecoty
+#method 1: will track remote
+mkdir <repo>
+cd <repo>
+git init
+git remote add -f origin <url>   #create an empty repository, 
+git config core.sparseCheckout true
+vi .git/info/sparse-checkout  #list directory want to checkout  eg. echo "some/dir/" >> .git/info/sparse-checkout
+git pull origin master
+
+#method 2: will not track remote
+git archive --remote=<repo_url> <branch> <path> | tar xvf -
+
+
+
+
