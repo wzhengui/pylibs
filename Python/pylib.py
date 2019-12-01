@@ -305,8 +305,10 @@ from mylib import (get_xtick,close_data_loop,datenum,str2num,remove_tail,
      write_shapefile_data,ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
      get_stat)
 
-from read_schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,
+from schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,
      schism_grid,schism_bpfile,sms2gr3,read_schism_vgrid,read_schism_param,write_schism_param)
+
+from mpas_file import (read_mpas_grid)
 
 if os.getenv('HOME')!=None:
     sys.path.append(os.getenv('HOME'))
