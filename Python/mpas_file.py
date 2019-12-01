@@ -43,7 +43,6 @@ class mpas_grid(object):
             if svar not in cvars: continue
             if svar in fvars:
                 exec("self.{}=array(C.variables['{}'])-1".format(svar,svar))
-                print(svar)
             else:
                 exec("self.{}=array(C.variables['{}'])".format(svar,svar))
 
