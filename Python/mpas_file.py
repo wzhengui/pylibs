@@ -9,7 +9,7 @@ class mpas_grid(object):
 
     def plot_grid(self,ax=None,ec='k',lw=0.1,fc='None',plotz=0,value=None,**args):
         if ax==None: ax=gca();
-        x6=gd.lonVertex[gd.verticesOnCell]*180/pi; y6=gd.latVertex[gd.verticesOnCell]*180/pi
+        x6=self.lonVertex[self.verticesOnCell]*180/pi; y6=self.latVertex[self.verticesOnCell]*180/pi
 
         #make sure grid lons close
         pind=nonzero((x6.max(axis=1)-x6.min(axis=1))>180)[0]
