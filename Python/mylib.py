@@ -171,7 +171,7 @@ def save_npz(fname,C):
 
 def loadz(fname,med=1):
     #med=1: return class format; med=2:return dict format
-    data0=load(fname)
+    data0=load(fname,allow_pickle=True)
     keys0=data0.keys()
 
     if med==1:
