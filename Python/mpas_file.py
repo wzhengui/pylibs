@@ -22,6 +22,8 @@ class mpas_grid(object):
             hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
         else:
             hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
+            hc=colorbar(hg);
+            self.hc=hc;
 
         ax.add_collection(hg)
         ax.autoscale_view()
