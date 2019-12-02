@@ -287,7 +287,10 @@ from scipy import (optimize,interpolate,io,signal)
 from scipy.fftpack import fft
 from pyproj import Proj, transform
 import importlib as imp
-from mpi4py import MPI
+try:
+   from mpi4py import MPI
+except:
+    pass
 from netCDF4 import Dataset
 from io import StringIO
 import re
