@@ -408,31 +408,37 @@ def lpfilt(data,delta_t,cutoff_f):
 
     return fdata
 
-def reload(mymod):
-    import importlib,sys,types;
-    if isinstance(mymod,types.ModuleType):
-       mod_name=mymod.__name__
-    if isinstance(mymod,types.FunctionType):
-       mod_name=mymod.__module__
-    if isinstance(mymod,str):
-       mod_name=mymod
-    importlib.reload(sys.modules[mod_name])
+def reload(gfunc):
+    #reload modules,mainly used for coding debug 
+    #usage: reload(globals())
+    import inspect,imp
+    mods=['mylib','schism_file','mpas_file']
+    for modi in mods:
+        imp.reload(sys.modules[modi])
+        #get all module functions
+        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
+        for fsi in afs: 
+            if inspect.getmodule(fsi[1]).__name__!=modi: continue
+            if fsi[0] not in gfunc.keys(): continue 
+            fs.append(fsi)  
+        #refresh module functions
+        for fsi in fs:
+            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1] 
     return
 
 def wipe(n=50):
     print('\n'*n)
     return
 
-def clear_globals():
-    allvar = [var for var in globals() if var[0] != "_"]
-    for var in allvar:
-#        global var
-#        del var;
-        exec('global '+var)
-        exec('del '+var)
-#        del globals()[var]
-#        exec('del global()['+var+']')
-
+#def clear_globals():
+#    allvar = [var for var in globals() if var[0] != "_"]
+#    for var in allvar:
+#       #global var
+#       #del var;
+#       #del globals()[var]
+#       #exec('del global()['+var+']')
+#       exec('global '+var)
+#       exec('del '+var)
 
 def smooth(xi,N):
     #xi: time series

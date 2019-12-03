@@ -368,6 +368,52 @@ class schism_grid(object):
             [ine[indi].append(i) for indi in inds]
         self.nne=nne
         self.ine=array([array(ine[i]) for i in arange(self.np)]);
+   
+    def compute_acor(self,pxy,N=100):
+        #compute acor coodinate for points pts(xi,yi)
+        
+        #compute the corresponding residing elem 
+        npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
+        while(len(pind)>0):
+             #get the first N pts)
+             if len(pind)<=N:
+                pindi=pind
+             else:
+                pindi=pind[:N] 
+             pind=setdiff1d(pind,pindi)
+             ie=r_[ie,self.inside_grid(pxy[pindi])]
+
+        #compute area coordinate
+        ip0=self.elnode[ie]; i34=self.i34[ie]
+        x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x4=self.x[ip0][:,3]; x=pxy[:,0]
+        y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y4=self.y[ip0][:,3]; y=pxy[:,1]
+
+        A1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
+        A11=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
+        A12=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
+        A13=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
+        fA1=(abs(A11)+abs(A12)+abs(A13)-abs(A1))/abs(A1);
+
+        A2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
+        A21=((x3-x)*(y4-y)-(x4-x)*(y3-y))/2
+        A22=((x-x1)*(y4-y1)-(x4-x1)*(y-y1))/2
+        A23=((x3-x1)*(y-y1)-(x-x1)*(y3-y1))/2
+        fA2=(abs(A21)+abs(A22)+abs(A23)-abs(A2))/abs(A2);
+
+        ip=[];acor=[];
+        for i in arange(npt):
+            if abs(fA1[i])<1e-5: #pt in 1st triange
+               a1=A11[i]/A1[i]; a2=A12[i]/A1[i]; a3=1-a1-a2;
+               if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
+               ip.append(ip0[i,:3]); acor.append(array([a1,a2,a3]))
+            else:
+               a1=A21[i]/A2[i]; a2=A22[i]/A2[i]; a3=1-a1-a2;
+               if (a1<0)|(a2<0)|(i34[i]==3)|(abs(fA2[i])>=1e-5): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
+               ip.append(ip0[i,array([0,2,3])]); acor.append(array([a1,a2,a3]))
+        ip=array(ip); acor=array(acor)
+
+        #save acor
+        return ie,ip,acor             
 
     def interp(self,xyi,*args):
         return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
@@ -629,8 +675,6 @@ class schism_bpfile(object):
                 else:
                     fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.z[i]))
 
-
-
     def plot_station(self,ax=None,ls='',**args):
         if not None: ax=gca()
         hp=plot(self.ux,self.uy,linestyle=ls,**args)
@@ -641,6 +685,9 @@ class schism_bpfile(object):
             ht.append(hti)
         self.ht=array(ht)
 
+    def compute_acor(self,gd): 
+        #compute areal coordinates, and gd is the schism grid
+        self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
 
 def read_schism_hgrid(fname):
     #read_schism_hgrid(fname):

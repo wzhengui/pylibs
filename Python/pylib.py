@@ -286,7 +286,8 @@ import scipy as sp
 from scipy import (optimize,interpolate,io,signal)
 from scipy.fftpack import fft
 from pyproj import Proj, transform
-import importlib as imp
+#import importlib as imp
+import imp
 try:
    from mpi4py import MPI
 except:
@@ -300,18 +301,19 @@ import xlsxwriter as xw
 #---------------------------------------------------------------------
 #libraries of self-defined modules
 #---------------------------------------------------------------------
+import mylib,schism_file,mpas_file
+sys.modules['read_schism_file'] = schism_file #in case oldmodule name used  
+
 from mylib import (get_xtick,close_data_loop,datenum,str2num,remove_tail,
-     loadz,npz_data,save_npz,wipe,reload,find_continuous_sections,
-     smooth,clear_globals,DaytimeLength,move_figure,lpfilt,mdivide,signa,
+     loadz,npz_data,save_npz,wipe,find_continuous_sections,
+     smooth,DaytimeLength,move_figure,lpfilt,mdivide,signa,
      inside_polygon,command_outputs,near_pts,compute_cofficient,proj,
      get_prj_file,mfft,convert_matfile_format,read_shapefile_data,
      write_shapefile_data,ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
-     get_stat)
+     get_stat,reload)
 
 from schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,
      schism_grid,schism_bpfile,sms2gr3,read_schism_vgrid,read_schism_param,write_schism_param)
-
-import schism_file; sys.modules['read_schism_file'] = schism_file #in case oldmodule name used  
 
 from mpas_file import (read_mpas_grid)
 
