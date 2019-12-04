@@ -1,11 +1,5 @@
 #/usr/bin/env python3
 from pylib import *
-#from parse import parse
-#from pylab2 import *
-#import scipy as sp
-#from scipy import optimize,interpolate,io
-#import os,sys
-#from pyproj import Proj, transform
 
 class schism_grid(object):
     def __init__(self):
@@ -95,12 +89,10 @@ class schism_grid(object):
             lines=fid.readlines()
 
         #read ne and np
-        #num=str2num(lines[1]).astype('int')
         num=array(lines[1].split()[0:2]).astype('int')
         self.ne=num[0]; self.np=num[1]
 
         #read lx,ly and dp
-        #n=2; num=str2num(lines[n:(n+self.np)]);
         num=[]
         for i in arange(self.np):
             num.append(array(lines[2+i].split()[1:4]));
@@ -113,10 +105,6 @@ class schism_grid(object):
             return
 
         #read elnode and i34
-        #n=n+self.np; num=str2num(lines[n:(n+self.ne)]);
-        #if num.dtype==dtype('O'):
-        #    num=array([s if len(s)==6 else r_[s, -1] for s in num])
-        #num=num.astype('int')
         num=[]
         for i in arange(self.ne):
             num.append(lines[2+self.np+i].split())
@@ -650,16 +638,17 @@ class schism_bpfile(object):
         pass
 
     def read_bpfile(self,fname):
-        with open(fname,'r') as fid:
-            lines0=fid.readlines()
-        lines=remove_tail(lines0)
-        self.nsta=str2num(lines[1])[0].astype('int')
-        n=2; num=str2num(lines[n:(n+self.nsta)])
-        self.x=num[:,1]
-        self.y=num[:,2]
-        self.z=num[:,3]
-        li=[wstr[len(lstr)+1:].rstrip() for wstr, lstr in zip(lines0[2:],lines[2:])]
-        self.station=array(li)
+        lines=[line.split() for line in open(fname,'r').read().strip().split('\n')]
+        self.nsta=int(lines[1][0])
+
+        fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
+        data=array([fc(line) for line in lines[2:(2+self.nsta)]])
+
+        self.x=data[:,1].astype(float)
+        self.y=data[:,2].astype(float)
+        self.z=data[:,3].astype(float)
+       
+        if data.shape[1]==5: self.station=data[:,4]
 
         #get unique station data.
         ustation,ind=unique(self.station,return_index=True)
