@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-#python script used to extract time series at Station.bp
 from pylib import *
 
-#--------inputs-------------------
+#inputs
 run='run4ja'
 stack=[1,73]
 #svars=['elev','temp','salt','hvel']
@@ -11,7 +10,7 @@ stps=['Station.bp_COS'] #station.bp files
 qnode='haswell' #'skylake' 
 nproc=8
 
-#---------flags-------------------
+#flags
 icmb_serial=0  #0:normal read; 1: read when model running; 2: only combine *npz (skip read)
 ifs=0    #0: station depth relative to free surface; 1: fixed station depth
 
@@ -119,12 +118,13 @@ for istacki in istack:
         if sum(srat.sum(axis=2)!=1)!=0: sys.exit('wrong for srat: {}'.format(stp)) 
         if stp=='SW': wrat=srat 
         if stp=='SH': hrat=srat 
-    print('finsih reading {}: zcor'.format(sname)); sys.stdout.flush()
+    #print('finsih reading {}: zcor'.format(sname)); sys.stdout.flush()
 
     #read variables
+    vnames=[]
     for m in arange(len(svars)):
         svari=svars[m]; vname=svari 
-        print('reading {}: {}'.format(fname,svari)); sys.stdout.flush()
+        print('reading {}: {}'.format(sname,svari)); sys.stdout.flush()
 
         if type(svari)==list:
            #determine variable name
@@ -134,7 +134,6 @@ for istacki in istack:
             vname=svari[0][:sind]
             if vname.endswith('_'): vname=vname[:-1]
 
-            print('reading {}: {}'.format(fname,vname)); sys.stdout.flush()
             #read variable
             for n in arange(len(svari)):
                 vi=[]
@@ -167,9 +166,10 @@ for istacki in istack:
 
         #save result
         exec('S.{}=datai'.format(vname))
+        vnames.append(vname)
     #save ith stack results
     save_npz('S_{}'.format(istacki),S)
-    print('finsih reading {}: variables'.format(sname)); sys.stdout.flush()
+    #print('finsih reading {}: variables'.format(sname)); sys.stdout.flush()
 
 #collect results
 comm.Barrier()
@@ -189,12 +189,12 @@ if myrank==0:
 
         if i==0:
             exec('S.time=Si.mtime');
-            for m in arange(len(svars)):
-                exec('S.{}=Si.{}'.format(svars[m],svars[m]))
+            for m in arange(len(vnames)):
+                exec('S.{}=Si.{}'.format(vnames[m],vnames[m]))
         else:
             exec('S.time=r_[S.time,Si.mtime]');
-            for m in arange(len(svars)):
-                exec('S.{}=r_[S.{},Si.{}]'.format(svars[m],svars[m],svars[m]))
+            for m in arange(len(vnames)):
+                exec('S.{}=r_[S.{},Si.{}]'.format(vnames[m],vnames[m],vnames[m]))
 
     #save result
     S.SE=P.SE; S.SW=P.SW; S.SH=P.SH
