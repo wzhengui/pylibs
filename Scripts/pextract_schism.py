@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+#python script used to extract time series at Station.bp
 from pylib import *
 
-#inputs
+#--------inputs-------------------
 run='run4ja'
 stack=[1,73]
 #svars=['elev','temp','salt','hvel']
@@ -10,7 +11,7 @@ stps=['Station.bp_COS'] #station.bp files
 qnode='haswell' #'skylake' 
 nproc=8
 
-#flags
+#---------flags-------------------
 icmb_serial=0  #0:normal read; 1: read when model running; 2: only combine *npz (skip read)
 ifs=0    #0: station depth relative to free surface; 1: fixed station depth
 
