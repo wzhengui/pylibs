@@ -53,6 +53,7 @@ comm=MPI.COMM_WORLD
 nproc=comm.Get_size()
 myrank=comm.Get_rank()
 
+t0=time.time()
 #----distribute work--------------------------
 stacks=arange(stack[0],stack[1]+1); istack=[];
 for i in arange(len(stacks)):
@@ -100,6 +101,8 @@ for istacki in istack:
            #compute veritcal coordinates for stations
            zcor0=array(C.variables['zcor'][i,:,:]);
            zcor=sum(zcor0[P.bp.ip,:]*acor,axis=1).T; #(nvrt,nsta) 
+           #treat invalid depths 
+           fp=abs(zcor)>1e10; zcor[fp]=-zcor[fp]
               
            zs=P.bp.z
            if ifs==0: zs=zs+zcor[-1]
@@ -204,3 +207,6 @@ if myrank==0:
 
     #clean
     os.system("rm S_*.npz Station.bp_* *.in schout_*.nc hgrid.gr3")
+    dt=time.time()-t0
+    print('finish reading {}: {}s'.format(run,dt)); sys.stdout.flush()
+    

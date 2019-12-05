@@ -302,6 +302,7 @@ import xlsxwriter as xw
 #libraries of self-defined modules
 #---------------------------------------------------------------------
 import mylib
+sys.modules['loadz'] = mylib #in case oldmodule name used  
 from mylib import (get_xtick,close_data_loop,datenum,str2num,remove_tail,
      loadz,npz_data,save_npz,wipe,find_continuous_sections,
      smooth,DaytimeLength,move_figure,lpfilt,mdivide,signa,
