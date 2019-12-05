@@ -6,7 +6,8 @@ from pylib import *
 run='run4ja'
 stack=[1,73]
 #svars=['elev','temp','salt','hvel']
-svars=['salt',['SED3D_1','SED3D_2','SED3D_3']]
+svars=['salt',['SED3D_1','SED3D_2','SED3D_3']] #schism variable to be read
+snames=['salt','SED3D'] #name to be saved
 stps=['Station.bp_COS'] #station.bp files
 qnode='haswell' #'skylake' 
 nproc=8
@@ -37,12 +38,12 @@ if os.getenv('param')==None:
 
 param=os.getenv('param').split();
 param=[int(i) if i.isdigit() else i for i in param]
-bdir=param[0]; fname=param[1];
+bdir=param[0]; fname0=param[1];
 
 #submit jobs on each core
 if os.getenv('job_on_node')==None:
-   print("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname))
-   os.system("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname))
+   print("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname0))
+   os.system("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname0))
    sys.exit()
 
 #start working on each core
@@ -82,11 +83,11 @@ for m in arange(P.nstp):
 for istacki in istack:
     while ((icmb_serial==1)*(~os.path.exists('schout_{}.nc'.format(istacki+1)))): sleep(10)
 
-    sname='schout_{}.nc'.format(istacki);
+    fname='schout_{}.nc'.format(istacki);
     S=npz_data();
 
     #read nc values
-    C=ReadNC(sname);
+    C=ReadNC(fname);
     mtime=array(C.variables['time'][:])/86400; S.mtime=mtime
     nt,tmp,nz=C.variables['zcor'].shape
 
@@ -122,21 +123,20 @@ for istacki in istack:
         if sum(srat.sum(axis=2)!=1)!=0: sys.exit('wrong for srat: {}'.format(stp)) 
         if stp=='SW': wrat=srat 
         if stp=='SH': hrat=srat 
-    #print('finsih reading {}: zcor'.format(sname)); sys.stdout.flush()
+    #print('finsih reading {}: zcor'.format(fname)); sys.stdout.flush()
 
     #read variables
-    vnames=[]
     for m in arange(len(svars)):
-        svari=svars[m]; vname=svari 
-        print('reading {}: {}'.format(sname,svari)); sys.stdout.flush()
+        svari=svars[m]; sname=snames[m]
+        print('reading {}: {}'.format(fname,svari)); sys.stdout.flush()
 
         if type(svari)==list:
            #determine variable name
-            for i in arange(len(svari[0])):
-                if svari[0][i]!=svari[1][i]:
-                   sind=i; break
-            vname=svari[0][:sind]
-            if vname.endswith('_'): vname=vname[:-1]
+           # for i in arange(len(svari[0])):
+           #     if svari[0][i]!=svari[1][i]:
+           #        sind=i; break
+           # sname=svari[0][:sind]
+           # if sname.endswith('_'): sname=sname[:-1]
 
             #read variable
             for n in arange(len(svari)):
@@ -169,11 +169,10 @@ for istacki in istack:
             datai=(vi*tile(hrat[:,:,:,None],[1,1,1,2])).sum(axis=2)
 
         #save result
-        exec('S.{}=datai'.format(vname))
-        vnames.append(vname)
+        exec('S.{}=datai'.format(sname))
     #save ith stack results
     save_npz('S_{}'.format(istacki),S)
-    #print('finsih reading {}: variables'.format(sname)); sys.stdout.flush()
+    #print('finsih reading {}: variables'.format(fname)); sys.stdout.flush()
 
 #collect results
 comm.Barrier()
@@ -193,12 +192,12 @@ if myrank==0:
 
         if i==0:
             exec('S.time=Si.mtime');
-            for m in arange(len(vnames)):
-                exec('S.{}=Si.{}'.format(vnames[m],vnames[m]))
+            for m in arange(len(snames)):
+                exec('S.{}=Si.{}'.format(snames[m],snames[m]))
         else:
             exec('S.time=r_[S.time,Si.mtime]');
-            for m in arange(len(vnames)):
-                exec('S.{}=r_[S.{},Si.{}]'.format(vnames[m],vnames[m],vnames[m]))
+            for m in arange(len(snames)):
+                exec('S.{}=r_[S.{},Si.{}]'.format(snames[m],snames[m],snames[m]))
 
     #save result
     S.SE=P.SE; S.SW=P.SW; S.SH=P.SH
