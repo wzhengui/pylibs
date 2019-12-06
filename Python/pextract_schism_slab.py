@@ -5,12 +5,12 @@ from pylib import *
 
 #---------inputs------------------------------
 run='run4ia'
-stack=[2,3]
+stack=[1,73]
 svars=['salt',['SED3D_1','SED3D_2','SED3D_3']]
 snames=['salt','SED3D']
-depths=[0,1]
+depths=[0,3]
 qnode='haswell'
-nproc=2
+nproc=10
 
 #-------flags---------------------------------
 icmb=0  #0:normal read (parallel); 1: read when model running (serial);
@@ -54,6 +54,7 @@ myrank=comm.Get_rank()
 t0=time.time()
 #----distribute work--------------------------
 stacks=arange(stack[0],stack[1]+1); istack=[];
+#stacks=[1,3,10,71]
 for i in arange(len(stacks)):
     if i%nproc==myrank:
         istack.append(stacks[i])
@@ -77,6 +78,7 @@ for istacki in istack:
         #compute matrix for vertical interpolation
         zcor=array(C.variables['zcor'][i,:,:]).T; #(nz,np)
         #treat invalid depths
+        fp=isnan(zcor); zcor[fp]=0
         fp=abs(zcor)>1e10; zcor[fp]=-zcor[fp]
         srat=[]
         for m in arange(len(depths)):
