@@ -3,14 +3,14 @@
 from pylib import *
 
 #--------inputs--------------------------------
-run='run4ja'
+run='run4ia'
 stack=[1,73]
 #svars=['elev','temp','salt','hvel']
-svars=['salt',['SED3D_1','SED3D_2','SED3D_3']] #schism variable to be read
-snames=['salt','SED3D'] #name to be saved
+svars=[['SED3D_1','SED3D_2','SED3D_3']] #schism variable to be read
+snames=['SED3D'] #name to be saved
 stps=['Station.bp_COS'] #station.bp files
 qnode='haswell' #'skylake' 
-nproc=8
+nproc=16
 
 #-------flags----------------------------------
 icmb_serial=0  #0:normal read; 1: read when model running; 2: only combine *npz (skip read)
@@ -105,17 +105,17 @@ for istacki in istack:
            #treat invalid depths 
            fp=abs(zcor)>1e10; zcor[fp]=-zcor[fp]
               
-           zs=P.bp.z
+           zs=-P.bp.z #bp.z is positive 
            if ifs==0: zs=zs+zcor[-1]
 
            #compute index for vertical interpolation
            rat=zeros([P.bp.nsta,nz]);
-           fp=-zs<=zcor[0]; rat[fp,0]=1
-           fp=-zs>zcor[-1]; rat[fp,-1]=1
+           fp=zs<=zcor[0]; rat[fp,0]=1
+           fp=zs>zcor[-1]; rat[fp,-1]=1
            for k in arange(1,nz):
               zi0=zcor[k-1]; zi=zcor[k]
-              fp=(-zs>zi0)*(-zs<=zi)
-              rati=(-zs[fp]-zi0[fp])/(zi[fp]-zi0[fp])
+              fp=(zs>zi0)*(zs<=zi)
+              rati=(zs[fp]-zi0[fp])/(zi[fp]-zi0[fp])
               rat[fp,k]=rati
               rat[fp,k-1]=1-rati
            srat.append(rat)
