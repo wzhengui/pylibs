@@ -5,45 +5,67 @@ class schism_grid(object):
     def __init__(self):
         pass
 
-    def plot_grid(self,ax=None,ec='k',lw=0.1,fc='None',plotz=0,value=None,mask=None,**args):
-        #code for pure triangles
-        #e3=self.elnode[nonzero(self.i34==3)][:,0:3];
-        #hg=mpl.collections.PolyCollection(c_[self.x,self.y][e3],lw=lw,edgecolor='r',facecolor='None')
+    def plot_grid(self,ax=None,ec='k',lw=0.1,fc='None',plotz=0,value=None,mask=None,method=0,extend='both',**args):
+        #code for plot grid with default color value (grid depth)
+        #plotz=0: plot grid only; plotz=1: plot color 
+        #value: color value size(np,or ne)
+        #mask: size(ne); only plot elements (mask=True))
+        #method=0: using tricontourf; method=1: using PolyCollection (old method)
 
         if ax==None: ax=gca();
+        if method==0: 
+           fp3=self.i34==3; fp4=self.i34==4
+           if (plotz==0)|(ec!='None'): #compute lines of grid
+              if mask is not None: fp3=fp3*mask; fp4=fp4*mask
+              #tri
+              tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]  
+              x3=self.x[tri]; y3=self.y[tri]
+              x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
+              y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
+              #quad
+              quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]] 
+              x4=self.x[quad]; y4=self.y[quad]
+              x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
+              y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
 
-        #creat polygon
-        xy4=c_[self.x,self.y][self.elnode];
-        xy4=array([s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)])
+           if plotz==0:
+              hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
+           elif plotz==1:
+              tri=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]  
+              tricontourf(self.x,self.y,tri,self.dp,levels=arange(30),vmin=0,vmax=30,extend=extend)
+              if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
-        #elem value
-        if value is None:
-            if not hasattr(self,'dpe'): self.compute_ctr()
-            vi=self.dpe
-        else:
-            vi=value
+           pass
+        elif method==1:
+           #creat polygon
+           xy4=c_[self.x,self.y][self.elnode];
+           xy4=array([s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)])
 
-        # apply mask
-        if mask is not None:
-            ind=nonzero(mask)[0]
-            xy4=xy4[ind];
-            vi=vi[ind]
+           #elem value
+           if value is None:
+              if not hasattr(self,'dpe'): self.compute_ctr()
+              vi=self.dpe
+           else:
+              vi=value
 
-        if plotz==0:
-            hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
-        else:
-            #cdpe=cm.hsv(dpe)
-            #hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=cdpe,antialiased=False,**args)
-            #hg.set(array=dpe)
+           # apply mask
+           if mask is not None:
+              ind=nonzero(mask)[0]
+              xy4=xy4[ind];
+              vi=vi[ind]
 
-            hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
-            hc=colorbar(hg);
-            self.hc=hc;
-
-        ax.add_collection(hg)
-        ax.autoscale_view()
-        self.hg=hg;
-        return hg
+           #plot
+           if plotz==0:
+              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
+           else:
+              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
+              hc=colorbar(hg);
+              self.hc=hc;
+           #add to figure
+           ax.add_collection(hg)
+           ax.autoscale_view()
+           self.hg=hg;
+           return hg
 
     def plot_bnd(self,PlotSep=0,c='k',**args):
         if PlotSep==0:
