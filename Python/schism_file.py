@@ -53,7 +53,7 @@ class schism_grid(object):
               if squeeze(array([levels])).size==1:
                  levels=linspace(vmin,vmax,int(levels))
 
-              hg=tricontourf(self.x,self.y,tri,self.dp,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+              hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
               hc=colorbar(hg); self.hc=hc;
               if ticks is not None: hc.set_ticks(ticks)
               hc.set_clim([vmin,vmax]);
