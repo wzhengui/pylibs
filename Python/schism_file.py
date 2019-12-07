@@ -5,18 +5,19 @@ class schism_grid(object):
     def __init__(self):
         pass
 
-    def plot_grid(self,ax=None,ec='k',lw=0.1,fc='None',plotz=0,value=None,mask=None,method=0,extend='both',**args):
+    def plot_grid(self,ax=None,method=0,plotz=0,value=None,mask=None,ec='k',fc='None',
+             lw=0.1,levels=None,ticks=None,clim=None,extend='both',**args):
         #code for plot grid with default color value (grid depth)
+        #method=0: using tricontourf; method=1: using PolyCollection (old method)
         #plotz=0: plot grid only; plotz=1: plot color 
         #value: color value size(np,or ne)
         #mask: size(ne); only plot elements (mask=True))
-        #method=0: using tricontourf; method=1: using PolyCollection (old method)
 
         if ax==None: ax=gca();
         if method==0: 
            fp3=self.i34==3; fp4=self.i34==4
+           if mask is not None: fp3=fp3*mask; fp4=fp4*mask
            if (plotz==0)|(ec!='None'): #compute lines of grid
-              if mask is not None: fp3=fp3*mask; fp4=fp4*mask
               #tri
               tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]  
               x3=self.x[tri]; y3=self.y[tri]
@@ -31,11 +32,37 @@ class schism_grid(object):
            if plotz==0:
               hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
            elif plotz==1:
-              tri=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]  
-              tricontourf(self.x,self.y,tri,self.dp,levels=arange(30),vmin=0,vmax=30,extend=extend)
+              tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]  
+              #determine value
+              if value is None:
+                 value=self.dp
+              else: 
+                 if len(value)==self.ne:
+                    value=self.interp_elem_to_node(value=value)
+                 elif len(value)!=self.np:
+                    sys.exit('value has wrong size: {}'.format(value.shape))
+                    
+              #detemine clim
+              if clim is None:
+                 vmin,vmax=min(value),max(value)
+              else:
+                 vmin,vmax=clim
+
+              #detemine levels
+              if levels is None: levels=51
+              if squeeze(array([levels])).size==1:
+                 levels=linspace(vmin,vmax,int(levels))
+
+              hg=tricontourf(self.x,self.y,tri,self.dp,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+              hc=colorbar(hg); self.hc=hc;
+              if ticks is not None: hc.set_ticks(ticks)
+              hc.set_clim([vmin,vmax]);
+ 
+              #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
-           pass
+           self.hg=hg
+           return hg 
         elif method==1:
            #creat polygon
            xy4=c_[self.x,self.y][self.elnode];
@@ -44,23 +71,32 @@ class schism_grid(object):
            #elem value
            if value is None:
               if not hasattr(self,'dpe'): self.compute_ctr()
-              vi=self.dpe
+              value=self.dpe
            else:
-              vi=value
+              if len(value)==self.np:
+                 value=self.interp_node_to_elem(value=value)
+              elif len(value)!=self.ne:
+                 sys.exit('value has wrong size: {}'.format(value.shape))
 
            # apply mask
-           if mask is not None:
-              ind=nonzero(mask)[0]
-              xy4=xy4[ind];
-              vi=vi[ind]
+           if mask is not None: xy4=xy4[mask]; value=value[mask]
+              #ind=nonzero(mask)[0]
+              #xy4=xy4[ind];
+              #value=value[ind]
+
+           #get clim
+           if clim is None: clim=[min(value),max(value)]
 
            #plot
            if plotz==0:
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
            else:
-              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
-              hc=colorbar(hg);
-              self.hc=hc;
+              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
+              hc=colorbar(hg); self.hc=hc;
+              if ticks is not None: hc.set_ticks(ticks)
+              hc.set_clim(clim);
+              print(clim)
+              
            #add to figure
            ax.add_collection(hg)
            ax.autoscale_view()
