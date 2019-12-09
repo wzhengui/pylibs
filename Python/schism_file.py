@@ -706,12 +706,13 @@ class schism_bpfile(object):
         self.y=data[:,2].astype(float)
         self.z=data[:,3].astype(float)
        
-        if data.shape[1]==5: self.station=data[:,4]
-
-        #get unique station data.
-        ustation,ind=unique(self.station,return_index=True)
-        ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
-        self.ustation=ustation; self.ux=ux; self.uy=uy;self.uz=uz;
+        if data.shape[1]==5: 
+           self.station=data[:,4]
+          
+           #get unique station data.
+           ustation,ind=unique(self.station,return_index=True)
+           ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
+           self.ustation=ustation; self.ux=ux; self.uy=uy;self.uz=uz;
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
