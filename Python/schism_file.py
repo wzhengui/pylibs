@@ -6,12 +6,16 @@ class schism_grid(object):
         pass
 
     def plot_grid(self,ax=None,method=0,plotz=0,value=None,mask=None,ec='k',fc='None',
-             lw=0.1,levels=None,ticks=None,clim=None,extend='both',**args):
+             lw=0.1,levels=None,ticks=None,clim=None,extend='both',cb=True,**args):
         #code for plot grid with default color value (grid depth)
         #method=0: using tricontourf; method=1: using PolyCollection (old method)
         #plotz=0: plot grid only; plotz=1: plot color 
         #value: color value size(np,or ne)
         #mask: size(ne); only plot elements (mask=True))
+        #ec: color of grid line;  fc: element color; lw: grid line width
+        #levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot 
+        #ticks=[v1,v2,...]: colorbar ticks;  clim=[vmin,vmax]: value range for plot/colorbar
+        #cb=False: not add colorbar
 
         if ax==None: ax=gca();
         if method==0: 
@@ -54,9 +58,12 @@ class schism_grid(object):
                  levels=linspace(vmin,vmax,int(levels))
 
               hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
-              hc=colorbar(hg); self.hc=hc;
-              if ticks is not None: hc.set_ticks(ticks)
-              hc.set_clim([vmin,vmax]);
+
+              #add colobar
+              if cb:
+                 hc=colorbar(hg); self.hc=hc;
+                 if ticks is not None: hc.set_ticks(ticks)
+                 hc.set_clim([vmin,vmax]);
  
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
@@ -92,10 +99,12 @@ class schism_grid(object):
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
            else:
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
-              hc=colorbar(hg); self.hc=hc;
-              if ticks is not None: hc.set_ticks(ticks)
-              hc.set_clim(clim);
-              print(clim)
+          
+              #add colorbar
+              if cb:
+                 hc=colorbar(hg); self.hc=hc;
+                 if ticks is not None: hc.set_ticks(ticks)
+                 hc.set_clim(clim);
               
            #add to figure
            ax.add_collection(hg)
@@ -706,13 +715,15 @@ class schism_bpfile(object):
         self.y=data[:,2].astype(float)
         self.z=data[:,3].astype(float)
        
+        #get unique station data.
         if data.shape[1]==5: 
            self.station=data[:,4]
-          
-           #get unique station data.
-           ustation,ind=unique(self.station,return_index=True)
-           ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
-           self.ustation=ustation; self.ux=ux; self.uy=uy;self.uz=uz;
+           self.ustation=ustation; 
+        else:
+           upxy,ind=unique(self.x+1j*self.y,return_index=True)
+
+        ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
+        self.ux=ux; self.uy=uy;self.uz=uz;
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
