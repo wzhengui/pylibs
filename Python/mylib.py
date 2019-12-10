@@ -995,12 +995,13 @@ def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
 
     return S
 
-def get_stat(x1,x2):
+def get_stat(xi_model,xi_obs):
     #compute statistics between two time series
     #x1, x2 must have the same dimension
     #x1: model; x2: obs
     #import matlab.engine
     #eng=matlab.engine.start_matlab()
+    x1=xi_model; x2=xi_obs
 
     S=npz_data(); dx=x1-x2; std1=std(x1); std2=std(x2)
     #---save data
