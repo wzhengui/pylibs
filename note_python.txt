@@ -39,6 +39,9 @@
 8) print a list:  print("{:20s}:".format(ki)+', '.join("{:10s}".format(vi) for vi in v))
 9) time delay:  import time;  time.sleep(60)
 10) filter: syi=sp.signal.savgol_filter(oyi1, 11, 3)
+11). from mpl_toolkits.basemap import Basemap
+     m=Basemap(resolution='l',llcrnrlon=lonmin,llcrnrlat=latmin,urcrnrlon=lonmax,urcrnrlat=latmax,ax=ha)
+     m.drawcoastlines()
   
 
 #-----------------------------------------------------------------------------
