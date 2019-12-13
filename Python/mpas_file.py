@@ -20,6 +20,7 @@ class mpas_grid(object):
         if plotz==0:
            x6=c_[x6,x6[:,0],ones([x6.shape[0],1])*nan]
            y6=c_[y6,y6[:,0],ones([y6.shape[0],1])*nan]
+           x6=reshape(x6,x6.size); y6=reshape(y6,y6.size)
            hg=plot(x6,y6,lw=lw,color=ec);
             #hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
         else:
@@ -27,8 +28,8 @@ class mpas_grid(object):
             hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
             hc=colorbar(hg);
             self.hc=hc;
+            ax.add_collection(hg)
 
-        ax.add_collection(hg)
         ax.autoscale_view()
         self.hg=hg
 
