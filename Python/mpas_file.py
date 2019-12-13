@@ -17,10 +17,13 @@ class mpas_grid(object):
             if abs(mean(y6[pindi]))>88: continue
             fp=x6[pindi,:]>90; x6[pindi,fp]=x6[pindi,fp]-360
 
-        xy6=c_[x6[:,:,None],y6[:,:,None]]
         if plotz==0:
-            hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
+           x6=c_[x6,x6[:,0],ones([x6.shape[0],1])*nan]
+           y6=c_[y6,y6[:,0],ones([y6.shape[0],1])*nan]
+           hg=plot(x6,y6,lw=lw,color=ec);
+            #hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
         else:
+            xy6=c_[x6[:,:,None],y6[:,:,None]]
             hg=mpl.collections.PolyCollection(xy6,lw=lw,edgecolor=ec,array=value,antialiased=False,**args)
             hc=colorbar(hg);
             self.hc=hc;
