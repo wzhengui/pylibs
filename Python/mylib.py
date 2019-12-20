@@ -808,13 +808,24 @@ def ReadNC(fname,med=1,order=0):
     if med==1:
         return C
     else:
-        ncdims=[i for i in C.dimensions]
-        ncvars=[i for i in C.variables]
+
         F=npz_data();
         F.file_format=C.file_format
-        F.dimname=ncdims
-        F.dims=[C.dimensions[i].size for i in ncdims]
-        F.vars=ncvars
+
+        #read dims
+        ncdims=[i for i in C.dimensions]; 
+        F.dimname=ncdims; F.dims=[]; F.dim_unlimited=[]
+        for i in ncdims:
+            F.dims.append(C.dimensions[i].size)
+            F.dim_unlimited.append(C.dimensions[i].isunlimited())
+        
+        #read attrbutes
+        ncattrs=C.ncattrs(); F.attrs=ncattrs
+        for i in ncattrs:
+            exec('F.{}=C.getncattr("{}")'.format(i,i))
+           
+        ncvars=[i for i in C.variables]; F.vars=ncvars
+        #read variables
         for i in ncvars:
             fi=npz_data();
             dimi=C.variables[i].dimensions;
@@ -846,10 +857,23 @@ def WriteNC(C,fname,med=1,order=0):
     if med==1:
         #----write NC files-------------
         fid=Dataset(fname,'w',format=C.file_format); #C.file_format
+        fid.setncattr('file_format',C.file_format)
+
+        #set attrs
+        ncattrs=C.ncattrs()
+        for i in ncattrs:
+            exec("fid.setncattr('{}',C.{})".format(i,i))
+
+        #set dim
         ncdims=[i for i in C.dimensions]
+        for i in ncdims:
+            if C.dimensions[i].isunlimited() is True:
+               fid.createDimension(i,None)
+            else:
+               fid.createDimension(i,C.dimensions[i].size)
+
+        #set variable
         ncvars=[i for i in C.variables]
-        for dimi in ncdims:
-            fid.createDimension(dimi,C.dimensions[dimi].size)
         if order==0:
             for vari in ncvars:
                 vid=fid.createVariable(vari,C.variables[vari].dtype,C.variables[vari].dimensions)
@@ -868,9 +892,20 @@ def WriteNC(C,fname,med=1,order=0):
     else:
         #----write NC files-------------
         fid=Dataset(fname,'w',format=C.file_format); #C.file_format
+       
+        #set attrs
+        fid.setncattr('file_format',C.file_format)
+        for i in C.attrs:
+            exec("fid.setncattr('{}',C.{})".format(i,i))
+        
+        #set dimension
         for i in range(len(C.dims)):
-            fid.createDimension(C.dimname[i],C.dims[i])
+            if C.dim_unlimited[i] is True:
+               fid.createDimension(C.dimname[i],None)
+            else:
+               fid.createDimension(C.dimname[i],C.dims[i])
 
+        #set variable 
         if order==0:
             for vari in C.vars:
                 vi=eval('C.{}'.format(vari));
