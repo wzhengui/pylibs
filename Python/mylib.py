@@ -895,12 +895,18 @@ def WriteNC(C,fname,med=1,order=0):
        
         #set attrs
         fid.setncattr('file_format',C.file_format)
-        for i in C.attrs:
-            exec("fid.setncattr('{}',C.{})".format(i,i))
+        if hasattr(C,'attrs'):
+           for i in C.attrs:
+               exec("fid.setncattr('{}',C.{})".format(i,i))
         
         #set dimension
         for i in range(len(C.dims)):
-            if C.dim_unlimited[i] is True:
+            if hasattr(C,'dim_unlimited'): 
+               dim_flag=C.dim_unlimited[i]
+            else:
+               dim_flag=False
+     
+            if dim_flag is True:
                fid.createDimension(C.dimname[i],None)
             else:
                fid.createDimension(C.dimname[i],C.dims[i])
