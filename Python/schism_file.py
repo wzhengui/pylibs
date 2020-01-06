@@ -715,15 +715,13 @@ class schism_bpfile(object):
         self.y=data[:,2].astype(float)
         self.z=data[:,3].astype(float)
        
+        upxy,ind=unique(self.x+1j*self.y,return_index=True)
+        ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
+        self.ux=ux; self.uy=uy;self.uz=uz;
         #get unique station data.
         if data.shape[1]==5: 
            self.station=data[:,4]
-           self.ustation=ustation; 
-        else:
-           upxy,ind=unique(self.x+1j*self.y,return_index=True)
-
-        ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
-        self.ux=ux; self.uy=uy;self.uz=uz;
+           self.ustation=self.station[ind]; 
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
