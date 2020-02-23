@@ -833,7 +833,7 @@ def read_schism_param(fname,*args):
   param={}
   for line in lines:
     line=line.strip()
-    if len(line)==0 or line[0]=='!': continue
+    if len(line)==0 or line[0]=='!' or line[0]=='&': continue
     ind=line.find('!');
     if(ind!=-1): line=line[0:ind];
     ind=line.find('=');
