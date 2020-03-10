@@ -1056,6 +1056,7 @@ def get_stat(xi_model,xi_obs):
     a,pvalue=sp.stats.pearsonr(x1,x2)
     S.pvalue=pvalue
     S.std1=std1; S.std2=std2
+    S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R])
 
     return S
 

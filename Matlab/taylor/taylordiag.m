@@ -453,7 +453,7 @@ end
 
 % FINALY PLOT THE POINTS:
 	hold on
-	ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+	ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 	for ii = 1 : length(STDs)
 %		pp(ii)=polar(theta(ii),rho(ii));
 		pp(ii)=plot(rho(ii)*cos(theta(ii)),rho(ii)*sin(theta(ii)));
