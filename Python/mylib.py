@@ -1043,6 +1043,7 @@ def get_stat(xi_model,xi_obs):
     #import matlab.engine
     #eng=matlab.engine.start_matlab()
     x1=xi_model; x2=xi_obs
+    mx1=mean(x1); mx2=mean(x2)
 
     S=npz_data(); dx=x1-x2; std1=std(x1); std2=std(x2)
     #---save data
@@ -1051,7 +1052,7 @@ def get_stat(xi_model,xi_obs):
     S.MAE=mean(abs(dx))
     S.RMSD=sqrt((dx**2).mean())
     S.std=std(dx)
-    S.ms=1-sum(dx**2)/sum((abs(x1-std2)+abs(x2-std2))**2)
+    S.ms=1-sum(dx**2)/sum((abs(x1-mx1)+abs(x2-mx2))**2)
     a,pvalue=sp.stats.pearsonr(x1,x2)
     S.pvalue=pvalue
     S.std1=std1; S.std2=std2
