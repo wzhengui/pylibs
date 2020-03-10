@@ -306,7 +306,7 @@ sys.modules['loadz'] = mylib #in case oldmodule name used
 from mylib import (get_xtick,close_data_loop,datenum,str2num,remove_tail,
      loadz,npz_data,save_npz,wipe,find_continuous_sections,
      smooth,DaytimeLength,move_figure,lpfilt,mdivide,signa,
-     inside_polygon,command_outputs,near_pts,compute_cofficient,proj,
+     inside_polygon,command_outputs,near_pts,proj,
      get_prj_file,mfft,convert_matfile_format,read_shapefile_data,
      write_shapefile_data,ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
      get_stat,reload)

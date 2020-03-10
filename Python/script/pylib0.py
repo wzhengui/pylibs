@@ -18,7 +18,7 @@ import convert_matfile_format as cmat
 from date_proc import datenum
 from loadz import loadz,npz_data,save_npz
 from misc import (wipe,reload,smooth,clear_globals,DaytimeLength,move_figure,lpfilt,mdivide,signa,
-     inside_polygon,command_outputs,near_pts,compute_cofficient,proj,close_data_loop,get_prj_file,
+     inside_polygon,command_outputs,near_pts,proj,close_data_loop,get_prj_file,
      mfft)
 from shpfile import read_shapefile_data,write_shapefile_data
 from read_schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,

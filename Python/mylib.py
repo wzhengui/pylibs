@@ -215,26 +215,26 @@ def mfft(xi,dt):
     period=dt*N/arange(1,N//2);
     return period,afx,pfx
 
-def compute_cofficient(myi,oyi):
-    #compute different evaluation coefficients
-    N=len(myi)
-    mmyi=myi.mean(); moyi=oyi.mean();
-    emyi=myi-mmyi; eoyi=oyi-moyi; e=myi-oyi
-    stdm=std(emyi); stdo=std(eoyi)
-
-    SS_tot=sum((oyi-moyi)**2)
-    SS_reg=sum((myi-moyi)**2);
-    SS_res=sum(e**2);
-
-    #evaluation coefficient
-    ms=1-SS_res/sum((abs(myi-moyi)+abs(oyi-moyi))**2) #model skill
-    r=mean((myi-mmyi)*(oyi-moyi))/stdm/stdo #correlation coefficient
-    r2=1-SS_res/SS_tot  #R2
-    rmse=sqrt(sum(e**2)/N) #RMSE
-    mae=mean(abs(e))         #MAE
-    me=mean(e)               #ME
-
-    return [ms,r,r2,rmse,mae,me]
+#def compute_cofficient(myi,oyi):
+#    #compute different evaluation coefficients
+#    N=len(myi)
+#    mmyi=myi.mean(); moyi=oyi.mean();
+#    emyi=myi-mmyi; eoyi=oyi-moyi; e=myi-oyi
+#    stdm=std(emyi); stdo=std(eoyi)
+#
+#    SS_tot=sum((oyi-moyi)**2)
+#    SS_reg=sum((myi-moyi)**2);
+#    SS_res=sum(e**2);
+#
+#    #evaluation coefficient
+#    ms=1-SS_res/sum((abs(myi-moyi)+abs(oyi-moyi))**2) #model skill
+#    r=mean((myi-mmyi)*(oyi-moyi))/stdm/stdo #correlation coefficient
+#    r2=1-SS_res/SS_tot  #R2
+#    rmse=sqrt(sum(e**2)/N) #RMSE
+#    mae=mean(abs(e))         #MAE
+#    me=mean(e)               #ME
+#
+#    return [ms,r,r2,rmse,mae,me]
 
 def command_outputs(code,shell=True):
     import subprocess
