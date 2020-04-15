@@ -17,6 +17,7 @@ class schism_grid(object):
         #ticks=[v1,v2,...]: colorbar ticks;  clim=[vmin,vmax]: value range for plot/colorbar
         #cb=False: not add colorbar
 
+        if ec==None: ec='None'
         if ax==None: ax=gca();
         if method==0: 
            fp3=self.i34==3; fp4=self.i34==4
