@@ -53,3 +53,12 @@ location of modules: ~/.local/lib/python3.6/site-packages
 install a specific version: pip install -v python==3.5.3 --user
 install a specific version: brew install python@3.5.3
 
+
+#------------------------------------------------------------------------------
+#install gadl and pysheds 
+#------------------------------------------------------------------------------
+on linux: pip3 install pysheds
+on Windows: need to install gadl, conda,
+   pip install conda==4.2.7
+   pip install ruamel_yaml  
+   conda.exe install gdal
