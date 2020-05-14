@@ -4,7 +4,7 @@
 import os,sys
 pversion=sys.version.split(' ')[0]
 
-print(pversion)
+#print(pversion)
 #---------------------------------------------------------------------
 #spyder pylab library
 #C:/Program Files/Python/Python3[57]/Lib/site-packages/matplotlib/pylab.py

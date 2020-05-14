@@ -58,7 +58,10 @@ install a specific version: brew install python@3.5.3
 #install gadl and pysheds 
 #------------------------------------------------------------------------------
 on linux: pip3 install pysheds
-on Windows: need to install gadl, conda,
-   pip install conda==4.2.7
-   pip install ruamel_yaml  
-   conda.exe install gdal
+on Windows: need to install gdal, and rasterio
+   first, download GDAL-3.0.4-cp37-cp37m-win_amd64.whl and rasterio-1.0.28-cp37-cp37m-win_amd64.whl
+   then, 
+       pip install GDAL-3.0.4-cp37-cp37m-win_amd64.whl
+       pip install rasterio-1.0.28-cp37-cp37m-win_amd64.whl
+       pip install pysheds
+   
