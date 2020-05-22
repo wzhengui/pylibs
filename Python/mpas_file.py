@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from pylib import *
 
-
-
 class mpas_grid(object):
     def __init__(self):
         pass
