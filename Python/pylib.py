@@ -72,15 +72,22 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyproj import Proj, transform
    #import importlib as imp
    import imp
+   from netCDF4 import Dataset
+   from io import StringIO
+   import re
+   import xlsxwriter as xw
    try:
       from mpi4py import MPI
    except:
        pass
-   from netCDF4 import Dataset
-   from io import StringIO
-   import re
-   import skill_metrics as sm
-   import xlsxwriter as xw
+   try:
+      import skill_metrics as sm
+   except:
+      pass
+
+   #for python3.7.7
+   #install matplotlib,scipy,pyshp,netcdf4,xlswriter,mpi4py,pyproj
+   #spyder==4.1.3 (install flake8==3.7.9,autopep8==1.5.2 first)
 
    #---------------------------------------------------------------------
    #libraries of self-defined modules
