@@ -53,6 +53,10 @@ location of modules: ~/.local/lib/python3.6/site-packages
 install a specific version: pip install -v python==3.5.3 --user
 install a specific version: brew install python@3.5.3
 
+#for python3.7.7 on windows 10
+#pip.exe install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj sympy #skillmetrics
+#pip.exe install flake8==3.7.9 autopep8==1.5.2 spyder==4.1.3 (old version flake8 autopep8 fails)
+#pip.exe install skillmetrics
 
 #------------------------------------------------------------------------------
 #install gadl and pysheds 
