@@ -86,8 +86,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
       pass
 
    #for python3.7.7
-   #install matplotlib,scipy,pyshp,netcdf4,xlswriter,mpi4py,pyproj
+   #pip install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj skillmetrics sympy
    #spyder==4.1.3 (install flake8==3.7.9,autopep8==1.5.2 first)
+   #pip install flake8==3.7.9 autopep8==1.5.2 spyder==4.1.3 
 
    #---------------------------------------------------------------------
    #libraries of self-defined modules
