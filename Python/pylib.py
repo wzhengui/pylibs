@@ -76,10 +76,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from io import StringIO
    import re
    import xlsxwriter as xw
-   try:
-      from mpi4py import MPI
-   except:
-       pass
+   #try:
+   #   from mpi4py import MPI
+   #except:
+   #    pass
    try:
       import skill_metrics as sm
    except:
