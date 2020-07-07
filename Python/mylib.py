@@ -196,7 +196,7 @@ def loadz(fname,med=1):
             vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
         VINFO.append(vinfo)
     VINFO=array(VINFO)
-    zdata.VINFO=VINFO
+    if med==1: zdata.VINFO=VINFO
 
     return zdata if med==1 else zdata2
 
