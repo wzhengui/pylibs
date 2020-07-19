@@ -14,7 +14,8 @@ class schism_grid(object):
         #mask: size(ne); only plot elements (mask=True))
         #ec: color of grid line;  fc: element color; lw: grid line width
         #levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot 
-        #ticks=[v1,v2,...]: colorbar ticks;  clim=[vmin,vmax]: value range for plot/colorbar
+        #ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
+        #clim=[vmin,vmax]: value range for plot/colorbar
         #cb=False: not add colorbar
 
         if ec==None: ec='None'
@@ -62,9 +63,20 @@ class schism_grid(object):
 
               #add colobar
               if cb:
-                 hc=colorbar(hg); self.hc=hc;
-                 if ticks is not None: hc.set_ticks(ticks)
-                 hc.set_clim([vmin,vmax]);
+                 #----new method
+                 cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
+                 hc=colorbar(hg); self.hc=hc
+                 if ticks is not None: 
+                    if not hasattr(ticks,'__len__'): 
+                       hc.set_ticks(linspace(vmin,vmax,int(ticks)))
+                    else:
+                       hc.set_ticks(ticks)
+                 
+                 #----old method
+                 #hc=colorbar(hg); self.hc=hc;
+                 #if ticks is not None: hc.set_ticks(ticks)
+                 #hc.set_clim([vmin,vmax]);
+
  
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
