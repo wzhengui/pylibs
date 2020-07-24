@@ -750,15 +750,16 @@ class schism_bpfile(object):
                 else:
                     fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.z[i]))
 
-    def plot_station(self,ax=None,ls='',**args):
+    def plot_station(self,ax=None,ls='',label=True,**args):
         if not None: ax=gca()
         hp=plot(self.ux,self.uy,linestyle=ls,**args)
         self.hp=hp
-        ht=[];
-        for i in arange(len(self.ustation)):
-            hti=text(self.ux[i],self.uy[i],self.ustation[i],color='r')
-            ht.append(hti)
-        self.ht=array(ht)
+        if label:
+           ht=[];
+           for i in arange(len(self.ustation)):
+               hti=text(self.ux[i],self.uy[i],self.ustation[i],color='r')
+               ht.append(hti)
+           self.ht=array(ht)
 
     def compute_acor(self,gd): 
         #compute areal coordinates, and gd is the schism grid
