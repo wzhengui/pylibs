@@ -737,6 +737,9 @@ class schism_bpfile(object):
         if data.shape[1]==5: 
            self.station=data[:,4]
            self.ustation=self.station[ind]; 
+        else:
+           self.station=['{}'.format(i) for i in arange(self.nsta)]
+           self.ustation=self.station[ind]
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
