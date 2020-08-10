@@ -196,7 +196,7 @@ def loadz(fname,med=1):
             vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
         VINFO.append(vinfo)
     VINFO=array(VINFO)
-    zdata.VINFO=VINFO
+    if med==1: zdata.VINFO=VINFO
 
     return zdata if med==1 else zdata2
 
@@ -491,7 +491,7 @@ def proj(fname0,format0,proj0,fname1,format1,proj1):
     #format: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
     #proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
 
-    from read_schism_file import read_schism_hgrid
+    from schism_file import read_schism_hgrid
     #read file
     if format0==0:
         gd=read_schism_hgrid(fname0)

@@ -14,7 +14,8 @@ class schism_grid(object):
         #mask: size(ne); only plot elements (mask=True))
         #ec: color of grid line;  fc: element color; lw: grid line width
         #levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot 
-        #ticks=[v1,v2,...]: colorbar ticks;  clim=[vmin,vmax]: value range for plot/colorbar
+        #ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
+        #clim=[vmin,vmax]: value range for plot/colorbar
         #cb=False: not add colorbar
 
         if ec==None: ec='None'
@@ -62,9 +63,20 @@ class schism_grid(object):
 
               #add colobar
               if cb:
-                 hc=colorbar(hg); self.hc=hc;
-                 if ticks is not None: hc.set_ticks(ticks)
-                 hc.set_clim([vmin,vmax]);
+                 #----new method
+                 cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
+                 hc=colorbar(hg); self.hc=hc
+                 if ticks is not None: 
+                    if not hasattr(ticks,'__len__'): 
+                       hc.set_ticks(linspace(vmin,vmax,int(ticks)))
+                    else:
+                       hc.set_ticks(ticks)
+                 
+                 #----old method
+                 #hc=colorbar(hg); self.hc=hc;
+                 #if ticks is not None: hc.set_ticks(ticks)
+                 #hc.set_clim([vmin,vmax]);
+
  
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
@@ -438,7 +450,8 @@ class schism_grid(object):
                 pindi=pind[:N] 
              pind=setdiff1d(pind,pindi)
              ie=r_[ie,self.inside_grid(pxy[pindi])]
-
+         
+        ie=ie.astype('int') 
         #compute area coordinate
         ip0=self.elnode[ie]; i34=self.i34[ie]
         x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x4=self.x[ip0][:,3]; x=pxy[:,0]
@@ -602,8 +615,9 @@ class schism_grid(object):
         pn=array(pn)
 
         # for the 2nd trignale of quads--
-        fp=self.i34==4; ind0=nonzero(fp);
-        if sum(ind0)!=0:
+        fp=self.i34==4; ind0=nonzero(fp)[0];
+        fpn=pn==None; indn=nonzero(fpn)[0];  x0=x0[indn]; y0=y0[indn] #remaining pts
+        if len(ind0)!=0 and len(indn)!=0 :
             x1=self.x[self.elnode[fp,0]][None,:]; x2=self.x[self.elnode[fp,2]][None,:]; x3=self.x[self.elnode[fp,3]][None,:]
             y1=self.y[self.elnode[fp,0]][None,:]; y2=self.y[self.elnode[fp,2]][None,:]; y3=self.y[self.elnode[fp,3]][None,:]
 
@@ -613,16 +627,16 @@ class schism_grid(object):
 
             fp=(a1>=0)*(a2>=0)*(a3>=0);
             pn2=[];
-            for i in arange(pxy.shape[0]):
+            for i in arange(len(indn)):
                 ind=nonzero(fp[i,:])[0]
                 if len(ind)==0:
                     pn2.append(None)
                 else:
                     pn2.append(ind[0])
             pn2=array(pn2)
-            fp=nonzero(pn2); pn[fp]=pn2[fp]
+            pn[fpn]=ind0[pn2]
 
-        return pn
+        return pn.astype('int')
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
         self.shp_bnd=npz_data()
@@ -723,6 +737,9 @@ class schism_bpfile(object):
         if data.shape[1]==5: 
            self.station=data[:,4]
            self.ustation=self.station[ind]; 
+        else:
+           self.station=array(['{}'.format(i) for i in arange(self.nsta)])
+           self.ustation=self.station[ind]
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
@@ -733,15 +750,16 @@ class schism_bpfile(object):
                 else:
                     fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.z[i]))
 
-    def plot_station(self,ax=None,ls='',**args):
+    def plot_station(self,ax=None,ls='',label=True,**args):
         if not None: ax=gca()
         hp=plot(self.ux,self.uy,linestyle=ls,**args)
         self.hp=hp
-        ht=[];
-        for i in arange(len(self.ustation)):
-            hti=text(self.ux[i],self.uy[i],self.ustation[i],color='r')
-            ht.append(hti)
-        self.ht=array(ht)
+        if label:
+           ht=[];
+           for i in arange(len(self.ustation)):
+               hti=text(self.ux[i],self.uy[i],self.ustation[i],color='r')
+               ht.append(hti)
+           self.ht=array(ht)
 
     def compute_acor(self,gd): 
         #compute areal coordinates, and gd is the schism grid
