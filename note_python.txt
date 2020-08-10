@@ -62,3 +62,8 @@ on Windows: need to install gadl, conda,
    pip install conda==4.2.7
    pip install ruamel_yaml  
    conda.exe install gdal
+
+#-----------------------------------------------------------------------------
+#install python packages
+#-----------------------------------------------------------------------------
+pip3 install scipy
