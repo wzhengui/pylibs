@@ -1,6 +1,62 @@
 # this is the note for python learning
 
 #-----------------------------------------------------------------------------
+# install python on HPC 
+#-----------------------------------------------------------------------------
+#for python 3.5.3-------------------------------------------------------------
+wget https://www.python.org/ftp/python/3.5.0/Python-3.5.0.tgz
+tar xzvf Python-3.5.3.tgz
+cd Python-3.5.3
+./configure --prefix=/sciclone/data10/wangzg/bin/python3.5.3/Python
+make
+sudo make install
+
+#for python 3.7.7, it needs to install openssl and libffi---------------------
+#-----------install libffi-----------------
+download package in https://github.com/libffi/libffi
+tar zxvf libffi-3.3.tar.gz
+cd libffi-3.3
+./configure --prefix=/sciclone/data10/wangzg/bin/python3.7.7/libffi
+make
+make install
+
+#add env variable
+setenv LD_LIBRARY_PATH $LD_LIBRARY_PATH\:'/sciclone/data10/wangzg/bin/python3.7.7/libffi/lib'
+
+#--------install openssl 1.1.1-------------
+wget https://www.openssl.org/source/openssl-1.1.1b.tar.gz
+tar zxvf openssl-1.1.1b.tar.gz
+cd openssl-1.1.1b
+./config --prefix=/home/username/openssl --openssldir=/home/username/openssl no-ssl2
+make
+make install
+
+#add enviromental variables
+export PATH=$HOME/openssl/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/openssl/lib
+export LC_ALL="en_US.UTF-8"
+export LDFLAGS="-L/home/username/openssl/lib -Wl,-rpath,/home/username/openssl/lib"
+
+#---install python3.7.7-------------------------------
+wget https://www.python.org/ftp/python/3.7.7/Python-3.7.7.tgz
+tar xzvf Python-3.7.7.tgz
+cd Python-3.7.7
+
+#---edit setup to add openssl-------------------------
+cd Modules; vi Setup
+SSL=/home/username/openssl
+_ssl _ssl.c \
+        -DUSE_SSL -I$(SSL)/include -I$(SSL)/include/openssl \
+        -L$(SSL)/lib -lssl -lcrypto
+#-----------------------------------------------------
+
+#./configure --prefix=/sciclone/data10/wangzg/bin/python3.7.7/Python
+#./configure --prefix=/sciclone/data10/wangzg/bin/python3.7.7/Python LDFLAGS=-L/sciclone/data10/wangzg/bin/python3.7.7/libffi/lib PKG_CONFIG_PATH=/sciclone/data10/wangzg/bin/python3.7.7/libffi/lib/pkgconfig --enable-shared
+./configure --prefix=/sciclone/data10/wangzg/bin/python3.7.7/Python LDFLAGS=-L/sciclone/data10/wangzg/bin/python3.7.7/libffi/lib PKG_CONFIG_PATH=/sciclone/data10/wangzg/bin/python3.7.7/libffi/lib/pkgconfig
+make
+sudo make install
+
+#-----------------------------------------------------------------------------
 # grid
 #-----------------------------------------------------------------------------
 1) plot grid and bp file

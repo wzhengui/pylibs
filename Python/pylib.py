@@ -34,7 +34,11 @@ if not set(Libs).issubset(set(sys.modules.keys())):
            window_hanning, window_none)
       bytes = six.moves.builtins.bytes
    elif pversion in ['3.7.7',]:
-      from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
+      #from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
+      try:
+         from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
+      except:
+         from matplotlib.cbook import (flatten, silent_list, dedent)
       from matplotlib.mlab import (
            demean, detrend, detrend_linear, detrend_mean, detrend_none,
            window_hanning, window_none)
@@ -87,7 +91,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    #for python3.7.7
    #pip install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj sympy #skillmetrics
-   #pip install flake8==3.7.9 autopep8==1.5.2 spyder==4.1.3 (old version flake8 autopep8 fails)
+   #pip install flake8==3.7.9 autopep8==1.5.2 spyder==4.1.3 (old version flake8 autopep8 may fails,but worked on Vortex)
    #pip install skillmetrics
 
    #---------------------------------------------------------------------
