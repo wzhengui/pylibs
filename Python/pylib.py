@@ -34,11 +34,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
            window_hanning, window_none)
       bytes = six.moves.builtins.bytes
    elif pversion in ['3.7.7',]:
-      #from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
-      try:
-         from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
-      except:
-         from matplotlib.cbook import (flatten, silent_list, dedent)
+      from matplotlib.cbook import (flatten, silent_list, iterable, dedent)
       from matplotlib.mlab import (
            demean, detrend, detrend_linear, detrend_mean, detrend_none,
            window_hanning, window_none)
