@@ -344,6 +344,10 @@ def inside_polygon(pts,px,py):
     #px[nploy,x]: x coordiations of polygons
     #py[nploy,y]: x coordiations of polygons
     #return index of polygons that pts resides in
+
+    if px.ndim==1:
+       px=px[None,:]; py=py[None,:]
+  
     npy=px.shape[0]; nv=px.shape[1];
     ind=[];
     for i in arange(pts.shape[0]):
@@ -353,7 +357,9 @@ def inside_polygon(pts,px,py):
             yi=c_[ones(npy)*pyi,py[:,m],py[:,mod(m+1,nv)]]
             area=signa(xi,yi)
             fp=area<=0; fi[fp]=0;
-        indi=nonzero(fi)
+        indi=nonzero(fi)[0]
+        print(indi)
+        if len(indi)!=1: indi=array([-1])
         ind.append(indi)
 
     ind=squeeze(array(ind))
