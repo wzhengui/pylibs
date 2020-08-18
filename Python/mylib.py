@@ -79,50 +79,81 @@ def remove_tail(line):
     return li
 
 #-------date_proc--------------------------------------------------------------
-def datenum_0(*args):
-    if len(args)==1:
-        args=args[0];
+#def datenum_0(*args):
+#    if len(args)==1:
+#        args=args[0];
+#
+#    args=array(args)
+#    args=args.astype('int')
+#    return datetime.datetime(*args)
+#
+#def datenum(*args,doy=0):
+#    #usage: datenum(2001,1,1)
+#    args=array(args)
+#    e1=args[0]
+#
+#    if hasattr(e1, "__len__"):
+#        if not hasattr(e1[0],"__len__"):
+#            f=datenum_0(*e1)
+#        else:
+#            f=apply_along_axis(datenum_0,1,e1)
+#    else:
+#        f=datenum_0(*args)
+#    if doy==0:
+#        return date2num(f)
+#    else:
+#        return f
 
-    args=array(args)
-    args=args.astype('int')
-    return datetime.datetime(*args)
+def datenum(*args,fmt=0):
+    '''
+    usage: datenum(*args,fmt=[0,1]) 
+       datenum(2001,1,1,10,23,0)       or datenum([[2001,1,1],[2002,1,5]])
+       datenum('2001-01-01, 10:23:00') or datenum(['2001-01-1','2002-01-05'])
+       fmt=0: output num; fmt==1: output date 
+    '''
 
-def datenum(*args,doy=0):
-    args=array(args)
-    e1=args[0]
-
-    if hasattr(e1, "__len__"):
-        if not hasattr(e1[0],"__len__"):
-            f=datenum_0(*e1)
-        else:
-            f=apply_along_axis(datenum_0,1,e1)
+    #input only one argument, it should be a time string
+    if len(args)==1: args=args[0]
+    
+    if isinstance(args,str): 
+       #single time string 
+       dnum=datestr2num(args) 
+       if fmt!=0: dnum=num2date(dnum)
+    elif hasattr(args,"__len__"): 
+       if isinstance(args[0],str)|hasattr(args[0],"__len__"):
+          #array of time string or time array
+          dnum=array([datenum(i,fmt=fmt) for i in args])
+       else:
+          #time array (e.g. [2002,1,1])
+          dnum=datetime.datetime(*args)
+          if fmt==0: dnum=date2num(dnum)
     else:
-        f=datenum_0(*args)
-    if doy==0:
-        return date2num(f)
-    else:
-        return f
+       sys.exit('unknown input format')
 
-def get_xtick(xi=None,sformat='%Y',method=0):
-    #return time ticks for plot
-    #method: 0=outputs ticks of xi; xi should be datenum
-    #        1=yearly interal; 2=monthly interval; 3=daily interaly (xi is list of year if not None)
-    #sformat:
-    #   %d=01;     %-d=1                           (day of month)
-    #   %b=Jan;    %B=January;   %m=01;     %-m=1  (month)
-    #   %y=01;     %-y=1;        %Y=2000           (year)
-    #   %H=09;     %-H=9;        %I=[00,12] %-I=1  (hour)
-    #   %M=09;     %-M=9;                          (minute)
-    #   %S=09;     %-S=9                           (second)
-    #
-    #   %a=MON;    %A=Monday;    %w=[0,6]          (week)
-    #   %U=[00,53];    %W=[00,53];                 (week of year)
-    #   %j=045;    %-j=45;                         (day of year)
-    #   %p=[AM,PM]                                 (moring, or afternoon)
-    #
-    #   %c='Fri Jan 25 04:05:02 2008'
-    #   %x='01/25/08';
-    #   %X='04:05:02'
+    return dnum
+          
+def get_xtick(xi=None,fmt='%Y',method=0):
+    '''
+    return time ticks for plot
+    method: 0=outputs ticks of xi; xi should be date number
+            1=yearly interal; 2=monthly interval; 3=daily interaly (xi is list of year if not None)
+    fmt:
+       %d=01;     %-d=1                           (day of month)
+       %b=Jan;    %B=January;   %m=01;     %-m=1  (month)
+       %y=01;     %-y=1;        %Y=2000           (year)
+       %H=09;     %-H=9;        %I=[00,12] %-I=1  (hour)
+       %M=09;     %-M=9;                          (minute)
+       %S=09;     %-S=9                           (second)
+    
+       %a=MON;    %A=Monday;    %w=[0,6]          (week)
+       %U=[00,53];    %W=[00,53];                 (week of year)
+       %j=045;    %-j=45;                         (day of year)
+       %p=[AM,PM]                                 (moring, or afternoon)
+    
+       %c='Fri Jan 25 04:05:02 2008'
+       %x='01/25/08';
+       %X='04:05:02'
+    '''
 
     #-----determine ti --------------------------------
     if method==0:
@@ -148,7 +179,7 @@ def get_xtick(xi=None,sformat='%Y',method=0):
 
     #---------------------------------------------------
     xtick=ti;
-    xticklabel=array([num2date(tii).strftime(sformat) for tii in ti]);
+    xticklabel=array([num2date(tii).strftime(fmt) for tii in ti]);
 
     return xtick,xticklabel
 
@@ -202,12 +233,17 @@ def loadz(fname,med=1):
 
 #-------mfft-------------------------------------------------------------------
 def mfft(xi,dt):
-    #input
-    #xi: time series
-    #dt: interval
-    #
-    #output
-    #perid[period],afx[amplitude],pfx[phase]
+    '''
+    Perform FFT for a time series, with a time interval specified
+
+    usage: period,afx,pfx=mfft(xi,dt)
+    input:
+       xi: time series
+       dt: time interval
+    
+    output:
+       period[period],afx[amplitude],pfx[phase]
+    '''
     N=xi.size;
     fx=fft(xi);
     afx=abs(fx[1:N//2])*2.0/N;
@@ -237,6 +273,14 @@ def mfft(xi,dt):
 #    return [ms,r,r2,rmse,mae,me]
 
 def command_outputs(code,shell=True):
+    '''
+    Capture the command output from the system
+
+    usage: 
+         S=command_outputs('ls') 
+         print(S.stderr)
+         print(S.stdout) # normally this is the results
+    '''
     import subprocess
     p=subprocess.Popen(code,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,shell=shell)
     stdout,stderr=p.communicate()
@@ -265,10 +309,15 @@ def command_outputs(code,shell=True):
 #    return ind
 
 def near_pts(pts,pts0,method=0,N=100):
-    #pts[n,2]: xy of points
-    #pts0[n,2]: xy of points
-    #return index of pts0(x0,y0) that pts(x,y) is nearest
-    #method=0: quick method by subgroups (N); method=1: slower methods
+    '''
+    return index of pts0(x0,y0) that pts(x,y) is nearest
+
+    usage: sind=near_pts(pts,pts0,method=0,N=100)
+       pts[n,2]: xy of points
+       pts0[n,2]: xy of points
+   
+       method=0 (default): quick method by subgroups (N); method=1: slower methods
+    '''
     if method==0:
         p=pts[:,0]+1j*pts[:,1]
         p0=pts0[:,0]+1j*pts0[:,1]
@@ -340,10 +389,17 @@ def near_pts(pts,pts0,method=0,N=100):
     return sind
 
 def inside_polygon(pts,px,py):
-    #pts[n,2]: xy of points
-    #px[nploy,x]: x coordiations of polygons
-    #py[nploy,y]: x coordiations of polygons
-    #return index of polygons that pts resides in
+    '''
+    return indices of polygons that pts resides in
+
+    usage: sind=inside_polygon(pts,px,py):
+       pts[n,2]: xy of points
+       px[nploy,x]: x coordiations of polygons
+       py[nploy,y]: x coordiations of polygons
+       nploy is number of polygons
+
+    note: works for convex polygon only at present (e.g. for triangles)
+    '''
 
     if px.ndim==1:
        px=px[None,:]; py=py[None,:]
@@ -358,7 +414,7 @@ def inside_polygon(pts,px,py):
             area=signa(xi,yi)
             fp=area<=0; fi[fp]=0;
         indi=nonzero(fi)[0]
-        print(indi)
+        #print(indi)
         if len(indi)!=1: indi=array([-1])
         ind.append(indi)
 

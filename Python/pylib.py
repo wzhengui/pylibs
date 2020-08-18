@@ -86,7 +86,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
       pass
 
    #for python3.7.7
-   #pip install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj sympy #skillmetrics
+   #pip install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj sympy math#skillmetrics
    #pip install flake8==3.7.9 autopep8==1.5.2 spyder==4.1.3 (old version flake8 autopep8 may fails,but worked on Vortex)
    #pip install skillmetrics
 
