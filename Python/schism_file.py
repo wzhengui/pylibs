@@ -447,50 +447,90 @@ class schism_grid(object):
                ip:  the nodal indices of the ie
                acor: the area coordinate
         '''
-        
         #compute the corresponding residing elem 
-        npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
-        while(len(pind)>0):
-             #get the first N pts)
-             if len(pind)<=N:
-                pindi=pind
-             else:
-                pindi=pind[:N] 
-             pind=setdiff1d(pind,pindi)
-             ie=r_[ie,self.inside_grid(pxy[pindi])]
-         
-        ie=ie.astype('int') 
+        npt=pxy.shape[0]
+        ie,ptr=self.inside_grid(pxy,return_triangle=True)
+       
+        #indices 
+        sind=nonzero(ptr!=0)[0]; sinda=nonzero(ptr==2)[0]
+
+        #---------------------------------------------------
         #compute area coordinate
-        ip0=self.elnode[ie]; i34=self.i34[ie]
-        x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x4=self.x[ip0][:,3]; x=pxy[:,0]
-        y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y4=self.y[ip0][:,3]; y=pxy[:,1]
+        #---------------------------------------------------
 
-        A1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
-        A11=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
-        A12=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
-        A13=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
-        fA1=(abs(A11)+abs(A12)+abs(A13)-abs(A1))/abs(A1);
+        #get elnode for all triangles
+        ip0=self.elnode[ie]
+        ip0[sinda,:]=ip0[sinda][:,array([0,2,3,3])] #for 2nd triangle
+        ip0=ip0[sind,:3] #pts inside grid
 
-        A2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
-        A21=((x3-x)*(y4-y)-(x4-x)*(y3-y))/2
-        A22=((x-x1)*(y4-y1)-(x4-x1)*(y-y1))/2
-        A23=((x3-x1)*(y-y1)-(x-x1)*(y3-y1))/2
-        fA2=(abs(A21)+abs(A22)+abs(A23)-abs(A2))/abs(A2);
+        #(x,y) for all triangles 
+        x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x=pxy[sind,0]
+        y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y=pxy[sind,1]
 
-        ip=[];acor=[];
-        for i in arange(npt):
-            if abs(fA1[i])<1e-5: #pt in 1st triange
-               a1=A11[i]/A1[i]; a2=A12[i]/A1[i]; a3=1-a1-a2;
-               if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
-               ip.append(ip0[i,:3]); acor.append(array([a1,a2,a3]))
-            else:
-               a1=A21[i]/A2[i]; a2=A22[i]/A2[i]; a3=1-a1-a2;
-               if (a1<0)|(a2<0)|(i34[i]==3)|(abs(fA2[i])>=1e-5): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
-               ip.append(ip0[i,array([0,2,3])]); acor.append(array([a1,a2,a3]))
-        ip=array(ip); acor=array(acor)
+        #areas
+        A=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
+        A1=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
+        A2=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
+        A3=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
+        fA=(abs(A1)+abs(A2)+abs(A3)-abs(A))/abs(A);
 
-        #save acor
-        return ie,ip,acor             
+        #area coordinate
+        acor0=[];
+        for i in arange(len(sind)):
+            sid=sind[i]
+            a1=A1[i]/A[i]; a2=A2[i]/A[i]; a3=1-a1-a2;
+            if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(sid,ie[sid],self.i34[ie[sid]],A[i],A1[i],A2[i]))
+            acor0.append(array([a1,a2,a3]))
+
+        ip=-ones([npt,3]).astype('int'); acor=-ones([npt,3])
+        ip[sind]=ip0; acor[sind]=array(acor0)
+        
+        return ie,ip,acor 
+
+        #-------old method--------------------------------------------------- 
+        ##compute the corresponding residing elem 
+        #npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
+        #while(len(pind)>0):
+        #     #get the first N pts)
+        #     if len(pind)<=N:
+        #        pindi=pind
+        #     else:
+        #        pindi=pind[:N] 
+        #     pind=setdiff1d(pind,pindi)
+        #     ie=r_[ie,self.inside_grid(pxy[pindi])]
+        #ie=ie.astype('int') 
+
+        ##compute area coordinate
+        #ip0=self.elnode[ie]; i34=self.i34[ie]
+        #x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x4=self.x[ip0][:,3]; x=pxy[:,0]
+        #y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y4=self.y[ip0][:,3]; y=pxy[:,1]
+
+        #A1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
+        #A11=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
+        #A12=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
+        #A13=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
+        #fA1=(abs(A11)+abs(A12)+abs(A13)-abs(A1))/abs(A1);
+
+        #A2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
+        #A21=((x3-x)*(y4-y)-(x4-x)*(y3-y))/2
+        #A22=((x-x1)*(y4-y1)-(x4-x1)*(y-y1))/2
+        #A23=((x3-x1)*(y-y1)-(x-x1)*(y3-y1))/2
+        #fA2=(abs(A21)+abs(A22)+abs(A23)-abs(A2))/abs(A2);
+
+        #ip=[];acor=[];
+        #for i in arange(npt):
+        #    if abs(fA1[i])<1e-5: #pt in 1st triange
+        #       a1=A11[i]/A1[i]; a2=A12[i]/A1[i]; a3=1-a1-a2;
+        #       if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
+        #       ip.append(ip0[i,:3]); acor.append(array([a1,a2,a3]))
+        #    else:
+        #       a1=A21[i]/A2[i]; a2=A22[i]/A2[i]; a3=1-a1-a2;
+        #       if (a1<0)|(a2<0)|(i34[i]==3)|(abs(fA2[i])>=1e-5): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
+        #       ip.append(ip0[i,array([0,2,3])]); acor.append(array([a1,a2,a3]))
+        #ip=array(ip); acor=array(acor)
+
+        ##save acor
+        #return ie,ip,acor             
 
     def interp(self,xyi,*args):
         return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
@@ -601,8 +641,29 @@ class schism_grid(object):
         plot(qxi,qyi,'.',color=color,ms=ms,*args)
         pass;
 
-    def inside_grid(self,pxy):
-        x0=pxy[:,0][:,None]; y0=pxy[:,1][:,None]
+    def inside_grid(self,pxy,N=100,return_triangle=False):
+        '''
+          compute element indices that pts[xi,yi] resides. '-1' means outside of the grid domain
+          usage:
+               sind=inside_grid(pxy)
+               sind,ptr=inside_grid(pxy,return_triangle=True)
+               ptr is triange indice (=1:1st triangle; =2: 2nd triangle), used for computing area coordinates 
+        '''
+        x0=pxy[:,0][:,None]; y0=pxy[:,1][:,None]; npt=pxy.shape[0]; ptr=zeros(npt)
+
+        #if npt>N, do loop
+        if npt>N:
+           pn=[]; ptr=[]
+           for i in arange(int(ceil(npt/N))):
+               sind=arange(i*N,min((i+1)*N,npt))
+               pni,ptri=self.inside_grid(pxy[sind],N=N,return_triangle=True)
+               pn.extend(pni); ptr.extend(ptri) 
+           pn=array(pn).astype('int')
+           ptr=array(ptr).astype('int')
+           if return_triangle:
+              return pn,ptr
+           else:
+              return pn
 
         # for all trignales and first triganges of quads--
         x1=self.x[self.elnode[:,0]][None,:]; x2=self.x[self.elnode[:,1]][None,:]; x3=self.x[self.elnode[:,2]][None,:]
@@ -614,37 +675,40 @@ class schism_grid(object):
 
         fp=(a1>=0)*(a2>=0)*(a3>=0);
         pn=[];
-        for i in arange(pxy.shape[0]):
-            ind=nonzero(fp[i,:])[0]
-            if len(ind)==0:
+        for i in arange(npt):
+            sind=nonzero(fp[i,:])[0]
+            if len(sind)==0:
                 pn.append(None)
             else:
-                pn.append(ind[0])
-        pn=array(pn)
+                pn.append(sind[0])
+        pn=array(pn); ptr[pn!=None]=1
 
         # for the 2nd trignale of quads--
-        fp=self.i34==4; ind0=nonzero(fp)[0];
-        fpn=pn==None; indn=nonzero(fpn)[0];  x0=x0[indn]; y0=y0[indn] #remaining pts
-        if len(ind0)!=0 and len(indn)!=0 :
-            x1=self.x[self.elnode[fp,0]][None,:]; x2=self.x[self.elnode[fp,2]][None,:]; x3=self.x[self.elnode[fp,3]][None,:]
-            y1=self.y[self.elnode[fp,0]][None,:]; y2=self.y[self.elnode[fp,2]][None,:]; y3=self.y[self.elnode[fp,3]][None,:]
+        sind0=nonzero(self.i34==4)[0]
+        sindn=nonzero(pn==None)[0]
+        #fpn=pn==None; indn=nonzero(fpn)[0];
+        x0=x0[sindn]; y0=y0[sindn] #remaining pts
+        if len(sind0)!=0 and len(sindn)!=0:
+            x1=self.x[self.elnode[sind0,0]][None,:]; x2=self.x[self.elnode[sind0,2]][None,:]; x3=self.x[self.elnode[sind0,3]][None,:]
+            y1=self.y[self.elnode[sind0,0]][None,:]; y2=self.y[self.elnode[sind0,2]][None,:]; y3=self.y[self.elnode[sind0,3]][None,:]
 
             a1=(x0-x3)*(y2-y3)-(x2-x3)*(y0-y3)
             a2=(x1-x3)*(y0-y3)-(x0-x3)*(y1-y3)
             a3=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0)
 
             fp=(a1>=0)*(a2>=0)*(a3>=0);
-            pn2=[];
-            for i in arange(len(indn)):
-                ind=nonzero(fp[i,:])[0]
-                if len(ind)==0:
-                    pn2.append(None)
-                else:
-                    pn2.append(ind[0])
-            pn2=array(pn2)
-            pn[fpn]=ind0[pn2]
+            for i in arange(len(sindn)):
+                sind=nonzero(fp[i,:])[0]
+                if len(sind)!=0: 
+                   pn[sindn[i]]=sind0[sind[0]] 
+                   ptr[sindn[i]]=2
 
-        return pn.astype('int')
+        #format
+        pn[pn==None]=-1; pn=pn.astype('int')
+        if return_triangle:
+           return pn,ptr
+        else:
+           return pn
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
         self.shp_bnd=npz_data()
