@@ -438,7 +438,15 @@ class schism_grid(object):
         self.ine=array([array(ine[i]) for i in arange(self.np)]);
    
     def compute_acor(self,pxy,N=100):
-        #compute acor coodinate for points pts(xi,yi)
+        '''
+        compute acor coodinate for points pts(xi,yi)
+
+        usage: compute_acor(c_[xi,yi]), where xi and yi are array of coordinates
+        outputs: ie[npt],ip[npt,3],acor[npt,3]
+               ie:  the element number
+               ip:  the nodal indices of the ie
+               acor: the area coordinate
+        '''
         
         #compute the corresponding residing elem 
         npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
