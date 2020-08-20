@@ -62,9 +62,9 @@ class schism_grid(object):
               hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
 
               #add colobar
+              cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
               if cb:
                  #----new method
-                 cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
                  hc=colorbar(hg); self.hc=hc
                  if ticks is not None: 
                     if not hasattr(ticks,'__len__'): 
