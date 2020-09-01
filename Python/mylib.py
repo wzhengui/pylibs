@@ -106,20 +106,20 @@ def remove_tail(line):
 
 def datenum(*args,fmt=0):
     '''
-    usage: datenum(*args,fmt=[0,1]) 
+    usage: datenum(*args,fmt=[0,1])
        datenum(2001,1,1,10,23,0)       or datenum([[2001,1,1],[2002,1,5]])
        datenum('2001-01-01, 10:23:00') or datenum(['2001-01-1','2002-01-05'])
-       fmt=0: output num; fmt==1: output date 
+       fmt=0: output num; fmt==1: output date
     '''
 
     #input only one argument, it should be a time string
     if len(args)==1: args=args[0]
-    
-    if isinstance(args,str): 
-       #single time string 
-       dnum=datestr2num(args) 
+
+    if isinstance(args,str):
+       #single time string
+       dnum=datestr2num(args)
        if fmt!=0: dnum=num2date(dnum)
-    elif hasattr(args,"__len__"): 
+    elif hasattr(args,"__len__"):
        if isinstance(args[0],str)|hasattr(args[0],"__len__"):
           #array of time string or time array
           dnum=array([datenum(i,fmt=fmt) for i in args])
@@ -131,7 +131,7 @@ def datenum(*args,fmt=0):
        sys.exit('unknown input format')
 
     return dnum
-          
+
 def get_xtick(xi=None,fmt='%Y',method=0):
     '''
     return time ticks for plot
@@ -144,12 +144,12 @@ def get_xtick(xi=None,fmt='%Y',method=0):
        %H=09;     %-H=9;        %I=[00,12] %-I=1  (hour)
        %M=09;     %-M=9;                          (minute)
        %S=09;     %-S=9                           (second)
-    
+
        %a=MON;    %A=Monday;    %w=[0,6]          (week)
        %U=[00,53];    %W=[00,53];                 (week of year)
        %j=045;    %-j=45;                         (day of year)
        %p=[AM,PM]                                 (moring, or afternoon)
-    
+
        %c='Fri Jan 25 04:05:02 2008'
        %x='01/25/08';
        %X='04:05:02'
@@ -240,7 +240,7 @@ def mfft(xi,dt):
     input:
        xi: time series
        dt: time interval
-    
+
     output:
        period[period],afx[amplitude],pfx[phase]
     '''
@@ -276,8 +276,8 @@ def command_outputs(code,shell=True):
     '''
     Capture the command output from the system
 
-    usage: 
-         S=command_outputs('ls') 
+    usage:
+         S=command_outputs('ls')
          print(S.stderr)
          print(S.stdout) # normally this is the results
     '''
@@ -315,7 +315,7 @@ def near_pts(pts,pts0,method=0,N=100):
     usage: sind=near_pts(pts,pts0,method=0,N=100)
        pts[n,2]: xy of points
        pts0[n,2]: xy of points
-   
+
        method=0 (default): quick method by subgroups (N); method=1: slower methods
     '''
     if method==0:
@@ -398,29 +398,49 @@ def inside_polygon(pts,px,py):
        py[nploy,y]: x coordiations of polygons
        nploy is number of polygons
 
-    note: works for convex polygon only at present (e.g. for triangles)
+    note: in case polygons overlap, only one index for pts returns
     '''
-
+    #----use ray method-----------------------------
+    #check dimension
     if px.ndim==1:
        px=px[None,:]; py=py[None,:]
-  
-    npy=px.shape[0]; nv=px.shape[1];
-    ind=[];
-    for i in arange(pts.shape[0]):
-        pxi=pts[i,0]; pyi=pts[i,1]; fi=ones(npy)
+
+    #get dimensions
+    npt=pts.shape[0]; npy,nv=px.shape
+
+    if nv==3:
+        #for triangles
+        sind=[];
+        for i in arange(npt):
+            pxi=pts[i,0]; pyi=pts[i,1]; isum=ones(npy)
+            for m in arange(nv):
+                xi=c_[ones(npy)*pxi,px[:,m],px[:,mod(m+1,nv)]]
+                yi=c_[ones(npy)*pyi,py[:,m],py[:,mod(m+1,nv)]]
+                area=signa(xi,yi)
+                fp=area<=0; isum[fp]=0;
+            sindi=nonzero(isum)[0]
+            if len(sindi)!=1: sindi=array([-1])
+            sind.append(sindi)
+        sind=squeeze(array(sind))
+    else:
+        #for polygons with >3 sides; isum and isum are flags
+        isum=zeros([npt,npy])
+        x1=pts[:,0][:,None]; y1=pts[:,1][:,None]
         for m in arange(nv):
-            xi=c_[ones(npy)*pxi,px[:,m],px[:,mod(m+1,nv)]]
-            yi=c_[ones(npy)*pyi,py[:,m],py[:,mod(m+1,nv)]]
-            area=signa(xi,yi)
-            fp=area<=0; fi[fp]=0;
-        indi=nonzero(fi)[0]
-        #print(indi)
-        if len(indi)!=1: indi=array([-1])
-        ind.append(indi)
+            x2=px[:,m][None,:]; y2=py[:,m][None,:]; isumi=zeros([npt,npy])
+            for n in arange(1,nv-1):
+                x3=px[:,mod(n+m,nv)][None,:]; y3=py[:,mod(n+m,nv)][None,:]
+                x4=px[:,mod(n+m+1,nv)][None,:]; y4=py[:,mod(n+m+1,nv)][None,:]
+                #formulation for a ray to intersect with a line
+                fp=(((y1-y3)*(x2-x1)+(x3-x1)*(y2-y1))*((y1-y4)*(x2-x1)+(x4-x1)*(y2-y1)))<=0
+                isumi[fp]=1
+            isum=isum+isumi
 
-    ind=squeeze(array(ind))
-
-    return ind
+        #return polygon index for each pts, -1 means outside of all polygons
+        sind=-ones(npt).astype('int')
+        fp=isum>=nv; iy,ix=nonzero(fp)
+        sind[iy]=ix
+    return sind
 
 def signa(x,y):
     #compute signed area
@@ -471,7 +491,7 @@ def lpfilt(data,delta_t,cutoff_f):
     return fdata
 
 def reload(gfunc):
-    #reload modules,mainly used for coding debug 
+    #reload modules,mainly used for coding debug
     #usage: reload(globals())
     import inspect,imp
     mods=['mylib','schism_file','mpas_file']
@@ -479,13 +499,13 @@ def reload(gfunc):
         imp.reload(sys.modules[modi])
         #get all module functions
         fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
-        for fsi in afs: 
+        for fsi in afs:
             if inspect.getmodule(fsi[1]).__name__!=modi: continue
-            if fsi[0] not in gfunc.keys(): continue 
-            fs.append(fsi)  
+            if fsi[0] not in gfunc.keys(): continue
+            fs.append(fsi)
         #refresh module functions
         for fsi in fs:
-            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1] 
+            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
     return
 
 def wipe(n=50):
@@ -875,17 +895,17 @@ def ReadNC(fname,med=1,order=0):
         F.file_format=C.file_format
 
         #read dims
-        ncdims=[i for i in C.dimensions]; 
+        ncdims=[i for i in C.dimensions];
         F.dimname=ncdims; F.dims=[]; F.dim_unlimited=[]
         for i in ncdims:
             F.dims.append(C.dimensions[i].size)
             F.dim_unlimited.append(C.dimensions[i].isunlimited())
-        
+
         #read attrbutes
         ncattrs=C.ncattrs(); F.attrs=ncattrs
         for i in ncattrs:
             exec('F.{}=C.getncattr("{}")'.format(i,i))
-           
+
         ncvars=[i for i in C.variables]; F.vars=ncvars
         #read variables
         for i in ncvars:
@@ -954,26 +974,26 @@ def WriteNC(C,fname,med=1,order=0):
     else:
         #----write NC files-------------
         fid=Dataset(fname,'w',format=C.file_format); #C.file_format
-       
+
         #set attrs
         fid.setncattr('file_format',C.file_format)
         if hasattr(C,'attrs'):
            for i in C.attrs:
                exec("fid.setncattr('{}',C.{})".format(i,i))
-        
+
         #set dimension
         for i in range(len(C.dims)):
-            if hasattr(C,'dim_unlimited'): 
+            if hasattr(C,'dim_unlimited'):
                dim_flag=C.dim_unlimited[i]
             else:
                dim_flag=False
-     
+
             if dim_flag is True:
                fid.createDimension(C.dimname[i],None)
             else:
                fid.createDimension(C.dimname[i],C.dims[i])
 
-        #set variable 
+        #set variable
         if order==0:
             for vari in C.vars:
                 vi=eval('C.{}'.format(vari));
