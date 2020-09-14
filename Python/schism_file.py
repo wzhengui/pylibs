@@ -532,8 +532,15 @@ class schism_grid(object):
         ##save acor
         #return ie,ip,acor             
 
-    def interp(self,xyi,*args):
-        return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
+   
+    def interp(self,xyi):
+        #interpolate to get depth at xyi
+        ie,ip,acor=self.compute_acor(xyi)
+        dpi=(self.dp[ip]*acor).sum(axis=1)
+        return dpi
+
+    #def interp(self,xyi,*args):
+    #    return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
 
     def write_hgrid(self,fname,elnode=1,bnd=0,Info=None):
         with open(fname,'w+') as fid:
