@@ -84,6 +84,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
       import skill_metrics as sm
    except:
       pass
+   try:
+      import urllib 
+   except:
+      pass
 
    #for python3.7.7
    #pip install matplotlib scipy pyshp netcdf4 xlsxwriter mpi4py pyproj sympy math#skillmetrics
