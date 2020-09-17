@@ -59,7 +59,10 @@ class schism_grid(object):
               if squeeze(array([levels])).size==1:
                  levels=linspace(vmin,vmax,int(levels))
 
-              hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+              if vmin==vmax:
+                 hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
+              else:
+                 hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
 
               #add colobar
               cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
