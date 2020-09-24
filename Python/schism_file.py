@@ -545,7 +545,7 @@ class schism_grid(object):
     #def interp(self,xyi,*args):
     #    return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
 
-    def write_hgrid(self,fname,elnode=1,bnd=0,Info=None):
+    def write_hgrid(self,fname,elnode=1,bndfile=None,Info=None):
         with open(fname,'w+') as fid:
             fid.write('!grd info:{}\n'.format(Info))
             fid.write('{} {}\n'.format(self.ne,self.np))
@@ -558,6 +558,9 @@ class schism_grid(object):
                     #if self.i34[i]==4: fid.write('{:<6d} {:2d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
                     if self.i34[i]==3: fid.write('{:<d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
                     if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
+
+            #write bnd information
+            if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
 
     def split_quads(self,angle_min=60,angle_max=120,fname='new.gr3'):
         if not hasattr(self,'index_bad_quad'): self.check_quads(angle_min,angle_max)

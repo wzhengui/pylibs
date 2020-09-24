@@ -926,6 +926,8 @@ def ReadNC(fname,med=1,order=0):
                 fi.val=fi.val.transpose(nm)
 
             exec('F.{}=fi'.format(i))
+        #close
+        C.close()
 
         return F
 
