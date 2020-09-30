@@ -200,10 +200,14 @@ def save_npz(fname,C):
     #print(save_str)
     exec(save_str)
 
-def loadz(fname,med=1):
+def loadz(fname,med=1,svars=None):
     #med=1: return class format; med=2:return dict format
+    #svars: list of variables to be read
     data0=load(fname,allow_pickle=True)
-    keys0=data0.keys()
+    if svars==None:
+       keys0=data0.keys()
+    else:
+       keys0=svars
 
     if med==1:
         zdata=npz_data();

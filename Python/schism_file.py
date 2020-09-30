@@ -128,7 +128,9 @@ class schism_grid(object):
            self.hg=hg;
            return hg
 
-    def plot_bnd(self,PlotSep=0,c='k',**args):
+    def plot_bnd(self,PlotSep=0,c='k',ax=None,**args):
+        if ax!=None: sca(ax) 
+
         if PlotSep==0:
             bi=[]
             for i in arange(self.nob):
