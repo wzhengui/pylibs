@@ -1,5 +1,10 @@
+#----------------------------------------------------------------
 #how to create a virtual disk
+#----------------------------------------------------------------
 1). vboxmanage createhd --filename 3TB.vdi --size 3000000 --format VDI --variant Standard
 2). close ubuntu -> add the disk in setting/storage -> open ubuntu
 3). open disks -> select the disk and format it
 4). edit /etc/fstab to mount it
+
+to modify size of the virtual disk
+vboxmanage modifyhd st.vdi --resize 300
