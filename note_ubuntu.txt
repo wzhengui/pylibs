@@ -6,5 +6,10 @@
 3). open disks -> select the disk and format it
 4). edit /etc/fstab to mount it
 
-to modify size of the virtual disk
-vboxmanage modifyhd st.vdi --resize 300
+5). to modify size of the virtual disk
+    vboxmanage modifyhd st.vdi --resize 300
+
+6). to move a disk
+ Open the Oracle VM VirtuaBox Manager -> then Click on File -> Virtual Media Manager (or Ctrl+D) -> Delete the hard disk entry in question (select and press "Del" on keyboard) -> add the disk again
+
+
