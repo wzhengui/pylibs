@@ -124,8 +124,14 @@ def datenum(*args,fmt=0):
           #array of time string or time array
           dnum=array([datenum(i,fmt=fmt) for i in args])
        else:
+          dargs=[*args]
+          #if month >12: convert
+          if dargs[1]>12:
+             dargs[0]=dargs[0]+int(dargs[1]/12)
+             dargs[1]=max(1,dargs[1]%12)
+
           #time array (e.g. [2002,1,1])
-          dnum=datetime.datetime(*args)
+          dnum=datetime.datetime(*dargs)
           if fmt==0: dnum=date2num(dnum)
     else:
        sys.exit('unknown input format')
@@ -181,7 +187,7 @@ def get_xtick(xi=None,fmt='%Y',method=0):
     xtick=ti;
     xticklabel=array([num2date(tii).strftime(fmt) for tii in ti]);
 
-    return xtick,xticklabel
+    return [xtick,xticklabel]
 
 #-------loadz------------------------------------------------------------------
 class npz_data(object):
