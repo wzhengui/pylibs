@@ -187,7 +187,7 @@ def get_xtick(xi=None,fmt='%Y',method=0):
     xtick=ti;
     xticklabel=array([num2date(tii).strftime(fmt) for tii in ti]);
 
-    return xtick,xticklabel
+    return [xtick,xticklabel]
 
 #-------loadz------------------------------------------------------------------
 class npz_data(object):
