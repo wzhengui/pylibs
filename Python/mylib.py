@@ -326,17 +326,26 @@ def near_pts(pts,pts0,method=0,N=100):
         p=pts[:,0]+1j*pts[:,1]
         p0=pts0[:,0]+1j*pts0[:,1]
 
-        N=min(N,len(p)-1);
+        # N=min(N,len(p)-1);
+        # #--divide pts into subgroups based on dist, each group size is about N---------
+        # ps0=[]; ps=[]; ds=[]; inds=[]
+        # i0=0; mval=1e50; pflag=p==None
+        # while(True):
+        #     ps0.append(p[i0]);
+        #     dist=abs(p-p[i0]); dist[pflag]=mval;
+        #     ind=argsort(dist); sdist=dist[ind]; mds=sdist[N]; i0=ind[N]
+        #     fp=dist<mds; psi=p[fp]; dsi=max(dist[fp]); pflag[fp]=True;
+        #     ps.append(psi); ds.append(dsi); inds.append(nonzero(fp)[0])
+        #     if mds==mval: break
+
+        N=min(N,len(p));
         #--divide pts into subgroups based on dist, each group size is about N---------
-        ps0=[]; ps=[]; ds=[]; inds=[]
-        i0=0; mval=1e50; pflag=p==None
+        ps0=[]; ps=[]; ds=[]; inds=[]; inum=arange(len(p))
         while(True):
-            ps0.append(p[i0]);
-            dist=abs(p-p[i0]); dist[pflag]=mval;
-            ind=argsort(dist); sdist=dist[ind]; mds=sdist[N]; i0=ind[N]
-            fp=dist<mds; psi=p[fp]; dsi=max(dist[fp]); pflag[fp]=True;
-            ps.append(psi); ds.append(dsi); inds.append(nonzero(fp)[0])
-            if mds==mval: break
+            if len(inum)==0: break
+            dist=abs(p[inum]-p[inum[0]]); sind=argsort(dist); inum=inum[sind]; dist=dist[sind]; sN=min(N,len(inum))
+            ps0.append(inum[0]); ps.append(p[inum[:sN]]); ds.append(dist[sN-1]); inds.append(inum[:sN])
+            inum=inum[sN:]
 
         #---find nearest pts for each subgroup-----------------------------------------
         inds0=[]
