@@ -2,7 +2,7 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
-def get_subplot_position(p0,dxy,ds,dc=None,figsize=None,dc=None):
+def get_subplot_position(p0,dxy,ds,dc=None,figsize=None):
     '''
     return subplot position
     Input:
