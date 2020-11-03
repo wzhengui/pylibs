@@ -2,14 +2,15 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
-def get_subplot_position(p0,dxy,ds,dc=None,figsize=None):
+def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
     '''
     return subplot position
     Input:
        p0=[x0,y0,xm,ym]: upper left subplot position
        dxy=[dx,dy]:      space between subplots 
        ds=[ny,nx]:       subplot structure 
-       dc=[xmc,dxc]:    add colorbar position with width of xmc, and distance dxc from axes
+       dc=[xmc,dxc]:     add colorbar position with width of xmc, and distance dxc from axes
+       sindc=[:nplot]:   indices of subplot colorbars          
        fsize=[fw,fh]:    plot out subplot in figure(figsize=fsize)
     '''
 
@@ -17,8 +18,11 @@ def get_subplot_position(p0,dxy,ds,dc=None,figsize=None):
     x0,y0,xm,ym=p0; dx,dy=dxy; ny,nx=ds
     ps=array([[[x0+i*(xm+dx),y0-k*(ym+dy),xm,ym] for i in arange(nx)] for k in arange(ny)])
     if dc!=None: 
-       xmc,dxc=dc
-       pc=array([[[x0+xm+i*(xm+dx)+dxc,y0-k*(ym+dy),xmc,ym] for i in arange(nx)] for k in arange(ny)])
+       xmc,dxc=dc; pc=zeros(ds).astype('O');  pc[:]=None
+       if sindc!=None: pc.ravel()[array(sindc)]=0
+       for k in arange(ny):
+           for i in arange(nx): 
+               if pc[k,i]!=None: pc[k,i]=[x0+xm+i*(xm+dx)+dxc,y0-k*(ym+dy),xmc,ym]
 
     #plot subplots
     if figsize!=None:
@@ -27,8 +31,8 @@ def get_subplot_position(p0,dxy,ds,dc=None,figsize=None):
            for k in arange(ny):
                axes(position=ps[k,i]); xticks([]); yticks([])
                #setp(gca(),xticklabels=[],yticklabels=[])
-               if dc!=None:
-                  axes(position=pc[k,i]); xticks([]); yticks([])
+               if dc!=None: 
+                  if pc[k,i]!=None: axes(position=pc[k,i]); xticks([]); yticks([])
     if dc!=None: 
        return [ps,pc]
     else:
