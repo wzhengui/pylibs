@@ -1,36 +1,39 @@
 #/usr/bin/env python3
 from pylib import *
+from pylab import *
 
-class schism_grid(object):
+class schism_grid:
     def __init__(self):
         pass
 
     def plot_grid(self,ax=None,method=0,plotz=0,value=None,mask=None,ec='k',fc='None',
              lw=0.1,levels=None,ticks=None,clim=None,extend='both',cb=True,**args):
-        #code for plot grid with default color value (grid depth)
-        #method=0: using tricontourf; method=1: using PolyCollection (old method)
-        #plotz=0: plot grid only; plotz=1: plot color 
-        #value: color value size(np,or ne)
-        #mask: size(ne); only plot elements (mask=True))
-        #ec: color of grid line;  fc: element color; lw: grid line width
-        #levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot 
-        #ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
-        #clim=[vmin,vmax]: value range for plot/colorbar
-        #cb=False: not add colorbar
+        '''
+        plot grid with default color value (grid depth)
+        method=0: using tricontourf; method=1: using PolyCollection (old method)
+        plotz=0: plot grid only; plotz=1: plot color
+        value: color value size(np,or ne)
+        mask: size(ne); only plot elements (mask=True))
+        ec: color of grid line;  fc: element color; lw: grid line width
+        levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
+        ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
+        clim=[vmin,vmax]: value range for plot/colorbar
+        cb=False: not add colorbar
+        '''
 
         if ec==None: ec='None'
         if ax==None: ax=gca();
-        if method==0: 
+        if method==0:
            fp3=self.i34==3; fp4=self.i34==4
            if mask is not None: fp3=fp3*mask; fp4=fp4*mask
            if (plotz==0)|(ec!='None'): #compute lines of grid
               #tri
-              tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]  
+              tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
               x3=self.x[tri]; y3=self.y[tri]
               x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
               y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
               #quad
-              quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]] 
+              quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]]
               x4=self.x[quad]; y4=self.y[quad]
               x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
               y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
@@ -38,16 +41,16 @@ class schism_grid(object):
            if plotz==0:
               hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
            elif plotz==1:
-              tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]  
+              tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
               #determine value
               if value is None:
                  value=self.dp
-              else: 
+              else:
                  if len(value)==self.ne:
                     value=self.interp_elem_to_node(value=value)
                  elif len(value)!=self.np:
                     sys.exit('value has wrong size: {}'.format(value.shape))
-                    
+
               #detemine clim
               if clim is None:
                  vmin,vmax=min(value),max(value)
@@ -69,23 +72,21 @@ class schism_grid(object):
               if cb:
                  #----new method
                  hc=colorbar(hg); self.hc=hc
-                 if ticks is not None: 
-                    if not hasattr(ticks,'__len__'): 
+                 if ticks is not None:
+                    if not hasattr(ticks,'__len__'):
                        hc.set_ticks(linspace(vmin,vmax,int(ticks)))
                     else:
                        hc.set_ticks(ticks)
-                 
                  #----old method
                  #hc=colorbar(hg); self.hc=hc;
                  #if ticks is not None: hc.set_ticks(ticks)
                  #hc.set_clim([vmin,vmax]);
 
- 
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
            self.hg=hg
-           return hg 
+           return hg
         elif method==1:
            #creat polygon
            xy4=c_[self.x,self.y][self.elnode];
@@ -115,13 +116,13 @@ class schism_grid(object):
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
            else:
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
-          
+
               #add colorbar
               if cb:
                  hc=colorbar(hg); self.hc=hc;
                  if ticks is not None: hc.set_ticks(ticks)
                  hc.set_clim(clim);
-              
+
            #add to figure
            ax.add_collection(hg)
            ax.autoscale_view()
@@ -129,7 +130,7 @@ class schism_grid(object):
            return hg
 
     def plot_bnd(self,PlotSep=0,c='k',ax=None,**args):
-        if ax!=None: sca(ax) 
+        if ax!=None: sca(ax)
 
         if PlotSep==0:
             bi=[]
@@ -441,7 +442,7 @@ class schism_grid(object):
             [ine[indi].append(i) for indi in inds]
         self.nne=nne
         self.ine=array([array(ine[i]) for i in arange(self.np)]);
-   
+
     def compute_acor(self,pxy,N=100):
         '''
         compute acor coodinate for points pts(xi,yi)
@@ -452,11 +453,11 @@ class schism_grid(object):
                ip:  the nodal indices of the ie
                acor: the area coordinate
         '''
-        #compute the corresponding residing elem 
+        #compute the corresponding residing elem
         npt=pxy.shape[0]
         ie,ptr=self.inside_grid(pxy,return_triangle=True)
-       
-        #indices 
+
+        #indices
         sind=nonzero(ptr!=0)[0]; sinda=nonzero(ptr==2)[0]
 
         #---------------------------------------------------
@@ -468,7 +469,7 @@ class schism_grid(object):
         ip0[sinda,:]=ip0[sinda][:,array([0,2,3,3])] #for 2nd triangle
         ip0=ip0[sind,:3] #pts inside grid
 
-        #(x,y) for all triangles 
+        #(x,y) for all triangles
         x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x=pxy[sind,0]
         y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y=pxy[sind,1]
 
@@ -489,21 +490,21 @@ class schism_grid(object):
 
         ip=-ones([npt,3]).astype('int'); acor=-ones([npt,3])
         ip[sind]=ip0; acor[sind]=array(acor0)
-        
-        return ie,ip,acor 
 
-        #-------old method--------------------------------------------------- 
-        ##compute the corresponding residing elem 
+        return ie,ip,acor
+
+        #-------old method---------------------------------------------------
+        ##compute the corresponding residing elem
         #npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
         #while(len(pind)>0):
         #     #get the first N pts)
         #     if len(pind)<=N:
         #        pindi=pind
         #     else:
-        #        pindi=pind[:N] 
+        #        pindi=pind[:N]
         #     pind=setdiff1d(pind,pindi)
         #     ie=r_[ie,self.inside_grid(pxy[pindi])]
-        #ie=ie.astype('int') 
+        #ie=ie.astype('int')
 
         ##compute area coordinate
         #ip0=self.elnode[ie]; i34=self.i34[ie]
@@ -535,9 +536,9 @@ class schism_grid(object):
         #ip=array(ip); acor=array(acor)
 
         ##save acor
-        #return ie,ip,acor             
+        #return ie,ip,acor
 
-   
+
     def interp(self,xyi):
         #interpolate to get depth at xyi
         ie,ip,acor=self.compute_acor(xyi)
@@ -662,7 +663,7 @@ class schism_grid(object):
           usage:
                sind=inside_grid(pxy)
                sind,ptr=inside_grid(pxy,return_triangle=True)
-               ptr is triange indice (=1:1st triangle; =2: 2nd triangle), used for computing area coordinates 
+               ptr is triange indice (=1:1st triangle; =2: 2nd triangle), used for computing area coordinates
         '''
         x0=pxy[:,0][:,None]; y0=pxy[:,1][:,None]; npt=pxy.shape[0]; ptr=zeros(npt)
 
@@ -672,7 +673,7 @@ class schism_grid(object):
            for i in arange(int(ceil(npt/N))):
                sind=arange(i*N,min((i+1)*N,npt))
                pni,ptri=self.inside_grid(pxy[sind],N=N,return_triangle=True)
-               pn.extend(pni); ptr.extend(ptri) 
+               pn.extend(pni); ptr.extend(ptri)
            pn=array(pn).astype('int')
            ptr=array(ptr).astype('int')
            if return_triangle:
@@ -714,8 +715,8 @@ class schism_grid(object):
             fp=(a1>=0)*(a2>=0)*(a3>=0);
             for i in arange(len(sindn)):
                 sind=nonzero(fp[i,:])[0]
-                if len(sind)!=0: 
-                   pn[sindn[i]]=sind0[sind[0]] 
+                if len(sind)!=0:
+                   pn[sindn[i]]=sind0[sind[0]]
                    ptr[sindn[i]]=2
 
         #format
@@ -802,7 +803,7 @@ class schism_grid_ll(schism_grid):
                if hasattr(gr3,pattr):
                   exec('self.'+pattr+'=gr3.'+pattr)
 
-class schism_bpfile(object):
+class schism_bpfile:
     def __init__(self):
         pass
 
@@ -816,14 +817,14 @@ class schism_bpfile(object):
         self.x=data[:,1].astype(float)
         self.y=data[:,2].astype(float)
         self.z=data[:,3].astype(float)
-       
+
         upxy,ind=unique(self.x+1j*self.y,return_index=True)
         ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
         self.ux=ux; self.uy=uy;self.uz=uz;
         #get unique station data.
-        if data.shape[1]==5: 
+        if data.shape[1]==5:
            self.station=data[:,4]
-           self.ustation=self.station[ind]; 
+           self.ustation=self.station[ind];
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
            self.ustation=self.station[ind]
@@ -848,7 +849,7 @@ class schism_bpfile(object):
                ht.append(hti)
            self.ht=array(ht)
 
-    def compute_acor(self,gd): 
+    def compute_acor(self,gd):
         #compute areal coordinates, and gd is the schism grid
         self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
 

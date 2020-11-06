@@ -1,5 +1,6 @@
 #!/usr/bin/evn python3
 from pylib import *
+from pylab import *
 
 #-------misc-------------------------------------------------------------------
 def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
@@ -7,21 +8,21 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
     return subplot position
     Input:
        p0=[x0,y0,xm,ym]: upper left subplot position
-       dxy=[dx,dy]:      space between subplots 
-       ds=[ny,nx]:       subplot structure 
+       dxy=[dx,dy]:      space between subplots
+       ds=[ny,nx]:       subplot structure
        dc=[xmc,dxc]:     add colorbar position with width of xmc, and distance dxc from axes
-       sindc=[:nplot]:   indices of subplot colorbars          
+       sindc=[:nplot]:   indices of subplot colorbars
        fsize=[fw,fh]:    plot out subplot in figure(figsize=fsize)
     '''
 
     #compute subplot position
     x0,y0,xm,ym=p0; dx,dy=dxy; ny,nx=ds
     ps=array([[[x0+i*(xm+dx),y0-k*(ym+dy),xm,ym] for i in arange(nx)] for k in arange(ny)])
-    if dc!=None: 
+    if dc!=None:
        xmc,dxc=dc; pc=zeros(ds).astype('O');  pc[:]=0
        if sindc!=None: pc.ravel()[setdiff1d(arange(prod(ds)),array(sindc))]=0
        for k in arange(ny):
-           for i in arange(nx): 
+           for i in arange(nx):
                if pc[k,i]!=None: pc[k,i]=[x0+xm+i*(xm+dx)+dxc,y0-k*(ym+dy),xmc,ym]
 
     #plot subplots
@@ -31,9 +32,9 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
            for k in arange(ny):
                axes(position=ps[k,i]); xticks([]); yticks([])
                #setp(gca(),xticklabels=[],yticklabels=[])
-               if dc!=None: 
+               if dc!=None:
                   if pc[k,i]!=None: axes(position=pc[k,i]); xticks([]); yticks([])
-    if dc!=None: 
+    if dc!=None:
        return [ps,pc]
     else:
        return ps
@@ -41,21 +42,18 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
 def close_data_loop(xi):
     '''
     constructe data loop along the last dimension.
-    if xi[...,0]!=xi[...,-1], then,add xi[...,0] in the end
+    if xi[...,:,0]!=xi[...,:,-1], then,add xi[...,:,0] in the end
     '''
-    if len(xi)<3:
-        vi=xi;
+    if xi.ndim==1:
+       if xi[0]!=xi[-1]:
+          vi=r_[xi,xi[0]];
+       else:
+          vi=xi
     else:
-        if xi.ndim==1:
-            if xi[0]!=xi[-1]:
-                vi=r_[xi,xi[0]];
-            else:
-                vi=xi
-        else
-            if array_equal(xi[...,0],xi[...,-1]):
-                vi=xi
-            else:
-                vi=c_[xi,xi[...,0]]
+       if array_equal(xi[...,:,0].ravel(),xi[...,:,-1].ravel()):
+          vi=xi
+       else:
+          vi=c_[xi,xi[...,:,0][...,None]]
     return vi
 
 #-----find all continous sections of a time series
@@ -84,66 +82,6 @@ def find_continuous_sections(xi,dx):
     S.section_max=array(section_max)
 
     return S
-
-#-------str2num----------------------------------------------------------------
-def str2num(line,*args):
-    num=str2num_process(line,*args)
-    if isinstance(num[0],float):
-        num=num.astype('float64')
-    else:
-        num=[s.astype('float64') for s in num]
-        num=array(num)
-    return num
-
-@np.vectorize
-def str2num_process(line,*args):
-    if len(args)>0:
-        if len(args)>1:
-            for i in range(len(args)-1):
-                line=line.replace(arg)
-        line=line.replace(args[0],',')
-    else:
-        line=line.replace(';',',').replace(' ',',')
-    linei=[s for s in line.split(',') if s]
-    fc=np.vectorize(lambda x: np.float64(x))
-    return fc(linei).astype('object')
-
-@np.vectorize
-def remove_tail(line):
-    li=line.rstrip();
-    ind=li.find('!');
-    if ind!=-1:
-        li=li[:ind]
-    ind=li.find('=');
-    if ind!=-1:
-        li=li[:ind]
-    return li
-
-#-------date_proc--------------------------------------------------------------
-#def datenum_0(*args):
-#    if len(args)==1:
-#        args=args[0];
-#
-#    args=array(args)
-#    args=args.astype('int')
-#    return datetime.datetime(*args)
-#
-#def datenum(*args,doy=0):
-#    #usage: datenum(2001,1,1)
-#    args=array(args)
-#    e1=args[0]
-#
-#    if hasattr(e1, "__len__"):
-#        if not hasattr(e1[0],"__len__"):
-#            f=datenum_0(*e1)
-#        else:
-#            f=apply_along_axis(datenum_0,1,e1)
-#    else:
-#        f=datenum_0(*args)
-#    if doy==0:
-#        return date2num(f)
-#    else:
-#        return f
 
 def datenum(*args,fmt=0):
     '''
@@ -211,12 +149,12 @@ def get_xtick(xi=None,fmt='%Y',method=0):
     elif method==1:
         if xi==None: xi=[1950,2050]
         ti=[]
-        [ti.append(datenum(yeari,1,1)) for yeari in arange(xi[0],xi[-1])];
+        [ti.append(datenum(yeari,1,1)) for yeari in arange(xi[0],xi[-1])]
         ti=array(ti)
     elif method==2:
         if xi==None: xi=[1950,2050]
         ti=[];
-        [[ti.append(datenum(yeari,j+1,1)) for j in arange(12)] for yeari in arange(xi[0],xi[-1])];
+        [[ti.append(datenum(yeari,j+1,1)) for j in arange(12)] for yeari in arange(xi[0],xi[-1])]
         ti=array(ti)
     elif method==3:
         if xi==None: xi=[1950,2050]
@@ -226,41 +164,53 @@ def get_xtick(xi=None,fmt='%Y',method=0):
 
     #---------------------------------------------------
     xtick=ti;
-    xticklabel=array([num2date(tii).strftime(fmt) for tii in ti]);
+    xticklabel=array([num2date(tii).strftime(fmt) for tii in ti])
 
     return [xtick,xticklabel]
 
 #-------loadz------------------------------------------------------------------
-class npz_data(object):
+class npz_data:
+    '''
+    self-defined data structure by Zhengui Wang.  Attributes are used to store data
+    '''
     def __init__(self):
         pass
 
-def save_npz(fname,C):
-    #npz_vars=[ npz_vari.split(':')[0] for npz_vari in C.VINFO ];
-    npz_vars=list(C.__dict__.keys())
+def save_npz(fname,data):
+    '''
+    save data as self-defined "fname.npz" format
+    '''
+    npz_vars=list(data.__dict__.keys())
     if 'VINFO' in npz_vars: npz_vars.remove('VINFO')
 
-    save_str='savez_compressed("{}" '.format(fname);
+    save_str='savez_compressed("{}" '.format(fname)
     for vari in npz_vars:
-        save_str=save_str+',{}=C.{}'.format(vari,vari)
-    save_str=save_str+')';
+        save_str=save_str+',{}=data.{}'.format(vari,vari)
+    save_str=save_str+')'
     #print(save_str)
     exec(save_str)
 
-def loadz(fname,med=1,svars=None):
-    #med=1: return class format; med=2:return dict format
-    #svars: list of variables to be read
+def loadz(fname,svars=None,med=1):
+    '''
+    load self-defined data "fname"
+        med=1: return class format; med=2:return dict format
+        svars: list of variables to be read
+    '''
+
+    #get data info
     data0=load(fname,allow_pickle=True)
     if svars==None:
        keys0=data0.keys()
     else:
        keys0=svars
 
+    #define output format
     if med==1:
         zdata=npz_data();
     else:
         zdata2={}
 
+    #extract data, and VINFO is used to store data info
     VINFO=[]
     for keyi in keys0:
         datai=data0[keyi];
@@ -278,8 +228,8 @@ def loadz(fname,med=1,svars=None):
             vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
         VINFO.append(vinfo)
     VINFO=array(VINFO)
-    if med==1: zdata.VINFO=VINFO
 
+    if med==1: zdata.VINFO=VINFO
     return zdata if med==1 else zdata2
 
 #-------mfft-------------------------------------------------------------------
@@ -302,27 +252,6 @@ def mfft(xi,dt):
     period=dt*N/arange(1,N//2);
     return period,afx,pfx
 
-#def compute_cofficient(myi,oyi):
-#    #compute different evaluation coefficients
-#    N=len(myi)
-#    mmyi=myi.mean(); moyi=oyi.mean();
-#    emyi=myi-mmyi; eoyi=oyi-moyi; e=myi-oyi
-#    stdm=std(emyi); stdo=std(eoyi)
-#
-#    SS_tot=sum((oyi-moyi)**2)
-#    SS_reg=sum((myi-moyi)**2);
-#    SS_res=sum(e**2);
-#
-#    #evaluation coefficient
-#    ms=1-SS_res/sum((abs(myi-moyi)+abs(oyi-moyi))**2) #model skill
-#    r=mean((myi-mmyi)*(oyi-moyi))/stdm/stdo #correlation coefficient
-#    r2=1-SS_res/SS_tot  #R2
-#    rmse=sqrt(sum(e**2)/N) #RMSE
-#    mae=mean(abs(e))         #MAE
-#    me=mean(e)               #ME
-#
-#    return [ms,r,r2,rmse,mae,me]
-
 def command_outputs(code,shell=True):
     '''
     Capture the command output from the system
@@ -342,22 +271,6 @@ def command_outputs(code,shell=True):
     out.stdout=stdout
     out.stderr=stderr
     return out
-
-#def near_pts(pts,pts0):
-#    #pts[n,2]: xy of points
-#    #pts0[n,2]: xy of points
-#    #return index of pts0(x0,y0) that pts(x,y) is nearest
-#    x=pts[:,0]; y=pts[:,1]
-#    x0=pts0[:,0]; y0=pts0[:,1]
-#    dist=(x[None,:]-x0[:,None])**2+(y[None,:]-y0[:,None])**2
-#
-#    ind=[];
-#    for i in arange(x.shape[0]):
-#        disti=dist[:,i];
-#        ind.append(nonzero(disti==min(disti))[0][0])
-#    ind=array(ind);
-#
-#    return ind
 
 def near_pts(pts,pts0,method=0,N=100):
     '''
@@ -503,16 +416,21 @@ def inside_polygon(pts,px,py):
     return sind
 
 def signa(x,y):
-    #compute signed area
+    '''
+        compute signed area for triangles along the last dimension (x[...,0:3],y[...,0:3])
+    '''
     if x.ndim==1:
         area=((x[0]-x[2])*(y[1]-y[2])-(x[1]-x[2])*(y[0]-y[2]))/2
     elif x.ndim==2:
-        area=((x[:,0]-x[:,2])*(y[:,1]-y[:,2])-(x[:,1]-x[:,2])*(y[:,0]-y[:,2]))/2
-    area=squeeze(area)
+        # area=((x[:,0]-x[:,2])*(y[:,1]-y[:,2])-(x[:,1]-x[:,2])*(y[:,0]-y[:,2]))/2
+        area=((x[...,0]-x[...,2])*(y[...,1]-y[...,2])-(x[...,1]-x[...,2])*(y[...,0]-y[...,2]))/2
+    area=np.squeeze(area)
     return area
 
 def mdivide(A,B):
-    #perform matrix division B/A
+    '''
+        perform matrix division B/A
+    '''
     if A.ndim==1: A=A[None,:]
     if B.ndim==1: B=B[None,:]
     A2=inv(A@A.T);
@@ -520,14 +438,21 @@ def mdivide(A,B):
     return squeeze(B2@A2)
 
 def lpfilt(data,delta_t,cutoff_f):
-    #import gc
-    #low pass filter for 1D (data[time]) or 2D (data[time,array]) array;
+    '''
+    low pass filter for 1D (data[time]) or nD (data[...,time]) array along the last dimension
+    '''
+    #import gc #discard
+
     ds=data.shape
-    mn=data.mean(axis=0)
-    data=data-mn
-    P=fft(data,axis=0)
-    #data=None; gc.collect()
-    N=ds[0];
+
+    #fft original data
+    mdata=data.mean(axis=-1)[...,None]
+    print(data.shape,mdata.shape)
+    data=data-mdata
+    fdata=fft(data,axis=-1)
+
+    #desgin filter
+    N=ds[-1];
     filt=ones(N)
     k=int(floor(cutoff_f*N*delta_t))
     filt[k]=0.715
@@ -538,53 +463,17 @@ def lpfilt(data,delta_t,cutoff_f):
     filt[N-(k+3)]=0.24
     filt[N-(k+2)]=0.715
 
-    #expand filter dimensions
-    fstr=',None'*(len(ds)-1); s=npz_data()
-    exec('s.filt=filt[:{}]'.format(fstr))
-
     #remove high freqs
-    P=P*s.filt
+    fdata=fdata*filt
 
     #lp results
-    fdata=real(ifft(P,axis=0))+mn
+    lfdata=real(ifft(fdata,axis=-1))+mdata
 
-    return fdata
-
-#def reload(gfunc):
-#    #reload modules,mainly used for coding debug
-#    #usage: reload(globals())
-#    import inspect,imp
-#    mods=['mylib','schism_file','mpas_file']
-#    for modi in mods:
-#        imp.reload(sys.modules[modi])
-#        #get all module functions
-#        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
-#        for fsi in afs:
-#            if inspect.getmodule(fsi[1]).__name__!=modi: continue
-#            if fsi[0] not in gfunc.keys(): continue
-#            fs.append(fsi)
-#        #refresh module functions
-#        for fsi in fs:
-#            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
-#    return
-
-def wipe(n=50):
-    print('\n'*n)
-    return
-
-#def clear_globals():
-#    allvar = [var for var in globals() if var[0] != "_"]
-#    for var in allvar:
-#       #global var
-#       #del var;
-#       #del globals()[var]
-#       #exec('del global()['+var+']')
-#       exec('global '+var)
-#       exec('del '+var)
+    return lfdata
 
 def smooth(xi,N):
     '''
-    smooth average:  
+    smooth average:
        xi: time series
        N: window size (if N is even, then N=N+1)
     '''
@@ -610,17 +499,20 @@ def smooth(xi,N):
     SX=np.divide(X,SN)
     return SX;
 
-def DaytimeLength(Lat,Doy):
-    #calculate daytime length
-    #D=DaytimeLength(Lat,Doy)
-    #Lat: latitude, Doy: (1-365), sunrise=12-D/2, sunset=12+D/2
-    P=arcsin(0.39795*cos(0.2163108 + 2*arctan(0.9671396*tan(0.00860*(Doy-186)))));
-    T=(sin(0.8333*pi/180)+sin(Lat*pi/180)*sin(P))/cos(Lat*pi/180)/cos(P);
-    D=24-(24/pi)*arccos(T);
-    return D
+def daytime_length(lat,doy):
+    '''
+    calculate daytime length based on latitutde and day_of_year
+    lat: latitude, doy: (1-365), sunrise=12-daytimelength/2, sunset=12+daytimelength/2
+    '''
+    P=arcsin(0.39795*cos(0.2163108 + 2*arctan(0.9671396*tan(0.00860*(doy-186)))));
+    T=(sin(0.8333*pi/180)+sin(lat*pi/180)*sin(P))/cos(lat*pi/180)/cos(P);
+    dt=24-(24/pi)*arccos(T);
+    return dt
 
 def move_figure(f, x, y):
-    """Move figure's upper left corner to pixel (x, y)"""
+    '''
+    Move figure (f=gcf()) to upper left corner to pixel (x, y)
+    '''
     backend = matplotlib.get_backend()
     if backend == 'TkAgg':
         f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
@@ -632,10 +524,12 @@ def move_figure(f, x, y):
         f.canvas.manager.window.move(x, y)
 
 def proj(fname0,format0,proj0,fname1,format1,proj1):
-    #tranfrom projection of files: proj(fname0,format0,proj0,fname1,format1,proj1)
-    #fname: file name
-    #format: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
-    #proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
+    '''
+    tranfrom projection of files: proj(fname0,format0,proj0,fname1,format1,proj1)
+    fname: file name
+    format: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
+    proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
+    '''
 
     from schism_file import read_schism_hgrid
     #read file
@@ -677,21 +571,27 @@ def proj(fname0,format0,proj0,fname1,format1,proj1):
     else:
         sys.exit('unknown format of {}'.format(fname1))
 
-def get_prj_file(prjname='epsg:4326',method=0):
-    #return project name or entire database (dict)
-    #
-    #--online method-----
-    # function to generate .prj file information using spatialreference.org
-    #def getWKT_PRJ (epsg_code):
-    #     import urllib
-    #     # access projection information
-    #     wkt = urllib.urlopen("http://spatialreference.org/ref/epsg/{0}/prettywkt/".format(epsg_code))
-    #     # remove spaces between charachters
-    #     remove_spaces = wkt.read().replace(" ","")
-    #     # place all the text on one line
-    #     output = remove_spaces.replace("\n", "")
-    #     return output
+def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\projection\prj_files'):
+    '''
+    return projection name or entire database (dict)
+        method=0: get one projection
+        method=1: return dict of projection database
+        method=-1: process *.prj files from prj_dir
 
+    #-------online method-----------------
+    function to generate .prj file information using spatialreference.org
+    def getWKT_PRJ (epsg_code):
+         import urllib
+         # access projection information
+         wkt = urllib.urlopen("http://spatialreference.org/ref/epsg/{0}/prettywkt/".format(epsg_code))
+         # remove spaces between charachters
+         remove_spaces = wkt.read().replace(" ","")
+         # place all the text on one line
+         output = remove_spaces.replace("\n", "")
+         return output
+    '''
+
+    #get location of database
     bdir=os.path.dirname(__file__)
 
     if method==0:
@@ -702,7 +602,7 @@ def get_prj_file(prjname='epsg:4326',method=0):
         return S.prj
     elif method==-1:
         #dir of *.prj files
-        prj_dir=r'D:\Work\Database\projection\prj_files'
+        #prj_dir=r'D:\Work\Database\projection\prj_files'
 
         #---processing all prj files-------------------------------------------
         fnames=os.listdir(prj_dir)
@@ -715,19 +615,25 @@ def get_prj_file(prjname='epsg:4326',method=0):
             with open('{}/{}'.format(prj_dir,fname),'r') as fid:
                 line=fid.readline().strip();
                 prj['epsg:{}'.format(prj_num)]=line
-        #save prj file as a database
-        S=npz_data();
-        S.prj=prj
-        save_npz('{}/prj'.format(bdir),S)
 
-        return 0
+        # #save prj file as a database
+        # S=npz_data();
+        # S.prj=prj
+        # save_npz('{}/prj'.format(bdir),S)
+        return prj
+    else:
+        sys.exit('unknow method')
 
 #----------------convert_matfile_format----------------------------------------
 def convert_matfile_format(file):
-    #input for a directory or a matfile
-    # r'C:\Users\Zhengui\Desktop\Observation2\DWR\SFBay_DWRData_SSI.mat'];
-    #file=r'D:\OneDrive\Python\tem.mat';
-    fname=[];
+    '''
+    convert a matlab data to self-defined python format
+    file: input, a directory or a matfile
+    '''
+    # eg. file="C:\Users\Zhengui\Desktop\Observation2\DWR\SFBay_DWRData_SSI.mat"
+    # file="D:\OneDrive\Python\tem.mat"
+
+    fname=[]
     if os.path.isdir(file):
         sfile=os.listdir(file)
         for sfilei in sfile:
@@ -780,8 +686,42 @@ def convert_matfile(fnz,fnv7):
         Y[vni]=Yi
     savez_compressed(fnz,**Y)
 
+def get_stat(xi_model,xi_obs):
+    '''
+    compute statistics between two time series
+    x1, x2 must have the same dimension
+    x1: model; x2: obs
+
+    #import matlab.engine
+    #eng=matlab.engine.start_matlab()
+    '''
+
+    x1=xi_model; x2=xi_obs
+    mx1=mean(x1); mx2=mean(x2)
+
+    S=npz_data(); dx=x1-x2; std1=std(x1); std2=std(x2)
+    #---save data
+    S.R=corrcoef(x1,x2)[0,1] #R
+    S.ME=mean(dx)
+    S.MAE=mean(abs(dx))
+    S.RMSD=sqrt((dx**2).mean())
+    S.std=std(dx)
+    S.ms=1-sum(dx**2)/sum((abs(x1-mx2)+abs(x2-mx2))**2)
+    a,pvalue=sp.stats.pearsonr(x1,x2)
+    S.pvalue=pvalue
+    S.std1=std1; S.std2=std2
+    S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R])
+
+    return S
+
 #---------------------shpfile--------------------------------------------------
 def read_shapefile_data(fname):
+    '''
+    read shapefile (*.shp) and return its content
+
+    note:  works for pts and polygon only, may not work for other geomerties (need update in these cases)
+    '''
+
     import shapefile as shp
     with shp.Reader(fname) as C:
         #----read shapefile----------------
@@ -820,6 +760,14 @@ def read_shapefile_data(fname):
     return S
 
 def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
+    '''
+    write shapefile
+        fname: file name
+        S: data to be outputed
+
+    note: only works for geometry: POINT, POLYLINE, POLYGON
+    '''
+
     import shapefile as shp
     #---get nrec-----
     if S.type=='POINT':
@@ -907,7 +855,9 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
                 fid.write(S.prj)
 
 def delete_shapefile_nan(xi,iloop=0):
-    #----delete nan (head and tail), and get ind for the rest
+    '''
+    delete nan (head and tail), and get ind for the rest
+    '''
     if xi.ndim==1:
         i1=0; i2=xi.shape[0]
         if isnan(xi[0]): i1=1
@@ -942,19 +892,25 @@ def delete_shapefile_nan(xi,iloop=0):
     return vi
 
 #---------------------netcdf---------------------------------------------------
-def ReadNC(fname,med=1,order=0):
-    #ReadNC(fname,med=1)
-    #if med=1: return netcdf.Dateset(fname)
-    #if med=2: reorgnaized Dataset similar to npz_data
-    #order=1: only works for med=2
-    #order=0: variable dimension order read not changed for python format
-    #order=1: variable dimension order read reversed follwoing in matlab/fortran format
+def ReadNC(fname,method=0,order=0):
+    '''
+    read netcdf files, and return its values and attributes
+        fname: file name
+
+        med=0: reorgnaized Dataset with format of npz_data
+        med=1: return netcdf.Dateset(fname)
+
+        order=1: only works for med=2; change dimension order
+        order=0: variable dimension order read not changed for python format
+        order=1: variable dimension order read reversed follwoing in matlab/fortran format
+    '''
+
+    #get file handle
     C=Dataset(fname);
 
-    if med==1:
+    if method==1:
         return C
-    else:
-
+    elif method==0:
         F=npz_data();
         F.file_format=C.file_format
 
@@ -992,85 +948,93 @@ def ReadNC(fname,med=1,order=0):
             exec('F.{}=fi'.format(i))
         #close
         C.close()
-
         return F
+    else:
+        sys.exit('wrong method')
 
-def WriteNC(C,fname,med=1,order=0):
-    #WriteNC(C,fname,med=1)
-    #C is data source
-    #if med=1, C has netcdf.Dataset format
-    #if med=2, C has different format
-    #order=0: variable dimension order written not changed for python format
-    #order=1: variable dimension order written reversed follwoing in matlab/fortran format
-    if med==1:
+def WriteNC(fname,data,method=0,order=0):
+    '''
+    write npz_data to netcdf file
+        fname: file name
+        data:  soure data
+        method=0, data has npz_data() format
+        method=1, data has netcdf.Dataset format
+        order=0: variable dimension order written not changed for python format
+        order=1: variable dimension order written reversed follwoing in matlab/fortran format
+    '''
+
+    #pre-processing fname
+    if fname.endswith('.nc'): fname=fname[:-3]
+
+    if method==1:
         #----write NC files-------------
-        fid=Dataset(fname,'w',format=C.file_format); #C.file_format
-        fid.setncattr('file_format',C.file_format)
+        fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
+        fid.setncattr('file_format',data.file_format)
 
         #set attrs
-        ncattrs=C.ncattrs()
+        ncattrs=data.ncattrs()
         for i in ncattrs:
-            exec("fid.setncattr('{}',C.{})".format(i,i))
+            exec("fid.setncattr('{}',data.{})".format(i,i))
 
         #set dim
-        ncdims=[i for i in C.dimensions]
+        ncdims=[i for i in data.dimensions]
         for i in ncdims:
-            if C.dimensions[i].isunlimited() is True:
+            if data.dimensions[i].isunlimited() is True:
                fid.createDimension(i,None)
             else:
-               fid.createDimension(i,C.dimensions[i].size)
+               fid.createDimension(i,data.dimensions[i].size)
 
         #set variable
-        ncvars=[i for i in C.variables]
+        ncvars=[i for i in data.variables]
         if order==0:
             for vari in ncvars:
-                vid=fid.createVariable(vari,C.variables[vari].dtype,C.variables[vari].dimensions)
-                for attri in C.variables[vari].ncattrs():
-                    vid.setncattr(attri,C.variables[vari].getncattr(attri))
-                fid.variables[vari][:]=C.variables[vari][:]
+                vid=fid.createVariable(vari,data.variables[vari].dtype,data.variables[vari].dimensions)
+                for attri in data.variables[vari].ncattrs():
+                    vid.setncattr(attri,data.variables[vari].getncattr(attri))
+                fid.variables[vari][:]=data.variables[vari][:]
         elif order==1:
             for vari in ncvars:
-                vid=fid.createVariable(vari,C.variables[vari].dtype,flipud(C.variables[vari].dimensions))
-                for attri in C.variables[vari].ncattrs():
-                    vid.setncattr(attri,C.variables[vari].getncattr(attri))
-                nm=flipud(arange(ndim(C.variables[vari][:])));
-                fid.variables[vari][:]=C.variables[vari][:].transpose(nm)
+                vid=fid.createVariable(vari,data.variables[vari].dtype,flipud(data.variables[vari].dimensions))
+                for attri in data.variables[vari].ncattrs():
+                    vid.setncattr(attri,data.variables[vari].getncattr(attri))
+                nm=flipud(arange(ndim(data.variables[vari][:])));
+                fid.variables[vari][:]=data.variables[vari][:].transpose(nm)
 
         fid.close()
-    else:
+    elif method==0:
         #----write NC files-------------
-        fid=Dataset(fname,'w',format=C.file_format); #C.file_format
+        fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
 
         #set attrs
-        fid.setncattr('file_format',C.file_format)
-        if hasattr(C,'attrs'):
-           for i in C.attrs:
-               exec("fid.setncattr('{}',C.{})".format(i,i))
+        fid.setncattr('file_format',data.file_format)
+        if hasattr(data,'attrs'):
+           for i in data.attrs:
+               exec("fid.setncattr('{}',data.{})".format(i,i))
 
         #set dimension
-        for i in range(len(C.dims)):
-            if hasattr(C,'dim_unlimited'):
-               dim_flag=C.dim_unlimited[i]
+        for i in range(len(data.dims)):
+            if hasattr(data,'dim_unlimited'):
+               dim_flag=data.dim_unlimited[i]
             else:
                dim_flag=False
 
             if dim_flag is True:
-               fid.createDimension(C.dimname[i],None)
+               fid.createDimension(data.dimname[i],None)
             else:
-               fid.createDimension(C.dimname[i],C.dims[i])
+               fid.createDimension(data.dimname[i],data.dims[i])
 
         #set variable
         if order==0:
-            for vari in C.vars:
-                vi=eval('C.{}'.format(vari));
+            for vari in data.vars:
+                vi=eval('data.{}'.format(vari));
                 vid=fid.createVariable(vari,vi.val.dtype,vi.dimname)
                 for j in vi.attrs:
                     attri=eval('vi.{}'.format(j))
                     vid.setncattr(j,attri)
                 fid.variables[vari][:]=vi.val
         elif order==1:
-            for vari in C.vars:
-                vi=eval('C.{}'.format(vari));
+            for vari in data.vars:
+                vi=eval('data.{}'.format(vari));
                 vid=fid.createVariable(vari,vi.val.dtype,flipud(vi.dimname))
                 for j in vi.attrs:
                     attri=eval('vi.{}'.format(j))
@@ -1083,11 +1047,13 @@ def WriteNC(C,fname,med=1,order=0):
         fid.close()
 
 def harmonic_fit(oti,oyi,dt,mti,tidal_const=0):
-    #use harmonic analysis to fit time series: used to fill data gap, only for tidal parts.
-    #[oti,oyi,dt]: continunous time series
-    #mti: time to be interpolated
-    #tidal_const=[0,1]: choose tidal const options.
-    #         or can be tidal_const=array(['O1','K1','Q1','P1','M2','S2',])
+    '''
+    use harmonic analysis to fit time series: used to fill data gap, only for tidal parts.
+    [oti,oyi,dt]: continunous time series
+    mti: time to be interpolated
+    tidal_const=[0,1]: choose tidal const options.
+               or can be tidal_const=array(['O1','K1','Q1','P1','M2','S2',])
+    '''
     import platform
 
     #choose tidal consts
@@ -1097,7 +1063,6 @@ def harmonic_fit(oti,oyi,dt,mti,tidal_const=0):
         tnames=array(['O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10'])
     elif tidal_const==2:
         tnames=array(['SA','SSA','MM','MSF','O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10','N4','S4','S6'])
-
 
     #get frequeny consituents
     tfreqs=[]
@@ -1135,9 +1100,14 @@ def harmonic_fit(oti,oyi,dt,mti,tidal_const=0):
     return myi
 
 def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
-    #harmonic analyze time series
-    #yi: time series; dt: time step (day); StartT: starting time of time series (day)
-    #can specified paths of executable and tidal_const separately
+    '''
+    harmonic analyze time series
+        yi: time series
+        dt: time step (day)
+        StartT: starting time of time series (day)
+        executable: path of executable for HA analysis
+        tidal_const: path of tidal consituents file
+    '''
 
     import subprocess
     if executable is None:
@@ -1160,8 +1130,8 @@ def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
             print('Operating System unknow: {}'.format(platform.system()))
 
     #----write time series, HA, and return results--------------------
-    fname='temporary_time_series_for_HA.dat'
-    sname='temporary_tidal_consituents_for_HA.dat'
+    fname='.temporary_time_series_for_HA.dat'
+    sname='.temporary_tidal_consituents_for_HA.dat'
     with open(fname,'w+') as fid:
         for i in arange(len(yi)):
             fid.write('{:12.1f} {:12.7f}\n'.format((StartT+i*dt)*86400,yi[i]))
@@ -1184,35 +1154,13 @@ def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
 
     return S
 
-def get_stat(xi_model,xi_obs):
-    #compute statistics between two time series
-    #x1, x2 must have the same dimension
-    #x1: model; x2: obs
-    #import matlab.engine
-    #eng=matlab.engine.start_matlab()
-    x1=xi_model; x2=xi_obs
-    mx1=mean(x1); mx2=mean(x2)
-
-    S=npz_data(); dx=x1-x2; std1=std(x1); std2=std(x2)
-    #---save data
-    S.R=corrcoef(x1,x2)[0,1] #R
-    S.ME=mean(dx)
-    S.MAE=mean(abs(dx))
-    S.RMSD=sqrt((dx**2).mean())
-    S.std=std(dx)
-    S.ms=1-sum(dx**2)/sum((abs(x1-mx2)+abs(x2-mx2))**2)
-    a,pvalue=sp.stats.pearsonr(x1,x2)
-    S.pvalue=pvalue
-    S.std1=std1; S.std2=std2
-    S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R])
-
-    return S
-
 def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
-    #extract Hycom time series at stations
-    #ti: time seires; xyz=c_[loni,lati,depi];
-    #vind: list of index for variables to be extracted. [0,1,2,3] for ['elev','temp','salt','uv']
-    #hdir: directory for hycom data
+    '''
+    extract Hycom time series at stations
+    ti: time seires; xyz=c_[loni,lati,depi];
+    vind: list of index for variables to be extracted. [0,1,2,3] for ['elev','temp','salt','uv']
+    hdir: directory for hycom data
+    '''
 
     #variable names
     Var=['surf_el','water_temp','salinity',['water_u','water_v']];
@@ -1356,7 +1304,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
 
     return S
 
-#------------------------------------------------------------------------------
+
 
 if __name__=="__main__":
     pass
@@ -1471,3 +1419,173 @@ if __name__=="__main__":
 #    fname=r'C:\Users\Zhengui\Desktop\Observation2\USGS\SFBay_USGSData_MAL.mat'
 #    fname=r'C:\Users\Zhengui\Desktop\convert_matfile\tem.mat'
 #    cmat.convert_matfile_format(fname)
+
+
+#------------------------------------------------------------------------------
+##################code outdated: just for reference############################
+#------------------------------------------------------------------------------
+# def lpfilt(data,delta_t,cutoff_f):
+#     '''
+#     low pass filter for 1D (data[time]) or 2D (data[time,array]) array;
+#     '''
+#     #import gc #discard
+
+
+#     ds=data.shape
+#     mn=data.mean(axis=0)
+#     data=data-mn
+#     P=fft(data,axis=0)
+
+#     #desgin filter
+#     N=ds[0];
+#     filt=ones(N)
+#     k=int(floor(cutoff_f*N*delta_t))
+#     filt[k]=0.715
+#     filt[k+1]=0.24
+#     filt[k+2]=0.024
+#     filt[k+3:N-(k+4)]=0.0
+#     filt[N-(k+4)]=0.024
+#     filt[N-(k+3)]=0.24
+#     filt[N-(k+2)]=0.715
+
+#     #expand filter dimensions
+#     fstr=',None'*(len(ds)-1); s=npz_data()
+#     exec('s.filt=filt[:{}]'.format(fstr))
+
+#     #remove high freqs
+#     P=P*s.filt
+
+#     #lp results
+#     fdata=real(ifft(P,axis=0))+mn
+
+#     return fdata
+
+# def wipe(n=50):
+#     print('\n'*n)
+#     return
+
+#def clear_globals():
+#    allvar = [var for var in globals() if var[0] != "_"]
+#    for var in allvar:
+#       #global var
+#       #del var;
+#       #del globals()[var]
+#       #exec('del global()['+var+']')
+#       exec('global '+var)
+#       exec('del '+var)
+
+#def reload(gfunc):
+#    #reload modules,mainly used for coding debug
+#    #usage: reload(globals())
+#    import inspect,imp
+#    mods=['mylib','schism_file','mpas_file']
+#    for modi in mods:
+#        imp.reload(sys.modules[modi])
+#        #get all module functions
+#        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
+#        for fsi in afs:
+#            if inspect.getmodule(fsi[1]).__name__!=modi: continue
+#            if fsi[0] not in gfunc.keys(): continue
+#            fs.append(fsi)
+#        #refresh module functions
+#        for fsi in fs:
+#            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
+#    return
+
+#def near_pts(pts,pts0):
+#    #pts[n,2]: xy of points
+#    #pts0[n,2]: xy of points
+#    #return index of pts0(x0,y0) that pts(x,y) is nearest
+#    x=pts[:,0]; y=pts[:,1]
+#    x0=pts0[:,0]; y0=pts0[:,1]
+#    dist=(x[None,:]-x0[:,None])**2+(y[None,:]-y0[:,None])**2
+#
+#    ind=[];
+#    for i in arange(x.shape[0]):
+#        disti=dist[:,i];
+#        ind.append(nonzero(disti==min(disti))[0][0])
+#    ind=array(ind);
+#
+#    return ind
+
+#def compute_cofficient(myi,oyi):
+#    #compute different evaluation coefficients
+#    N=len(myi)
+#    mmyi=myi.mean(); moyi=oyi.mean();
+#    emyi=myi-mmyi; eoyi=oyi-moyi; e=myi-oyi
+#    stdm=std(emyi); stdo=std(eoyi)
+#
+#    SS_tot=sum((oyi-moyi)**2)
+#    SS_reg=sum((myi-moyi)**2);
+#    SS_res=sum(e**2);
+#
+#    #evaluation coefficient
+#    ms=1-SS_res/sum((abs(myi-moyi)+abs(oyi-moyi))**2) #model skill
+#    r=mean((myi-mmyi)*(oyi-moyi))/stdm/stdo #correlation coefficient
+#    r2=1-SS_res/SS_tot  #R2
+#    rmse=sqrt(sum(e**2)/N) #RMSE
+#    mae=mean(abs(e))         #MAE
+#    me=mean(e)               #ME
+#
+#    return [ms,r,r2,rmse,mae,me]
+
+#-------str2num----------------------------------------------------------------
+#def str2num(line,*args):
+#    num=str2num_process(line,*args)
+#    if isinstance(num[0],float):
+#        num=num.astype('float64')
+#    else:
+#        num=[s.astype('float64') for s in num]
+#        num=array(num)
+#    return num
+#
+#@np.vectorize
+#def str2num_process(line,*args):
+#    if len(args)>0:
+#        if len(args)>1:
+#            for i in range(len(args)-1):
+#                line=line.replace(arg)
+#        line=line.replace(args[0],',')
+#    else:
+#        line=line.replace(';',',').replace(' ',',')
+#    linei=[s for s in line.split(',') if s]
+#    fc=np.vectorize(lambda x: np.float64(x))
+#    return fc(linei).astype('object')
+#
+#@np.vectorize
+#def remove_tail(line):
+#    li=line.rstrip();
+#    ind=li.find('!');
+#    if ind!=-1:
+#        li=li[:ind]
+#    ind=li.find('=');
+#    if ind!=-1:
+#        li=li[:ind]
+#    return li
+
+#-------date_proc--------------------------------------------------------------
+#def datenum_0(*args):
+#    if len(args)==1:
+#        args=args[0];
+#
+#    args=array(args)
+#    args=args.astype('int')
+#    return datetime.datetime(*args)
+#
+#def datenum(*args,doy=0):
+#    #usage: datenum(2001,1,1)
+#    args=array(args)
+#    e1=args[0]
+#
+#    if hasattr(e1, "__len__"):
+#        if not hasattr(e1[0],"__len__"):
+#            f=datenum_0(*e1)
+#        else:
+#            f=apply_along_axis(datenum_0,1,e1)
+#    else:
+#        f=datenum_0(*args)
+#    if doy==0:
+#        return date2num(f)
+#    else:
+#        return f
+#------------------------------------------------------------------------------
