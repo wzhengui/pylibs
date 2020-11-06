@@ -3,7 +3,10 @@ from pylib import *
 
 #-------misc-------------------------------------------------------------------
 def close_data_loop(xi):
-    #close data loop by add xi[0] in the end
+    '''
+    constructe data loop along the last dimension.
+    if xi[...,0]!=xi[...,-1], then,add xi[...,0] in the end
+    '''
     if len(xi)<3:
         vi=xi;
     else:
@@ -12,16 +15,18 @@ def close_data_loop(xi):
                 vi=r_[xi,xi[0]];
             else:
                 vi=xi
-        elif xi.ndim==2:
-            if xi[0][0]!=xi[-1][0]:
-                vi=r_[xi,xi[0][None,:]]
-            else:
+        else
+            if array_equal(xi[...,0],xi[...,-1]):
                 vi=xi
+            else:
+                vi=c_[xi,xi[...,0]]
     return vi
 
 #-----find all continous sections of a time series
 def find_continuous_sections(xi,dx):
-    #analyze time series of xi; when a gap is larger than dx, it is a break;
+    '''
+    analyze time series of xi; when a gap is larger than dx, it is a break;
+    '''
     dxi=diff(xi); ind=nonzero(dxi>dx)[0];
 
     #divide xi into sub-sections
@@ -509,23 +514,23 @@ def lpfilt(data,delta_t,cutoff_f):
 
     return fdata
 
-def reload(gfunc):
-    #reload modules,mainly used for coding debug
-    #usage: reload(globals())
-    import inspect,imp
-    mods=['mylib','schism_file','mpas_file']
-    for modi in mods:
-        imp.reload(sys.modules[modi])
-        #get all module functions
-        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
-        for fsi in afs:
-            if inspect.getmodule(fsi[1]).__name__!=modi: continue
-            if fsi[0] not in gfunc.keys(): continue
-            fs.append(fsi)
-        #refresh module functions
-        for fsi in fs:
-            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
-    return
+#def reload(gfunc):
+#    #reload modules,mainly used for coding debug
+#    #usage: reload(globals())
+#    import inspect,imp
+#    mods=['mylib','schism_file','mpas_file']
+#    for modi in mods:
+#        imp.reload(sys.modules[modi])
+#        #get all module functions
+#        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
+#        for fsi in afs:
+#            if inspect.getmodule(fsi[1]).__name__!=modi: continue
+#            if fsi[0] not in gfunc.keys(): continue
+#            fs.append(fsi)
+#        #refresh module functions
+#        for fsi in fs:
+#            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
+#    return
 
 def wipe(n=50):
     print('\n'*n)
@@ -542,8 +547,12 @@ def wipe(n=50):
 #       exec('del '+var)
 
 def smooth(xi,N):
-    #xi: time series
-    #N: window size (if N is even, then N=N+1)
+    '''
+    smooth average:  
+       xi: time series
+       N: window size (if N is even, then N=N+1)
+    '''
+
     if mod(N,2)==0: N=N+1
     nz=int((N-1)/2)
 
