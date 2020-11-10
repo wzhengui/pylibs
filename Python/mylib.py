@@ -897,8 +897,8 @@ def ReadNC(fname,method=0,order=0):
     read netcdf files, and return its values and attributes
         fname: file name
 
-        med=0: reorgnaized Dataset with format of npz_data
-        med=1: return netcdf.Dateset(fname)
+        method=0: reorgnaized Dataset with format of npz_data
+        method=1: return netcdf.Dateset(fname)
 
         order=1: only works for med=2; change dimension order
         order=0: variable dimension order read not changed for python format
