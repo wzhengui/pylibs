@@ -1199,7 +1199,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
                 if not os.path.exists(r'{}/{}'.format(hdir,fname)): continue
                 if not os.path.exists(r'{}/{}'.format(hdir,fname2)): continue
                 print(fname+'; '+fname2)
-                C=ReadNC('{}/{}'.format(hdir,fname),2); C2=ReadNC('{}/{}'.format(hdir,fname2),2)
+                C=ReadNC('{}/{}'.format(hdir,fname)); C2=ReadNC('{}/{}'.format(hdir,fname2),2)
 
                 #get value
                 exec('p.val=C.{}.val'.format(vari[0]))
@@ -1210,7 +1210,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
                 fname='Hycom_{}_{}_{}.nc'.format(varnamei,t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
                 if not os.path.exists(r'{}/{}'.format(hdir,fname)): continue
                 print(fname)
-                C=ReadNC('{}/{}'.format(hdir,fname),2)
+                C=ReadNC('{}/{}'.format(hdir,fname))
 
                 #get value
                 exec('p.val=C.{}.val'.format(vari))
