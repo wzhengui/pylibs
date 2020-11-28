@@ -196,6 +196,7 @@ class schism_grid:
             num.append(lines[2+self.np+i].split())
         num=array([s if len(s)==6 else [*s,'-1'] for s in num])
         num=num.astype('int')
+
         self.i34=num[:,1]
         self.elnode=num[:,2:]-1
 

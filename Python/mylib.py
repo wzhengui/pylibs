@@ -1154,12 +1154,13 @@ def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
 
     return S
 
-def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
+def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
     '''
     extract Hycom time series at stations
     ti: time seires; xyz=c_[loni,lati,depi];
     vind: list of index for variables to be extracted. [0,1,2,3] for ['elev','temp','salt','uv']
     hdir: directory for hycom data
+    method=0: linear interpolation; method=1: nearest interpolation
     '''
 
     #variable names
@@ -1233,15 +1234,21 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
                 for m in arange(len(ti)):
                     valii=squeeze(p.val[m,i1_lat:i2_lat,i1_lon:i2_lon])
 
-                    #interpolation
-                    fd=sp.interpolate.RegularGridInterpolator((clati,cloni),valii,fill_value=nan)
-                    vi=fd(bxy)
+                    if method==0:
+                        #interpolation
+                        fd=sp.interpolate.RegularGridInterpolator((clati,cloni),valii,fill_value=nan)
+                        vi=fd(bxy)
 
-                    #remove nan pts
-                    fp=isnan(vi);
-                    if sum(fp)!=0:
-                        vi[fp]=sp.interpolate.griddata(bxy[~fp,:],vi[~fp],bxy[fp,:],'nearest')
+                        #remove nan pts
+                        fp=isnan(vi);
+                        if sum(fp)!=0:
+                            vi[fp]=sp.interpolate.griddata(bxy[~fp,:],vi[~fp],bxy[fp,:],'nearest')
 
+                    elif method==1:
+                        clonii,clatii=meshgrid(cloni,clati); sind=~isnan(valii.ravel())
+                        clonii=clonii.ravel()[sind]; clatii=clatii.ravel()[sind]; valii=valii.ravel()[sind]
+                        vi=sp.interpolate.griddata(c_[clatii,clonii],valii,bxy,'nearest')
+                        # scatter(clonii,clatii,s=8,c=valii); plot(bxy[:,1],bxy[:,0],'r.'); sys.exit()
                     T0.append(ti[m]); Data0.append(vi);
             else:
                 #------define data region extracted for depth
@@ -1287,7 +1294,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM'):
             #interpolate
             datai=[];
             for k in arange(Data0.shape[0]):
-                fd=interpolate.interp1d(T0,Data0[k]);
+                fd=interpolate.interp1d(T0,Data0[k],fill_value='extrapolate');
                 datai.append(fd(Time));
             datai=array(datai)
             exec('S.{}=datai'.format(varnamei))
