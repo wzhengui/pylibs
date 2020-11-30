@@ -447,7 +447,7 @@ def lpfilt(data,delta_t,cutoff_f):
 
     #fft original data
     mdata=data.mean(axis=-1)[...,None]
-    print(data.shape,mdata.shape)
+    #print(data.shape,mdata.shape)
     data=data-mdata
     fdata=fft(data,axis=-1)
 
