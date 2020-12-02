@@ -180,9 +180,18 @@ def save_npz(fname,data):
     '''
     save data as self-defined "fname.npz" format
     '''
+
+    #get all attribute
     npz_vars=list(data.__dict__.keys())
     if 'VINFO' in npz_vars: npz_vars.remove('VINFO')
 
+    #check whether there are functions. If yes, change function to string
+    for vari in npz_vars:
+        if hasattr(data.__dict__[vari], '__call__'):
+           import cloudpickle
+           data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
+
+    #constrcut save_string
     save_str='savez_compressed("{}" '.format(fname)
     for vari in npz_vars:
         save_str=save_str+',{}=data.{}'.format(vari,vari)
@@ -214,7 +223,15 @@ def loadz(fname,svars=None,med=1):
     VINFO=[]
     for keyi in keys0:
         datai=data0[keyi];
+        #if value is a object
         if datai.dtype==dtype('O'): datai=datai[()]
+
+        #if value is a function
+        if 'cloudpickle.cloudpickle' in str(datai):
+           import pickle
+           datai=pickle.loads(datai)
+
+        #output format
         if med==1:
             exec('zdata.'+keyi+'=datai')
         else:
