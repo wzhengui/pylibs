@@ -300,8 +300,8 @@ def near_pts(pts,pts0,method=0,N=100):
        method=0 (default): quick method by subgroups (N); method=1: slower methods
     '''
     if method==0:
-        p=pts[:,0]+1j*pts[:,1]
-        p0=pts0[:,0]+1j*pts0[:,1]
+        p=pts[:,0]+(1j)*pts[:,1]
+        p0=pts0[:,0]+(1j)*pts0[:,1]
 
         # N=min(N,len(p)-1);
         # #--divide pts into subgroups based on dist, each group size is about N---------
@@ -321,7 +321,7 @@ def near_pts(pts,pts0,method=0,N=100):
         while(True):
             if len(inum)==0: break
             dist=abs(p[inum]-p[inum[0]]); sind=argsort(dist); inum=inum[sind]; dist=dist[sind]; sN=min(N,len(inum))
-            ps0.append(inum[0]); ps.append(p[inum[:sN]]); ds.append(dist[sN-1]); inds.append(inum[:sN])
+            ps0.append(p[inum[0]]); ps.append(p[inum[:sN]]); ds.append(dist[sN-1]); inds.append(inum[:sN])
             inum=inum[sN:]
 
         #---find nearest pts for each subgroup-----------------------------------------
