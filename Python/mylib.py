@@ -490,31 +490,27 @@ def lpfilt(data,delta_t,cutoff_f):
 
 def smooth(xi,N):
     '''
-    smooth average:
-       xi: time series
+    smooth average (on the 1st dimension):
+       xi[time,...]: time series
        N: window size (if N is even, then N=N+1)
     '''
 
+    #window span
     if mod(N,2)==0: N=N+1
     nz=int((N-1)/2)
 
-    X=xi; SN=ones(len(xi))*N
-    for i in arange(nz):
-        nmove=i+1; ii=-i-1;
-        xext=zeros(nmove)
-        X=X+r_[xext,xi[:ii]]
-        for j in range(nmove):
-            SN[j]=SN[j]-1
+    #moving averaging
+    X=xi.copy(); SN=N*ones(xi.shape)
+    for nmove in arange(1,nz+1):
+        #sum in the beginning and end
+        X[nmove:,...]=X[nmove:,...]+xi[:-nmove,...]
+        X[:-nmove,...]=X[:-nmove,...]+xi[nmove:,...]
 
-    for i in arange(nz):
-        nmove=i+1; ii=i+1
-        xext=zeros(nmove)
-        X=X+r_[xi[ii:],xext]
-        for j in arange(nmove):
-            jj=-j-1
-            SN[jj]=SN[jj]-1
-    SX=np.divide(X,SN)
-    return SX;
+        #count
+        SN[:nmove,...]=SN[:nmove,...]-1
+        SN[-nmove:]=SN[-nmove:]-1
+    SX=X/SN
+    return SX
 
 def daytime_length(lat,doy):
     '''
@@ -1612,4 +1608,34 @@ if __name__=="__main__":
 #        return date2num(f)
 #    else:
 #        return f
+#------------------------------------------------------------------------------
+
+#-------smooth-----------------------------------------------------------------
+# def smooth(xi,N):
+#     '''
+#     smooth average:
+#        xi: time series
+#        N: window size (if N is even, then N=N+1)
+#     '''
+
+#     if mod(N,2)==0: N=N+1
+#     nz=int((N-1)/2)
+
+#     X=xi; SN=ones(len(xi))*N
+#     for i in arange(nz):
+#         nmove=i+1; ii=-i-1;
+#         xext=zeros(nmove)
+#         X=X+r_[xext,xi[:ii]]
+#         for j in range(nmove):
+#             SN[j]=SN[j]-1
+
+#     for i in arange(nz):
+#         nmove=i+1; ii=i+1
+#         xext=zeros(nmove)
+#         X=X+r_[xi[ii:],xext]
+#         for j in arange(nmove):
+#             jj=-j-1
+#             SN[jj]=SN[jj]-1
+#     SX=np.divide(X,SN)
+#     return SX
 #------------------------------------------------------------------------------
