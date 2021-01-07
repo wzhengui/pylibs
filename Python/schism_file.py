@@ -783,19 +783,21 @@ class schism_grid_ll(schism_grid):
         pass
 
     def read_hgrid(self,fname,gr3=None):
-        #gr3=read_schism_grid('hgrid.gr3')
         with open(fname,'r') as fid:
-            lines0=fid.readlines()
-        lines=remove_tail(lines0)
+            lines=fid.readlines()
+
         #read ne and np
-        num=str2num(lines[1]).astype('int')
+        num=array(lines[1].split()[0:2]).astype('int')
         self.ne=num[0]; self.np=num[1]
 
         #read lx,ly and dp
-        n=2; num=str2num(lines[n:(n+self.np)]);
-        self.x=num[:,1]
-        self.y=num[:,2]
-        self.dp=num[:,3]
+        num=[]
+        for i in arange(self.np):
+            num.append(array(lines[2+i].split()[1:4]));
+        num=array(num).astype('float')
+        self.x=num[:,0]
+        self.y=num[:,1]
+        self.dp=num[:,2]
 
         #read parents' elnode and bndinfo
         if gr3!=None:
