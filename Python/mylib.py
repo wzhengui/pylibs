@@ -544,7 +544,7 @@ def proj(fname0,format0,proj0,fname1,format1,proj1):
     proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
     '''
 
-    from schism_file import read_schism_hgrid
+    from schism_file import read_schism_hgrid,read_schism_bpfile
     #read file
     if format0==0:
         gd=read_schism_hgrid(fname0)
@@ -562,7 +562,8 @@ def proj(fname0,format0,proj0,fname1,format1,proj1):
         sys.exit('unknown format of {}'.format(fname0))
 
     #transform coordinate
-    x1,y1=transform(Proj(init=proj0),Proj(init=proj1),x,y);
+    #x1,y1=transform(Proj(init=proj0),Proj(init=proj1),x,y);
+    x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
 
     #write file
     if format1==0:
