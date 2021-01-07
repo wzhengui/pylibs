@@ -103,8 +103,8 @@ if __name__=="__main__":
             fid.write('{} 5 5 4 4 !ocean\n'.format(gd.nobn[ibnd-1]))
         
             #generate boundary information
-            bnodes=gd.iobn[ibnd-1];
-            lxi=gd.x[bnodes]; lyi=gd.y[bnodes]; lzi=gd.dp[bnodes];
+            bnodes=gd.iobn[ibnd-1].astype('int')
+            lxi=gd.x[bnodes]; lyi=gd.y[bnodes]; lzi=gd.dp[bnodes]
             with open('open.ll','w+') as fid2:
                 for i in arange(len(bnodes)):
                     fid2.write("{:10d}  {:.7e}  {:.7e}  {:.7e}\n".format(bnodes[i]+1,lxi[i],lyi[i],lzi[i]))
@@ -119,12 +119,12 @@ if __name__=="__main__":
             fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
         
         #write river boundary information
-        ibnds_river=[2,3,4,5]
-        rivers=['Coyote','San Joaquin','Sacramento','Napa']
-        for m in arange(len(rivers)):
-            ibnd=ibnds_river[m]
-            fid.write('{} 0 1 1 1 !{}\n'.format(gd.nobn[ibnd-1],rivers[m]))
-            fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
+        #ibnds_river=[2,3,4,5]
+        #rivers=['Coyote','San Joaquin','Sacramento','Napa']
+        #for m in arange(len(rivers)):
+        #    ibnd=ibnds_river[m]
+        #    fid.write('{} 0 1 1 1 !{}\n'.format(gd.nobn[ibnd-1],rivers[m]))
+        #    fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
         
 
           
