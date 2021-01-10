@@ -779,6 +779,13 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
         fname: file name
         S: data to be outputed
 
+    example of S:
+       S.type=='POINT'
+       S.xy=c_[slon[:],slat[:]]
+       S.prj=get_prj_file('epsg:4326')
+       S.attname=['station']
+       S.attvalue=station[:]
+
     note: only works for geometry: POINT, POLYLINE, POLYGON
     '''
 
