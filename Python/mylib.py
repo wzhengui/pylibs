@@ -542,6 +542,7 @@ def proj(fname0,format0,proj0,fname1,format1,proj1):
     fname: file name
     format: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
     proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
+    direction usage: x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
     '''
 
     from schism_file import read_schism_hgrid,read_schism_bpfile
