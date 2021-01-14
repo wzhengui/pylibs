@@ -834,7 +834,11 @@ class schism_bpfile:
 
     def write_bpfile(self,fname):
         with open(fname,'w+') as fid:
-            fid.write('!\n{}\n'.format(self.nsta))
+            if hasattr(self,'note'):
+                fid.write('{}!\n{}\n'.format(self.note.replace('\n',' '),self.nsta))
+            else:
+                fid.write('schism bpfile!\n{}\n'.format(self.nsta))
+
             for i in arange(self.nsta):
                 if hasattr(self,'station'):
                     fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],self.station[i]))

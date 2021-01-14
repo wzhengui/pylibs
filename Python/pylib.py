@@ -38,7 +38,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import re
 
    #proj
-   from pyproj import Proj, transform
+   #from pyproj import Proj, transform
+   from pyproj import Transformer
 
    #netcdf
    from netCDF4 import Dataset

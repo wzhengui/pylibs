@@ -536,55 +536,71 @@ def move_figure(f, x, y):
         # You can also use window.setGeometry
         f.canvas.manager.window.move(x, y)
 
-def proj(fname0,format0,proj0,fname1,format1,proj1):
+def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=0,order1=0,x=None,y=None):
     '''
-    tranfrom projection of files: proj(fname0,format0,proj0,fname1,format1,proj1)
-    fname: file name
-    format: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
-    proj: projection name (e.g. 'epsg:26918', 'epsg:4326')
-    direction usage: x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
+    tranfrom projection of files: proj(fname0,fmt0,prj0,order0,fname1,fmt1,prj1,order1)
+       fname: file name
+       fmt: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
+       prj: projection name (e.g. 'epsg:26918', 'epsg:4326')
+       order=0 for projected coordinate; order=1 for lat&lon (if prj='epsg:4326', order=1 is applied automatically')
+
+    tranform data directly: proj(prj0='epsg:26918',prj1='epsg:4326',order0=0,order1=0,x,y)
+  
+    function used: 
+          lat,lon=pyproj.Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)  
+          y,x=pyproj.Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)  
+    #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
 
-    from schism_file import read_schism_hgrid,read_schism_bpfile
+    from schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
     #read file
-    if format0==0:
+    if fmt0==0:
         gd=read_schism_hgrid(fname0)
         np=gd.np; x=gd.x; y=gd.y; z=gd.dp
-    elif format0==1:
+    elif fmt0==1:
         gd=read_schism_bpfile(fname0)
         np=gd.nsta; x=gd.x; y=gd.y; z=gd.z
-    elif format0==2:
+    elif fmt0==2:
         gd=loadtxt(fname0)
         np=gd.shape[0]; x=gd[:,0]; y=gd[:,1]; z=gd[:,2]
-    elif format0==3:
+    elif fmt0==3:
         gd=loadtxt(fname0)
         np=gd.shape[0]; x=gd[:,1]; y=gd[:,2]; z=gd[:,3]
     else:
-        sys.exit('unknown format of {}'.format(fname0))
+        if x is None or y is None: sys.exit('unknown format of input files: {}, {}'.format(fname0,fname1))
+
+    #order of data
+    prj0=prj0.lower(); prj1=prj1.lower()
+    if prj0=='epsg:4326': order0=1
+    if prj1=='epsg:4326': order1=1
 
     #transform coordinate
+    if order0==1: x,y=y,x
+    x1,y1=Transformer.from_crs(prj0,prj1).transform(x,y)
+    if order1==1: x1,y1=y1,x1
     #x1,y1=transform(Proj(init=proj0),Proj(init=proj1),x,y);
-    x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
+    #x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
 
     #write file
-    if format1==0:
-        if format0!=0: sys.exit('{} should have gr3 format'.format(fname0))
+    if fmt1==0:
+        if fmt0!=0: sys.exit('{} should have gr3 format'.format(fname0))
         gd.x=x1; gd.y=y1;
-        gd.write_hgrid(fname1,Info='!coordinate transformed: {}=>{}'.format(proj0,proj1))
-    elif format1==1:
-        if format0==1:
+        gd.write_hgrid(fname1,Info='!coordinate transformed: {}=>{}'.format(prj0,prj1))
+    elif fmt1==1:
+        if fmt0==1:
             gd.x=x1; gd.y=y1
         else:
             gd=schism_bpfile()
+            gd.note='coordinate transformed: {}=>{}'.format(prj0,prj1)
             gd.nsta=np; gd.x=x1; gd.y=y1; gd.z=z;
         gd.write_bpfile(fname1)
-    elif format1==2 or format1==3:
+    elif fmt1==2 or fmt1==3:
         with open(fname1,'w+') as fid:
             for i in arange(np):
-                if format1==2: fid.write('{} {} {}\n'.format(x1[i],y1[i],z[i]))
-                if format1==3: fid.write('{} {} {} {}\n'.format(i+1,x1[i],y1[i],z[i]))
+                if fmt1==2: fid.write('{} {} {}\n'.format(x1[i],y1[i],z[i]))
+                if fmt1==3: fid.write('{} {} {} {}\n'.format(i+1,x1[i],y1[i],z[i]))
     else:
-        sys.exit('unknown format of {}'.format(fname1))
+       return [x1,y1]
 
 def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\projection\prj_files'):
     '''
