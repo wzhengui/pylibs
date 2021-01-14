@@ -3,6 +3,95 @@ from pylib import *
 from pylab import *
 
 #-------misc-------------------------------------------------------------------
+def load_bathymetry(x,y,z,fname,fmt=0):
+    '''
+    load bathymetry data onto points(xy)
+    Input:
+        fname: name of DEM file (format can be *.asc or *.npz)
+
+    Outpt:
+        fmt=0: return dp; depth interpolated for all points
+        fmt=1: return [dpi, sindi]; depth for points only modified, and also flag
+    '''
+
+    #input
+    xi0=x; yi0=y; zi0=z
+
+    #read DEM
+    if fname.endswith('npz'):
+        S=loadz(fname); S.nodata=None
+    elif fname.endswith('asc'):
+        S=npz_data();
+        #read *.asc data
+        fid=open(bname,'r');
+        ncols=int(fid.readline().strip().split()[1])
+        nrows=int(fid.readline().strip().split()[1])
+        xll=float(fid.readline().strip().split()[1])
+        yll=float(fid.readline().strip().split()[1])
+        dxy=float(fid.readline().strip().split()[1])
+        nodata=float(fid.readline().strip().split()[1])
+        fid.close()
+
+        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)
+        S.elev=loadtxt(bname,skiprows=6); S.nodata=nodata
+
+    else:
+        sys.exit('wrong format of DEM')
+
+    lon=S.lon; dx=diff(lon).mean()
+    lat=S.lat; dy=diff(lat).mean()
+    lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
+
+    #get (x,y) inside dem domain
+    sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
+    xi=xi0[sindp]; yi=yi0[sindp]
+
+    #compute index of (x,y)
+    idx=floor((xi-lon[0])/dx).astype('int')
+    idy=floor((yi-lat[0])/dy).astype('int')
+
+    #make sure lon[idx]<=xi
+    sind=nonzero((lon[idx]-xi)>0)[0]
+    while len(sind)!=0:
+        idx[sind]=idx[sind]-1
+        fps=nonzero((lon[idx[sind]]-xi[sind])>0)[0]
+        sind=sind[fps]
+
+    #make sure lat[idy]<=yi
+    sind=nonzero((lat[idy]-yi)>0)[0]
+    while len(sind)!=0:
+        idy[sind]=idy[sind]-1
+        fps=nonzero((lat[idy[sind]]-yi[sind])>0)[0]
+        sind=sind[fps]
+
+    #compute xrat and yrat
+    xrat=(xi-lon[idx])/(lon[idx+1]-S.lon[idx])
+    yrat=(yi-lat[idy])/(lat[idy+1]-S.lat[idy])
+    if sum((xrat<0)*(xrat>1))!=0: sys.exit('xrat<0 or xrat>1')
+    if sum((yrat<0)*(yrat>1))!=0: sys.exit('yrat<0 or yrat>1')
+
+    #make sure elevation is within right range
+    if nodata is not None:
+        fpz=S.elev==nodata; S.elev[fpz]=-1e7
+
+    #compute depth
+    dp1=S.elev[idy,idx]*(1-xrat)+S.elev[idy,idx+1]*xrat
+    dp2=S.elev[idy+1,idx]*(1-xrat)+S.elev[idy+1,idx+1]*xrat
+    dp=dp1*(1-yrat)+dp2*yrat
+
+    #make sure elevation is within right range
+    if nodata is not None:
+        fpz=dp>-1e6; sindp=sindp[fpz]; dp=dp[fpz]
+
+    #return depth
+    if fmt==0:
+        zi0[sindp]=dp
+        return zi0
+    elif fmt==1:
+        return [dp, sindp]
+    else:
+        sys.exit('wrong fmt')
+
 def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
     '''
     return subplot position
@@ -545,10 +634,10 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
        order=0 for projected coordinate; order=1 for lat&lon (if prj='epsg:4326', order=1 is applied automatically')
 
     tranform data directly: proj(prj0='epsg:26918',prj1='epsg:4326',order0=0,order1=0,x,y)
-  
-    function used: 
-          lat,lon=pyproj.Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)  
-          y,x=pyproj.Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)  
+
+    function used:
+          lat,lon=pyproj.Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)
+          y,x=pyproj.Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
 

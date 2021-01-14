@@ -76,7 +76,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         inside_polygon,command_outputs,near_pts,proj,
         get_prj_file,mfft,convert_matfile_format,read_shapefile_data,
         write_shapefile_data,ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
-        get_stat,get_subplot_position)
+        get_stat,get_subplot_position,load_bathymetry)
 
    import schism_file
    sys.modules['read_schism_file'] = schism_file #in case oldmodule name used
