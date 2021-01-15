@@ -38,6 +38,10 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong format of DEM')
 
+    #tmp fix for *.npz format. will change *.npz file 
+    if fname.endswith('npz'): S.lat=S.lat+(S.elev.shape[0]-1)*mean(abs(diff(S.lat)))
+    if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
+         
     lon=S.lon; dx=diff(lon).mean()
     lat=S.lat; dy=diff(lat).mean()
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
@@ -71,8 +75,8 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     if sum((yrat<0)*(yrat>1))!=0: sys.exit('yrat<0 or yrat>1')
 
     #make sure elevation is within right range
-    if nodata is not None:
-        fpz=S.elev==nodata; S.elev[fpz]=-1e7
+    if S.nodata is not None:
+        fpz=S.elev==S.nodata; S.elev[fpz]=-1e7
 
     #compute depth
     dp1=S.elev[idy,idx]*(1-xrat)+S.elev[idy,idx+1]*xrat
@@ -80,7 +84,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     dp=dp1*(1-yrat)+dp2*yrat
 
     #make sure elevation is within right range
-    if nodata is not None:
+    if S.nodata is not None:
         fpz=dp>-1e6; sindp=sindp[fpz]; dp=dp[fpz]
 
     #return depth
