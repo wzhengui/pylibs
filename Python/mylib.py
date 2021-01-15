@@ -3,7 +3,7 @@ from pylib import *
 from pylab import *
 
 #-------misc-------------------------------------------------------------------
-def load_bathymetry(x,y,z,fname,fmt=0):
+def load_bathymetry(x,y,z=None,fname,fmt=0):
     '''
     load bathymetry data onto points(xy)
     Input:
@@ -15,7 +15,7 @@ def load_bathymetry(x,y,z,fname,fmt=0):
     '''
 
     #input
-    xi0=x; yi0=y; zi0=z
+    xi0=x; yi0=y
 
     #read DEM
     if fname.endswith('npz'):
@@ -85,8 +85,9 @@ def load_bathymetry(x,y,z,fname,fmt=0):
 
     #return depth
     if fmt==0:
-        zi0[sindp]=dp
-        return zi0
+        if z is None: z=zeros(len(x))*nan
+        z[sindp]=dp
+        return z
     elif fmt==1:
         return [dp, sindp]
     else:
