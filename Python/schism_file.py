@@ -221,7 +221,9 @@ class schism_grid:
             self.iobn.append(array(num).astype('int')-1)
             n=n+self.nobn[i]+1;
         self.nobn=array(self.nobn);
-        self.iobn=array(self.iobn,dtype='O');
+        self.iobn=array(self.iobn,dtype='O')
+        if len(self.iobn)==1: self.iobn=self.iobn.astype('int')
+ 
 
         #read lbnd info
         num=array(lines[n].split()[0]).astype('int'); n=n+2;
@@ -246,6 +248,7 @@ class schism_grid:
         self.island=array(self.island);
         self.nlbn=array(self.nlbn);
         self.ilbn=array(self.ilbn,dtype='O');
+        if len(self.ilbn)==1: self.ilbn=self.ilbn.astype('int')
 
         #old method-----------------
         #        lines0=lines;

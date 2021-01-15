@@ -127,23 +127,34 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
        return [ps,pc]
     else:
        return ps
-
+   
 def close_data_loop(xi):
     '''
-    constructe data loop along the last dimension.
-    if xi[...,:,0]!=xi[...,:,-1], then,add xi[...,:,0] in the end
+    constructe data loop along the first dimension.
+    if xi[0,...]!=xi[-1,...], then,add xi[0,...] in the end
     '''
-    if xi.ndim==1:
-       if xi[0]!=xi[-1]:
-          vi=r_[xi,xi[0]];
-       else:
-          vi=xi
+    if array_equal(xi[0,...].ravel(),xi[-1,...].ravel()):
+        vi=xi
     else:
-       if array_equal(xi[...,:,0].ravel(),xi[...,:,-1].ravel()):
-          vi=xi
-       else:
-          vi=c_[xi,xi[...,:,0][...,None]]
+        vi=r_[xi,xi[0,...][None,...]]
     return vi
+
+# def close_data_loop(xi):
+#     '''
+#     constructe data loop along the last dimension.
+#     if xi[...,:,0]!=xi[...,:,-1], then,add xi[...,:,0] in the end
+#     '''
+#     if xi.ndim==1:
+#        if xi[0]!=xi[-1]:
+#           vi=r_[xi,xi[0]];
+#        else:
+#           vi=xi
+#     else:
+#        if array_equal(xi[...,:,0].ravel(),xi[...,:,-1].ravel()):
+#           vi=xi
+#        else:
+#           vi=c_[xi,xi[...,:,0][...,None]]
+#     return vi
 
 #-----find all continous sections of a time series
 def find_continuous_sections(xi,dx):
