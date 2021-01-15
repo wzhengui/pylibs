@@ -3,7 +3,7 @@ from pylib import *
 from pylab import *
 
 #-------misc-------------------------------------------------------------------
-def load_bathymetry(x,y,z=None,fname,fmt=0):
+def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
     load bathymetry data onto points(xy)
     Input:
