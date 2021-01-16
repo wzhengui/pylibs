@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #generate bctides.in's tide harmonics
-#specify inputs in the bottom 
+#specify inputs in the bottom
 from pylib import *
 
 def get_tide_nodal(tide_name,StartT,nday):
@@ -46,8 +46,23 @@ def get_tide_amp_freq(tide_name):
     amp=squeeze(array(amp)); freq=squeeze(array(freq))
     return amp, freq
 
-def copy_inputs(bdir):
+def get_tide_name(fname='gen_harm_FES.m',keyword='const'):
+    #read in fname
+    fid=open(fname,'r'); lines=fid.readlines(); fid.close()
 
+    #find the line starting with keyword
+    for line in lines:
+        if line.strip().startswith(keyword):
+            sline=line.strip()
+            break
+
+    #parse tidal names
+    i1=sline.find('{')+1; i2=sline.find('}')
+    tide_name=[i.replace("'",'').upper() for i in sline[i1:i2].split(',')]
+
+    return tide_name
+
+def copy_inputs(bdir):
     #link database
     files=['eastward_velocity','northward_velocity','fes2014a_loadtide','fes2014b_elevations','fes2014b_elevations_extrapolated']
     for fi in files:
@@ -64,14 +79,17 @@ def copy_inputs(bdir):
        os.system("cp -r {}/{} ./".format(bdir,fi))
 
 if __name__=="__main__":
-    tide_name=['O1','K1','Q1','P1','M2','S2','K2','N2'];#check order in gen_harm_FES.m
-    StartT=[2005,1,1,0]; #year,month,day,hour
-    nday=367; #number of days
-    ibnds=[1];  #order of boundary segments
+    #input
+    StartT=[2018,6,17,0]; #year,month,day,hour
+    nday=120; #number of days
+    ibnds=[1];  #order of open boundary segments (starting from 1)
 
     #---setup inputs-------------------
-    bdir='/home/zwang/FES2014';
+    bdir='/sciclone/data10/wangzg/FES2014';
     copy_inputs(bdir);
+
+    #----get tide names from gen_harm_FES.m
+    tide_name=get_tide_name(fname='gen_harm_FES.m',keyword='const')
 
     #----get tide amplitude and frequcy--
     tamp,tfreq=get_tide_amp_freq(tide_name)
@@ -97,27 +115,27 @@ if __name__=="__main__":
             fid.write('  {:<.9e}  {}  {}\n'.format(tfreq[i],tnodal[i],tear[i]))
 
         fid.write('{} !nope\n'.format(gd.nob))
-        
+
         #write each open boundary information
-        for ibnd in ibnds:        
-            fid.write('{} 5 5 4 4 !ocean\n'.format(gd.nobn[ibnd-1]))
-        
+        for ibnd in ibnds:
+            fid.write('{} 3 3 0 0 !ocean\n'.format(gd.nobn[ibnd-1]))
+
             #generate boundary information
-            bnodes=gd.iobn[ibnd-1].astype('int')
-            lxi=gd.x[bnodes]; lyi=gd.y[bnodes]; lzi=gd.dp[bnodes]
+            bnodes=gd.iobn[ibnd-1].astype('int');
+            lxi=gd.x[bnodes]; lyi=gd.y[bnodes]; lzi=gd.dp[bnodes];
             with open('open.ll','w+') as fid2:
                 for i in arange(len(bnodes)):
                     fid2.write("{:10d}  {:.7e}  {:.7e}  {:.7e}\n".format(bnodes[i]+1,lxi[i],lyi[i],lzi[i]))
-    
+
             #generate ap.out
             os.system('matlab -nodisplay <gen_harm_FES.m')
             with open('ap.out','r') as fid3:
                 lines_ap=fid3.readlines();
-            
+
             for line in lines_ap:
                 fid.write(line)
-            fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
-        
+            #fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
+
         #write river boundary information
         #ibnds_river=[2,3,4,5]
         #rivers=['Coyote','San Joaquin','Sacramento','Napa']
@@ -125,7 +143,7 @@ if __name__=="__main__":
         #    ibnd=ibnds_river[m]
         #    fid.write('{} 0 1 1 1 !{}\n'.format(gd.nobn[ibnd-1],rivers[m]))
         #    fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
-        
 
-          
+
+
 
