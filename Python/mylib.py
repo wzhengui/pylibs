@@ -642,7 +642,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
 
     function used:
           lat,lon=pyproj.Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)
-          y,x=pyproj.Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)
+          x,y=pyproj.Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
 
