@@ -223,7 +223,7 @@ class schism_grid:
         self.nobn=array(self.nobn);
         self.iobn=array(self.iobn,dtype='O')
         if len(self.iobn)==1: self.iobn=self.iobn.astype('int')
- 
+
 
         #read lbnd info
         num=array(lines[n].split()[0]).astype('int'); n=n+2;
@@ -570,6 +570,10 @@ class schism_grid:
             if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
 
     def split_quads(self,angle_min=60,angle_max=120,fname='new.gr3'):
+        '''
+        1). split the quads that have angle (<angle_min or >angle_max), add append the connectivity in the end
+        2). output a new grid "fname"
+        '''
         if not hasattr(self,'index_bad_quad'): self.check_quads(angle_min,angle_max)
 
         #compute (angle_max-angle_min) in splitted triangle
@@ -618,8 +622,11 @@ class schism_grid:
         self.write_hgrid(fname)
 
 
-    def check_quads(self,angle_min=60,angle_max=120,fname='bad_quad.xyz'):
-        #check the quality of quads, violation when internal angle < angle_min, or >angle_max
+    def check_quads(self,angle_min=60,angle_max=120,fname='bad_quad.bp'):
+        '''
+        1). check the quality of quads, violation when internal angle < angle_min, or >angle_max
+        2). the locations of bad quads are saved in file "fname"
+        '''
 
         qind=nonzero(self.i34==4)[0];
         x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
@@ -644,12 +651,13 @@ class schism_grid:
 
         self.index_bad_quad=qind[nonzero(fp)[0]];
 
-        #output bad_quad location as xyz file
+        #output bad_quad location as bp file
         if not hasattr(self,'xctr'): self.compute_ctr()
-        qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad];
-        with open("{}".format(fname),'w+') as fid:
-            for i in arange(len(qxi)):
-                fid.write('{} {} 0\n'.format(qxi[i],qyi[i]))
+        qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
+        sbp=schism_bpfile(); sbp.nsta=len(qxi); sbp.x=qxi; sbp.y=qyi; sbp.z=zeros(sbp.nsta); sbp.write_bpfile(fname)
+        #with open("{}".format(fname),'w+') as fid:
+        #    for i in arange(len(qxi)):
+        #        fid.write('{} {} 0\n'.format(qxi[i],qyi[i]))
 
     def plot_bad_quads(self,color='r',ms=12,*args):
         #plot grid with bad quads
@@ -659,7 +667,51 @@ class schism_grid:
         qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
         self.plot_grid()
         plot(qxi,qyi,'.',color=color,ms=ms,*args)
-        pass;
+        pass
+
+    def check_skew_elems(self,angle_min=5,fname='skew_element.bp'):
+        '''
+        1) check schism grid's skewness with angle<=angle_min
+        2) the locations of skew elements are (xskew,yskew), and also save in file "fname"
+        '''
+
+        if not hasattr(self,'dpe'): self.compute_ctr()
+
+        #for triangles
+        fp=self.i34==3; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; xctr=self.xctr[fp]; yctr=self.yctr[fp]; zctr=self.dpe[fp]
+        sind=[]
+        for i in arange(3):
+            id1=i; id2=(i+1)%3; id3=(i+2)%3
+            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
+            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
+            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
+            sindi=nonzero(ai<=angle_min)[0]
+            if len(sindi)!=0: sind.extend(sindi)
+        sind=array(sind)
+        if len(sind)!=0:
+            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]
+        else:
+            XS3=array([]); YS3=array([]); ZS3=array([])
+
+        #for quads
+        fp=self.i34==4; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; xctr=self.xctr[fp]; yctr=self.yctr[fp]; zctr=self.dpe[fp]
+        sind=[]
+        for i in arange(4):
+            id1=i; id2=(i+1)%4; id3=(i+2)%4
+            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
+            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
+            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
+            sindi=nonzero(ai<=angle_min)[0]
+            if len(sindi)!=0: sind.extend(sindi)
+        sind=array(sind)
+        if len(sind)!=0:
+            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]
+        else:
+            XS4=array([]); YS4=array([]); ZS4=array([])
+
+        #combine and save
+        self.xskew=r_[XS3,XS4]; self.yskew=r_[YS3,YS4]; zskew=r_[ZS3,ZS4]
+        sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
 
     def inside_grid(self,pxy,N=100,return_triangle=False):
         '''
@@ -848,6 +900,17 @@ class schism_bpfile:
                 else:
                     fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.z[i]))
 
+    def write_shapefile(self,fname,prjname='epsg:4326'):
+        self.shp_bp=npz_data()
+        self.shp_bp.type='POINT'
+        self.shp_bp.xy=c_[self.x,self.y]
+        self.shp_bp.prj=get_prj_file(prjname)
+
+        if hasattr(self,'station'):
+            self.shp_bp.attname=['station']
+            self.shp_bp.attvalue=self.station
+        write_shapefile_data(fname,self.shp_bp)
+
     def plot_station(self,ax=None,ls='',label=True,**args):
         if not None: ax=gca()
         hp=plot(self.ux,self.uy,linestyle=ls,**args)
@@ -911,7 +974,6 @@ def read_schism_vgrid(fname,gd,node=None,eta=0,flag=0):
         for i in arange(zcor.shape[1]):
             fp=isnan(zcor[:,i]);
             zcor[fp,i]=mzcor[fp]
-
     return zcor
 
 def getglob(fname,flag=0):
