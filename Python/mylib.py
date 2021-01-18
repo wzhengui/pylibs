@@ -38,8 +38,8 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong format of DEM')
 
-    #tmp fix for *.npz format. will change *.npz file 
-    if fname.endswith('npz'): S.lat=S.lat+(S.elev.shape[0]-1)*mean(abs(diff(S.lat)))
+    ##tmp fix for *.npz format. will change *.npz file 
+    ##if fname.endswith('npz'): S.lat=S.lat+(S.elev.shape[0]-1)*mean(abs(diff(S.lat)))
     if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
          
     lon=S.lon; dx=diff(lon).mean()
