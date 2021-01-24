@@ -496,6 +496,9 @@ def inside_polygon(pts,px,py,method=0):
        method=0: return flags "index[npt,nploy]" for whether points are inside polygons (1 means Yes, 0 means No)
        method=1: only return the indices "index[npt]" of polygons that pts resides in
                  (if a point is inside multiple polygons, only one indice is returned; -1 mean pt outside of all Polygons)
+    
+    note: The computation time is proportional to npt**2 of the polygons. If the geometry
+          of polygons are too complex, dividing them to subregions will increase efficiency. 
     '''
     #----use ray method-----------------------------
     #check dimension
