@@ -38,10 +38,10 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong format of DEM')
 
-    ##tmp fix for *.npz format. will change *.npz file 
+    ##tmp fix for *.npz format. will change *.npz file
     ##if fname.endswith('npz'): S.lat=S.lat+(S.elev.shape[0]-1)*mean(abs(diff(S.lat)))
     if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
-         
+
     lon=S.lon; dx=diff(lon).mean()
     lat=S.lat; dy=diff(lat).mean()
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
@@ -132,7 +132,7 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
        return [ps,pc]
     else:
        return ps
-   
+
 def close_data_loop(xi):
     '''
     constructe data loop along the first dimension.
@@ -483,58 +483,68 @@ def near_pts(pts,pts0,method=0,N=100):
 
     return sind
 
-def inside_polygon(pts,px,py):
+def inside_polygon(pts,px,py,method=0):
     '''
-    return indices of polygons that pts resides in
+    check whether points are inside polygons
 
     usage: sind=inside_polygon(pts,px,py):
-       pts[n,2]: xy of points
-       px[nploy,x]: x coordiations of polygons
-       py[nploy,y]: x coordiations of polygons
-       nploy is number of polygons
+       pts[npt,2]: xy of points
+       px[npt] or px[npt,nploy]: x coordiations of polygons
+       py[npt] or py[npt,nploy]: y coordiations of polygons
+       (npt is point number, nploy is number of polygons)
 
-    note: in case polygons overlap, only one index for pts returns
+       method=0: return flags "index[npt,nploy]" for whether points are inside polygons (1 means Yes, 0 means No)
+       method=1: only return the indices "index[npt]" of polygons that pts resides in
+                 (if a point is inside multiple polygons, only one indice is returned; -1 mean pt outside of all Polygons)
     '''
     #----use ray method-----------------------------
     #check dimension
     if px.ndim==1:
-       px=px[None,:]; py=py[None,:]
+       px=px[:,None]; py=py[:,None]
 
     #get dimensions
-    npt=pts.shape[0]; npy,nv=px.shape
+    npt=pts.shape[0]; nv,npy=px.shape
 
-    if nv==3:
-        #for triangles
+    if nv==3 and method==1:
+        #for triangles, and only return indices of polygons that points resides in
         sind=[];
         for i in arange(npt):
             pxi=pts[i,0]; pyi=pts[i,1]; isum=ones(npy)
             for m in arange(nv):
-                xi=c_[ones(npy)*pxi,px[:,m],px[:,mod(m+1,nv)]]
-                yi=c_[ones(npy)*pyi,py[:,m],py[:,mod(m+1,nv)]]
+                xi=c_[ones(npy)*pxi,px[m,:],px[mod(m+1,nv),:]]
+                yi=c_[ones(npy)*pyi,py[m,:],py[mod(m+1,nv),:]]
                 area=signa(xi,yi)
                 fp=area<=0; isum[fp]=0;
             sindi=nonzero(isum)[0]
-            if len(sindi)!=1: sindi=array([-1])
-            sind.append(sindi)
+            if len(sindi)!=1: sindi=-1
+            sind.append(sindi[0])
         sind=squeeze(array(sind))
     else:
-        #for polygons with >3 sides; isum and isum are flags
-        isum=zeros([npt,npy])
+        sind=ones([npt,npy])
         x1=pts[:,0][:,None]; y1=pts[:,1][:,None]
         for m in arange(nv):
-            x2=px[:,m][None,:]; y2=py[:,m][None,:]; isumi=zeros([npt,npy])
+            x2=px[m,:][None,:]; y2=py[m,:][None,:]; isum=zeros([npt,npy])
+            # sign_x1_x2=sign(x1-x2)
             for n in arange(1,nv-1):
-                x3=px[:,mod(n+m,nv)][None,:]; y3=py[:,mod(n+m,nv)][None,:]
-                x4=px[:,mod(n+m+1,nv)][None,:]; y4=py[:,mod(n+m+1,nv)][None,:]
-                #formulation for a ray to intersect with a line
-                fp=(((y1-y3)*(x2-x1)+(x3-x1)*(y2-y1))*((y1-y4)*(x2-x1)+(x4-x1)*(y2-y1)))<=0
-                isumi[fp]=1
-            isum=isum+isumi
+                x3=px[(n+m)%nv,:][None,:]; y3=py[(n+m)%nv,:][None,:]
+                x4=px[(n+m+1)%nv,:][None,:]; y4=py[(n+m+1)%nv,:][None,:]
 
-        #return polygon index for each pts, -1 means outside of all polygons
-        sind=-ones(npt).astype('int')
-        fp=isum>=nv; iy,ix=nonzero(fp)
-        sind[iy]=ix
+                #formulation for a ray to intersect with a line
+                fp1=((y1-y3)*(x2-x1)+(x3-x1)*(y2-y1))*((y1-y4)*(x2-x1)+(x4-x1)*(y2-y1))<=0 #intersection inside line P3P4
+                fp2=((y2-y1)*(x4-x3)-(y4-y3)*(x2-x1))*((y4-y3)*(x1-x3)+(y3-y1)*(x4-x3))<=0 #P1, P2 are in the same side of P3P4
+
+                fp12=fp1*fp2
+                isum[fp12]=isum[fp12]+1
+            fp=((isum%2)==0)|((x1==x2)*(y1==y2))
+            sind[fp]=0
+
+        #change format
+        if method==1:
+            sindm=argmax(sind,axis=1)
+            sindm[sind[arange(npt),sindm]==0]=-1
+            sind=sindm
+        elif method==0 and npy==1:
+            sind=sind[:,0]
     return sind
 
 def signa(x,y):
