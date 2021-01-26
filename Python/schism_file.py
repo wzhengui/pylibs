@@ -865,20 +865,32 @@ class schism_bpfile:
     def __init__(self):
         pass
 
-    def read_bpfile(self,fname):
-        lines=[line.split() for line in open(fname,'r').read().strip().split('\n')]
-        self.nsta=int(lines[1][0])
+    def read_bpfile(self,fname,fmt=0):
+        # lines=[line.split() for line in open(fname,'r').read().strip().split('\n')]
+        #read file content
+        lines=[line.strip().split() for line in open(fname,'r').readlines()]
+        if fmt==0:
+            self.nsta=int(lines[1][0])
+            fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
+            data=array([fc(line) for line in lines[2:(2+self.nsta)]])
 
-        fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
-        data=array([fc(line) for line in lines[2:(2+self.nsta)]])
+            self.x=data[:,1].astype(float)
+            self.y=data[:,2].astype(float)
+            self.z=data[:,3].astype(float)
+        elif fmt==1:
+            self.nsta=int(lines[2][0])
+            data=squeeze(array([lines[3:]])).astype('float')
+            self.x=data[:,0]
+            self.y=data[:,1]
+            self.z=zeros(self.nsta)
+        else:
+            sys.exit('unknow format')
 
-        self.x=data[:,1].astype(float)
-        self.y=data[:,2].astype(float)
-        self.z=data[:,3].astype(float)
-
+        #get unique locations
         upxy,ind=unique(self.x+1j*self.y,return_index=True)
         ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
         self.ux=ux; self.uy=uy;self.uz=uz;
+
         #get unique station data.
         if data.shape[1]==5:
            self.station=data[:,4]
@@ -940,9 +952,12 @@ def read_schism_hgrid_ll(fname,gr3=None):
     gd.read_hgrid(fname,gr3)
     return gd
 
-def read_schism_bpfile(fname):
+def read_schism_bpfile(fname,fmt=0):
+    '''
+    read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
+    '''
     bp=schism_bpfile();
-    bp.read_bpfile(fname)
+    bp.read_bpfile(fname,fmt=fmt)
     return bp
 
 def read_schism_vgrid(fname,gd,node=None,eta=0,flag=0):
