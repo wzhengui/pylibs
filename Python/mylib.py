@@ -692,12 +692,14 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
     if prj0=='epsg:4326': order0=1
     if prj1=='epsg:4326': order1=1
 
+    if (sum(isnan(x))!=0) and (sum(isnan(y))!=0): sys.exit('nan found in x,y') #check nan
     #transform coordinate
     if order0==1: x,y=y,x
     x1,y1=Transformer.from_crs(prj0,prj1).transform(x,y)
     if order1==1: x1,y1=y1,x1
     #x1,y1=transform(Proj(init=proj0),Proj(init=proj1),x,y);
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
+    if (sum(isnan(x1))!=0) and (sum(isnan(y1))!=0): sys.exit('nan found in x1,y1') #check nan
 
     #write file
     if fmt1==0:
