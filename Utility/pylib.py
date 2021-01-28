@@ -17,11 +17,14 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #libraries of packages
    #---------------------------------------------------------------------
    #matplotlib
-   import matplotlib as mpl
-   from matplotlib import pyplot as plt
-   from matplotlib import cbook, mlab
-   from matplotlib.dates import * 
-   from matplotlib.pyplot import *
+   try: 
+       import matplotlib as mpl
+       from matplotlib import pyplot as plt
+       from matplotlib import cbook, mlab
+       from matplotlib.dates import * 
+       from matplotlib.pyplot import *
+   except:
+       pass
 
    #numpy
    import numpy as np
