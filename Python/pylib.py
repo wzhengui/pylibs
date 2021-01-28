@@ -45,7 +45,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from netCDF4 import Dataset
 
    #excel
-   import xlsxwriter as xw
+   try: 
+      import xlsxwriter as xw
+   except: 
+      pass
 
    #mpi4py
    try:
