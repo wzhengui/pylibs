@@ -730,16 +730,16 @@ def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\project
         method=-1: process *.prj files from prj_dir
 
     #-------online method-----------------
-    function to generate .prj file information using spatialreference.org
-    def getWKT_PRJ (epsg_code):
-         import urllib
-         # access projection information
-         wkt = urllib.urlopen("http://spatialreference.org/ref/epsg/{0}/prettywkt/".format(epsg_code))
-         # remove spaces between charachters
-         remove_spaces = wkt.read().replace(" ","")
-         # place all the text on one line
-         output = remove_spaces.replace("\n", "")
-         return output
+    #function to generate .prj file information using spatialreference.org
+    #def getWKT_PRJ (epsg_code):
+    #     import urllib
+    #     # access projection information
+    #     wkt = urllib.urlopen("http://spatialreference.org/ref/epsg/{0}/prettywkt/".format(epsg_code))
+    #     # remove spaces between charachters
+    #     remove_spaces = wkt.read().replace(" ","")
+    #     # place all the text on one line
+    #     output = remove_spaces.replace("\n", "")
+    #     return output
     '''
 
     #get location of database
@@ -776,66 +776,66 @@ def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\project
         sys.exit('unknow method')
 
 #----------------convert_matfile_format----------------------------------------
-def convert_matfile_format(file):
-    '''
-    convert a matlab data to self-defined python format
-    file: input, a directory or a matfile
-    '''
-    # eg. file="C:\Users\Zhengui\Desktop\Observation2\DWR\SFBay_DWRData_SSI.mat"
-    # file="D:\OneDrive\Python\tem.mat"
-
-    fname=[]
-    if os.path.isdir(file):
-        sfile=os.listdir(file)
-        for sfilei in sfile:
-            ename=sfilei.rstrip().split('.')[-1]
-            if ename=='mat':
-                fname.append(file+os.sep+sfilei)
-    else:
-        fname=[file];
-
-    fid=open('log_matfile_convert.txt','w+')
-    #convert mat format from v7.3 to v7
-    cdir=os.getcwd();
-    os.chdir('D:\OneDrive\Python')
-    import matlab.engine
-    eng = matlab.engine.start_matlab()
-
-    for fn in fname:
-        print('converting matfile: '+fn)
-        dname=os.path.dirname(fn)
-        bname=os.path.basename(fn).split('.')[0]
-        fnv7=dname+os.sep+bname+'_v7'
-        fnz=dname+os.sep+bname
-        eflag=eng.convert_matfile_format(fn,fnv7,nargout=1)
-        if eflag!=0:
-            print('convert flag is %d: %s\n' % (eflag, fn));
-            fid.write('convert flag is %d: %s\n' % (eflag,fn))
-            continue
-        convert_matfile(fnz,fnv7)
-        os.remove(fnv7+'.mat')
-    fid.close()
-    os.chdir(cdir)
-
-#convert mat to npz
-def convert_matfile(fnz,fnv7):
-    fc=np.vectorize(lambda x: x[0])
-    C=sp.io.loadmat(fnv7+'.mat')
-    vn=C.keys();
-
-    iflag=0;Y={};
-    for vni in vn:
-        if vni[:2]=='__':
-            continue
-        Ci=C[vni];
-        if issubdtype(Ci.dtype,np.number):
-            Yi=Ci.copy();
-        else:
-            Yi=fc(Ci)
-        if vni=='Doy' or vni=='doy':
-            Yi=Yi-366;
-        Y[vni]=Yi
-    savez_compressed(fnz,**Y)
+#def convert_matfile_format(file):
+#    '''
+#    convert a matlab data to self-defined python format
+#    file: input, a directory or a matfile
+#    '''
+#    # eg. file="C:\Users\Zhengui\Desktop\Observation2\DWR\SFBay_DWRData_SSI.mat"
+#    # file="D:\OneDrive\Python\tem.mat"
+#
+#    fname=[]
+#    if os.path.isdir(file):
+#        sfile=os.listdir(file)
+#        for sfilei in sfile:
+#            ename=sfilei.rstrip().split('.')[-1]
+#            if ename=='mat':
+#                fname.append(file+os.sep+sfilei)
+#    else:
+#        fname=[file];
+#
+#    fid=open('log_matfile_convert.txt','w+')
+#    #convert mat format from v7.3 to v7
+#    cdir=os.getcwd();
+#    os.chdir('D:\OneDrive\Python')
+#    import matlab.engine
+#    eng = matlab.engine.start_matlab()
+#
+#    for fn in fname:
+#        print('converting matfile: '+fn)
+#        dname=os.path.dirname(fn)
+#        bname=os.path.basename(fn).split('.')[0]
+#        fnv7=dname+os.sep+bname+'_v7'
+#        fnz=dname+os.sep+bname
+#        eflag=eng.convert_matfile_format(fn,fnv7,nargout=1)
+#        if eflag!=0:
+#            print('convert flag is %d: %s\n' % (eflag, fn));
+#            fid.write('convert flag is %d: %s\n' % (eflag,fn))
+#            continue
+#        convert_matfile(fnz,fnv7)
+#        os.remove(fnv7+'.mat')
+#    fid.close()
+#    os.chdir(cdir)
+#
+##convert mat to npz
+#def convert_matfile(fnz,fnv7):
+#    fc=np.vectorize(lambda x: x[0])
+#    C=sp.io.loadmat(fnv7+'.mat')
+#    vn=C.keys();
+#
+#    iflag=0;Y={};
+#    for vni in vn:
+#        if vni[:2]=='__':
+#            continue
+#        Ci=C[vni];
+#        if issubdtype(Ci.dtype,np.number):
+#            Yi=Ci.copy();
+#        else:
+#            Yi=fc(Ci)
+#        if vni=='Doy' or vni=='doy':
+#            Yi=Yi-366;
+#        Y[vni]=Yi
+#    savez_compressed(fnz,**Y)
 
 def get_stat(xi_model,xi_obs):
     '''

@@ -970,7 +970,7 @@ def read_schism_vgrid(fname,gd,node=None,eta=0,flag=0):
     sigma=ones([gd.np,nvrt])*nan;
     if ivcor==1:
         for i in arange(gd.np):
-            R=loadtxt(StringIO(lines[i+2]));
+            R=loadtxt(sp.io.StringIO(lines[i+2]));
             kbp=int(R[1]-1);
             sigma[i,kbp:]=R[2:]
         dpi=tile(gd.dp,[nvrt,1]).T
