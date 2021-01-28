@@ -1,6 +1,6 @@
 #/usr/bin/env python3
 from pylib import *
-from pylab import *
+#from pylab import *
 
 class schism_grid:
     def __init__(self):

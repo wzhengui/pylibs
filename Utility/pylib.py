@@ -10,12 +10,19 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #C:/Program Files/Python/Python3[57]/Lib/site-packages/matplotlib/pylab.py
    #---------------------------------------------------------------------
    pversion=sys.version.split(' ')[0]
-   from pylab import *
-   ##print(pversion)
+   #from pylab import *
+   #print(pversion)
 
    #---------------------------------------------------------------------
    #libraries of packages
    #---------------------------------------------------------------------
+   #matplotlib
+   import matplotlib as mpl
+   from matplotlib import pyplot as plt
+   from matplotlib import cbook, mlab
+   from matplotlib.dates import * 
+   from matplotlib.pyplot import *
+
    #numpy
    import numpy as np
    from numpy import *
@@ -35,6 +42,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    #misc
    import re
+   import datetime
    #from io import StringIO
    #import imp
    #import importlib as imp
