@@ -871,6 +871,7 @@ class schism_bpfile:
         lines=[line.strip().split() for line in open(fname,'r').readlines()]
         if fmt==0:
             self.nsta=int(lines[1][0])
+            if self.nsta==0: return
             fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
             data=array([fc(line) for line in lines[2:(2+self.nsta)]])
 
@@ -879,6 +880,7 @@ class schism_bpfile:
             self.z=data[:,3].astype(float)
         elif fmt==1:
             self.nsta=int(lines[2][0])
+            if self.nsta==0: return
             data=squeeze(array([lines[3:]])).astype('float')
             self.x=data[:,0]
             self.y=data[:,1]
