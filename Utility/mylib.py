@@ -574,20 +574,20 @@ def mdivide(A,B):
 
 def lpfilt(data,delta_t,cutoff_f):
     '''
-    low pass filter for 1D (data[time]) or nD (data[...,time]) array along the last dimension
+    low pass filter for 1D (data[time]) or nD (data[time,...]) array along the first dimension
     '''
     #import gc #discard
 
     ds=data.shape
 
     #fft original data
-    mdata=data.mean(axis=-1)[...,None]
+    mdata=data.mean(axis=0)[None,...]
     #print(data.shape,mdata.shape)
     data=data-mdata
-    fdata=fft(data,axis=-1)
+    fdata=fft(data,axis=0)
 
     #desgin filter
-    N=ds[-1];
+    N=ds[0];
     filt=ones(N)
     k=int(floor(cutoff_f*N*delta_t))
     filt[k]=0.715
@@ -598,11 +598,14 @@ def lpfilt(data,delta_t,cutoff_f):
     filt[N-(k+3)]=0.24
     filt[N-(k+2)]=0.715
 
+    #expand dimension of filt
+    filt=(ones([*ones(data.ndim).astype('int')])*filt).T
+
     #remove high freqs
     fdata=fdata*filt
 
     #lp results
-    lfdata=real(ifft(fdata,axis=-1))+mdata
+    lfdata=real(ifft(fdata,axis=0))+mdata
 
     return lfdata
 

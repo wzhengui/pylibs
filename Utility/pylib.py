@@ -17,15 +17,13 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #libraries of packages
    #---------------------------------------------------------------------
    #matplotlib
-   try: 
-       import matplotlib as mpl
-       if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg') 
-       from matplotlib import pyplot as plt
-       from matplotlib import cbook, mlab
-       from matplotlib.dates import * 
-       from matplotlib.pyplot import *
-   except:
-       pass
+   import matplotlib as mpl
+   if os.getenv('HOSTNAME') is not None:
+      if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg') 
+   from matplotlib import pyplot as plt
+   from matplotlib import cbook, mlab
+   from matplotlib.dates import * 
+   from matplotlib.pyplot import *
 
    #numpy
    import numpy as np
@@ -38,7 +36,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #scipy
    import scipy as sp
    from scipy import (optimize,interpolate,signal)
-   from scipy.fftpack import fft
+   from scipy.fftpack import fft, ifft
    #from scipy import (optimize,interpolate,io,signal)
 
    #pandas
