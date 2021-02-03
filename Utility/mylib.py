@@ -19,7 +19,8 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
 
     #read DEM
     if fname.endswith('npz'):
-        S=loadz(fname); S.nodata=None
+        S=loadz(fname)
+        if not hasattr(S,'nodata'): S.nodata=None
     elif fname.endswith('asc'):
         S=npz_data();
         #read *.asc data
@@ -32,7 +33,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         nodata=float(fid.readline().strip().split()[1])
         fid.close()
 
-        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)
+        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
         S.elev=loadtxt(bname,skiprows=6); S.nodata=nodata
 
     else:
@@ -76,7 +77,12 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
 
     #make sure elevation is within right range
     if S.nodata is not None:
-        fpz=S.elev==S.nodata; S.elev[fpz]=-1e7
+        if isnan(S.nodata): 
+           fpz=isnan(S.elev)
+        else:
+           #fpz=(abs(S.elev)>1.5e4)|(S.elev==S.nodata)|(abs(S.elev-S.nodata)<1)
+           fpz=S.elev==S.nodata
+        S.elev[fpz]=nan
 
     #compute depth
     dp1=S.elev[idy,idx]*(1-xrat)+S.elev[idy,idx+1]*xrat
@@ -85,7 +91,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
 
     #make sure elevation is within right range
     if S.nodata is not None:
-        fpz=dp>-1e6; sindp=sindp[fpz]; dp=dp[fpz]
+        fpz=~isnan(dp); sindp=sindp[fpz]; dp=dp[fpz]
 
     #return depth
     if fmt==0:
