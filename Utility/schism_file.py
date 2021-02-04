@@ -129,46 +129,34 @@ class schism_grid:
            self.hg=hg;
            return hg
 
-    def plot_bnd(self,PlotSep=0,c='k',ax=None,**args):
+    def plot_bnd(self,c='k',ax=None,**args):
+        '''
+          plot schims grid boundary
+
+          gd.plot_bnd(): plot bnd
+          gd.plot_bnd(c='rb'): open bnd in red,land bnd in blue
+
+        '''
         if ax!=None: sca(ax)
+        if len(c)==1: c=c*3
 
-        if PlotSep==0:
-            bi=[]
-            for i in arange(self.nob):
-                bi=r_[bi,self.iobn[i]]
-                bi=r_[bi,self.ilbn[i]]
-                bi=bi.astype('int')
-                bx=self.x[bi]; by=self.y[bi];
-            hb=plt.fill(bx,by,fc='none',ec=c,**args)
-            self.hb=hb
-        else:
-            hob=[];
-            for i in arange(self.nob):
-                bi=self.iobn[i]
-                bi=bi.astype('int')
-                bx=self.x[bi]; by=self.y[bi];
-                hb=plot(bx,by,color='r',**args)
-                hob.append(hb)
-            self.hob=hob
+        #get indices for bnds
+        sindo=[]
+        for i in arange(self.nob):
+            sindo=r_[sindo,-1,self.iobn[i]]
+        sindo=array(sindo).astype('int'); fpn=sindo==-1
+        bx1=self.x[sindo]; by1=self.y[sindo]
+        bx1[fpn]=nan; by1[fpn]=nan
 
-            hlb=[];
-            for i in arange(self.nob):
-                bi=self.ilbn[i]
-                bi=bi.astype('int')
-                bx=self.x[bi]; by=self.y[bi];
-                hb=plot(bx,by,color='g',**args)
-                hlb.append(hb)
-            self.hlb=hlb
-            pass
+        sindl=[]
+        for i in arange(self.nlb):
+            sindl=r_[sindl,-1,self.ilbn[i]]
+        sindl=array(sindl).astype('int'); fpn=sindl==-1
+        bx2=self.x[sindl]; by2=self.y[sindl]
+        bx2[fpn]=nan; by2[fpn]=nan
 
-        hi=[];
-        for i in arange(self.nob,self.nlb):
-            ibi=self.ilbn[i]
-            ibi=ibi.astype('int')
-            ibx=self.x[ibi]; iby=self.y[ibi];
-            hii=plt.fill(ibx,iby,fc='none',ec=c,**args)
-            hi.append(hii)
-        self.hi=hi;
+        hb=plot(bx1,by1,c[0],bx2,by2,c[-1])
+        self.hb=hb
 
     def read_hgrid(self,fname,*args):
         with open(fname,'r') as fid:
