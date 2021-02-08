@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 #check runtime for each run
+from pylib import *
+import subprocess
 
 #-----input------------------------------------------------------------
-runs=['run1a','run2f','run3','run4','run4a','run5a']
+runs=['RUN01a']
 
 #--compute runtime----------------------------------------------------
-import os,sys,re,subprocess,time,datetime
-from get_schism_param import read_schism_param
 for run in runs:
-    fname='{}/mirror.out'.format(run);
+    fname='{}/mirror.out'.format(run)
+    if not os.path.exists(fname): fname='{}/outputs/mirror.out'.format(run);
     if not os.path.exists(fname): continue
 
     #find start time
@@ -40,7 +41,10 @@ for run in runs:
         t1=datetime.datetime.fromtimestamp(os.path.getmtime(fname))
 
     #find time step 
-    P=read_schism_param('{}/param.in'.format(run)); dt=float(P['dt'])
+    if os.path.exists('{}/param.in'.format(run)):
+       P=read_schism_param('{}/param.in'.format(run)); dt=float(P['dt']); rnday=float(P['rnday'])
+    else:
+       P=read_schism_param('{}/param.nml'.format(run)); dt=float(P['dt']); rnday=float(P['rnday'])
     
     #find number of time step  completed
     nstep=None
@@ -51,8 +55,10 @@ for run in runs:
     if nstep==None: continue
 
     ds=(t1-t0).total_seconds() 
+   
+    RTR=(dt*nstep/86400)/(ds/86400)
 
     #print results
-    print('{}: {:.2f} days finished in {:.1f} hours (or {:.0f} minutes); need {:.1f} hours for 365 days'.format(run,dt*nstep/86400,ds/3600,ds/60,ds*365*24/dt/nstep))
+    print('{}: RTR={:.2f}; {:.2f} days finished in {:.1f} hrs (or {:.0f} mins); {:.1f} hours for {} days; {:.1f} hrs for 365 days'.format(run,RTR,dt*nstep/86400,ds/3600,ds/60, ds*rnday*24/dt/nstep,rnday,ds*365*24/dt/nstep))
 
     
