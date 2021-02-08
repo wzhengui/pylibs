@@ -271,6 +271,14 @@ class schism_grid:
         #            self.ilbn.append(squeeze(num))
         #            n=n+self.nlbn[i]
         #        self.ilbn=array(self.ilbn)
+    
+    def read_prop(self,fname):
+        '''
+        read schism prop, and return the values
+        '''
+        pvalue=loadtxt(fname)[:,1]
+
+        return pvalue
 
     def interp_node_to_elem(self,value=None):
         #interpolate node values to elements
@@ -556,6 +564,27 @@ class schism_grid:
 
             #write bnd information
             if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
+
+    def write_prop(self,fname='schism.prop',value=None,fmt='{:8.5f}'):
+        '''
+        write schism prop file. 
+            fname: file name
+            value: prop value; if value=None, self.dpe is outputed.
+            fmt:   output format of prop value
+        '''
+       
+        #get prop value 
+        if value is None:
+           if not hasattr(self,'dpe'): self.compute_ctr()
+           value=self.dpe.copy()
+        if 'd' in fmt: value=value.astype('int')
+
+        #prepare values 
+        fstr=('{:d} '+fmt+' \n')*self.ne
+        fval=array([range(1,self.ne+1),value],dtype='O').T
+
+        #write prop value
+        fid=open(fname,'w+'); fid.writelines(fstr.format(*fval.ravel())); fid.close()
 
     def split_quads(self,angle_min=60,angle_max=120,fname='new.gr3'):
         '''
