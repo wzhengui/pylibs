@@ -87,7 +87,7 @@ for i in iproc:
     while not os.path.exists('outputs/schout_0000_{}.nc'.format(i+1)): time.sleep(60)
     os.system("cd outputs; {} -b {} -e {} -w {}".format(code,i,i,iwetdry))
     print('finished combining stack={}, on myrank={}'.format(i,myrank)); sys.stdout.flush()
-    if idelete_raw!=0: os.system('cd outputs; rm schout_????_{}'.format(i))
+    if idelete_raw!=0: os.system('cd outputs; rm schout_????_{}.nc'.format(i))
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs
