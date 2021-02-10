@@ -9,10 +9,10 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-jname='MPI4PY' #job name
+jname='mpi4py' #job name
+walltime='00:10:00' 
 
 #resource requst 
-walltime=1 #hours
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
@@ -34,9 +34,9 @@ if os.getenv('param')==None and os.getenv('job_on_node')==None:
     
     #submit job on node
     if qnode=='femto': 
-        scode='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {:02}:00:00 {}'.format(*param,jname,nnode,nproc,walltime,args[0])
+        scode='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {} {}'.format(*param,jname,nnode,nproc,walltime,args[0])
     else:
-        scode='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={:02}:00:00'.format(args[0],*param,jname,nnode,qnode,ppn,walltime)
+        scode='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],*param,jname,nnode,qnode,ppn,walltime)
     print(scode); os.system(scode)
     os._exit(0)
 
