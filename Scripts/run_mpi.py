@@ -46,16 +46,16 @@ if os.getenv('param')==None and os.getenv('job_on_node')==None:
 if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     param=os.getenv('param').split();
     param=[int(i) if i.isdigit() else i for i in param]
-    bdir=param[0]; code=param[1]
+    bdir=param[0]; bcode=param[1]
     os.chdir(bdir)
 
     if qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,code)
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
     elif qnode=='femto':
        pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,code)
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,code)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 
