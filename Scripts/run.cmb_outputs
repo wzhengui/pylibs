@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 '''
-Template for running MPI job on sciclone/ches @VIMS
-Note: For MPI jobs demanding large memory, use small ppn
+autocombine schism outputs in parallel mode
 '''
 from pylib import *
 import time
@@ -9,23 +8,28 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-jname='mpi4py' #job name
-walltime='00:10:00' 
+stacks=[1,32]
+iwetdry=0
+walltime='01:00:00' 
+idelete_raw=0  #delete uncombine results
 
 #resource requst 
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
-#qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
-#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+#qnode='vortex'; nnode=1; ppn=4   #vortex, ppn=12
+qnode='x5672'; nnode=4; ppn=8     #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
-qnode='james'; nnode=5; ppn=20     #james, ppn=20
+#qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
+code='~/bin/combine_output10.{}'.format(qnode)
+if qnode=='x5672': code='~/bin/combine_output10.hurricane'
+jname='cmb_{}'.format(os.path.basename(os.path.abspath(os.path.curdir))) #job name
+
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
-
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
@@ -75,7 +79,15 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sys.stdout.flush()
+#distribute jobs
+iproc=[i for i in range(int(stacks[0]),int(stacks[1])+1) if i%nproc==myrank]
+
+#combine outputs on each rank
+for i in iproc:
+    while not os.path.exists('outputs/schout_0000_{}.nc'.format(i+1)): time.sleep(60)
+    os.system("cd outputs; {} -b {} -e {} -w {}".format(code,i,i,iwetdry))
+    print('finished combining stack={}, on myrank={}'.format(i,myrank)); sys.stdout.flush()
+    if idelete_raw!=0: os.system('cd outputs; rm schout_????_{}'.format(i))
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs
