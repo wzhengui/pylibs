@@ -9,12 +9,15 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
+jname='MPI4PY' #job name
 
 #resource requst 
-walltime=5 #hours
-qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+walltime=1 #hours
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+#qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
+qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 
 #-----------------------------------------------------------------------------
@@ -31,9 +34,9 @@ if os.getenv('param')==None and os.getenv('job_on_node')==None:
     
     #submit job on node
     if qnode=='femto': 
-        scode='sbatch --export=param="{} {}" -J mpi4py -N {} -n {} -t {:02}:00:00 {}'.format(*param,nnode,nproc,walltime,args[0])
+        scode='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {:02}:00:00 {}'.format(*param,jname,nnode,nproc,walltime,args[0])
     else:
-        scode='qsub {} -v param="{} {}", -N mpi4py -j oe -l nodes={}:{}:ppn={} -l walltime={:02}:00:00'.format(args[0],*param,nnode,qnode,ppn,walltime)
+        scode='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={:02}:00:00'.format(args[0],*param,jname,nnode,qnode,ppn,walltime)
     print(scode); os.system(scode)
     os._exit(0)
 
@@ -46,14 +49,14 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     bdir=param[0]; code=param[1]
     os.chdir(bdir)
 
-    if qnode=='x5672' or qnode=='vortex':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {}>& screen.out".format(bdir,code)
-    elif qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {}>& screen.out".format(bdir,nproc,code)
+    if qnode=='bora':
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,code)
     elif qnode=='femto':
        pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {}>& screen.out".format(bdir,pypath,code)
-    print(rcode); os.system(rcode)
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,code)
+    elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,code)
+    print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 
 #-----------------------------------------------------------------------------
@@ -74,7 +77,7 @@ print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sy
 #finish MPI jobs
 comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
-if qnode=='vortex': 
-   sys.exit(0)
-elif qnode=='x5672':
+if qnode=='x5672' or qnode=='james':
    os._exit(0)
+else:
+   sys.exit(0)
