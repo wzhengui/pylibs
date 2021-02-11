@@ -77,7 +77,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
 
     #make sure elevation is within right range
     if S.nodata is not None:
-        if isnan(S.nodata): 
+        if isnan(S.nodata):
            fpz=isnan(S.elev)
         else:
            #fpz=(abs(S.elev)>1.5e4)|(S.elev==S.nodata)|(abs(S.elev-S.nodata)<1)
@@ -701,14 +701,17 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
     if prj0=='epsg:4326': order0=1
     if prj1=='epsg:4326': order1=1
 
-    if (sum(isnan(x))!=0) and (sum(isnan(y))!=0): sys.exit('nan found in x,y') #check nan
     #transform coordinate
     if order0==1: x,y=y,x
-    x1,y1=Transformer.from_crs(prj0,prj1).transform(x,y)
+    fpn=~(isnan(x)|isnan(y)); x1=arange(len(x))*nan; y1=arange(len(y))*nan
+    x1[fpn],y1[fpn]=Transformer.from_crs(prj0,prj1).transform(x[fpn],y[fpn])
     if order1==1: x1,y1=y1,x1
+    if (sum(isnan(x1[fpn]))!=0) | (sum(isnan(y1[fpn]))!=0): sys.exit('nan found in tranformation: x1,y1') #check nan
+
+    # if (sum(isnan(x))!=0) and (sum(isnan(y))!=0): sys.exit('nan found in x,y') #check nan
+    #x1,y1=Transformer.from_crs(prj0,prj1).transform(x,y)
     #x1,y1=transform(Proj(init=proj0),Proj(init=proj1),x,y);
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y);
-    if (sum(isnan(x1))!=0) and (sum(isnan(y1))!=0): sys.exit('nan found in x1,y1') #check nan
 
     #write file
     if fmt1==0:
