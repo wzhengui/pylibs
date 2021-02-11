@@ -129,7 +129,7 @@ class schism_grid:
            self.hg=hg;
            return hg
 
-    def plot_bnd(self,c='k',ax=None,**args):
+    def plot_bnd(self,c='k',lw=1,ax=None,**args):
         '''
           plot schims grid boundary
 
@@ -155,8 +155,9 @@ class schism_grid:
         bx2=self.x[sindl]; by2=self.y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
 
-        hb=plot(bx1,by1,c[0],bx2,by2,c[-1])
-        self.hb=hb
+        hb1=plot(bx1,by1,c[0],lw=lw)
+        hb2=plot(bx2,by2,c[-1],lw=lw)
+        self.hb=[hb1,hb2]
 
     def read_hgrid(self,fname,*args):
         with open(fname,'r') as fid:
