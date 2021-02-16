@@ -13,11 +13,11 @@ jname='mpi4py' #job name
 walltime='00:10:00' 
 
 #resource requst 
-#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
-qnode='james'; nnode=5; ppn=20     #james, ppn=20
+#qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 
 #-----------------------------------------------------------------------------

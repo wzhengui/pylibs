@@ -81,8 +81,9 @@ def copy_inputs(bdir):
 if __name__=="__main__":
     #input
     StartT=[2018,6,17,0]; #year,month,day,hour
-    nday=120; #number of days
+    nday=121; #number of days
     ibnds=[1];  #order of open boundary segments (starting from 1)
+    iZ0=1; zconst=0.05 #iZ0==1 add Z0 constant (value=zconst)
 
     #---setup inputs-------------------
     bdir='/sciclone/data10/wangzg/FES2014';
@@ -103,13 +104,14 @@ if __name__=="__main__":
 
     #write bctides file
     with open('bctides.in','w+') as fid:
-        fid.write('{:02}/{:02}/{:4} {:02}:00:00 GMT\n'.format(StartT[1],StartT[2],StartT[0],StartT[3]))
-        fid.write('{:d} 40.0 !ntip\n'.format(len(tide_name)))
+        fid.write('!{:02}/{:02}/{:4} {:02}:00:00 UTC\n'.format(StartT[1],StartT[2],StartT[0],StartT[3]))
+        fid.write(' {:d}  50.000 !number of earth tidal potential, cut-off depth for applying tidal potential\n'.format(len(tide_name)))
         for i in arange(len(tide_name)):
             fid.write('{}\n'.format(tide_name[i]))
             fid.write('{} {:<.6f}  {:<.9e}  {}  {}\n'.format(tide_name[i][1],tamp[i],tfreq[i],tnodal[i],tear[i]))
 
-        fid.write('{:d} !nbfr\n'.format(len(tide_name)))
+        fid.write('{:d} !nbfr\n'.format(int(len(tide_name)+iZ0)))
+        if iZ0==1: fid.write('Z0\n0. 1. 0.\n') 
         for i in arange(len(tide_name)):
             fid.write('{}\n'.format(tide_name[i]))
             fid.write('  {:<.9e}  {}  {}\n'.format(tfreq[i],tnodal[i],tear[i]))
@@ -132,8 +134,16 @@ if __name__=="__main__":
             with open('ap.out','r') as fid3:
                 lines_ap=fid3.readlines();
 
-            for line in lines_ap:
+            #add Z0
+            if iZ0==1: fid.write('Z0\n'+'{} 0\n'.format(zconst)*gd.nobn[ibnd-1])   
+
+            for i,line in enumerate(lines_ap):
                 fid.write(line)
+
+                #add Z0
+                if (i+1)==(1+gd.nobn[ibnd-1])*len(tide_name) and iZ0==1:
+                    fid.write('Z0\n'+'0 0 0 0\n'*gd.nobn[ibnd-1])   
+                
             #fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
 
         #write river boundary information
