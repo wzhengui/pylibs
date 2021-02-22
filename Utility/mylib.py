@@ -489,7 +489,7 @@ def near_pts(pts,pts0,method=0,N=100):
 
     return sind
 
-def inside_polygon(pts,px,py,method=0):
+def inside_polygon(pts,px,py,fmt=0,method=0):
     '''
     check whether points are inside polygons
 
@@ -499,9 +499,12 @@ def inside_polygon(pts,px,py,method=0):
        py[npt] or py[npt,nploy]: y coordiations of polygons
        (npt is point number, nploy is number of polygons)
 
-       method=0: return flags "index[npt,nploy]" for whether points are inside polygons (1 means Yes, 0 means No)
-       method=1: only return the indices "index[npt]" of polygons that pts resides in
-                 (if a point is inside multiple polygons, only one indice is returned; -1 mean pt outside of all Polygons)
+       fmt=0: return flags "index[npt,nploy]" for whether points are inside polygons (1 means Yes, 0 means No)
+       fmt=1: only return the indices "index[npt]" of polygons that pts resides in
+             (if a point is inside multiple polygons, only one indice is returned; -1 mean pt outside of all Polygons)
+
+       method=0: use mpl.path.Path
+       method=1: use ray method explicitly
 
     note: The computation time is proportional to npt**2 of the polygons. If the geometry
           of polygons are too complex, dividing them to subregions will increase efficiency.
@@ -514,7 +517,7 @@ def inside_polygon(pts,px,py,method=0):
     #get dimensions
     npt=pts.shape[0]; nv,npy=px.shape
 
-    if nv==3 and method==1:
+    if nv==3 and fmt==1:
         #for triangles, and only return indices of polygons that points resides in
         sind=[];
         for i in arange(npt):
@@ -529,30 +532,38 @@ def inside_polygon(pts,px,py,method=0):
             sind.append(sindi[0])
         sind=squeeze(array(sind))
     else:
-        sind=ones([npt,npy])
-        x1=pts[:,0][:,None]; y1=pts[:,1][:,None]
-        for m in arange(nv):
-            x2=px[m,:][None,:]; y2=py[m,:][None,:]; isum=zeros([npt,npy])
-            # sign_x1_x2=sign(x1-x2)
-            for n in arange(1,nv-1):
-                x3=px[(n+m)%nv,:][None,:]; y3=py[(n+m)%nv,:][None,:]
-                x4=px[(n+m+1)%nv,:][None,:]; y4=py[(n+m+1)%nv,:][None,:]
+        if method==0:
+            sind=[]
+            for m in arange(npy):
+                sindi=mpl.path.Path(c_[px[:,m],py[:,m]]).contains_points(pts)
+                sind.append(sindi)
+            sind=array(sind).T+0  #convert logical to int
+        elif method==1  :
+            #using ray method explicitly
+            sind=ones([npt,npy])
+            x1=pts[:,0][:,None]; y1=pts[:,1][:,None]
+            for m in arange(nv):
+                x2=px[m,:][None,:]; y2=py[m,:][None,:]; isum=zeros([npt,npy])
+                # sign_x1_x2=sign(x1-x2)
+                for n in arange(1,nv-1):
+                    x3=px[(n+m)%nv,:][None,:]; y3=py[(n+m)%nv,:][None,:]
+                    x4=px[(n+m+1)%nv,:][None,:]; y4=py[(n+m+1)%nv,:][None,:]
 
-                #formulation for a ray to intersect with a line
-                fp1=((y1-y3)*(x2-x1)+(x3-x1)*(y2-y1))*((y1-y4)*(x2-x1)+(x4-x1)*(y2-y1))<=0 #intersection inside line P3P4
-                fp2=((y2-y1)*(x4-x3)-(y4-y3)*(x2-x1))*((y4-y3)*(x1-x3)+(y3-y1)*(x4-x3))<=0 #P1, P2 are in the same side of P3P4
+                    #formulation for a ray to intersect with a line
+                    fp1=((y1-y3)*(x2-x1)+(x3-x1)*(y2-y1))*((y1-y4)*(x2-x1)+(x4-x1)*(y2-y1))<=0 #intersection inside line P3P4
+                    fp2=((y2-y1)*(x4-x3)-(y4-y3)*(x2-x1))*((y4-y3)*(x1-x3)+(y3-y1)*(x4-x3))<=0 #P1, P2 are in the same side of P3P4
 
-                fp12=fp1*fp2
-                isum[fp12]=isum[fp12]+1
-            fp=((isum%2)==0)|((x1==x2)*(y1==y2))
-            sind[fp]=0
+                    fp12=fp1*fp2
+                    isum[fp12]=isum[fp12]+1
+                fp=((isum%2)==0)|((x1==x2)*(y1==y2))
+                sind[fp]=0
 
         #change format
-        if method==1:
+        if fmt==1:
             sindm=argmax(sind,axis=1)
             sindm[sind[arange(npt),sindm]==0]=-1
             sind=sindm
-        elif method==0 and npy==1:
+        elif fmt==0 and npy==1:
             sind=sind[:,0]
     return sind
 
