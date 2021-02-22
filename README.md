@@ -11,7 +11,7 @@
     * schism_file.py: schism-grid related functions/classes
 
 * Usage: <br>
-  #!usr/bin/evn python3 <br>
+  #!/usr/bin/evn python3 <br>
   from pylib import *  <br>
 
 
