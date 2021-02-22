@@ -1,5 +1,5 @@
-# mylib
-Repository of python functions. There are two types of functions: 
-  1). for general use (e.g., inside_polygon, get_subplot_position) 
-  2). for procesing SCHISM model input/outputs/analysis (e.g., read_schism_hgrid)
+# pylibs
+Repository of python functions. There are two types of functions: <br>
+  1). For general purpose use (e.g., inside_polygon,proj,get_subplot_position) <br>
+  2). for procesing SCHISM-Grid related input/outputs/analysis (e.g., read_schism_hgrid) <br>
 
