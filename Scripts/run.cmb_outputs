@@ -24,8 +24,8 @@ qnode='x5672'; nnode=8; ppn=4     #hurricane, ppn=8
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
-code='~/bin/combine_output10.{}'.format(qnode)
-if qnode=='x5672': code='~/bin/combine_output10.hurricane'
+code='~wangzg/bin/combine_output10.{}'.format(qnode)
+if qnode=='x5672': code='~wangzg/bin/combine_output10.hurricane'
 jname='cmb_{}'.format(os.path.basename(os.path.abspath(os.path.curdir))) #job name
 
 nproc=nnode*ppn
