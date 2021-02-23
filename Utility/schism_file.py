@@ -549,17 +549,36 @@ class schism_grid:
     #def interp(self,xyi,*args):
     #    return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
 
-    def write_hgrid(self,fname,elnode=1,bndfile=None,Info=None):
+    def write_hgrid(self,fname,value=None,elnode=1,bndfile=None,Info=None):
+        '''
+        write *.gr3 file
+            fname: file name
+            value: depth value to be outputted
+                   value=const: uniform value in space 
+                   value=dp[np]: specify depth value
+                   value=None:  grid's default depth self.dp is used
+            elnode=1: output grid connectivity; elnode=0: not output grid connectivity 
+            bndfile=filepath:  if bndfile is not None, append it at the end of file
+            Info: annotation of the gr3 file
+        '''
+
+        #get depth value
+        if value is None:
+           dp=self.dp
+        else:
+           if hasattr(value,"__len__"):
+              dp=value
+           else:
+              dp=ones(self.np)*value
+
+        #write *gr3
         with open(fname,'w+') as fid:
             fid.write('!grd info:{}\n'.format(Info))
             fid.write('{} {}\n'.format(self.ne,self.np))
             for i in arange(self.np):
-                #fid.write('{:<6d} {:<16.8f} {:<16.8f} {:<10.3f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
-                fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
+                fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],dp[i]))
             if elnode!=0:
                 for i in arange(self.ne):
-                    #if self.i34[i]==3: fid.write('{:<6d} {:2d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
-                    #if self.i34[i]==4: fid.write('{:<6d} {:2d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
                     if self.i34[i]==3: fid.write('{:<d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
                     if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
 
