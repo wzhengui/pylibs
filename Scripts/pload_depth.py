@@ -174,6 +174,7 @@ if myrank==0:
    #applying minimum depth
    if regions is not None:
       for i, region in enumerate(regions):
+          if not os.path.exists(region): continue
           depth_min=rvalues[i]
           bp=read_schism_bpfile(region,fmt=1)
           sind=inside_polygon(c_[gd.x,gd.y], bp.x,bp.y)
@@ -181,8 +182,10 @@ if myrank==0:
           print('finished applying min depth={}: {}'.format(depth_min,region)); sys.stdout.flush()
 
    #save grid
-   if grdout.endswith('npz'): S=npz_data(); S.hgrid=gd; save_npz(grdout,S)
-   if grdout.endswith('gr3') or grdout.endswith('ll'): gd.write_hgrid(grdout)
+   if grdout.endswith('npz'): 
+      S=npz_data(); S.hgrid=gd; save_npz(grdout,S)
+   else:
+      gd.write_hgrid(grdout)
    
 #-----------------------------------------------------------------------------
 #finish MPI jobs
