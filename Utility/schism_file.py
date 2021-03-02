@@ -962,7 +962,7 @@ class schism_bpfile:
             self.shp_bp.attvalue=self.station
         write_shapefile_data(fname,self.shp_bp)
 
-    def plot_station(self,ax=None,ls='',label=True,**args):
+    def plot_station(self,ax=None,marker='.',ls='',label=True,**args):
         if not None: ax=gca()
         hp=plot(self.ux,self.uy,linestyle=ls,**args)
         self.hp=hp
