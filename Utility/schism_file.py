@@ -442,7 +442,7 @@ class schism_grid:
             nne[inds]=nne[inds]+1
             [ine[indi].append(i) for indi in inds]
         self.nne=nne
-        self.ine=array([array(ine[i]) for i in arange(self.np)]);
+        self.ine=array([array(ine[i]) for i in arange(self.np)],dtype='O');
 
     def compute_acor(self,pxy,N=100):
         '''
