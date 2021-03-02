@@ -17,10 +17,10 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     #input
     xi0=x; yi0=y
 
+
     #read DEM
     if fname.endswith('npz'):
-        S=loadz(fname)
-        if not hasattr(S,'nodata'): S.nodata=None
+        S=loadz(fname,svars=['lon','lat'])
     elif fname.endswith('asc'):
         S=npz_data();
         #read *.asc data
@@ -34,15 +34,31 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         fid.close()
 
         S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
-        S.elev=loadtxt(bname,skiprows=6); S.nodata=nodata
-
+        S.nodata=nodata
     else:
         sys.exit('wrong format of DEM')
 
-    ##tmp fix for *.npz format. will change *.npz file
-    ##if fname.endswith('npz'): S.lat=S.lat+(S.elev.shape[0]-1)*mean(abs(diff(S.lat)))
-    if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
+    #check domain of DEM
+    if xi0.min()>=S.lon.max() or xi0.max()<=S.lon.min() or \
+       yi0.min()>=S.lat.max() or yi0.max()<=S.lat.min():
+       #return depth
+       if fmt==0:
+          if z is None: z=zeros(len(x))*nan
+          return z 
+       elif fmt==1:
+          return [array([]),array([]).astype('int')]
+       else:
+          sys.exit('wrong fmt')
 
+    #load DEMs
+    if fname.endswith('npz'):
+        S=loadz(fname)
+        if not hasattr(S,'nodata'): S.nodata=None
+    elif fname.endswith('asc'):
+        S.elev=loadtxt(bname,skiprows=6)
+
+    #change y direction
+    if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
     lon=S.lon; dx=diff(lon).mean()
     lat=S.lat; dy=diff(lat).mean()
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
