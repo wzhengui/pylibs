@@ -589,14 +589,22 @@ class schism_grid:
         '''
         write schism prop file. 
             fname: file name
-            value: prop value; if value=None, self.dpe is outputed.
+            value: prop value; 
+                   1). if value=None, self.dpe is outputed.
+                   2). value=const
+                   3). value=array[gd.ne]
             fmt:   output format of prop value
         '''
        
         #get prop value 
         if value is None:
            if not hasattr(self,'dpe'): self.compute_ctr()
-           value=self.dpe.copy()
+           pvi=self.dpe.copy()
+        else:
+           if hasattr(value,"__len__"):
+              pvi=value
+           else:
+              pvi=ones(self.ne)*value
         if 'd' in fmt: value=value.astype('int')
 
         #prepare values 
