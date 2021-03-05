@@ -605,11 +605,11 @@ class schism_grid:
               pvi=value
            else:
               pvi=ones(self.ne)*value
-        if 'd' in fmt: value=value.astype('int')
+        if 'd' in fmt: pvi=pvi.astype('int')
 
         #prepare values 
         fstr=('{:d} '+fmt+' \n')*self.ne
-        fval=array([range(1,self.ne+1),value],dtype='O').T
+        fval=array([range(1,self.ne+1),pvi],dtype='O').T
 
         #write prop value
         fid=open(fname,'w+'); fid.writelines(fstr.format(*fval.ravel())); fid.close()
