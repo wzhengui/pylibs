@@ -6,7 +6,7 @@
 * Directories  <br>
   * Scripts: sample scripts for using pylibs <br>
   * Utility: python library functions <br>
-    * pylib.py: tool for importing all necessary python funcitons for daily routine work (not recommend for jobs with high efficiency demand) <br>
+    * pylib.py: tool for importing all necessary python funcitons for daily routine work <br>
     * mylib.py: self-defined functions/classes  
     * schism_file.py: schism-grid related functions/classes
 
