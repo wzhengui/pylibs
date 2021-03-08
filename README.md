@@ -11,9 +11,9 @@
     * schism_file.py: schism-grid related functions/classes
 
 * Usage: <br>
-  1. add pylibs path to environmental variable 'PYTHONPATH' 
-    * e.g. on c-shell: setenv PYTHONPATH 'mydir/pylibs/Utility/:mydir/pylibs/Scripts/'
-  2. add following two lines in the beginning of each script 
-    * #!/usr/bin/evn python3 <br> from pylib import *  <br>
+  1). First, add pylibs path to environmental variable 'PYTHONPATH' <br>
+      e.g. on c-shell: setenv PYTHONPATH 'mydir/pylibs/Utility/:mydir/pylibs/Scripts/' <br>
+  2). Second add following two lines in the beginning of each script  <br>
+      #!/usr/bin/evn python3 <br> from pylib import *  <br>
 
 
