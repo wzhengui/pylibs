@@ -2,14 +2,19 @@
 #link sflux files
 from pylib import *
 
+#--------------------------------------------------------------------
 #input
-#StartT=datenum(2009,2,10); EndT=datenum(2011,1,1)
-StartT=datenum(2009,2,10); EndT=datenum(2009,3,5)
-sdir='/ches/data10/yinglong/narr'  #source dir
+#--------------------------------------------------------------------
+StartT=datenum(2009,2,10); EndT=datenum(2011,1,1)
 tdir='sflux'                       #target dir
 itag=1   #itag=[1 or 2],for sflux_air_itag.0691.nc 
 
+#sdir='/ches/data10/yinglong/narr'                  #narr source on james  
+sdir='/sciclone/home10/yinglong/DISKS/vims20/narr' #narr source on sciclone
+
+#--------------------------------------------------------------------
 #make links
+#--------------------------------------------------------------------
 if not os.path.exists(tdir): os.mkdir(tdir)
 mtime=arange(StartT,EndT+1); svars=['air','prc','rad']
 for irec,ti in enumerate(mtime):
@@ -26,9 +31,3 @@ for irec,ti in enumerate(mtime):
 
 #write sflux_inputs.txt
 fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n/'); fid.close()
-   
-
-    
-
-    
-
