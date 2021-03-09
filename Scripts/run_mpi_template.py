@@ -13,12 +13,14 @@ jname='mpi4py' #job name
 walltime='00:10:00' 
 
 #resource requst 
-qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+#qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
+qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
 #-----------------------------------------------------------------------------
 #pre-processing
@@ -57,6 +59,8 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
        rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
        rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+    elif qnode=='skylake' or qnode=='haswell':
+       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& screen.out".format(bdir,nproc,bcode)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 
