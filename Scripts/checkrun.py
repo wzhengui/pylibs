@@ -4,7 +4,7 @@ from pylib import *
 import subprocess
 
 #-----input------------------------------------------------------------
-runs=['RUN01a']
+runs=['RUN01a','RUN01b']
 
 #--compute runtime----------------------------------------------------
 for run in runs:
@@ -20,6 +20,16 @@ for run in runs:
     yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
     HH=int(R[1][:2]); MM=int(R[1][2:4]); SS=int(R[1][4:]); mSS=int(R[2])*1000
     t0=datetime.datetime(yyyy,mm,dd,HH,MM,SS,mSS)
+
+    #get the start time step
+    fid=open(fname,'r'); nstep0=0
+    while (True): 
+        line=fid.readline()
+        if line.strip().startswith('TIME STEP='): 
+           nstep0=float(line.split(';')[0].split('=')[1])
+           break
+      
+    fid.close()
 
     #get lines in the end
     code='tail -n 60 {}'.format(fname)
@@ -47,18 +57,31 @@ for run in runs:
        P=read_schism_param('{}/param.nml'.format(run)); dt=float(P['dt']); rnday=float(P['rnday'])
     
     #find number of time step  completed
-    nstep=None
+    nstep1=None
     for line in lines:
         if re.match('TIME STEP=',line): 
-            nstep=int(re.findall('(\d+); ',line)[0])
+            nstep1=int(re.findall('(\d+); ',line)[0])
             break
-    if nstep==None: continue
+    if nstep1==None: continue
 
-    ds=(t1-t0).total_seconds() 
-   
+    #output values
+    nstep=nstep1-nstep0
+    ds=(t1-t0).total_seconds()
     RTR=(dt*nstep/86400)/(ds/86400)
 
+    nday=rnday; nday0=(dt*nstep0)/86400; nday1=(dt*nstep1)/86400 
+    time_all=nday*24/RTR
+    time_left=(nday-nday1)*24/RTR
+    time_365=365*24/RTR
+
+    #time_all=ds*nday*24/dt/nstep 
+    #time_left=ds*rnday_left*24/dt/nstep
+
     #print results
-    print('{}: RTR={:.2f}; {:.2f} days finished in {:.1f} hrs (or {:.0f} mins); {:.1f} hours for {} days; {:.1f} hrs for 365 days'.format(run,RTR,dt*nstep/86400,ds/3600,ds/60, ds*rnday*24/dt/nstep,rnday,ds*365*24/dt/nstep))
+    print('{}: RTR={:.1f}; {:.2f} ({:.1f}) days finished in {:.1f} hrs ({:.0f} min); ({:.1f}, {:.1f}, {:.1f}) hrs needed for ({:.1f}, {:.1f}, {:.0f}) days'.format \
+         #(run,RTR,dt*nstep/86400,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
+         (run,RTR,(nday1-nday0),nday1,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
+    
+sys.exit()
 
     
