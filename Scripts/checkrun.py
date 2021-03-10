@@ -74,13 +74,14 @@ for run in runs:
     time_left=(nday-nday1)*24/RTR
     time_365=365*24/RTR
 
-    #time_all=ds*nday*24/dt/nstep 
-    #time_left=ds*rnday_left*24/dt/nstep
-
     #print results
-    print('{}: RTR={:.1f}; {:.2f} ({:.1f}) days finished in {:.1f} hrs ({:.0f} min); ({:.1f}, {:.1f}, {:.1f}) hrs needed for ({:.1f}, {:.1f}, {:.0f}) days'.format \
-         #(run,RTR,dt*nstep/86400,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
-         (run,RTR,(nday1-nday0),nday1,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
+    if nday0*86400<2*dt: 
+       print('{}: RTR={:.1f}; {:.2f} days finished in {:.1f} hrs ({:.0f} min); ({:.1f}, {:.1f}, {:.1f}) hrs needed for ({:.1f}, {:.1f}, {:.0f}) days'.format \
+             (run,RTR,nday1,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
+    else:
+       print('{}: RTR={:.1f}; {:.2f} ({:.1f}) days finished in {:.1f} hrs ({:.0f} min); ({:.1f}, {:.1f}, {:.1f}) hrs needed for ({:.1f}, {:.1f}, {:.0f}) days'.format \
+             (run,RTR,(nday1-nday0),nday1,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365))
+
     
 sys.exit()
 
