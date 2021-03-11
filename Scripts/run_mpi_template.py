@@ -28,6 +28,7 @@ qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 
+#os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
