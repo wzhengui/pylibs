@@ -1051,7 +1051,7 @@ class schism_vgrid:
                 zcor[i,:(self.kbp[i]-1)]=nan
         return zcor
 
-def read_schism_vgrid(fname,gd,node=None,eta=0,flag=0):
+def read_schism_vgrid(fname):
     '''
     read schism vgrid information working only for ivcor=1
     '''
