@@ -272,7 +272,7 @@ class schism_grid:
         #            self.ilbn.append(squeeze(num))
         #            n=n+self.nlbn[i]
         #        self.ilbn=array(self.ilbn)
-    
+
     def read_prop(self,fname):
         '''
         read schism prop, and return the values
@@ -554,10 +554,10 @@ class schism_grid:
         write *.gr3 file
             fname: file name
             value: depth value to be outputted
-                   value=const: uniform value in space 
+                   value=const: uniform value in space
                    value=dp[np]: specify depth value
                    value=None:  grid's default depth self.dp is used
-            elnode=1: output grid connectivity; elnode=0: not output grid connectivity 
+            elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
         '''
@@ -587,16 +587,16 @@ class schism_grid:
 
     def write_prop(self,fname='schism.prop',value=None,fmt='{:8.5f}'):
         '''
-        write schism prop file. 
+        write schism prop file.
             fname: file name
-            value: prop value; 
+            value: prop value;
                    1). if value=None, self.dpe is outputed.
                    2). value=const
                    3). value=array[gd.ne]
             fmt:   output format of prop value
         '''
-       
-        #get prop value 
+
+        #get prop value
         if value is None:
            if not hasattr(self,'dpe'): self.compute_ctr()
            pvi=self.dpe.copy()
@@ -607,7 +607,7 @@ class schism_grid:
               pvi=ones(self.ne)*value
         if 'd' in fmt: pvi=pvi.astype('int')
 
-        #prepare values 
+        #prepare values
         fstr=('{:d} '+fmt+' \n')*self.ne
         fval=array([range(1,self.ne+1),pvi],dtype='O').T
 
@@ -952,7 +952,7 @@ class schism_bpfile:
         fmt=1: write ACE/gredit *.reg file
         '''
 
-        fid=open(fname,'w+') 
+        fid=open(fname,'w+')
         #write header
         if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
         if fmt==0: fid.write('\n{}\n'.format(self.nsta))
@@ -1029,10 +1029,10 @@ class schism_vgrid:
 
         #read vgrid info
         lines=lines[2:]
-        self.kbp=array([int(i.split()[1]) for i in lines]); self.np=len(kbp)
-        self.sigma=-ones([np,nvrt])
+        self.kbp=array([int(i.split()[1]) for i in lines]); self.np=len(self.kbp)
+        self.sigma=-ones([self.np,self.nvrt])
         for i,line in enumerate(lines):
-            self.sigma[i,(kbp[i]-1):]=array(line.strip().split()[2:]).astype('float')
+            self.sigma[i,(self.kbp[i]-1):]=array(line.strip().split()[2:]).astype('float')
 
     def compute_zcor(self,dp,eta=0,fmt=0):
         '''
@@ -1041,9 +1041,13 @@ class schism_vgrid:
             fmt=1: bottom depths byeond kbp are nan
         '''
 
+        if not hasattr(eta,'__len__'): eta=ones(self.np)*eta
+
+        #thickness of water column
+        hw=dp+eta
+
         #add elevation
-        dp=dp+eta
-        zcor=dp[:,None]*self.sigma
+        zcor=hw[:,None]*self.sigma+eta[:,None]
 
         #change format
         if fmt==1:
