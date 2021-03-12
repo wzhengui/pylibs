@@ -1016,36 +1016,48 @@ def read_schism_bpfile(fname,fmt=0):
     bp.read_bpfile(fname,fmt=fmt)
     return bp
 
+class schism_vgrid:
+    def __init__(self):
+        pass
+
+    def read_vgrid(self,fname):
+        #read schism vgrid
+        fid=open(fname,'r'); lines=fid.readlines(); fid.close()
+
+        self.ivcor=int(lines[0].strip().split()[0]); self.nvrt=int(lines[1].strip().split()[0])
+        if self.ivcor!=1: sys.exit('read_schism_vgrid not working for ivcor=0')
+
+        #read vgrid info
+        lines=lines[2:]
+        self.kbp=array([int(i.split()[1]) for i in lines]); self.np=len(kbp)
+        self.sigma=-ones([np,nvrt])
+        for i,line in enumerate(lines):
+            self.sigma[i,(kbp[i]-1):]=array(line.strip().split()[2:]).astype('float')
+
+    def compute_zcor(self,dp,eta=0,fmt=0):
+        '''
+        compute zcor
+            fmt=0: bottom depths byeond kbp are extended
+            fmt=1: bottom depths byeond kbp are nan
+        '''
+
+        #add elevation
+        dp=dp+eta
+        zcor=dp[:,None]*self.sigma
+
+        #change format
+        if fmt==1:
+            for i in arange(self.np):
+                zcor[i,:(self.kbp[i]-1)]=nan
+        return zcor
+
 def read_schism_vgrid(fname,gd,node=None,eta=0,flag=0):
-    #read vgrid
-    with open(fname,'r') as fid:
-        lines=fid.readlines()
-    R=re.findall(r'\d+',lines[0]); ivcor=int(R[0])
-    R=re.findall(r'\d+',lines[1]); nvrt=int(R[0])
-
-    sigma=ones([gd.np,nvrt])*nan;
-    if ivcor==1:
-        for i in arange(gd.np):
-            R=loadtxt(sp.io.StringIO(lines[i+2]));
-            kbp=int(R[1]-1);
-            sigma[i,kbp:]=R[2:]
-        dpi=tile(gd.dp,[nvrt,1]).T
-        zcor=sigma*dpi
-    else:
-        zcor='not work for ivcor/=1 yet'
-
-    # if only subset of nodes is needed
-    if node is not None:
-        zcor=zcor[node,:]
-
-    #extend values in the bottom
-    if flag!=0:
-        mzcor=nanmin(zcor,axis=1)
-        sz=zcor.shape
-        for i in arange(zcor.shape[1]):
-            fp=isnan(zcor[:,i]);
-            zcor[fp,i]=mzcor[fp]
-    return zcor
+    '''
+    read schism vgrid information working only for ivcor=1
+    '''
+    vd=schism_vgrid()
+    vd.read_vgrid(fname)
+    return vd
 
 def getglob(fname,flag=0):
     glob=npz_data()
