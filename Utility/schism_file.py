@@ -946,18 +946,27 @@ class schism_bpfile:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
            self.ustation=self.station[ind]
 
-    def write_bpfile(self,fname):
-        with open(fname,'w+') as fid:
-            if hasattr(self,'note'):
-                fid.write('{}!\n{}\n'.format(self.note.replace('\n',' '),self.nsta))
-            else:
-                fid.write('schism bpfile!\n{}\n'.format(self.nsta))
+    def write_bpfile(self,fname,fmt=0):
+        '''
+        fmt=0: write ACE/gredit *.bp file
+        fmt=1: write ACE/gredit *.reg file
+        '''
 
-            for i in arange(self.nsta):
-                if hasattr(self,'station'):
-                    fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],self.station[i]))
-                else:
-                    fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],self.z[i]))
+        fid=open(fname,'w+') 
+        #write header
+        if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
+        if fmt==0: fid.write('\n{}\n'.format(self.nsta))
+        if fmt==1: fid.write('\n1\n{} 1\n'.format(self.nsta))
+
+        #get station names
+        stations=[i+1 for i in arange(self.nsta)]
+        if hasattr(self,'station'): stations=self.station
+
+        #write pts
+        for i in arange(self.nsta):
+            if fmt==0: fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],stations[i]))
+            if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
+        fid.close()
 
     def write_shapefile(self,fname,prjname='epsg:4326'):
         self.shp_bp=npz_data()
