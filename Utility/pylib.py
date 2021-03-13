@@ -19,10 +19,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #matplotlib
    import matplotlib as mpl
    if os.getenv('HOSTNAME') is not None:
-      if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg') 
+      if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg')
    from matplotlib import pyplot as plt
    from matplotlib import cbook, mlab
-   from matplotlib.dates import * 
+   from matplotlib.dates import *
    from matplotlib.pyplot import *
 
    #numpy
@@ -57,9 +57,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from netCDF4 import Dataset
 
    #excel
-   try: 
+   try:
       import xlsxwriter as xw
-   except: 
+   except:
       pass
 
    #mpi4py
@@ -95,7 +95,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    import schism_file
    from schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,
-        schism_grid,schism_bpfile,sms2gr3,read_schism_vgrid,read_schism_param,write_schism_param)
+        schism_grid,schism_vgrid,schism_bpfile,sms2gr3,read_schism_vgrid,
+        compute_zcor,read_schism_param,write_schism_param)
 
    if os.getenv('HOME')!=None:
        sys.path.append(os.getenv('HOME'))

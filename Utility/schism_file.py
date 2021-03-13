@@ -1036,24 +1036,14 @@ class schism_vgrid:
 
     def compute_zcor(self,dp,eta=0,fmt=0):
         '''
-        compute zcor
-            fmt=0: bottom depths byeond kbp are extended
-            fmt=1: bottom depths byeond kbp are nan
+        compute schism zcor (ivcor=1)
+            dp: depth at nodes (dim=[np] or [1])
+            eta: surface elevation (dim=[np] or [1])
+            fmt: output format of zcor
+                fmt=0: bottom depths byeond kbp are extended
+                fmt=1: bottom depths byeond kbp are nan
         '''
-
-        if not hasattr(eta,'__len__'): eta=ones(self.np)*eta
-
-        #thickness of water column
-        hw=dp+eta
-
-        #add elevation
-        zcor=hw[:,None]*self.sigma+eta[:,None]
-
-        #change format
-        if fmt==1:
-            for i in arange(self.np):
-                zcor[i,:(self.kbp[i]-1)]=nan
-        return zcor
+        return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,kbp=self.kbp)
 
 def read_schism_vgrid(fname):
     '''
@@ -1062,6 +1052,38 @@ def read_schism_vgrid(fname):
     vd=schism_vgrid()
     vd.read_vgrid(fname)
     return vd
+
+def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None):
+    '''
+    compute schism zcor (ivcor=1)
+        sigma: sigma cooridinate (dim=[np,nvrt])
+        dp: depth at nodes (dim=[np] or [1])
+        eta: surface elevation (dim=[np] or [1])
+        fmt: output format of zcor
+            fmt=0: bottom depths byeond kbp are extended
+            fmt=1: bottom depths byeond kbp are nan
+        kbp: index of bottom layer (not necessary, just to speed up if provided)
+    '''
+
+    np=sigma.shape[0]
+    if not hasattr(dp,'__len__'):  dp=ones(np)*eta
+    if not hasattr(eta,'__len__'): eta=ones(np)*eta
+
+    #get kbp
+    if kbp is None:
+        kbp=array([(nonzero(i==-1)[0][-1]+1) for i in sigma])
+
+    #thickness of water column
+    hw=dp+eta
+
+    #add elevation
+    zcor=hw[:,None]*sigma+eta[:,None]
+
+    #change format
+    if fmt==1:
+        for i in arange(np):
+            zcor[i,:(kbp[i]-1)]=nan
+    return zcor
 
 def getglob(fname,flag=0):
     glob=npz_data()
