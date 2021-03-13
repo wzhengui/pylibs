@@ -1071,7 +1071,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None):
 
     #get kbp
     if kbp is None:
-        kbp=array([(nonzero(i==-1)[0][-1]+1) for i in sigma])
+        kbp=array([(nonzero(abs(i+1)<1e-10)[0][-1]+1) for i in sigma])
 
     #thickness of water column
     hw=dp+eta
