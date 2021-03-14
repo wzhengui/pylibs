@@ -222,16 +222,22 @@ class schism_grid:
         self.ilbn=[];
         self.island=[];
         for i in arange(self.nlb):
-            if 'island' in lines[n]:
-                self.island.append(1)
-            else:
-                self.island.append(0)
+            #if 'island' in lines[n]:
+            #    self.island.append(1)
+            #else:
+            #    self.island.append(0)
             num=array(lines[n].split()[0]).astype('int')
             self.nlbn.append(num)
             num=[];
             for m in arange(self.nlbn[i]):
                 num.append(lines[n+m+1].split()[0])
             self.ilbn.append(array(num).astype('int')-1)
+
+            #update island flag method
+            if num[0]==num[-1]:
+                self.island.append(1)
+            else:
+                self.island.append(0)
 
             n=n+self.nlbn[i]+1;
         self.island=array(self.island);
