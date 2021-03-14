@@ -169,7 +169,8 @@ for n,istack in enumerate(istacks):
         fluxi=[]
         for k,tname in enumerate(tnames):
             sind=S.sind[k]
-            dzi=diff(zi[sind],axis=1); uii=ui[sind]; vii=vi[sind]; angle=S.angle[k]; dx=S.dx[k]
+            dzi=diff(zi[sind],axis=1); fpz=dzi<0; dzi[fpz]=0.0
+            uii=ui[sind]; vii=vi[sind]; angle=S.angle[k]; dx=S.dx[k]
             fluxii=(-sin(angle)[:,None]*dzi[:-1,:]*(uii[:-1,:-1]+uii[:-1,1:]) \
                    -cos(angle)[:,None]*dzi[:-1,:]*(vii[:-1,:-1]+vii[:-1,1:]) \
                    -sin(angle)[:,None]*dzi[1:,:]*(uii[1:,:-1]+uii[1:,1:])    \
@@ -193,7 +194,8 @@ for n,istack in enumerate(istacks):
             tfluxi=[]
             for k,tname in enumerate(tnames):
                 sind=S.sind[k]
-                tui=tri[sind]*ui[sind]; tvi=tri[sind]*vi[sind]; dzi=diff(zi[sind],axis=1); angle=S.angle[k]; dx=S.dx[k]
+                tui=tri[sind]*ui[sind]; tvi=tri[sind]*vi[sind]; angle=S.angle[k]; dx=S.dx[k]
+                dzi=diff(zi[sind],axis=1); fpz=dzi<0; dzi[fpz]=0.0 
                 tfluxii=(-sin(angle)[:,None]*dzi[:-1,:]*(tui[:-1,:-1]+tui[:-1,1:]) \
                        -cos(angle)[:,None]*dzi[:-1,:]*(tvi[:-1,:-1]+tvi[:-1,1:]) \
                        -sin(angle)[:,None]*dzi[1:,:]*(tui[1:,:-1]+tui[1:,1:])    \
