@@ -19,14 +19,14 @@ txys=array([[[630597.229, 4257510.76],[630752.001, 4257544.77]],
             [[630168.278, 4234802.51],[630272.344, 4234842.0]]  ]);
 dx=10  #interval (m) of the transects
 
-walltime='5:00:00'
+walltime='2:00:00'
 
 #resource requst 
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
-qnode='james'; nnode=14; ppn=1     #james, ppn=20
+qnode='james'; nnode=16; ppn=1     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
@@ -153,6 +153,7 @@ S=loadz('{}.npz'.format(sname))
 #compute flux
 S.time=[]; S.flux=[]; [exec('S.flux_{}=[]'.format(i)) for i in svars]
 for n,istack in enumerate(istacks):
+    if not os.path.exists('schout_{}.nc'.format(istack)): continue
     C=ReadNC('schout_{}.nc'.format(istack),1)
     mti=array(C.variables['time'][:])/86400; nt=len(mti)
 
@@ -227,8 +228,8 @@ if myrank==0:
    save_npz('{}'.format(sname),S)
 
    #clean
-   #[os.system('cd {}; rm {}'.format(run,i)) for i in [*rnames_1,*rnames_2]]
-   [os.system('cd {}; rm {}'.format(run,i)) for i in [*rnames_1]]
+   #[os.system('rm {}'.format(i)) for i in [*rnames_1,*rnames_2]]
+   [os.system('rm {}'.format(i)) for i in [*rnames_1]]
 
 print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sys.stdout.flush()
 
