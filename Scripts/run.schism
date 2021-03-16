@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+'''
+  atuo script to submit SCHISM batch jobs on sciclone/james
+  note: environmental variables "run_schism" is used to load correct modules 
+'''
+import os,sys
+
+#-----------------------------------------------------------------------------
+#Input
+#-----------------------------------------------------------------------------
+runs=[]  #used to submit multiple jobs
+code='./pschism_JAMES_GEN_TVD-VL.b2375daf'
+walltime='00:10:00'
+
+#resource requst 
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+#qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
+#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+#qnode='potomac'; nnode=4; ppn=12    #ches, ppn=12
+qnode='james'; nnode=2; ppn=20     #james, ppn=20
+#qnode='femto'; nnode=1; ppn=32      #femto,ppn=32, not working yet
+#qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
+#qnode='haswell'; nnode=2; ppn=28   #viz3,haswell, ppn=24,or 28
+
+#-----------------------------------------------------------------------------
+#pre-processing
+#-----------------------------------------------------------------------------
+bdir=os.path.abspath(os.path.curdir)
+
+#os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+#-----------------------------------------------------------------------------
+#on front node; submit jobs in this section
+#-----------------------------------------------------------------------------
+if os.getenv('run_schism')==None and os.getenv('job_on_node')==None:
+    args=sys.argv; jname=os.path.basename(bdir)
+
+    #submit job on node
+    scode='qsub {} -v run_schism="1", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],jname,nnode,qnode,ppn,walltime)
+    print(scode); os.system(scode); sys.stdout.flush()
+    os._exit(0)
+
+#-----------------------------------------------------------------------------
+#still on front node, but in batch mode; running jobs in this section
+#-----------------------------------------------------------------------------
+if os.getenv('run_schism')!=None and os.getenv('job_on_node')==None:
+    bdir=os.getenv('PBS_O_WORKDIR'); os.chdir(bdir)
+
+    if qnode=='james':
+       rcode="mvp2run -v -C 0.05 {} >& screen.out".format(code)
+    print(rcode); os.system(rcode); sys.stdout.flush()
+    os._exit(0)
+
