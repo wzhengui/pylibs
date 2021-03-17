@@ -543,9 +543,11 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                 yi=c_[ones(npy)*pyi,py[m,:],py[mod(m+1,nv),:]]
                 area=signa(xi,yi)
                 fp=area<=0; isum[fp]=0;
-            sindi=nonzero(isum)[0]
-            if len(sindi)!=1: sindi=-1
-            sind.append(sindi[0])
+            sindi=nonzero(isum!=0)[0]
+            if len(sindi)!=1: 
+               sind.append(-1) 
+            else:
+               sind.append(sindi[0])
         sind=squeeze(array(sind))
     else:
         if method==0:
