@@ -513,7 +513,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
        pts[npt,2]: xy of points
        px[npt] or px[npt,nploy]: x coordiations of polygons
        py[npt] or py[npt,nploy]: y coordiations of polygons
-       (npt is point number, nploy is number of polygons)
+       (npt is number of points, nploy is number of polygons)
 
        fmt=0: return flags "index[npt,nploy]" for whether points are inside polygons (1 means Yes, 0 means No)
        fmt=1: only return the indices "index[npt]" of polygons that pts resides in
