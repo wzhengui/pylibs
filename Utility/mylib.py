@@ -522,7 +522,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
        method=0: use mpl.path.Path
        method=1: use ray method explicitly
 
-    note: The computation time is proportional to npt**2 of the polygons. If the geometry
+    note: For method=1, the computation time is proportional to npt**2 of the polygons. If the geometry
           of polygons are too complex, dividing them to subregions will increase efficiency.
     '''
     #----use ray method-----------------------------
