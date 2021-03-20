@@ -44,7 +44,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
        #return depth
        if fmt==0:
           if z is None: z=zeros(len(x))*nan
-          return z 
+          return z
        elif fmt==1:
           return [array([]),array([]).astype('int')]
        else:
@@ -544,8 +544,8 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                 area=signa(xi,yi)
                 fp=area<=0; isum[fp]=0;
             sindi=nonzero(isum!=0)[0]
-            if len(sindi)!=1: 
-               sind.append(-1) 
+            if len(sindi)!=1:
+               sind.append(-1)
             else:
                sind.append(sindi[0])
         sind=squeeze(array(sind))
@@ -692,15 +692,16 @@ def move_figure(f, x, y):
         # You can also use window.setGeometry
         f.canvas.manager.window.move(x, y)
 
-def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=0,order1=0,x=None,y=None):
+def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
-    tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,order0,order1,x,y)
+    tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,order0,order1)
        fname: file name
        fmt: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
-       prj: projection name (e.g. 'epsg:26918', 'epsg:4326')
+       prj: projection name (e.g. 'epsg:26918', 'epsg:4326','cpp')
+       lon0,lat0: center for transformation between lon&lat and x&y; if lon0=None or lat0=None, then x0=mean(lon), and y0=mean(lat)
        order=0 for projected coordinate; order=1 for lat&lon (if prj='epsg:4326', order=1 is applied automatically')
 
-    tranform data directly: proj(prj0='epsg:26918',prj1='epsg:4326',order0=0,order1=0,x,y)
+    tranform data directly: px,py=proj(prj0='epsg:26918',prj1='epsg:4326',order0=0,order1=0,x,y)
 
     function used:
           lat,lon=Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)
@@ -709,6 +710,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
     '''
 
     from schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
+
     #read file
     if fmt0==0:
         gd=read_schism_hgrid(fname0)
@@ -726,16 +728,27 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,order0=
         if x is None or y is None: sys.exit('unknown format of input files: {}, {}'.format(fname0,fname1))
 
     #order of data
-    prj0=prj0.lower(); prj1=prj1.lower()
+    prj0=prj0.lower(); prj1=prj1.lower(); icpp=0
     if prj0=='epsg:4326': order0=1
     if prj1=='epsg:4326': order1=1
+    if 'cpp' in [prj0,prj1]: icpp=1; rearth=6378206.4
 
     #transform coordinate
-    if order0==1: x,y=y,x
-    fpn=~(isnan(x)|isnan(y)); x1=arange(len(x))*nan; y1=arange(len(y))*nan
-    x1[fpn],y1[fpn]=Transformer.from_crs(prj0,prj1).transform(x[fpn],y[fpn])
-    if order1==1: x1,y1=y1,x1
-    if (sum(isnan(x1[fpn]))!=0) | (sum(isnan(y1[fpn]))!=0): sys.exit('nan found in tranformation: x1,y1') #check nan
+    if icpp==1 and prj0=='cpp':
+        if prj1!='epsg:4326': sys.exit('projection wrong: prj0={}, prj1={}'.format(prj0,prj1))
+        if (lon0 is None) or (lat0 is None): sys.exit('need lon0 and lat0 for cpp=>ll transform')
+        x1=lon0+x*180/(pi*rearth*cos(lat0*pi/180)); y1=y*180/(pi*rearth)
+    elif icpp==1 and prj1=='cpp':
+        if prj0!='epsg:4326': sys.exit('projection wrong: prj0={}, prj1={}'.format(prj0,prj1))
+        if lon0 is None: lon0=mean(x)
+        if lat0 is None: lat0=mean(y)
+        x1=rearth*(x-lon0)*(pi/180)*cos(lat0*pi/180); y1=rearth*y*pi/180
+    else:
+        if order0==1: x,y=y,x
+        fpn=~(isnan(x)|isnan(y)); x1=arange(len(x))*nan; y1=arange(len(y))*nan
+        x1[fpn],y1[fpn]=Transformer.from_crs(prj0,prj1).transform(x[fpn],y[fpn])
+        if order1==1: x1,y1=y1,x1
+        if (sum(isnan(x1[fpn]))!=0) | (sum(isnan(y1[fpn]))!=0): sys.exit('nan found in tranformation: x1,y1') #check nan
 
     # if (sum(isnan(x))!=0) and (sum(isnan(y))!=0): sys.exit('nan found in x,y') #check nan
     #x1,y1=Transformer.from_crs(prj0,prj1).transform(x,y)
