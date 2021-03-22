@@ -1129,6 +1129,22 @@ def getglob(fname=None,method=0):
        
     return S
 
+def read_schism_local_to_global(fname):
+    '''
+    read schism partition information
+    '''
+    lines=open(fname,'r').readlines()[2:]
+    
+    #get ne, np, ns
+    S=npz_data()
+    ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
+    S.ielg=array([i.strip().split() for i in lines[1:(ne+1)]])[:,1].astype('int')-1
+    S.iplg=array([i.strip().split() for i in lines[(ne+2):(ne+np+2)]])[:,1].astype('int')-1
+    S.islg=array([i.strip().split() for i in lines[(ne+np+3):(ne+np+ns+3)]])[:,1].astype('int')-1
+    S.ne,S.np,S.ns=ne,np,ns
+
+    return S
+
 def read_schism_param(fname,*args):
   with open(fname,'r') as fid:
     lines=fid.readlines()
