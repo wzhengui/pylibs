@@ -1107,34 +1107,27 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None):
             zcor[i,:(kbp[i]-1)]=nan
     return zcor
 
-def getglob(fname,flag=0):
-    glob=npz_data()
-    with open(fname,'r') as fid:
-      line=fid.readline().split()
-      if flag==0: #old format (ne,np,nvrt,nproc,ntrs)
-        glob.ne=int(line[0])
-        glob.np=int(line[1])
-        glob.nvrt=int(line[2])
-        glob.nproc=int(line[3])
-        glob.ntrs=array(line[4:]).astype('int')
-        glob.ntracers=sum(glob.ntrs)
-      elif flag==1: #new format (ns,ne,np,nvrt,nproc,ntrs)
-        glob.ns=int(line[0])
-        glob.ne=int(line[1])
-        glob.np=int(line[2])
-        glob.nvrt=int(line[3])
-        glob.nproc=int(line[4])
-        glob.ntrs=array(line[5:]).astype('int')
-        glob.ntracers=sum(glob.ntrs)
-      elif flag==2: #new format (ns,ne,np,nvrt,nproc,ntracers,ntrs)
-        glob.ns=int(line[0])
-        glob.ne=int(line[1])
-        glob.np=int(line[2])
-        glob.nvrt=int(line[3])
-        glob.nproc=int(line[4])
-        glob.ntracers=int(line[5])
-        glob.ntrs=array(line[6:]).astype('int')
-    return glob
+def getglob(fname=None,method=0):
+    '''
+    get global information about schism run (ne,ns,np,nvrt,nproc,ntracers,ntrs)
+    fname: default is 'local_to_global_0000' or 'outputs/local_to_global_0000'
+    method=0: default is 0; methods(!=0) are for eariler schism versions
+    '''
+    #get fname
+    if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
+    if (fname is None) and os.path.exists('./outputs/local_to_global_0000'): fname='./outputs/local_to_global_0000'
+    if fname is None: sys.exit('fname unknown')
+     
+    #get info
+    S=npz_data()
+    S.info=array(open(fname,'r').readline().strip().split()).astype('int')
+    if method==0:
+       S.ns,S.ne,S.np,S.nvrt,S.nproc,S.ntracers=S.info[:6]
+       S.ntrs=S.info[6:]
+    else:
+       sys.exit('method unknown')
+       
+    return S
 
 def read_schism_param(fname,*args):
   with open(fname,'r') as fid:
