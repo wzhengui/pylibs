@@ -694,7 +694,7 @@ def move_figure(f, x, y):
 
 def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
-    tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,order0,order1)
+    tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,lon0,lat0,order0,order1)
        fname: file name
        fmt: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
        prj: projection name (e.g. 'epsg:26918', 'epsg:4326','cpp')
