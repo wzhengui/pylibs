@@ -134,8 +134,8 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
 
     #get default value for axis
     if ticks_R is None: ticks_R=array([*arange(0.1,1.0,0.1),0.95,0.99])
-    if ticks_STD is None: ticks_STD=arange(0,3,0.5)
-    if ticks_RMSD is None: ticks_RMSD=arange(0,3,0.5)
+    if ticks_STD is None: ticks_STD=arange(0.5,3,0.5)
+    if ticks_RMSD is None: ticks_RMSD=arange(0.5,3,0.5)
     sm=std_max; S=npz_data()
 
     #plot axis R
@@ -154,13 +154,21 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
     ri=linspace(0,pi,npt); xi=cos(ri); yi=sin(ri)
     S.hp_RMSD=[]
     for i in ticks_RMSD:
+        #line
         xii=xi*i+1; yii=yi*i; fpn=(sqrt(xii**2+yii**2)<sm)*(xii>=0)
+        if sum(fpn)==0: continue
         hl=plot(xii[fpn],yii[fpn],ls='--',lw=lw_inner,color=cRMSD)
+
+        # #text
+        sind=nonzero(fpn)[0]; sid=int((0.4*sind.min()+0.6*sind.max()))
+        text(1.02*xii[sid],1.02*yii[sid],'{}'.format(i),color=cRMSD,fontsize=8,rotation=15)
+
         S.hp_RMSD.append(hl)
     S.ht_RMSD=text(0.08*sm,0.88*sm,'RMSD',color=cRMSD,fontsize=10,fontweight='bold',rotation=25)
 
+
     #note
-    setp(gca(),yticks=ticks_STD,xticks=[]);
+    setp(gca(),yticks=ticks_STD,xticks=[]); yticks(fontsize=8)
     gca().spines['right'].set_visible(False)
     gca().spines['top'].set_visible(False)
     gca().spines['left'].set_visible(False)
@@ -363,13 +371,13 @@ def save_npz(fname,data):
     if 'VINFO' in svars: svars.remove('VINFO')
 
     #check whether there are functions. If yes, change function to string
-    rvars=[] 
+    rvars=[]
     for vari in svars:
         if hasattr(data.__dict__[vari], '__call__'):
            import cloudpickle
-           try: 
+           try:
               data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
-           except: 
+           except:
               print('function {} not saved'.format(vari))
               rvars.append(vari)
     svars=setdiff1d(svars,rvars)
@@ -412,9 +420,9 @@ def loadz(fname,svars=None,med=1):
         #if value is a function
         if 'cloudpickle.cloudpickle' in str(datai):
            import pickle
-           try: 
+           try:
               datai=pickle.loads(datai)
-           except: 
+           except:
               continue
 
         #output format
