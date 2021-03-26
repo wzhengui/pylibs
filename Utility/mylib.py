@@ -119,6 +119,56 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong fmt')
 
+def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
+                        cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200):
+    '''
+    plot taylor diagram, and return handles
+
+    Input:
+        std_max: limit of std axis
+        ticks_R, ticks_STD, ticks_RMSD: ticks for R, STD, and RMSD
+        cR,cSTD,cRMSD: colors for R, STD, and RMSD
+        lw_inner, lw_outer: line widths for inner and outer lines
+        npt: number of pts for lines
+    '''
+
+    #get default value for axis
+    if ticks_R is None: ticks_R=array([*arange(0.1,1.0,0.1),0.95,0.99])
+    if ticks_STD is None: ticks_STD=arange(0,3,0.5)
+    if ticks_RMSD is None: ticks_RMSD=arange(0,3,0.5)
+    sm=std_max; S=npz_data()
+
+    #plot axis R
+    xi=linspace(0,sm,npt)
+    S.hp_R=[plot(xi*i,xi*sqrt(1-i**2),ls='--',lw=lw_inner,color=cR) for i in ticks_R]
+    S.ht_R=text(0.97*sm*cos(45*pi/180),0.97*sm*sin(45*pi/180),'correlation',fontsize=10,fontweight='bold',color=cR,rotation=-45)
+    S.ht_R2=[text(1.01*sm*i,1.01*sm*sqrt(1-i**2), '{}'.format(float(int(i*100))/100),fontsize=8,color=cR) for i in ticks_R]
+
+    #plot STD
+    ri=linspace(0,pi/2,npt);
+    S.hp_STD=[plot(cos(ri)*i,sin(ri)*i,ls='--',lw=lw_inner,color=cSTD) for i in ticks_STD if i<=sm]
+    S.hp_STD2=plot(r_[cos(ri),0,0,1]*sm,r_[sin(ri),1,0,0]*sm,ls='-',lw=lw_outer,color=cSTD)
+    S.ht_STD=text(-0.2,0.35*sm,'standard deviation',fontsize=10,fontweight='bold',color=cSTD,rotation=90)
+
+    #plot RMSD
+    ri=linspace(0,pi,npt); xi=cos(ri); yi=sin(ri)
+    S.hp_RMSD=[]
+    for i in ticks_RMSD:
+        xii=xi*i+1; yii=yi*i; fpn=(sqrt(xii**2+yii**2)<sm)*(xii>=0)
+        hl=plot(xii[fpn],yii[fpn],ls='--',lw=lw_inner,color=cRMSD)
+        S.hp_RMSD.append(hl)
+    S.ht_RMSD=text(0.08*sm,0.88*sm,'RMSD',color=cRMSD,fontsize=10,fontweight='bold',rotation=25)
+
+    #note
+    setp(gca(),yticks=ticks_STD,xticks=[]);
+    gca().spines['right'].set_visible(False)
+    gca().spines['top'].set_visible(False)
+    gca().spines['left'].set_visible(False)
+    gca().spines['bottom'].set_visible(False)
+    df=1e-3; setp(gca(),xlim=[-df,sm+df],ylim=[-df,sm+df])
+    S.ha=gca()
+    return S
+
 def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
     '''
     return subplot position
