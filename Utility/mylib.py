@@ -359,18 +359,24 @@ def save_npz(fname,data):
     '''
 
     #get all attribute
-    npz_vars=list(data.__dict__.keys())
-    if 'VINFO' in npz_vars: npz_vars.remove('VINFO')
+    svars=list(data.__dict__.keys())
+    if 'VINFO' in svars: svars.remove('VINFO')
 
     #check whether there are functions. If yes, change function to string
-    for vari in npz_vars:
+    rvars=[] 
+    for vari in svars:
         if hasattr(data.__dict__[vari], '__call__'):
            import cloudpickle
-           data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
+           try: 
+              data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
+           except: 
+              print('function {} not saved'.format(vari))
+              rvars.append(vari)
+    svars=setdiff1d(svars,rvars)
 
     #constrcut save_string
     save_str='savez_compressed("{}" '.format(fname)
-    for vari in npz_vars:
+    for vari in svars:
         save_str=save_str+',{}=data.{}'.format(vari,vari)
     save_str=save_str+')'
     #print(save_str)
@@ -406,7 +412,10 @@ def loadz(fname,svars=None,med=1):
         #if value is a function
         if 'cloudpickle.cloudpickle' in str(datai):
            import pickle
-           datai=pickle.loads(datai)
+           try: 
+              datai=pickle.loads(datai)
+           except: 
+              continue
 
         #output format
         if med==1:
