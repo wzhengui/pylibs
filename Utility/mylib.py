@@ -120,22 +120,27 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         sys.exit('wrong fmt')
 
 def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
-                        cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200):
+                        cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200,labels=None):
     '''
     plot taylor diagram, and return handles
 
     Input:
+        R: correlation coefficient
+        STD: normalized standard dievaiton (or standard dievation)
         std_max: limit of std axis
         ticks_R, ticks_STD, ticks_RMSD: ticks for R, STD, and RMSD
         cR,cSTD,cRMSD: colors for R, STD, and RMSD
         lw_inner, lw_outer: line widths for inner and outer lines
         npt: number of pts for lines
+        labels: when labels!=None, add legend
+
+    note: after changing markers' properties, call self.hl.legend() to update legends
     '''
 
     #get default value for axis
     if ticks_R is None: ticks_R=array([*arange(0.1,1.0,0.1),0.95,0.99])
-    if ticks_STD is None: ticks_STD=arange(0.5,3,0.5)
-    if ticks_RMSD is None: ticks_RMSD=arange(0.5,3,0.5)
+    if ticks_STD is None: ticks_STD=arange(0.5,5,0.5)
+    if ticks_RMSD is None: ticks_RMSD=arange(0.5,5,0.5)
     sm=std_max; S=npz_data()
 
     #plot axis R
@@ -148,7 +153,7 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
     ri=linspace(0,pi/2,npt);
     S.hp_STD=[plot(cos(ri)*i,sin(ri)*i,ls='--',lw=lw_inner,color=cSTD) for i in ticks_STD if i<=sm]
     S.hp_STD2=plot(r_[cos(ri),0,0,1]*sm,r_[sin(ri),1,0,0]*sm,ls='-',lw=lw_outer,color=cSTD)
-    S.ht_STD=text(-0.2,0.35*sm,'standard deviation',fontsize=10,fontweight='bold',color=cSTD,rotation=90)
+    S.ht_STD=text(-0.1*sm,0.35*sm,'standard deviation',fontsize=10,fontweight='bold',color=cSTD,rotation=90)
 
     #plot RMSD
     ri=linspace(0,pi,npt); xi=cos(ri); yi=sin(ri)
@@ -159,13 +164,21 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
         if sum(fpn)==0: continue
         hl=plot(xii[fpn],yii[fpn],ls='--',lw=lw_inner,color=cRMSD)
 
-        # #text
-        sind=nonzero(fpn)[0]; sid=int((0.4*sind.min()+0.6*sind.max()))
+        #text
+        xiii=abs(xii-(sm-0.85*i)/sm); sid=nonzero(xiii==min(xiii))[0][0]
         text(1.02*xii[sid],1.02*yii[sid],'{}'.format(i),color=cRMSD,fontsize=8,rotation=15)
 
         S.hp_RMSD.append(hl)
     S.ht_RMSD=text(0.08*sm,0.88*sm,'RMSD',color=cRMSD,fontsize=10,fontweight='bold',rotation=25)
 
+    #plot pts
+    if (R is not None) and (STD is not None):
+        S.hp_obs=plot(0,1,'k.',ms=12,color='k',label='obs')
+        S.hp=[];
+        for i,ri in enumerate(R):
+            xi=ri*STD[i]; yi=sqrt(1-ri**2)*STD[i]
+            hp=plot(xi,yi,'r.',ms=10,color='k',label='{}'.format(i))
+            S.hp.append(hp)
 
     #note
     setp(gca(),yticks=ticks_STD,xticks=[]); yticks(fontsize=8)
@@ -174,7 +187,17 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
     gca().spines['left'].set_visible(False)
     gca().spines['bottom'].set_visible(False)
     df=1e-3; setp(gca(),xlim=[-df,sm+df],ylim=[-df,sm+df])
-    S.ha=gca()
+    S.ha=gca(); S.ax=gca().axes;
+
+    def update_legend(self=S,**args):
+        self.hl=self.ha.legend(**args)
+    S.update_legend=update_legend
+
+    #add legend
+    if labels is not None:
+        S.hl=S.ha.legend(fontsize=8)
+        if hasattr(labels,'__len__'): [S.hl.get_texts()[i+1].set_text(lstr) for i,lstr in enumerate(labels)]
+
     return S
 
 def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
