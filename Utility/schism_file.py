@@ -1151,7 +1151,7 @@ def read_schism_vgrid(fname):
     vd.read_vgrid(fname)
     return vd
 
-def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=0,vd=None):
+def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
     '''
     compute schism zcor (ivcor=1)
         sigma: sigma cooridinate (dim=[np,nvrt])
