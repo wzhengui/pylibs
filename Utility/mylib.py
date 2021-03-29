@@ -519,8 +519,8 @@ def near_pts(pts,pts0,method=0,N=100):
        method=2: slower methods
     '''
 
-    if method==0: 
-        tmp,sind=sp.spatial.KDTree(pt0).query(pt)
+    if method==0:
+        tmp,sind=sp.spatial.KDTree(pts0).query(pts)
     elif method==1:
         p=pts[:,0]+(1j)*pts[:,1]
         p0=pts0[:,0]+(1j)*pts0[:,1]
