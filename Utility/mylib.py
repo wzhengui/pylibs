@@ -514,9 +514,14 @@ def near_pts(pts,pts0,method=0,N=100):
        pts[n,2]: xy of points
        pts0[n,2]: xy of points
 
-       method=0 (default): quick method by subgroups (N); method=1: slower methods
+       method=0: using sp.spatial.KDTree (default)
+       method=1: quick method by subgroups (N);
+       method=2: slower methods
     '''
-    if method==0:
+
+    if method==0: 
+        tmp,sind=sp.spatial.KDTree(pt0).query(pt)
+    elif method==1:
         p=pts[:,0]+(1j)*pts[:,1]
         p0=pts0[:,0]+(1j)*pts0[:,1]
 
@@ -567,7 +572,7 @@ def near_pts(pts,pts0,method=0,N=100):
 
         ind=argsort(pind);
         sind=pind0[ind]
-    else:
+    elif method==2:
         n=pts.shape[0]; n0=pts0.shape[0]
         N=max(min(1e7//n0,n),1e2)
         print('total pts: {}'.format(n));
