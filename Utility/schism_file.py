@@ -416,6 +416,7 @@ class schism_grid:
         x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]];
         x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; x4[fp]=x1[fp]; y4[fp]=y1[fp]
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
+        return self.area
 
     def compute_gradient(self):
         if not hasattr(self,'area'): self.compute_area()
@@ -449,8 +450,12 @@ class schism_grid:
         self.dpdy=self.interp_elem_to_node(value=self.dpedy)
         self.dpdxy=self.interp_elem_to_node(value=self.dpedxy)
 
+        return self.dpdx,self.dpdy,self.dpdxy
+
     def compute_ns(self,method=1):
-        #compute number of grid sides
+        '''
+        compute number of hgrid sides
+        '''
 
         if method==1:
             #triangles
@@ -494,8 +499,12 @@ class schism_grid:
             fp1=self.i34==3; fp2=self.i34==4;
             ns=int((sum(fp1)*3+sum(fp2)*4+nobs+nlbs)/2);
             self.ns=ns
+        return self.ns
 
     def compute_node_ball(self):
+        '''
+        compute nodal ball information
+        '''
         nne=zeros(self.np).astype('int');
         ine=[[] for i in arange(self.np)];
         for i in arange(self.ne):
@@ -504,6 +513,7 @@ class schism_grid:
             [ine[indi].append(i) for indi in inds]
         self.nne=nne
         self.ine=array([array(ine[i]) for i in arange(self.np)],dtype='O');
+        return self.nne, self.ine
 
     def compute_acor(self,pxy,N=100):
         '''
@@ -1070,6 +1080,7 @@ class schism_bpfile:
     def compute_acor(self,gd):
         #compute areal coordinates, and gd is the schism grid
         self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
+        return self.ie,self.ip,self.acor
 
 def read_schism_hgrid(fname):
     #read_schism_hgrid(fname):
