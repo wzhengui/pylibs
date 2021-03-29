@@ -344,9 +344,12 @@ class schism_grid:
         return pvalue
 
     def interp_node_to_elem(self,value=None):
-        #interpolate node values to elements
+        '''
+        interpolate node values to element values
+            default is self.dp => self.dpe
+        '''
 
-        #--get node value
+        #get node value
         if value is None:
             dp=self.dp
         else:
@@ -389,26 +392,22 @@ class schism_grid:
 
         return v
 
-    def compute_ctr(self,value=None):
-        self.xctr=zeros(self.ne)*nan
-        self.yctr=zeros(self.ne)*nan
-        #self.dpe=zeros(self.ne)*nan
+    def compute_ctr(self):
+        '''
+        compute element center XYZ
+        '''
+        if not hasattr(self,'xctr'):
+           fp1=self.i34==3; fp2=self.i34==4;
+           self.xctr=zeros(self.ne)*nan
+           self.yctr=zeros(self.ne)*nan
 
-        fp1=self.i34==3; fp2=self.i34==4;
-        self.xctr[fp1]=mean(self.x[self.elnode[fp1,0:3]],axis=1)
-        self.yctr[fp1]=mean(self.y[self.elnode[fp1,0:3]],axis=1)
-        self.xctr[fp2]=mean(self.x[self.elnode[fp2,:]],axis=1)
-        self.yctr[fp2]=mean(self.y[self.elnode[fp2,:]],axis=1)
+           self.xctr[fp1]=mean(self.x[self.elnode[fp1,0:3]],axis=1)
+           self.yctr[fp1]=mean(self.y[self.elnode[fp1,0:3]],axis=1)
+           self.xctr[fp2]=mean(self.x[self.elnode[fp2,:]],axis=1)
+           self.yctr[fp2]=mean(self.y[self.elnode[fp2,:]],axis=1)
 
-        if value is None:
-            self.dpe=self.interp_node_to_elem()
-        else:
-            self.dpe=self.interp_node_to_elem(value=value)
-
-        #self.dpe[fp1]=mean(self.dp[self.elnode[fp1,0:3]],axis=1)
-        #self.dpe[fp2]=mean(self.dp[self.elnode[fp2,:]],axis=1)
-        #self.dpe=array([self.dp[e[:-1]].mean() if (i34==3 and len(e)==4) else self.dp[e].mean() \
-        #               for e,i34 in zip(self.elnode,self.i34)]);
+        self.dpe=self.interp_node_to_elem()
+        return self.dpe
 
     def compute_area(self):
         fp=self.elnode[:,-1]<0;
