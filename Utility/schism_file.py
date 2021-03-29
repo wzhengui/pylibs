@@ -129,6 +129,62 @@ class schism_grid:
            self.hg=hg;
            return hg
 
+    def compute_bnd(self):
+        pass
+
+    def create_bnd(self,figsize=[8,9]):
+
+        #compute xm and ym
+        xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y
+                                            .max()]
+        dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
+
+        #add all bnd pts
+        self.binfo=npz_data()
+        bind=[]; [bind.extend(i) for i in self.iobn]; [bind.extend(i) for i in self.ilbn]
+        self.binfo.bind=array(bind); self.binfo.x=self.x[self.binfo.bind]; self.binfo.y=self.y[self.binfo.bind]
+        self.binfo.obp=array([]).astype('int');  self.binfo.lbp=array([]).astype('int'); self.binfo.hp=[]
+
+        #plot grid
+        figure(figsize=[8,9])
+        ax0=axes([0.01,0.01,0.98,0.94])
+        self.plot_bnd(marker='.',ms=3,color='k')
+        setp(gca(),xticklabels=[],yticklabels=[],xlim=xm,ylim=ym)
+        move_figure(gcf(),0,0)
+
+        #add active buttion
+        def add_pt_open_bnd(*args,gd=self,ax=ax0):
+
+            sca(ax)
+            while True:
+                xy0=ginput(1)
+                if len(xy0)==0:
+                    break
+                else:
+                    xi0,yi0=xy0[0]
+
+                #find the nearest pts
+                dist=abs((gd.binfo.x-xi0)+1j*(gd.binfo.y-yi0)); sind=nonzero(dist==min(dist))[0][0]
+                sid=gd.binfo.bind[sind]; xi=gd.x[sid]; yi=gd.y[sid]
+
+                gd.binfo.obp=r_[gd.binfo.obp,sid]
+
+                #plot pts
+                hp=plot(xi,yi,'r.',ms=6)
+                show(); gd.binfo.hp.append(hp[0])
+
+        def remove_pt_open_bnd(*args,gd=self,ax=ax0):
+            if len(gd.binfo.obp)!=0:
+                gd.binfo.obp=gd.binfo.obp[:-1]
+                sca(ax); gd.binfo.hp[-1].remove(); gd.binfo.hp.pop()
+
+        ax1=axes([0.02,0.96,0.2,0.03]); ax2=axes([0.7,0.96,0.25,0.03])
+        hb1=Button(ax1,'add open boundary',color='r'); hb1.on_clicked(add_pt_open_bnd)
+        hb2=Button(ax2,'remove boundary pts',color='gray'); hb2.on_clicked(remove_pt_open_bnd)
+
+        sca(ax0); self.ha=gca(); self.hb=[hb1,hb2]
+        return
+
     def plot_bnd(self,c='k',lw=1,ax=None,**args):
         '''
           plot schims grid boundary
@@ -155,8 +211,8 @@ class schism_grid:
         bx2=self.x[sindl]; by2=self.y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
 
-        hb1=plot(bx1,by1,c[0],lw=lw)
-        hb2=plot(bx2,by2,c[-1],lw=lw)
+        hb1=plot(bx1,by1,c[0],lw=lw,**args)
+        hb2=plot(bx2,by2,c[-1],lw=lw,**args)
         self.hb=[hb1,hb2]
 
     def read_hgrid(self,fname,*args):
@@ -1117,7 +1173,7 @@ def getglob(fname=None,method=0):
     if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
     if (fname is None) and os.path.exists('./outputs/local_to_global_0000'): fname='./outputs/local_to_global_0000'
     if fname is None: sys.exit('fname unknown')
-     
+
     #get info
     S=npz_data()
     S.info=array(open(fname,'r').readline().strip().split()).astype('int')
@@ -1126,7 +1182,7 @@ def getglob(fname=None,method=0):
        S.ntrs=S.info[6:]
     else:
        sys.exit('method unknown')
-       
+
     return S
 
 def read_schism_local_to_global(fname):
@@ -1134,7 +1190,7 @@ def read_schism_local_to_global(fname):
     read schism partition information
     '''
     lines=open(fname,'r').readlines()[2:]
-    
+
     #get ne, np, ns
     S=npz_data()
     ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
