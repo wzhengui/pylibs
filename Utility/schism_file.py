@@ -1239,7 +1239,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
         #change format
         if fmt==0:
             for i in arange(np):
-                zcor[i,:(kbp[i]-1)]=zcor[i,kbp[i]]
+                zcor[i,:kbp[i]]=zcor[i,kbp[i]]
     return zcor
 
 def getglob(fname=None,method=0):
