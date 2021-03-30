@@ -1087,6 +1087,8 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
             nrec=len(S.xy)
         else:
             nrec=1;
+    else:
+        sys.exit('unknow type')
 
     #---check nrec
     if hasattr(S,'nrec'):
