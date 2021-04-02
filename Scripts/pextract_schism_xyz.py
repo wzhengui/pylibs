@@ -8,11 +8,11 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/ches/data10/wangzg/DSP/RUN01a'     #run dir containing outputs
-stacks=[1,1]           #stacks of schout_*.nc 
-sname='./test'         #name for results
-svars=['salt','temp','hvel']        #variable to be extracted
-bpfile='./station.bp'  #file name of station.bp
+run='/sciclone/data10/wangzg/NWM/RUN06a_ZG'     #run dir containing outputs
+stacks=[1,40]            #stacks of schout_*.nc 
+sname='./elev.Coast_6b'  #name for results
+svars=['elev']           #variable to be extracted
+bpfile='/sciclone/data10/wangzg/NWM/Results/BPfiles/Coast_6b.bp'  #file name of station.bp
 ifs=1                  #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
 icmb=0                 #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
 
@@ -23,8 +23,8 @@ igather=1              #igather=1: save data on each rank,then combine; igather=
 #resource requst 
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
-#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
-qnode='potomac'; nnode=1; ppn=2    #ches, ppn=12
+qnode='x5672'; nnode=6; ppn=4      #hurricane, ppn=8
+#qnode='potomac'; nnode=1; ppn=2    #ches, ppn=12
 #qnode='james'; nnode=1; ppn=2     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
@@ -38,7 +38,7 @@ nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 jname='Rd_{}'.format(os.path.basename(run)) #job name
 
-os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+#os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
@@ -94,26 +94,27 @@ if myrank==0: t0=time.time()
 #compute grid and bpfile information
 #-----------------------------------------------------------------------------
 #read grid information
-gname='{}/{}'.format(run,grid); hgrid='{}/hgrid.gr3'.format(run); vgrid='{}/vgrid.in'.format(run)
-if os.path.exists(gname):
-   gd=loadz(gname).hgrid; vd=loadz(gname).vgrid
+t00=time.time()
+if os.path.exists(grid):
+   gd=loadz(grid).hgrid; vd=loadz(grid).vgrid
 else:
-   gd=read_schism_hgrid(hgrid); vd=read_schism_vgrid(vgrid)
+   gd=read_schism_hgrid('{}/hgrid.gr3'.format(run))
+   vd=read_schism_vgrid('{}/vgrid.in'.format(run))
 
-#read bpfile
+#compute area coordinate for stations
 bp=read_schism_bpfile(bpfile)
-
-#check pts are inside grid
-sind=gd.inside_grid(c_[bp.x,bp.y]); sindn=nonzero(sind==-1)[0]
-if sum(sindn)!=0: sys.exit('pts outside of domain: {}'.format(sindn+1))
-
-#compute area coordinate
 bp.ie,bp.ip,bp.acor=gd.compute_acor(c_[bp.x,bp.y]); #bp.ne,bp.np=gd.ne,gd.np
 bp.dp=gd.dp[bp.ip]; bp.dp0=(bp.dp*bp.acor).sum(axis=1)
-if vd.ivcor==1: bp.sigma=vd.sigma[bp.ip]; bp.kbp=vd.kbp[bp.ip]
+if vd.ivcor==1: bp.sigma=vd.sigma[bp.ip]; bp.kbp=vd.kbp[bp.ip]; vd.sigma=None
+
+#check pts inside grid
+sindn=nonzero(bp.ie==-1)[0]
+if len(sindn)!=0: sys.exit('pts outside of domain: {}'.format(c_[bp.x[sindn],bp.y[sindn]]))
+dt00=time.time()-t00; print('finish reading grid info: time={:0.2f}s, myrank={}'.format(dt00,myrank)); sys.stdout.flush()
 
 #read subdomain info
 if icmb==0:
+   t00=time.time()
    subs=gd.read_prop('{}/outputs/global_to_local.prop'.format(run)).astype('int')[bp.ie]
    isub=unique(subs); sbps=[]; sindes=[]
    for i, isubi in enumerate(isub):
@@ -131,8 +132,10 @@ if icmb==0:
        if vd.ivcor==1: sbp.sigma=bp.sigma[sinde]; sbp.kbp=bp.kbp[sinde]
        sbps.append(sbp); sindes.extend(sinde)
    sinds=argsort(array(sindes)) #indices to sort station order
+   dt00=time.time()-t00; print('finish reading subdomain info: time={:0.2f}s, myrank={}'.format(dt00,myrank)); sys.stdout.flush()
 else: 
    isub=[None]; sbps=[bp]; sinds=arange(bp.nsta)
+
 #-----------------------------------------------------------------------------
 #extract data on each processor
 #-----------------------------------------------------------------------------
@@ -144,8 +147,7 @@ S=npz_data(); S.time=[]; S.bp=bp; [exec('S.{}=[]'.format(i)) for i in svars]
 
 #extract (x,y,z) value for each stack and each subdomain
 for n,istack in enumerate(istacks):
-    Si=npz_data(); [exec('Si.{}=[]'.format(m)) for m in svars]
-    t00=time.time()
+    t00=time.time(); Si=npz_data(); [exec('Si.{}=[]'.format(m)) for m in svars]
     for m,isubi in enumerate(isub):
         #open schout_*.nc
         if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
@@ -161,15 +163,16 @@ for n,istack in enumerate(istacks):
         eis=[]; k1s=[]; k2s=[]; rats=[]  
         for i in arange(nt):
             eii=array(C.variables['elev'][i][bp.ip]) if ('elev' in C.variables) else 0*bp.dp
+            ei=(eii*bp.acor).sum(axis=1); eis.append(ei)
+            if len(svars)==1 and svars[0]=='elev': continue
 
             #compute zcor
             zii=[]
             for k in arange(3):
-                if vd.ivcor==1: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k],sigma=bp.sigma[:,k,:],kbp=bp.kbp[:,k])
+                if vd.ivcor==1: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k],sigma=bp.sigma[:,k,:],kbp=bp.kbp[:,k],method=1)
                 if vd.ivcor==2: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k])
                 zii.append(ziii)
             zi=(array(zii)*bp.acor.T[...,None]).sum(axis=0).T
-            ei=(eii*bp.acor).sum(axis=1); eis.append(ei)
  
             #station depth
             mzi=bp.z.copy()
@@ -186,6 +189,7 @@ for n,istack in enumerate(istacks):
             if sum(isnan(r_[k1,k2,rat]))!=0: sys.exit('check vertical interpolation')
             k1s.append(k1); k2s.append(k2); rats.append(rat)
         eis=array(eis); k1s=array(k1s).astype('int'); k2s=array(k2s).astype('int'); rats=array(rats)
+        if len(svars)==1 and svars[0]=='elev': Si.elev.extend(array(eis).T);  continue
 
         #compute (x,y,z) for each variables
         Sii=npz_data(); [exec('Sii.{}=[]'.format(mm)) for mm in svars]
@@ -228,13 +232,15 @@ for n,istack in enumerate(istacks):
                    datai=tri
                 data.append(datai)
 
-            #save results
+            #save result from each variables
             exec('ds=[1,0,*arange(2,{}-1)]; Sii.{}.extend(array(data).transpose(ds))'.format(ndim,svar))
+
+        #save result form subdomain
         for i in svars: exec('Si.{}.extend(Sii.{})'.format(i,i)) 
 
     #combine istack results
     for i in svars: exec('ds=[1,0,*arange(2,array(Si.{}).ndim)]; S.{}.extend(array(Si.{})[sinds].transpose(ds))'.format(i,i,i)) 
-    dt00=time.time()-t00; print('finish reading stack={}; time={:0.2f}s'.format(istack,dt00)); sys.stdout.flush()
+    dt00=time.time()-t00; print('finish reading stack={}; time={:0.2f}s, myrank={}'.format(istack,dt00,myrank)); sys.stdout.flush()
 S.time=array(S.time); ['S.{}=array(S.{}).astype("float32")'.format(i,i) for i in svars]
 
 #-----------------------------------------------------------------------------
