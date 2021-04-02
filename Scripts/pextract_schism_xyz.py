@@ -1,171 +1,269 @@
 #!/usr/bin/env python3
-#python script used to extract slabs of schism results
+'''
+Extract (xyz) values from station.bp
+'''
 from pylib import *
-#import xarray as xr
+import time
 
-#---------inputs------------------------------
-run='run4ia'
-stack=[2,3]
-svars=['salt',['SED3D_1','SED3D_2','SED3D_3']]
-snames=['salt','SED3D']
-depths=[0,1]
-qnode='haswell'
-nproc=2
+#-----------------------------------------------------------------------------
+#Input
+#-----------------------------------------------------------------------------
+run='/ches/data10/wangzg/DSP/RUN01a'     #run dir containing outputs
+stacks=[1,1]           #stacks of schout_*.nc 
+sname='./test'         #name for results
+svars=['salt','temp','hvel']        #variable to be extracted
+bpfile='./station.bp'  #file name of station.bp
+ifs=1                  #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
+icmb=0                 #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
 
-#-------flags---------------------------------
-icmb=0  #0:normal read (parallel); 1: read when model running (serial);
-        #2:read but not combine (parallel); 3: not read, only combine *npz (skip read)
-ifs=0   #0: station depth relative to free surface; 1: fixed station depth
+#optional
+grid='grid.npz'        #saved grid info; use hgrid.gr3 and vgrid.in if not exist in run
+igather=1              #igather=1: save data on each rank,then combine; igather=0: use MPI  
 
-#------pre-processing-------------------------
+#resource requst 
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+#qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
+#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+qnode='potomac'; nnode=1; ppn=2    #ches, ppn=12
+#qnode='james'; nnode=1; ppn=2     #james, ppn=20
+#qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+#qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
+#qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
+
+walltime='1:00:00'
+#-----------------------------------------------------------------------------
+#pre-processing
+#-----------------------------------------------------------------------------
+nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
-if (icmb==1)|(icmb==3): nproc=1
+jname='Rd_{}'.format(os.path.basename(run)) #job name
 
-#-------on front node-------------------------
-if os.getenv('param')==None:
-   args=sys.argv
-   #link results
-   if not os.path.exists(run): os.mkdir(run)
-   os.system('cd {}; ln -sf ../../{}/outputs/schout_?.nc ./;ln -sf ../../{}/outputs/schout_??.nc ./'.format(run,run,run))
-   #submit job on node
-   param=[bdir,args[0]]
-   os.system('qsub {} -v param="{} {}", -N rd_{} -q {} -e Rd_outputs.e -o Rd_outputs.o -l nodes={}:ppn=1 -l walltime=100:00:00'.format(args[0],*param,run,qnode,nproc))
-   #os.system('qsub {} -v param="{} {}", -N rd_{} -q {} -e Rd_outputs.e -o Rd_outputs.o -l procs={} -l walltime=100:00:00'.format(args[0],*param,run,qnode,nproc))
-   sys.exit(0)
+os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+#-----------------------------------------------------------------------------
+#on front node; submit jobs in this section
+#-----------------------------------------------------------------------------
+if os.getenv('param')==None and os.getenv('job_on_node')==None:
+    args=sys.argv
+    param=[bdir,args[0]]
+    
+    #submit job on node
+    if qnode=='femto': 
+        scode='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {} {}'.format(*param,jname,nnode,nproc,walltime,args[0])
+    else:
+        scode='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],*param,jname,nnode,qnode,ppn,walltime)
+    print(scode); os.system(scode)
+    os._exit(0)
 
-param=os.getenv('param').split();
-param=[int(i) if i.isdigit() else i for i in param]
-bdir=param[0]; fname0=param[1];
+#-----------------------------------------------------------------------------
+#still on front node, but in batch mode; running jobs in this section
+#-----------------------------------------------------------------------------
+if os.getenv('param')!=None and os.getenv('job_on_node')==None:
+    param=os.getenv('param').split();
+    param=[int(i) if i.isdigit() else i for i in param]
+    bdir=param[0]; bcode=param[1]
+    os.chdir(bdir)
 
-#submit jobs on each core
-if os.getenv('job_on_node')==None:
-   print("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname0))
-   os.system("cd {}; mpiexec -np {} --env job_on_node 1 {}>>screen.out".format(bdir,nproc,fname0))
-   sys.exit()
+    if qnode=='bora':
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
+    elif qnode=='femto':
+       pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
+    elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+    elif qnode=='skylake' or qnode=='haswell':
+       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& screen.out".format(bdir,nproc,bcode)
+    print(rcode); os.system(rcode); sys.stdout.flush()
+    os._exit(0)
 
-#start to work on each core
-os.chdir('{}/{}'.format(bdir,run))
+#-----------------------------------------------------------------------------
+#on computation node
+#-----------------------------------------------------------------------------
+#enter working dir
+bdir=os.getenv('bdir'); os.chdir(bdir)
 
-#----get nproc and myrank--------
+#get nproc and myrank
 comm=MPI.COMM_WORLD
 nproc=comm.Get_size()
 myrank=comm.Get_rank()
+if myrank==0: t0=time.time()
+#-----------------------------------------------------------------------------
+#do MPI work on each core
+#-----------------------------------------------------------------------------
 
-t0=time.time()
-#----distribute work--------------------------
-stacks=arange(stack[0],stack[1]+1); istack=[];
-for i in arange(len(stacks)):
-    if i%nproc==myrank:
-        istack.append(stacks[i])
-istack=array(istack)
-if(icmb==3): istack=[]
+#-----------------------------------------------------------------------------
+#compute grid and bpfile information
+#-----------------------------------------------------------------------------
+#read grid information
+gname='{}/{}'.format(run,grid); hgrid='{}/hgrid.gr3'.format(run); vgrid='{}/vgrid.in'.format(run)
+if os.path.exists(gname):
+   gd=loadz(gname).hgrid; vd=loadz(gname).vgrid
+else:
+   gd=read_schism_hgrid(hgrid); vd=read_schism_vgrid(vgrid)
 
-#read results
-P=npz_data();
-for istacki in istack:
-    while ((icmb==1)*(os.path.exists('schout_{}.nc'.format(istacki+1)))): sleep(10)
-    fname='schout_{}.nc'.format(istacki);
-    S=npz_data();
+#read bpfile
+bp=read_schism_bpfile(bpfile)
 
-    #read nc values
-    C=Dataset(fname);
-    mtime=array(C.variables['time'][:])/86400; S.time=mtime.astype('float32'); S.depth=array(depths).astype('float32')
-    nt,np,nz=C.variables['zcor'].shape
-    [exec('S.{}=[]'.format(sname)) for sname in snames]
+#check pts are inside grid
+sind=gd.inside_grid(c_[bp.x,bp.y]); sindn=nonzero(sind==-1)[0]
+if sum(sindn)!=0: sys.exit('pts outside of domain: {}'.format(sindn+1))
 
-    for i in arange(nt): 
-        #compute matrix for vertical interpolation
-        zcor=array(C.variables['zcor'][i,:,:]).T; #(nz,np)
-        #treat invalid depths
-        fp=abs(zcor)>1e10; zcor[fp]=-zcor[fp]
-        srat=[]
-        for m in arange(len(depths)):
-            zs=-array(depths[m]).astype('float')
-            if ifs==0: zs=zs+zcor[-1] 
-            rat=zeros([np,nz])
-            fp=zs<=zcor[0]; rat[fp,0]=1
-            fp=zs>zcor[-1]; rat[fp,-1]=1
-            for k in arange(1,nz):
-                zi0=zcor[k-1]; zi=zcor[k]
-                fp=(zs>zi0)*(zs<=zi)
-                rati=(zs[fp]-zi0[fp])/(zi[fp]-zi0[fp])
-                rat[fp,k]=rati
-                rat[fp,k-1]=1-rati
-            srat.append(rat)
-        srat=array(srat)
-        if sum(abs(srat.sum(axis=2)-1.0)>1e-6)!=0: sys.exit('wrong for srat: {},step={}'.format(fname,i))
+#compute area coordinate
+bp.ie,bp.ip,bp.acor=gd.compute_acor(c_[bp.x,bp.y]); #bp.ne,bp.np=gd.ne,gd.np
+bp.dp=gd.dp[bp.ip]; bp.dp0=(bp.dp*bp.acor).sum(axis=1)
+if vd.ivcor==1: bp.sigma=vd.sigma[bp.ip]; bp.kbp=vd.kbp[bp.ip]
 
-        #read slices
-        for n in arange(len(svars)):
-            svari=svars[n]; sname=snames[n] 
-            if i==0: print('reading {} (slab): {} '.format(fname,svari)); sys.stdout.flush()
-            datai=[]
-            for m in arange(len(depths)):
-               if (svari=='elev')*(m!=0): continue
-               #read raw data
-               if type(svari)==list:
-                  for k in arange(len(svari)):  
-                      if k==0: 
-                         exec("P.vi=C.variables['{}'][i]".format(svari[k]))
-                      else:
-                         exec("P.vi=P.vi+C.variables['{}'][i]".format(svari[k]))
-               else:
-                  exec("P.vi=C.variables['{}'][i]".format(svari))
-               #extract
-               if svari=='elev': 
-                  dataii=P.vi 
-               elif svari=='hvel':
-                  dataii=(P.vi*tile(srat[m][:,:,None],[1,1,2])).sum(axis=1)
-               else: 
-                  dataii=(P.vi*srat[m]).sum(axis=1)
-               datai.append(dataii)
-            datai=array(datai)
-            exec('S.{}.append(datai)'.format(sname)) 
+#read subdomain info
+if icmb==0:
+   subs=gd.read_prop('{}/outputs/global_to_local.prop'.format(run)).astype('int')[bp.ie]
+   isub=unique(subs); sbps=[]; sindes=[]
+   for i, isubi in enumerate(isub):
+       sinde=nonzero(subs==isubi)[0] #elem index of stations 
+     
+       #build the iegl and ipgl 
+       T=read_schism_local_to_global('{}/outputs/local_to_global_{:04}'.format(run,isubi))
+       iegl=dict(zip(T.ielg,arange(T.ne))); ipgl=dict(zip(T.iplg,arange(T.np)))
+     
+       #compute subdomain ie,ip and acor,dp,z,sigma,kbp
+       sbp=npz_data(); #sbp.ne,sbp.np=T.ne,T.np
+       sbp.ie=array([iegl[k] for k in bp.ie[sinde]])
+       sbp.ip=array([[ipgl[k] for k in n ] for n in bp.ip[sinde]])
+       sbp.acor=bp.acor[sinde]; sbp.dp=bp.dp[sinde]; sbp.z=bp.z[sinde]; sbp.nsta=len(sinde) 
+       if vd.ivcor==1: sbp.sigma=bp.sigma[sinde]; sbp.kbp=bp.kbp[sinde]
+       sbps.append(sbp); sindes.extend(sinde)
+   sinds=argsort(array(sindes)) #indices to sort station order
+else: 
+   isub=[None]; sbps=[bp]; sinds=arange(bp.nsta)
+#-----------------------------------------------------------------------------
+#extract data on each processor
+#-----------------------------------------------------------------------------
+#distribute jobs
+istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank]
 
-    #save data
-    for n in arange(len(svars)):
-        svari=svars[n]; sname=snames[n] 
-        if svari=='elev':
-           exec("S.{}=squeeze(array(S.{})).astype('float32')".format(sname,sname))
-        elif svari=='hvel': 
-           exec("S.{}=array(S.{}).transpose([0,2,3,1]).astype('float32')".format(sname,sname))
-        else:
-           exec("S.{}=array(S.{}).transpose([0,2,1]).astype('float32')".format(sname,sname))
+#initilize data capsule
+S=npz_data(); S.time=[]; S.bp=bp; [exec('S.{}=[]'.format(i)) for i in svars]
 
-    #save data
-    save_npz('{}_slab_{}'.format(run,istacki),S)
+#extract (x,y,z) value for each stack and each subdomain
+for n,istack in enumerate(istacks):
+    Si=npz_data(); [exec('Si.{}=[]'.format(m)) for m in svars]
+    t00=time.time()
+    for m,isubi in enumerate(isub):
+        #open schout_*.nc
+        if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
+        if icmb==1: fname='{}/outputs/schout_{}.nc'.format(run,istack)
+        if (not os.path.exists(fname)) and icmb==0: sys.exit('not exist: {}'.format(fname))
+        C=ReadNC(fname,1); bp=sbps[m]
+        
+        #read time
+        mti=array(C.variables['time'][:])/86400; nt=len(mti); 
+        if m==0: S.time.extend(mti)
 
-#colloect results
+        #extract elevation -> compute zcor -> vertical interploate
+        eis=[]; k1s=[]; k2s=[]; rats=[]  
+        for i in arange(nt):
+            eii=array(C.variables['elev'][i][bp.ip]) if ('elev' in C.variables) else 0*bp.dp
+
+            #compute zcor
+            zii=[]
+            for k in arange(3):
+                if vd.ivcor==1: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k],sigma=bp.sigma[:,k,:],kbp=bp.kbp[:,k])
+                if vd.ivcor==2: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k])
+                zii.append(ziii)
+            zi=(array(zii)*bp.acor.T[...,None]).sum(axis=0).T
+            ei=(eii*bp.acor).sum(axis=1); eis.append(ei)
+ 
+            #station depth
+            mzi=bp.z.copy()
+            if ifs==1: mzi=-mzi+ei
+
+            #interpolation in the vertical
+            k1=ones(bp.nsta)*nan; k2=ones(bp.nsta)*nan; rat=ones(bp.nsta)*nan
+            fp=mzi<=zi[0];  k1[fp]=0; k2[fp]=0; rat[fp]=0   #bottom
+            fp=mzi>=zi[-1]; k1[fp]=(vd.nvrt-1); k2[fp]=(vd.nvrt-1); rat[fp]=1  #surface
+            for k in arange(vd.nvrt-1):
+                fp=(mzi>=zi[k])*(mzi<zi[k+1])
+                k1[fp]=k; k2[fp]=k+1
+                rat[fp]=(mzi[fp]-zi[k][fp])/(zi[k+1][fp]-zi[k][fp])
+            if sum(isnan(r_[k1,k2,rat]))!=0: sys.exit('check vertical interpolation')
+            k1s.append(k1); k2s.append(k2); rats.append(rat)
+        eis=array(eis); k1s=array(k1s).astype('int'); k2s=array(k2s).astype('int'); rats=array(rats)
+
+        #compute (x,y,z) for each variables
+        Sii=npz_data(); [exec('Sii.{}=[]'.format(mm)) for mm in svars]
+        for mm, svar in enumerate(svars):
+            ndim=C.variables[svar].ndim; dim=C.variables[svar].shape; dimname=C.variables[svar].dimensions
+
+            data=[]
+            for i in arange(nt):
+                k1=k1s[i]; k2=k2s[i]; rat=rats[i]
+
+                #get variable values 
+                if ('nSCHISM_hgrid_node' in dimname):
+                    trii=array(C.variables[svar][i][bp.ip])
+                elif ('nSCHISM_hgrid_face' in dimname): 
+                    trii=array(C.variables[svar][i][bp.ie])
+                else:
+                    sys.exit('unknown variable format: {},{}'.format(svar,dim))
+
+                #extend values in the bottom: dims[2] is nvrt
+                if ('nSCHISM_vgrid_layers' in dimname):
+                   sindp=arange(bp.nsta)
+                   for nn in arange(3):
+                       kbp=bp.kbp[:,nn]; btri=trii[sindp,nn,kbp]
+                       for k in arange(vd.nvrt):
+                           fp=k<kbp
+                           trii[sindp[fp],nn,k]=btri[fp]
+
+                #horizontal interp
+                if ('nSCHISM_hgrid_node' in dimname):
+                   if ndim==2: tri=(trii*bp.acor).sum(axis=1)
+                   if ndim==3: tri=(trii*bp.acor[...,None]).sum(axis=1)
+                   if ndim==4: tri=(trii*bp.acor[...,None,None]).sum(axis=1); rat=rat[:,None]
+                else:
+                   tri=trii
+
+                #vertical interp
+                if ('nSCHISM_vgrid_layers' in dimname):
+                   datai=(tri[sindp,k1]*(1-rat)+tri[sindp,k2]*rat)
+                else:
+                   datai=tri
+                data.append(datai)
+
+            #save results
+            exec('ds=[1,0,*arange(2,{}-1)]; Sii.{}.extend(array(data).transpose(ds))'.format(ndim,svar))
+        for i in svars: exec('Si.{}.extend(Sii.{})'.format(i,i)) 
+
+    #combine istack results
+    for i in svars: exec('ds=[1,0,*arange(2,array(Si.{}).ndim)]; S.{}.extend(array(Si.{})[sinds].transpose(ds))'.format(i,i,i)) 
+    dt00=time.time()-t00; print('finish reading stack={}; time={:0.2f}s'.format(istack,dt00)); sys.stdout.flush()
+S.time=array(S.time); ['S.{}=array(S.{}).astype("float32")'.format(i,i) for i in svars]
+
+#-----------------------------------------------------------------------------
+#combine results from all ranks
+#-----------------------------------------------------------------------------
+if igather==1: save_npz('{}_{}'.format(sname,myrank),S)
 comm.Barrier()
+if igather==0: sdata=comm.gather(S,root=0)
+if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
+
 if myrank==0:
-    #wait all results
-    while(True):
-        iflag=len(stacks)
-        for i in arange(len(stacks)):
-            if os.path.exists('{}_slab_{}.npz'.format(run,stacks[i])): iflag=iflag-1
-        if iflag==0: break
-        if iflag!=0: time.sleep(1)
+   S=npz_data(); S.time=[]; S.bp=bp
+   for i in svars: exec('S.{}=[]'.format(i))
+   for i in arange(nproc):
+       Si=sdata[i]; S.time.extend(Si.time)
+       for m,svar in enumerate(svars): exec('S.{}.extend(Si.{})'.format(svar,svar))
 
-    #read result
-    if icmb!=2:
-       S=npz_data();
-       for i in arange(len(stacks)):
-           Si=loadz('{}_slab_{}.npz'.format(run,stacks[i]))
+   #save data        
+   S.time=array(S.time); sind=argsort(S.time); S.time=S.time[sind]
+   for i in svars: exec('ds=[1,0,*arange(2,array(S.{}).ndim)]; S.{}=array(S.{})[sind].transpose(ds)'.format(i,i,i)) 
+   save_npz('{}'.format(sname),S)
+   if igather==1: [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
 
-           if i==0:
-              exec('S.time=Si.time; S.depth=Si.depth');
-              for m in arange(len(snames)):
-                  exec('S.{}=Si.{}'.format(snames[m],snames[m]))
-           else:
-              exec('S.time=r_[S.time,Si.time]');
-              for m in arange(len(snames)):
-                  exec('S.{}=r_[S.{},Si.{}]'.format(snames[m],snames[m],snames[m]))
-
-       #save result
-       save_npz('{}_slab.npz'.format(run),S)
-       [os.system("rm {}_slab_{}.npz".format(run,i)) for i in stacks]
-
-    #clean
-    os.system("rm schout_*.nc ")
-    dt=time.time()-t0
-    print('finish reading {}: {}s'.format(run,dt)); sys.stdout.flush()
+#-----------------------------------------------------------------------------
+#finish MPI jobs
+#-----------------------------------------------------------------------------
+comm.Barrier()
+if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
+if qnode=='x5672' or qnode=='james':
+   os._exit(0)
+else:
+   sys.exit(0)
