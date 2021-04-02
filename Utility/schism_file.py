@@ -301,40 +301,6 @@ class schism_grid:
         self.ilbn=array(self.ilbn,dtype='O');
         if len(self.ilbn)==1: self.ilbn=self.ilbn.astype('int')
 
-        #old method-----------------
-        #        lines0=lines;
-        #        lines=remove_tail(lines)
-        #        #read obnd info
-        #        n=2+self.np+self.ne; num=str2num(lines[n])
-        #        self.nob=num.astype('int'); n=n+1
-        #        self.nobn=zeros(self.nob,dtype='int')
-        #        self.iobn=[]
-        #        n=n+1;
-        #        for i in arange(self.nob):
-        #            num=str2num(lines[n]).astype('int')
-        #            self.nobn[i]=num[0]
-        #            n=n+1; num=str2num(lines[n:(n+self.nobn[i])]).astype('int')-1
-        #            self.iobn.append(squeeze(num))
-        #            n=n+self.nobn[i]
-        #        self.iobn=array(self.iobn)
-        #
-        #        #read lbnd info
-        #        num=str2num(lines[n])
-        #        self.nlb=num.astype('int'); n=n+1
-        #        self.nlbn=zeros(self.nlb,dtype='int')
-        #        self.island=zeros(self.nlb,dtype='int')
-        #        self.ilbn=[]
-        #        n=n+1;
-        #        for i in arange(self.nlb):
-        #            num=str2num(lines[n]).astype('int')
-        #            if 'island' in lines0[n]:
-        #                self.island[i]=1
-        #            self.nlbn[i]=num[0]
-        #            n=n+1; num=str2num(lines[n:(n+self.nlbn[i])]).astype('int')-1
-        #            self.ilbn.append(squeeze(num))
-        #            n=n+self.nlbn[i]
-        #        self.ilbn=array(self.ilbn)
-
     def read_prop(self,fname):
         '''
         read schism prop, and return the values
@@ -348,7 +314,6 @@ class schism_grid:
         interpolate node values to element values
             default is self.dp => self.dpe
         '''
-
         #get node value
         if value is None:
             dp=self.dp
@@ -364,10 +329,11 @@ class schism_grid:
         return dpe
 
     def interp_elem_to_node(self,value=None,method=0,p=1):
-        #interpolate element values to nodes
-        #if value not given, dpe is used
-        #method=0: simple avarage; method=1: inverse distance (power=p)
-
+        '''
+        interpolate element values to nodes
+        if value not given, dpe is used
+        method=0: simple avarage; method=1: inverse distance (power=p)
+        '''
         #-specify element values
         if value is None:
             if not hasattr(self,'dpe'): self.compute_ctr()
@@ -389,7 +355,6 @@ class schism_grid:
                 vi=sum(W*v0[ind])/sum(W)
             v.append(vi)
         v=array(v)
-
         return v
 
     def compute_ctr(self):
@@ -515,110 +480,33 @@ class schism_grid:
         self.ine=array([array(ine[i]) for i in arange(self.np)],dtype='O');
         return self.nne, self.ine
 
-    def compute_acor(self,pxy,N=100):
+    def compute_acor(self,pxy):
         '''
-        compute acor coodinate for points pts(xi,yi)
+        compute acor coodinate for points pxy[npt,2]
 
-        usage: compute_acor(c_[xi,yi]), where xi and yi are array of coordinates
+        usage: ie,ip,acor=compute_acor(c_[xi,yi]), where xi and yi are array of coordinates
         outputs: ie[npt],ip[npt,3],acor[npt,3]
                ie:  the element number
                ip:  the nodal indices of the ie
                acor: the area coordinate
         '''
-        #compute the corresponding residing elem
-        npt=pxy.shape[0]
-        ie,ptr=self.inside_grid(pxy,return_triangle=True)
-
-        #indices
-        sind=nonzero(ptr!=0)[0]; sinda=nonzero(ptr==2)[0]
-
-        #---------------------------------------------------
-        #compute area coordinate
-        #---------------------------------------------------
-
-        #get elnode for all triangles
-        ip0=self.elnode[ie]
-        ip0[sinda,:]=ip0[sinda][:,array([0,2,3,3])] #for 2nd triangle
-        ip0=ip0[sind,:3] #pts inside grid
-
-        #(x,y) for all triangles
-        x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x=pxy[sind,0]
-        y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y=pxy[sind,1]
-
-        #areas
-        A=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
-        A1=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
-        A2=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
-        A3=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
-        fA=(abs(A1)+abs(A2)+abs(A3)-abs(A))/abs(A);
-
+        #compute parents element
+        pie,pip=self.inside_grid(pxy,fmt=1); fpn=pie!=-1
+        
+        #cooridate for triangles, and areas
+        x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
+        A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); A1=signa(c_[x,x2,x3],c_[y,y2,y3])
+        A2=signa(c_[x1,x,x3],c_[y1,y,y3]);  #A3=signa(c_[x1,x2,x],c_[y1,y2,y])
+        
         #area coordinate
-        acor0=[];
-        for i in arange(len(sind)):
-            sid=sind[i]
-            a1=A1[i]/A[i]; a2=A2[i]/A[i]; a3=1-a1-a2;
-            if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(sid,ie[sid],self.i34[ie[sid]],A[i],A1[i],A2[i]))
-            acor0.append(array([a1,a2,a3]))
-
-        ip=-ones([npt,3]).astype('int'); acor=-ones([npt,3])
-        ip[sind]=ip0; acor[sind]=array(acor0)
-
-        return ie,ip,acor
-
-        #-------old method---------------------------------------------------
-        ##compute the corresponding residing elem
-        #npt=pxy.shape[0]; pind=arange(npt); ie=array([]).astype('int');
-        #while(len(pind)>0):
-        #     #get the first N pts)
-        #     if len(pind)<=N:
-        #        pindi=pind
-        #     else:
-        #        pindi=pind[:N]
-        #     pind=setdiff1d(pind,pindi)
-        #     ie=r_[ie,self.inside_grid(pxy[pindi])]
-        #ie=ie.astype('int')
-
-        ##compute area coordinate
-        #ip0=self.elnode[ie]; i34=self.i34[ie]
-        #x1=self.x[ip0][:,0]; x2=self.x[ip0][:,1]; x3=self.x[ip0][:,2]; x4=self.x[ip0][:,3]; x=pxy[:,0]
-        #y1=self.y[ip0][:,0]; y2=self.y[ip0][:,1]; y3=self.y[ip0][:,2]; y4=self.y[ip0][:,3]; y=pxy[:,1]
-
-        #A1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
-        #A11=((x2-x)*(y3-y)-(x3-x)*(y2-y))/2
-        #A12=((x-x1)*(y3-y1)-(x3-x1)*(y-y1))/2
-        #A13=((x2-x1)*(y-y1)-(x-x1)*(y2-y1))/2
-        #fA1=(abs(A11)+abs(A12)+abs(A13)-abs(A1))/abs(A1);
-
-        #A2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
-        #A21=((x3-x)*(y4-y)-(x4-x)*(y3-y))/2
-        #A22=((x-x1)*(y4-y1)-(x4-x1)*(y-y1))/2
-        #A23=((x3-x1)*(y-y1)-(x-x1)*(y3-y1))/2
-        #fA2=(abs(A21)+abs(A22)+abs(A23)-abs(A2))/abs(A2);
-
-        #ip=[];acor=[];
-        #for i in arange(npt):
-        #    if abs(fA1[i])<1e-5: #pt in 1st triange
-        #       a1=A11[i]/A1[i]; a2=A12[i]/A1[i]; a3=1-a1-a2;
-        #       if (a1<0)|(a2<0): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
-        #       ip.append(ip0[i,:3]); acor.append(array([a1,a2,a3]))
-        #    else:
-        #       a1=A21[i]/A2[i]; a2=A22[i]/A2[i]; a3=1-a1-a2;
-        #       if (a1<0)|(a2<0)|(i34[i]==3)|(abs(fA2[i])>=1e-5): sys.exit('check pt: {}, {}, {}, {}, {},{}'.format(i,i34[i],ie[i],A1[i],A11[i],A12[i]))
-        #       ip.append(ip0[i,array([0,2,3])]); acor.append(array([a1,a2,a3]))
-        #ip=array(ip); acor=array(acor)
-
-        ##save acor
-        #return ie,ip,acor
-
+        pacor=zeros(pip.shape); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
+        return [pie,pip,pacor]
 
     def interp(self,xyi):
         #interpolate to get depth at xyi
         ie,ip,acor=self.compute_acor(xyi)
         dpi=(self.dp[ip]*acor).sum(axis=1)
         return dpi
-
-    #def interp(self,xyi,*args):
-    #    return interpolate.griddata(c_[self.x,self.y],self.dp,xyi,*args);
 
     def write_hgrid(self,fname,value=None,elnode=1,bndfile=None,Info=None):
         '''
@@ -797,9 +685,7 @@ class schism_grid:
         '''
         if (x is None) or (y is None): x=self.x; y=self.y
         x1,y2=proj(prj0=prj0,prj1=prj1,x=x,y=y,lon0=lon0,lat0=lat0)
-
         return [x1,y2]
-
 
     def check_skew_elems(self,angle_min=5,fname='skew_element.bp'):
         '''
@@ -845,74 +731,29 @@ class schism_grid:
         self.xskew=r_[XS3,XS4]; self.yskew=r_[YS3,YS4]; zskew=r_[ZS3,ZS4]
         sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
 
-    def inside_grid(self,pxy,N=100,return_triangle=False):
+    def inside_grid(self,pxy,fmt=0):
         '''
-          compute element indices that pts[xi,yi] resides. '-1' means outside of the grid domain
+          compute element indices that pxy[npt,2] resides. '-1' means outside of the grid domain
           usage:
                sind=inside_grid(pxy)
-               sind,ptr=inside_grid(pxy,return_triangle=True)
+               sind,ptr=inside_grid(pxy,fmt=1)
                ptr is triange indice (=1:1st triangle; =2: 2nd triangle), used for computing area coordinates
         '''
-        x0=pxy[:,0][:,None]; y0=pxy[:,1][:,None]; npt=pxy.shape[0]; ptr=zeros(npt)
+        #first triangles
+        sindp=self.elnode[:,:3]; px=self.x[sindp]; py=self.y[sindp]
+        pie=inside_polygon(pxy,px.T,py.T,fmt=1); fp1=pie!=-1; sind2=nonzero(~fp1)[0]
+        if fmt==1: pip=-ones([len(pxy),3]).astype('int'); pip[fp1]=sindp[pie[fp1]]
+        
+        #2nd triangles
+        if len(sind2)!=0:
+           fp34=self.i34==4; sindp=self.elnode[fp34,:][:,array([0,2,3])]; px=self.x[sindp]; py=self.y[sindp]
+           pie2=inside_polygon(pxy[sind2],px.T,py.T,fmt=1); fp2=pie2!=-1; pie[sind2[fp2]]=nonzero(fp34)[0][pie2[fp2]]
+           if fmt==1: pip[sind2[fp2]]=sindp[pie2[fp2]]
 
-        #if npt>N, do loop
-        if npt>N:
-           pn=[]; ptr=[]
-           for i in arange(int(ceil(npt/N))):
-               sind=arange(i*N,min((i+1)*N,npt))
-               pni,ptri=self.inside_grid(pxy[sind],N=N,return_triangle=True)
-               pn.extend(pni); ptr.extend(ptri)
-           pn=array(pn).astype('int')
-           ptr=array(ptr).astype('int')
-           if return_triangle:
-              return pn,ptr
-           else:
-              return pn
-
-        # for all trignales and first triganges of quads--
-        x1=self.x[self.elnode[:,0]][None,:]; x2=self.x[self.elnode[:,1]][None,:]; x3=self.x[self.elnode[:,2]][None,:]
-        y1=self.y[self.elnode[:,0]][None,:]; y2=self.y[self.elnode[:,1]][None,:]; y3=self.y[self.elnode[:,2]][None,:]
-
-        a1=(x0-x3)*(y2-y3)-(x2-x3)*(y0-y3)
-        a2=(x1-x3)*(y0-y3)-(x0-x3)*(y1-y3)
-        a3=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0)
-
-        fp=(a1>=0)*(a2>=0)*(a3>=0);
-        pn=[];
-        for i in arange(npt):
-            sind=nonzero(fp[i,:])[0]
-            if len(sind)==0:
-                pn.append(None)
-            else:
-                pn.append(sind[0])
-        pn=array(pn); ptr[pn!=None]=1
-
-        # for the 2nd trignale of quads--
-        sind0=nonzero(self.i34==4)[0]
-        sindn=nonzero(pn==None)[0]
-        #fpn=pn==None; indn=nonzero(fpn)[0];
-        x0=x0[sindn]; y0=y0[sindn] #remaining pts
-        if len(sind0)!=0 and len(sindn)!=0:
-            x1=self.x[self.elnode[sind0,0]][None,:]; x2=self.x[self.elnode[sind0,2]][None,:]; x3=self.x[self.elnode[sind0,3]][None,:]
-            y1=self.y[self.elnode[sind0,0]][None,:]; y2=self.y[self.elnode[sind0,2]][None,:]; y3=self.y[self.elnode[sind0,3]][None,:]
-
-            a1=(x0-x3)*(y2-y3)-(x2-x3)*(y0-y3)
-            a2=(x1-x3)*(y0-y3)-(x0-x3)*(y1-y3)
-            a3=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0)
-
-            fp=(a1>=0)*(a2>=0)*(a3>=0);
-            for i in arange(len(sindn)):
-                sind=nonzero(fp[i,:])[0]
-                if len(sind)!=0:
-                   pn[sindn[i]]=sind0[sind[0]]
-                   ptr[sindn[i]]=2
-
-        #format
-        pn[pn==None]=-1; pn=pn.astype('int')
-        if return_triangle:
-           return pn,ptr
+        if fmt==0:
+           return pie
         else:
-           return pn
+           return [pie,pip]
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
         self.shp_bnd=npz_data()
@@ -1138,6 +979,7 @@ class schism_vgrid:
                 irec=irec+1
                 self.sigma.append(lines[irec].strip().split()[1])
             self.sigma=array(self.sigma).astype('float')
+        return self.sigma
 
     def compute_zcor(self,dp,eta=0,fmt=0,sigma=None,kbp=None):
         '''
@@ -1271,7 +1113,6 @@ def getglob(fname=None,method=0):
        S.ntrs=S.info[6:]
     else:
        sys.exit('method unknown')
-
     return S
 
 def read_schism_local_to_global(fname):
@@ -1287,7 +1128,6 @@ def read_schism_local_to_global(fname):
     S.iplg=array([i.strip().split() for i in lines[(ne+2):(ne+np+2)]])[:,1].astype('int')-1
     S.islg=array([i.strip().split() for i in lines[(ne+np+3):(ne+np+ns+3)]])[:,1].astype('int')-1
     S.ne,S.np,S.ns=ne,np,ns
-
     return S
 
 def read_schism_param(fname,*args):
@@ -1306,18 +1146,11 @@ def read_schism_param(fname,*args):
     param[keyi]=vali
     if((len(args)>0) and (args[0]==1)):
        if vali.lstrip('-').replace('.','',1).isdigit(): param[keyi]=float(vali)
-       #try:
-       #   param[keyi]=float(vali)
-       #except:
-       #   pass
-
   return param;
 
 def write_schism_param(fname,param):
     pkeys=sorted(param.keys())
     with open(fname,'w+') as fid:
-        #[fid.write('{:10}= {:}\n'.format(x,y)) for x,y in zip(param.keys(),param.values())];
-        #[fid.write('{:10}= {:}\n'.format(i,param[i])) for i in pkeys];
         for i in range(len(pkeys)):
            fid.write('{:10}= {:}\n'.format(pkeys[i],param[pkeys[i]]))
 
@@ -1376,64 +1209,8 @@ def sms2gr3(fname_2dm,fname_gr3='new.gr3'):
 
     #write grid
     gd.write_hgrid(fname_gr3);
-
     return gd
 
 if __name__=="__main__":
     pass
 
-##----read vertical grid--------------------------------------------------------
-#    hgrid=r'D:\Work\E3SM\ChesBay\Hycom\hgrid.gr3'
-#    vgrid=r'D:\Work\E3SM\ChesBay\Hycom\vgrid.in'
-#
-#    gd=read_schism_hgrid(hgrid)
-#    zcor=read_schism_vgrid(vgrid,gd,node=gd.iobn[0],flag=1)
-
-#----check quads and plot------------------------------------------------------
-#    fname=r'D:\Work\E3SM\ChesBay\Grid\ChesBay_1.gr3'
-#    fname1=r'D:\Work\E3SM\ChesBay\Grid\ChesBay_1a.gr3'
-#    gd=read_schism_hgrid(fname);
-#    gd.check_quads(70,110,r'D:\Work\E3SM\ChesBay\Grid\AA.xyz');
-#    gd.split_quads(70,110,fname1)
-
-
-#    gd=read_schism_hgrid(fname);
-#    gd.check_quads(angle_min=70,angle_max=110);
-#    gd.plot_bad_quads();
-
-
-#---transform 2dm to gr3 format, and do projection of grid---------------------
-#    fname_2dm=r'D:\Work\E3SM\ChesBay\Grid\ChesBay_1.2dm'
-#    fname=r'D:\Work\E3SM\ChesBay\Grid\A.gr3'
-#    fname_ll=r'D:\Work\E3SM\ChesBay\Grid\A.ll'
-#
-#    sms2gr3(fname_2dm,fname);
-#    proj(fname,0,'epsg:26918',fname_ll,0,'epsg:4326');
-#------------------------------------------------------------------------------
-#    g=read_schism_hgrid(fname)
-
-#    fname=r'C:\Users\Zhengui\Desktop\Python\learn\Station.bp_SED';
-#    bp=read_schism_bpfile(fname)
-#    bp.ux,bp.uy=transform(Proj(init='epsg:26910'),Proj(init='epsg:4326'),bp.ux,bp.uy);
-
-#------------------read grid and plot------------------------------------------
-#    fname=r'C:\Users\Zhengui\Desktop\Python\learn\hgrid.gr3'
-#    g=read_schism_hgrid(fname)
-#    fname=r'C:\Users\Zhengui\Desktop\Python\learn\T.gr3'
-#    g.write_hgrid(fname,1)
-
-#    fname=r'C:\Users\Zhengui\Desktop\Python\learn\hgrid.ll'
-#    g2=read_schism_hgrid_ll(fname,g)
-#
-#    g2.plot_bnd(); bp.plot_station(c='g',marker='.',ms=10);
-#    [setp(hti,color='r',fontsize=10,fontweight='bold') for hti in bp.ht]
-
-#    fname=r'C:\Users\Zhengui\Desktop\Python\learn\bk.gr3'
-#    g=read_schism_hgrid(fname)
-#    dpe=[g.dp[e[:-1]].mean() if (i34==3 and len(e)==4) else g.dp[e].mean() for e,i34 in zip(g.elnode,g.i34)];
-#    g.plot_grid(plotz=1,cmap='hsv',ec='None',clim=[0,25])
-#    g.plot_bnd(lw=1)
-
-
-#    fname2=r'C:\Users\Zhengui\Desktop\Python\learn\hgrid.ll'
-#    g2=read_schism_hgrid_ll(fname2,g)

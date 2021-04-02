@@ -629,21 +629,30 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
     npt=pts.shape[0]; nv,npy=px.shape
 
     if nv==3 and fmt==1:
-        #for triangles, and only return indices of polygons that points resides in
-        sind=[];
-        for i in arange(npt):
-            pxi=pts[i,0]; pyi=pts[i,1]; isum=ones(npy)
-            for m in arange(nv):
-                xi=c_[ones(npy)*pxi,px[m,:],px[mod(m+1,nv),:]]
-                yi=c_[ones(npy)*pyi,py[m,:],py[mod(m+1,nv),:]]
-                area=signa(xi,yi)
-                fp=area<=0; isum[fp]=0;
-            sindi=nonzero(isum!=0)[0]
-            if len(sindi)!=1:
+       #for triangles, and only return indices of polygons that points resides in
+       px1=px.min(axis=0); px2=px.max(axis=0); py1=py.min(axis=0); py2=py.max(axis=0)
+       
+       sind=[];
+       for i in arange(npt):
+           pxi=pts[i,0]; pyi=pts[i,1]
+           sindp=nonzero((pxi>=px1)*(pxi<=px2)*(pyi>=py1)*(pyi<=py2))[0]; npy=len(sindp)
+           if npy==0:
                sind.append(-1)
-            else:
-               sind.append(sindi[0])
-        sind=squeeze(array(sind))
+           else:
+               isum=ones(npy)
+               for m in arange(nv):
+                   xi=c_[ones(npy)*pxi,px[m,sindp],px[mod(m+1,nv),sindp]]
+                   yi=c_[ones(npy)*pyi,py[m,sindp],py[mod(m+1,nv),sindp]]
+                   area=signa(xi,yi)
+                   fp=area<=0; isum[fp]=0;
+               sindi=nonzero(isum!=0)[0]
+       
+               if len(sindi)==0:
+                   sind.append(-1)
+               else:
+                   sind.append(sindp[sindi[0]])
+       sind=array(sind)
+
     else:
         if method==0:
             sind=[]
