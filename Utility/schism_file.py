@@ -981,7 +981,7 @@ class schism_vgrid:
             self.sigma=array(self.sigma).astype('float')
         return self.sigma
 
-    def compute_zcor(self,dp,eta=0,fmt=0,sigma=None,kbp=None):
+    def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None):
         '''
         compute schism zcor (ivcor=1)
             dp:  depth at nodes (dim=[np] or [1])
@@ -989,19 +989,12 @@ class schism_vgrid:
             fmt: output format of zcor
                  fmt=0: bottom depths byeond kbp are extended
                  fmt=1: bottom depths byeond kbp are nan
-            sigma,kbp: provide only if computing zcor for subset of nodes
+            method=1: used for computing zcor for subset of nodes when ivcor=1
+            sigma,kbp: needed when method=1 
         '''
         if self.ivcor==1:
-           if not hasattr(dp,'__len__'): 
-               imed=0
-           elif len(dp)==self.np or len(dp)==1:
-               imed=0 
-           else: 
-               if (sigma is None) or (kbp is None): sys.exit('provide sigma, kbp')
-               imed=1
-
-           if imed==0: return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,kbp=self.kbp)
-           if imed==1: return compute_zcor(sigma,dp,eta=eta,fmt=fmt,kbp=kbp)
+           if method==0: return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,kbp=self.kbp)
+           if method==1: return compute_zcor(sigma,dp,eta=eta,fmt=fmt,kbp=kbp)
         elif self.ivcor==2:
             return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self)
 
