@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 '''
-Extract (xyz) values from station.bp
+Extract SCHISM variable values at (x,y,z) from station.bp. 
+  1). work for both uncombined and combined SCHISM outputs
+  2). can extract multiple variables at the same time
+  3). can work in interactive or batch mode 
+  4). output in ACSII or *npz format 
 '''
 from pylib import *
 import time
@@ -9,28 +13,29 @@ import time
 #Input
 #-----------------------------------------------------------------------------
 run='/sciclone/data10/wangzg/NWM/RUN06a_ZG'     #run dir containing outputs
-stacks=[1,40]            #stacks of schout_*.nc 
-sname='./elev.Coast_6b'  #name for results
-svars=['elev']           #variable to be extracted
+stacks=[1,40]           #stacks of schout_*.nc 
+sname='./elev.Coast_6b.RUN06z_ZG' #name for results
+svars=['elev']          #variable to be extracted
 bpfile='/sciclone/data10/wangzg/NWM/Results/BPfiles/Coast_6b.bp'  #file name of station.bp
-ifs=1                  #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
-icmb=0                 #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
-
-#optional
-grid='grid.npz'        #saved grid info; use hgrid.gr3 and vgrid.in if not exist in run
-igather=1              #igather=1: save data on each rank,then combine; igather=0: use MPI  
+ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
+fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
 #resource requst 
+walltime='1:00:00'
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=10; ppn=12   #vortex, ppn=12
-qnode='x5672'; nnode=6; ppn=4      #hurricane, ppn=8
+qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='potomac'; nnode=1; ppn=2    #ches, ppn=12
 #qnode='james'; nnode=1; ppn=2     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
-walltime='1:00:00'
+#optional
+grid='./grid.npz'        #saved grid info; use hgrid.gr3 and vgrid.in if not exist in run
+igather=1              #igather=1: save data on each rank,then combine; igather=0: use MPI  
+icmb=0                 #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
+ibatch=0               #ibatch=0: submit batch job;   ibatch=1: run script locally (interactive)
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
@@ -38,7 +43,7 @@ nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 jname='Rd_{}'.format(os.path.basename(run)) #job name
 
-#os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+if ibatch==1: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
@@ -143,11 +148,13 @@ else:
 istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank]
 
 #initilize data capsule
-S=npz_data(); S.time=[]; S.bp=bp; [exec('S.{}=[]'.format(i)) for i in svars]
+S=npz_data(); S.time=[]; S.bp=bp
+for i in svars: exec('S.{}=[]'.format(i)) 
 
 #extract (x,y,z) value for each stack and each subdomain
 for n,istack in enumerate(istacks):
-    t00=time.time(); Si=npz_data(); [exec('Si.{}=[]'.format(m)) for m in svars]
+    t00=time.time(); Si=npz_data()
+    for m in svars: exec('Si.{}=[]'.format(m))
     for m,isubi in enumerate(isub):
         #open schout_*.nc
         if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
@@ -192,8 +199,9 @@ for n,istack in enumerate(istacks):
         if len(svars)==1 and svars[0]=='elev': Si.elev.extend(array(eis).T);  continue
 
         #compute (x,y,z) for each variables
-        Sii=npz_data(); [exec('Sii.{}=[]'.format(mm)) for mm in svars]
+        Sii=npz_data()
         for mm, svar in enumerate(svars):
+            exec('Sii.{}=[]'.format(svar))
             ndim=C.variables[svar].ndim; dim=C.variables[svar].shape; dimname=C.variables[svar].dimensions
 
             data=[]
@@ -208,7 +216,7 @@ for n,istack in enumerate(istacks):
                 else:
                     sys.exit('unknown variable format: {},{}'.format(svar,dim))
 
-                #extend values in the bottom: dims[2] is nvrt
+                #extend values in the bottom: dim[2] is nvrt
                 if ('nSCHISM_vgrid_layers' in dimname):
                    sindp=arange(bp.nsta)
                    for nn in arange(3):
@@ -261,8 +269,18 @@ if myrank==0:
    #save data        
    S.time=array(S.time); sind=argsort(S.time); S.time=S.time[sind]
    for i in svars: exec('ds=[1,0,*arange(2,array(S.{}).ndim)]; S.{}=array(S.{})[sind].transpose(ds)'.format(i,i,i)) 
-   save_npz('{}'.format(sname),S)
-   if igather==1: [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
+   if fmt==0:
+      save_npz('{}'.format(sname),S)
+   else:
+      #write out ASCII file
+      for i in svars: exec('ds=[1,*arange(2,array(S.{}).ndim),0]; S.{}=array(S.{}).transpose(ds)'.format(i,i,i)) 
+      fid=open('{}.dat'.format(sname),'w+')
+      for i,ti in enumerate(S.time):
+          datai=[]
+          for svar in svars: exec('datai.extend(S.{}[{}].ravel())'.format(svar,i))
+          fid.write(('{:12.6f}'+' {:10.6f}'*len(datai)+'\n').format(ti,*datai))
+      fid.close()
+   if igather==1: [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)] #clean
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs
