@@ -14,7 +14,7 @@ import time
 #-----------------------------------------------------------------------------
 run='/sciclone/data10/wangzg/NWM/RUN06a_ZG'     #run dir containing outputs
 stacks=[1,40]           #stacks of schout_*.nc 
-sname='./elev.Coast_6b.RUN06z_ZG' #name for results
+sname='./elev.Coast_6b.RUN06a_ZG' #name for results
 svars=['elev']          #variable to be extracted
 bpfile='/sciclone/data10/wangzg/NWM/Results/BPfiles/Coast_6b.bp'  #file name of station.bp
 ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
@@ -148,7 +148,7 @@ else:
 istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank]
 
 #initilize data capsule
-S=npz_data(); S.time=[]; S.bp=bp
+S=npz_data(); S.time=[]; #S.bp=bp
 for i in svars: exec('S.{}=[]'.format(i)) 
 
 #extract (x,y,z) value for each stack and each subdomain
@@ -160,7 +160,7 @@ for n,istack in enumerate(istacks):
         if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
         if icmb==1: fname='{}/outputs/schout_{}.nc'.format(run,istack)
         if (not os.path.exists(fname)) and icmb==0: sys.exit('not exist: {}'.format(fname))
-        C=ReadNC(fname,1); bp=sbps[m]
+        C=ReadNC(fname,1); sbp=sbps[m]
         
         #read time
         mti=array(C.variables['time'][:])/86400; nt=len(mti); 
@@ -169,24 +169,24 @@ for n,istack in enumerate(istacks):
         #extract elevation -> compute zcor -> vertical interploate
         eis=[]; k1s=[]; k2s=[]; rats=[]  
         for i in arange(nt):
-            eii=array(C.variables['elev'][i][bp.ip]) if ('elev' in C.variables) else 0*bp.dp
-            ei=(eii*bp.acor).sum(axis=1); eis.append(ei)
+            eii=array(C.variables['elev'][i][sbp.ip]) if ('elev' in C.variables) else 0*sbp.dp
+            ei=(eii*sbp.acor).sum(axis=1); eis.append(ei)
             if len(svars)==1 and svars[0]=='elev': continue
 
             #compute zcor
             zii=[]
             for k in arange(3):
-                if vd.ivcor==1: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k],sigma=bp.sigma[:,k,:],kbp=bp.kbp[:,k],method=1)
-                if vd.ivcor==2: ziii=vd.compute_zcor(bp.dp[:,k],eii[:,k])
+                if vd.ivcor==1: ziii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],sigma=sbp.sigma[:,k,:],kbp=sbp.kbp[:,k],method=1)
+                if vd.ivcor==2: ziii=vd.compute_zcor(sbp.dp[:,k],eii[:,k])
                 zii.append(ziii)
-            zi=(array(zii)*bp.acor.T[...,None]).sum(axis=0).T
+            zi=(array(zii)*sbp.acor.T[...,None]).sum(axis=0).T
  
             #station depth
-            mzi=bp.z.copy()
+            mzi=sbp.z.copy()
             if ifs==1: mzi=-mzi+ei
 
             #interpolation in the vertical
-            k1=ones(bp.nsta)*nan; k2=ones(bp.nsta)*nan; rat=ones(bp.nsta)*nan
+            k1=ones(sbp.nsta)*nan; k2=ones(sbp.nsta)*nan; rat=ones(sbp.nsta)*nan
             fp=mzi<=zi[0];  k1[fp]=0; k2[fp]=0; rat[fp]=0   #bottom
             fp=mzi>=zi[-1]; k1[fp]=(vd.nvrt-1); k2[fp]=(vd.nvrt-1); rat[fp]=1  #surface
             for k in arange(vd.nvrt-1):
@@ -210,26 +210,26 @@ for n,istack in enumerate(istacks):
 
                 #get variable values 
                 if ('nSCHISM_hgrid_node' in dimname):
-                    trii=array(C.variables[svar][i][bp.ip])
+                    trii=array(C.variables[svar][i][sbp.ip])
                 elif ('nSCHISM_hgrid_face' in dimname): 
-                    trii=array(C.variables[svar][i][bp.ie])
+                    trii=array(C.variables[svar][i][sbp.ie])
                 else:
                     sys.exit('unknown variable format: {},{}'.format(svar,dim))
 
                 #extend values in the bottom: dim[2] is nvrt
                 if ('nSCHISM_vgrid_layers' in dimname):
-                   sindp=arange(bp.nsta)
+                   sindp=arange(sbp.nsta)
                    for nn in arange(3):
-                       kbp=bp.kbp[:,nn]; btri=trii[sindp,nn,kbp]
+                       kbp=sbp.kbp[:,nn]; btri=trii[sindp,nn,kbp]
                        for k in arange(vd.nvrt):
                            fp=k<kbp
                            trii[sindp[fp],nn,k]=btri[fp]
 
                 #horizontal interp
                 if ('nSCHISM_hgrid_node' in dimname):
-                   if ndim==2: tri=(trii*bp.acor).sum(axis=1)
-                   if ndim==3: tri=(trii*bp.acor[...,None]).sum(axis=1)
-                   if ndim==4: tri=(trii*bp.acor[...,None,None]).sum(axis=1); rat=rat[:,None]
+                   if ndim==2: tri=(trii*sbp.acor).sum(axis=1)
+                   if ndim==3: tri=(trii*sbp.acor[...,None]).sum(axis=1)
+                   if ndim==4: tri=(trii*sbp.acor[...,None,None]).sum(axis=1); rat=rat[:,None]
                 else:
                    tri=trii
 
