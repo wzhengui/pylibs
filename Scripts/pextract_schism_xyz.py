@@ -17,6 +17,7 @@ stacks=[1,40]           #stacks of schout_*.nc
 sname='./elev.Coast_6b.RUN06a_ZG' #name for results
 svars=['elev']          #variable to be extracted
 bpfile='/sciclone/data10/wangzg/NWM/Results/BPfiles/Coast_6b.bp'  #file name of station.bp
+icmb=0                  #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
 ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
 fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
@@ -32,10 +33,9 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
 #optional
-grid='./grid.npz'        #saved grid info; use hgrid.gr3 and vgrid.in if not exist in run
-igather=1              #igather=1: save data on each rank,then combine; igather=0: use MPI  
-icmb=0                 #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
-ibatch=0               #ibatch=0: submit batch job;   ibatch=1: run script locally (interactive)
+grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
+igather=1          #igather=1: save data on each rank,then combine; igather=0: use MPI  
+ibatch=0           #ibatch=0: submit batch job;   ibatch=1: run script locally (interactive)
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
