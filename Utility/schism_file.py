@@ -981,7 +981,7 @@ class schism_vgrid:
             self.sigma=array(self.sigma).astype('float')
         return self.sigma
 
-    def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None):
+    def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None,ifix=0):
         '''
         compute schism zcor (ivcor=1)
             dp:  depth at nodes (dim=[np] or [1])
@@ -989,14 +989,17 @@ class schism_vgrid:
             fmt: output format of zcor
                  fmt=0: bottom depths byeond kbp are extended
                  fmt=1: bottom depths byeond kbp are nan
-            method=1: used for computing zcor for subset of nodes when ivcor=1
-            sigma,kbp: needed when method=1 
+            method=1 and ivcor=1: used for computing zcor for subset of nodes (need sigma,kbp)
+            method=1 and ivcor=2: return zcor and kbp
+            ifix=1 and ivcor=2: using traditional sigma in shallow if error raise
         '''
         if self.ivcor==1:
            if method==0: return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,kbp=self.kbp)
            if method==1: return compute_zcor(sigma,dp,eta=eta,fmt=fmt,kbp=kbp)
         elif self.ivcor==2:
-            return compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self)
+           zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
+           if method==0: return zcor
+           if method==1: return [zcor,kbp]
 
 def read_schism_vgrid(fname):
     '''
@@ -1006,7 +1009,7 @@ def read_schism_vgrid(fname):
     vd.read_vgrid(fname)
     return vd
 
-def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
+def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
     '''
     compute schism zcor (ivcor=1)
         sigma: sigma cooridinate (dim=[np,nvrt])
@@ -1015,7 +1018,9 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
         fmt: output format of zcor
             fmt=0: bottom depths byeond kbp are extended
             fmt=1: bottom depths byeond kbp are nan
-        kbp: index of bottom layer (not necessary, just to speed up if provided)
+        kbp: index of bottom layer (not necessary, just to speed up if provided for ivcor=1)
+        method=1 and ivcor=2: return zcor and kbp
+        ifix=1 and ivcor=2: using traditional sigma in shallow if error raise
     '''
 
     if ivcor==1:
@@ -1037,7 +1042,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
         if fmt==1:
             for i in arange(np):
                 zcor[i,:kbp[i]]=nan
-
+        return zcor
     elif ivcor==2:
         #get dimension of pts
         if not hasattr(dp,'__len__'):
@@ -1057,7 +1062,8 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
         #depth>h_c
         fpc=eta<=(-vd.h_c-(hmod-vd.h_c)*vd.theta_f/sinh(vd.theta_f))
         if sum(fpc)>0:
-            sys.exit('Pls choose a larger h_c: {}'.format(vd.h_c))
+            if ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(vd.h_c))
+            if ifix==1: zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]+(eta[~fps][None,:]+hmod[~fps][None,:])*vd.sigma[:,None]
         else:
             zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]*(1+vd.sigma[:,None])+vd.h_c*vd.sigma[:,None]+cs[:,None]*(hmod[~fps]-vd.h_c)
 
@@ -1085,7 +1091,8 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None):
         if fmt==0:
             for i in arange(np):
                 zcor[i,:kbp[i]]=zcor[i,kbp[i]]
-    return zcor
+        if method==0: return zcor
+        if method==1: return [zcor,kbp]
 
 def getglob(fname=None,method=0):
     '''

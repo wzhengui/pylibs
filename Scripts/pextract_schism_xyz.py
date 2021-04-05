@@ -174,12 +174,13 @@ for n,istack in enumerate(istacks):
             if len(svars)==1 and svars[0]=='elev': continue
 
             #compute zcor
-            zii=[]
+            zii=[]; kbpii=[]
             for k in arange(3):
                 if vd.ivcor==1: ziii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],sigma=sbp.sigma[:,k,:],kbp=sbp.kbp[:,k],method=1)
-                if vd.ivcor==2: ziii=vd.compute_zcor(sbp.dp[:,k],eii[:,k])
-                zii.append(ziii)
+                if vd.ivcor==2: ziii,kbpiii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],method=1,ifix=1)
+                zii.append(ziii); kbpii.append(kbpiii)
             zi=(array(zii)*sbp.acor.T[...,None]).sum(axis=0).T
+            if vd.ivcor==2: sbp.kbp=array(kbpii).T.astype('int')
  
             #station depth
             mzi=sbp.z.copy()
