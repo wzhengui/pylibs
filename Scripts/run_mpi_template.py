@@ -21,6 +21,7 @@ walltime='00:10:00'
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
+ibatch=1
 
 #-----------------------------------------------------------------------------
 #pre-processing
@@ -28,7 +29,7 @@ qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 
-#os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+if ibathc==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------

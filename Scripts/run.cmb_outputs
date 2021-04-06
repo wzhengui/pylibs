@@ -54,12 +54,12 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     os.chdir(bdir)
 
     if qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen2.out".format(bdir,nproc,bcode)
     elif qnode=='femto':
        pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen2.out".format(bdir,pypath,bcode)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen2.out".format(bdir,bcode)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 

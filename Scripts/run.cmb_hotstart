@@ -10,24 +10,29 @@ import time
 #-----------------------------------------------------------------------------
 stacks=None #[list of stacks starting from 0 | None means all stacks]
 idelete_raw=0  #delete uncombine results
-walltime='01:00:00' 
 
 #resource requst 
+walltime='01:00:00' 
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=1; ppn=4   #vortex, ppn=12
-qnode='x5672'; nnode=4; ppn=4     #hurricane, ppn=8
+#qnode='x5672'; nnode=4; ppn=4     #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+#qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
+qnode='haswell'; nnode=1; ppn=2   #viz3,haswell, ppn=24,or 28
+ibatch=1
 
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
 code='~wangzg/bin/combine_hotstart7.{}'.format(qnode)
+if qnode in ['haswell','skylake']: code='~zwang/bin/combine_hotstart7.viz3'
 jname='cmb_{}'.format(os.path.basename(os.path.abspath(os.path.curdir))) #job name
 
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
+if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
@@ -53,12 +58,14 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     os.chdir(bdir)
 
     if qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen3.out".format(bdir,nproc,bcode)
     elif qnode=='femto':
        pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen3.out".format(bdir,pypath,bcode)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen3.out".format(bdir,bcode)
+    elif qnode in ['haswell','skaylake']:
+       rcode="mpiexec --env job_on_node=1 --env bdir='{}' -np {} {} >& screen3.out".format(bdir,nproc,bcode)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 
@@ -82,7 +89,7 @@ iprocs_all=sort(array([i.split('_')[2].split('.')[0] for i in os.listdir('output
 iprocs=iprocs_all if (stacks is None) else iprocs_all[array(stacks)]
 
 #get global information
-gb=getglob('outputs/local_to_global_0000',2)
+gb=getglob('outputs/local_to_global_0000')
 
 #distribute jobs
 iproc=[iprocs[i] for i in arange(len(iprocs)) if i%nproc==myrank]
