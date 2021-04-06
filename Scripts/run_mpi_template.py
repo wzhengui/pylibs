@@ -18,7 +18,7 @@ walltime='00:10:00'
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+#qnode='femto'; nnode=1; ppn=2      #femto,ppn=32
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
@@ -53,11 +53,13 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     bdir=param[0]; bcode=param[1]
     os.chdir(bdir)
 
-    if qnode=='bora':
+    if qnode=='femto':
+       jn='.run.python.femto'; hdir=os.getenv('HOME'); fid=open(jn,'w+'); fid.write('#!/usr/bin/tcsh\n')
+       fid.write('setenv HOME {}\nsetenv prompt\nsetenv bdir {}\nsource {}/.cshrc\n'.format(hdir,bdir,hdir))
+       fid.write('setenv MV2_ENABLE_AFFINITY 0\nmodule unload openmpi\nmodule load mvapich2/2.3.1/intel-2018\n{}'.format(bcode))
+       fid.close(); rcode="chmod a+x {}; srun --export=job_on_node=1, {} >& screen.out".format(jn,jn)
+    elif qnode=='bora':
        rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
-    elif qnode=='femto':
-       pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
        rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
     elif qnode=='skylake' or qnode=='haswell':
