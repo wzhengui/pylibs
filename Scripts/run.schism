@@ -42,7 +42,7 @@ if os.getenv('run_schism')==None and os.getenv('job_on_node')==None:
     elif qnode in ['haswell','skylake']:
        #scode='qsub {} -v run_schism="1", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],jname,nnode,qnode,ppn,walltime)
        scode='qsub {} -v run_schism="1", -N {} -j oe -l procs={} -l walltime={}'.format(args[0],jname,nproc,walltime)
-    else:
+    elif qnode in ['james','x5672','bora']:
        scode='qsub {} -v run_schism="1", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],jname,nnode,qnode,ppn,walltime)
     print(scode); os.system(scode); sys.stdout.flush()
     os._exit(0)
