@@ -839,9 +839,9 @@ class schism_bpfile:
         pass
 
     def read_bpfile(self,fname,fmt=0):
-        # lines=[line.split() for line in open(fname,'r').read().strip().split('\n')]
         #read file content
-        lines=[line.strip().split() for line in open(fname,'r').readlines()]
+        lines=[i.strip().split() for i in open(fname,'r').readlines()]
+        stations=[i.strip().split('!')[-1] for i in open(fname,'r').readlines()[2:] if ('!' in i)]
         if fmt==0:
             self.nsta=int(lines[1][0])
             if self.nsta==0: return
@@ -867,8 +867,8 @@ class schism_bpfile:
         self.ux=ux; self.uy=uy;self.uz=uz;
 
         #get unique station data.
-        if data.shape[1]==5:
-           self.station=data[:,4]
+        if len(stations)==self.nsta:
+           self.station=array(stations)
            self.ustation=self.station[ind];
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
