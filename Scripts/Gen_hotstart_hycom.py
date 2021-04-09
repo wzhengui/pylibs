@@ -143,5 +143,5 @@ for i in arange(12):
     subplot(3,4,i+1)
     gd.dp=vi[:,i*4]
     gd.compute_ctr()
-    gd.plot_grid(plotz=1,ec=None,clim=[10,35]);
+    gd.plot_grid(fmt=1,ec=None,clim=[10,35]);
 #    colorbar(gd.hc)

@@ -6,12 +6,12 @@ class schism_grid:
     def __init__(self):
         pass
 
-    def plot_grid(self,ax=None,method=0,plotz=0,value=None,mask=None,ec='k',fc='None',
+    def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
              lw=0.1,levels=None,ticks=None,clim=None,extend='both',cb=True,**args):
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
-        plotz=0: plot grid only; plotz=1: plot color
+        fmt=0: plot grid only; fmt=1: plot color
         value: color value size(np,or ne)
         mask: size(ne); only plot elements (mask=True))
         ec: color of grid line;  fc: element color; lw: grid line width
@@ -21,12 +21,14 @@ class schism_grid:
         cb=False: not add colorbar
         '''
 
-        if ec==None: ec='None'
-        if ax==None: ax=gca();
+        if ec is None: ec='None'
+        if fc is None: fc='None'
+        if ax is None: ax=gca()
+
         if method==0:
            fp3=self.i34==3; fp4=self.i34==4
-           if mask is not None: fp3=fp3*mask; fp4=fp4*mask
-           if (plotz==0)|(ec!='None'): #compute lines of grid
+           # if mask is not None: fp3=fp3*mask; fp4=fp4*mask
+           if (fmt==0)|(ec!='None'): #compute lines of grid
               #tri
               tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
               x3=self.x[tri]; y3=self.y[tri]
@@ -38,9 +40,10 @@ class schism_grid:
               x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
               y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
 
-           if plotz==0:
+           if fmt==0:
+              if ec=='None': ec='k'
               hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
-           elif plotz==1:
+           elif fmt==1:
               tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
               #determine value
               if value is None:
@@ -61,6 +64,9 @@ class schism_grid:
               if levels is None: levels=51
               if squeeze(array([levels])).size==1:
                  levels=linspace(vmin,vmax,int(levels))
+
+              #set mask
+              if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
 
               if vmin==vmax:
                  hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
@@ -112,7 +118,7 @@ class schism_grid:
            if clim is None: clim=[min(value),max(value)]
 
            #plot
-           if plotz==0:
+           if fmt==0:
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
            else:
               hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
@@ -492,12 +498,12 @@ class schism_grid:
         '''
         #compute parents element
         pie,pip=self.inside_grid(pxy,fmt=1); fpn=pie!=-1
-        
+
         #cooridate for triangles, and areas
         x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
         A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); A1=signa(c_[x,x2,x3],c_[y,y2,y3])
         A2=signa(c_[x1,x,x3],c_[y1,y,y3]);  #A3=signa(c_[x1,x2,x],c_[y1,y2,y])
-        
+
         #area coordinate
         pacor=zeros(pip.shape); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
         return [pie,pip,pacor]
@@ -743,7 +749,7 @@ class schism_grid:
         sindp=self.elnode[:,:3]; px=self.x[sindp]; py=self.y[sindp]
         pie=inside_polygon(pxy,px.T,py.T,fmt=1); fp1=pie!=-1; sind2=nonzero(~fp1)[0]
         if fmt==1: pip=-ones([len(pxy),3]).astype('int'); pip[fp1]=sindp[pie[fp1]]
-        
+
         #2nd triangles
         if len(sind2)!=0:
            fp34=self.i34==4; sindp=self.elnode[fp34,:][:,array([0,2,3])]; px=self.x[sindp]; py=self.y[sindp]
