@@ -29,7 +29,7 @@ ibatch=1
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 
-if ibathc==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
+if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
