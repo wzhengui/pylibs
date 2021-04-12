@@ -21,6 +21,11 @@ icmb=0                  #icmb=0: work on uncombined; icmb=1: work on combined sc
 ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
 fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
+#optional
+grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
+ibatch=0           #ibatch=0: submit batch job;   ibatch=1: run script locally (interactive)
+igather=1          #igather=1: save data on each rank,then combine; igather=0: use MPI  
+
 #resource requst 
 walltime='1:00:00'
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
@@ -32,10 +37,6 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
-#optional
-grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
-igather=1          #igather=1: save data on each rank,then combine; igather=0: use MPI  
-ibatch=0           #ibatch=0: submit batch job;   ibatch=1: run script locally (interactive)
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
