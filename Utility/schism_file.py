@@ -252,7 +252,7 @@ class schism_grid:
         self.elnode=num[:,2:]-1
 
         #compute ns
-        self.compute_ns(method=1)
+        self.compute_ns()
 
         if len(lines)<(4+self.np+self.ne):
             return
@@ -423,53 +423,17 @@ class schism_grid:
 
         return self.dpdx,self.dpdy,self.dpdxy
 
-    def compute_ns(self,method=1):
+    def compute_ns(self):
         '''
         compute number of hgrid sides
         '''
-
-        if method==1:
-            #triangles
-            ind=nonzero(self.i34==3)[0]
-            if len(ind)>0:
-                for i in arange(3):
-                    i1=mod(i+3,3); i2=mod(i+4,3);
-                    if i==0:
-                        x=c_[self.elnode[ind,i1],self.elnode[ind,i2]]
-                    else:
-                        x=r_[x,c_[self.elnode[ind,i1],self.elnode[ind,i2]]];
-
-            #quadlateral
-            ind=nonzero(self.i34==4)[0]
-            if len(ind)>0:
-                for i in arange(4):
-                    i1=mod(i+4,4); i2=mod(i+5,4);
-                    x=r_[x,c_[self.elnode[ind,i1],self.elnode[ind,i2]]];
-
-            #-sort sides-----------
-            y=sort(x,axis=1)
-            uy=unique(y,axis=0)
-
-            self.ns=uy.shape[0]
-        elif method==2:
-            #--method 2--------------------
-            #open bondary
-            nobs=0
-            for i in arange(self.nob):
-                nobs=nobs+self.nobn[i]-1
-
-            nlbs=0
-            #land boundary
-            for i in arange(self.nlb):
-                if self.ilbn[i][0]==self.ilbn[i][-1]:
-                    nlbs=nlbs+self.nlbn[i]-2+self.island[i]
-                else:
-                    nlbs=nlbs+self.nlbn[i]-1+self.island[i]
-
-            #compute ns
-            fp1=self.i34==3; fp2=self.i34==4;
-            ns=int((sum(fp1)*3+sum(fp2)*4+nobs+nlbs)/2);
-            self.ns=ns
+        #collect sides
+        fp3=gd.i34==3; fp4=gd.i34==4; sind=array([[],[]]).astype('int').T
+        for i in arange(3): sind=r_[sind,c_[gd.elnode[fp3,mod(i+3,3)],gd.elnode[fp3,mod(i+4,3)]]]
+        for i in arange(4): sind=r_[sind,c_[gd.elnode[fp4,mod(i+4,4)],gd.elnode[fp4,mod(i+5,4)]]]
+        
+        #sort side
+        sind=sort(sind,axis=1).T; sid=unique(sind[0]+1j*sind[1]); self.ns=len(sid)
         return self.ns
 
     def compute_node_ball(self):
