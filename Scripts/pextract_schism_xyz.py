@@ -178,8 +178,8 @@ for n,istack in enumerate(istacks):
             zii=[]; kbpii=[]
             for k in arange(3):
                 if vd.ivcor==1: ziii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],sigma=sbp.sigma[:,k,:],kbp=sbp.kbp[:,k],method=1)
-                if vd.ivcor==2: ziii,kbpiii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],method=1,ifix=1)
-                zii.append(ziii); kbpii.append(kbpiii)
+                if vd.ivcor==2: ziii,kbpiii=vd.compute_zcor(sbp.dp[:,k],eii[:,k],method=1,ifix=1); kbpii.append(kbpiii)
+                zii.append(ziii)
             zi=(array(zii)*sbp.acor.T[...,None]).sum(axis=0).T
             if vd.ivcor==2: sbp.kbp=array(kbpii).T.astype('int')
  
