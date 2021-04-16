@@ -25,6 +25,7 @@ for run in runs:
     fid=open(fname,'r'); nstep0=0
     while (True): 
         line=fid.readline()
+        if len(line)==0: sys.exit()
         if line.strip().startswith('TIME STEP='): 
            nstep0=float(line.split(';')[0].split('=')[1])
            break
