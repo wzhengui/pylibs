@@ -28,6 +28,7 @@ ibatch=1
 #-----------------------------------------------------------------------------
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
+scrout='screen.out'
 
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
@@ -58,13 +59,13 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
        jn='.run.python.femto'; hdir=os.getenv('HOME'); fid=open(jn,'w+'); fid.write('#!/usr/bin/tcsh\n')
        fid.write('setenv HOME {}\nsetenv prompt\nsetenv bdir {}\nsource {}/.cshrc\n'.format(hdir,bdir,hdir))
        fid.write('setenv MV2_ENABLE_AFFINITY 0\nmodule unload openmpi\nmodule load mvapich2/2.3.1/intel-2018\n{}'.format(bcode))
-       fid.close(); rcode="chmod a+x {}; srun --export=job_on_node=1, {} >& screen.out".format(jn,jn)
+       fid.close(); rcode="chmod a+x {}; srun --export=job_on_node=1, {} >& {}".format(jn,jn,scrout)
     elif qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& {}".format(bdir,nproc,bcode,scrout)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,bcode,scrout)
     elif qnode=='skylake' or qnode=='haswell':
-       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,bcode,scrout)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 

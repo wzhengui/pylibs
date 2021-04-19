@@ -43,6 +43,7 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 jname='Rd_{}'.format(os.path.basename(run)) #job name
+scrout='screen.out'
 
 if ibatch==1: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
@@ -70,14 +71,14 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     os.chdir(bdir)
 
     if qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& {}".format(bdir,nproc,bcode,scrout)
     elif qnode=='femto':
        pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
+       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& {}".format(bdir,pypath,bcode,scrout)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,bcode,scrout)
     elif qnode=='skylake' or qnode=='haswell':
-       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& screen.out".format(bdir,nproc,bcode)
+       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,bcode,scrout)
     print(rcode); os.system(rcode); sys.stdout.flush()
     os._exit(0)
 
