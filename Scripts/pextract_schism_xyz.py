@@ -96,6 +96,7 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
+nproc=min(nproc,int(diff(stacks)))
 
 #-----------------------------------------------------------------------------
 #compute grid and bpfile information
@@ -257,7 +258,7 @@ S.time=array(S.time); ['S.{}=array(S.{}).astype("float32")'.format(i,i) for i in
 #-----------------------------------------------------------------------------
 #combine results from all ranks
 #-----------------------------------------------------------------------------
-if igather==1: save_npz('{}_{}'.format(sname,myrank),S)
+if igather==1 and myrank<nproc: save_npz('{}_{}'.format(sname,myrank),S)
 comm.Barrier()
 if igather==0: sdata=comm.gather(S,root=0)
 if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
