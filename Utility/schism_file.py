@@ -922,7 +922,7 @@ def save_schism_grid(fname='grid',path='.'):
     '''
     gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path);
     if not os.path.exists(gname)*os.path.exists(vname): sys.exit('not found: {}, {}'.format(gname,vname))
-    gd=read_schism_hgrid('hgrid.gr3'); vd=read_schism_vgrid('vgrid.in')
+    gd=read_schism_hgrid(gname); vd=read_schism_vgrid(vname)
     S=npz_data(); S.hgrid=gd; S.vgrid=vd; save_npz(fname,S)
     return S
 
