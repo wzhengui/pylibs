@@ -4,7 +4,7 @@ from pylib import *
 import subprocess
 
 #-----input------------------------------------------------------------
-runs=['RUN02l','RUN02n','RUN02o','RUN02p','RUN02q']
+runs=['RUN01d','RUN02p','RUN02q']
 
 #--compute runtime----------------------------------------------------
 if len(sys.argv)!=1: runs=sys.argv[1:]
@@ -26,12 +26,12 @@ for run in runs:
     fid=open(fname,'r'); nstep0=0
     while (True): 
         line=fid.readline()
-        if len(line)==0: sys.exit()
+        if len(line)==0: break 
         if line.strip().startswith('TIME STEP='): 
            nstep0=float(line.split(';')[0].split('=')[1])
            break
-      
     fid.close()
+    if nstep0==0: continue
 
     #get lines in the end
     code='tail -n 60 {}'.format(fname)
