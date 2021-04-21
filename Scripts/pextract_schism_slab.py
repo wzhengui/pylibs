@@ -238,7 +238,7 @@ if myrank==0:
 
    if fmt==0:
       for m in svars: exec('C.{}=array(C.{})'.format(m,m))
-      C.time=array(C.time); C.levles=array(levels); save_npz(sname,C)
+      C.time=array(C.time); C.levels=array(levels); save_npz(sname,C)
 
    #clean
    os.system('rm {}_*_*.npz'.format(sname))
