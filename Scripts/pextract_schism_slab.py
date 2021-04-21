@@ -227,7 +227,9 @@ if myrank==0:
        #sort
        tmp,sind=unique(array(iplg),return_index=True)
        for m,svar in enumerate(svars): 
-           exec('S.{}=array(S.{})[sind].transpose([1,0,*arange(2,{})])'.format(svar,svar,Si.ndim[m]))
+           if Si.ndim[m]==2: exec('S.{}=array(S.{})[sind].transpose([1,0])'.format(svar,svar))
+           if Si.ndim[m]==3: exec('S.{}=array(S.{})[sind].transpose([1,2,0])'.format(svar,svar))
+           if Si.ndim[m]==4: exec('S.{}=array(S.{})[sind].transpose([1,2,0,3])'.format(svar,svar))
        S.levels=array(levels)
        if fmt==1: save_npz('{}_{}'.format(sname,istack),S) 
 
