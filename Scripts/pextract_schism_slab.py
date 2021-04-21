@@ -228,6 +228,7 @@ if myrank==0:
        tmp,sind=unique(array(iplg),return_index=True)
        for m,svar in enumerate(svars): 
            exec('S.{}=array(S.{})[sind].transpose([1,0,*arange(2,{})])'.format(svar,svar,Si.ndim[m]))
+       S.levels=array(levels)
        if fmt==1: save_npz('{}_{}'.format(sname,istack),S) 
 
        #combine all stacks
@@ -237,7 +238,7 @@ if myrank==0:
 
    if fmt==0:
       for m in svars: exec('C.{}=array(C.{})'.format(m,m))
-      C.time=array(C.time); save_npz(sname,C)
+      C.time=array(C.time); C.levles=array(levels); save_npz(sname,C)
 
    #clean
    os.system('rm {}_*_*.npz'.format(sname))
