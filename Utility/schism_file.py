@@ -431,7 +431,7 @@ class schism_grid:
         fp3=self.i34==3; fp4=self.i34==4; sind=array([[],[]]).astype('int').T
         for i in arange(3): sind=r_[sind,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]
         for i in arange(4): sind=r_[sind,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]
-        
+
         #sort side
         sind=sort(sind,axis=1).T; sid=unique(sind[0]+1j*sind[1]); self.ns=len(sid)
         return self.ns
@@ -915,6 +915,16 @@ def read_schism_bpfile(fname,fmt=0):
     bp=schism_bpfile();
     bp.read_bpfile(fname,fmt=fmt)
     return bp
+
+def save_schism_grid(fname='grid',path='.'):
+    '''
+    read and save path/{hgrid.gr3,vgrid.in}
+    '''
+    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path);
+    if not os.path.exists(gname)*os.path.exists(vname): sys.exit('not found: {}, {}'.format(gname,vname))
+    gd=read_schism_hgrid('hgrid.gr3'); vd=read_schism_vgrid('vgrid.in')
+    S=npz_data(); S.hgrid=gd; S.vgrid=vd; save_npz(fname,S)
+    return S
 
 class schism_vgrid:
     def __init__(self):

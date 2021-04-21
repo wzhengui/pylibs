@@ -95,7 +95,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    import schism_file
    from schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,
-        schism_grid,schism_vgrid,schism_bpfile,sms2gr3,read_schism_vgrid,
+        schism_grid,schism_vgrid,schism_bpfile,sms2gr3,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global)
 
    if os.getenv('HOME')!=None:
