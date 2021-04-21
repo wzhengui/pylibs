@@ -428,9 +428,9 @@ class schism_grid:
         compute number of hgrid sides
         '''
         #collect sides
-        fp3=gd.i34==3; fp4=gd.i34==4; sind=array([[],[]]).astype('int').T
-        for i in arange(3): sind=r_[sind,c_[gd.elnode[fp3,mod(i+3,3)],gd.elnode[fp3,mod(i+4,3)]]]
-        for i in arange(4): sind=r_[sind,c_[gd.elnode[fp4,mod(i+4,4)],gd.elnode[fp4,mod(i+5,4)]]]
+        fp3=self.i34==3; fp4=self.i34==4; sind=array([[],[]]).astype('int').T
+        for i in arange(3): sind=r_[sind,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]
+        for i in arange(4): sind=r_[sind,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]
         
         #sort side
         sind=sort(sind,axis=1).T; sid=unique(sind[0]+1j*sind[1]); self.ns=len(sid)
