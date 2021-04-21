@@ -4,17 +4,18 @@ from pylib import *
 import subprocess
 
 #-----input------------------------------------------------------------
-runs=['RUN01a','RUN01b']
+runs=['RUN02l','RUN02n','RUN02o','RUN02p','RUN02q']
 
 #--compute runtime----------------------------------------------------
+if len(sys.argv)!=1: runs=sys.argv[1:]
 for run in runs:
     fname='{}/mirror.out'.format(run)
-    if not os.path.exists(fname): fname='{}/outputs/mirror.out'.format(run);
+    if not os.path.exists(fname): fname='{}/outputs/mirror.out'.format(run)
     if not os.path.exists(fname): continue
 
     #find start time
     with open(fname) as fid:
-        line=fid.readline();    
+        line=fid.readline()
     
     R=re.findall('(\d+), (\d+).(\d+)',line)[0]
     yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
