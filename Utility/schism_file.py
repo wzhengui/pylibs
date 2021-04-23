@@ -91,7 +91,7 @@ class schism_grid:
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
-           self.hg=hg
+           self.hg=hg; show(block=False)
            return hg
         elif method==1:
            #creat polygon
@@ -132,7 +132,7 @@ class schism_grid:
            #add to figure
            ax.add_collection(hg)
            ax.autoscale_view()
-           self.hg=hg;
+           self.hg=hg; show(block=False)
            return hg
 
     def compute_bnd(self):
@@ -219,6 +219,7 @@ class schism_grid:
 
         hb1=plot(bx1,by1,c[0],lw=lw,**args)
         hb2=plot(bx2,by2,c[-1],lw=lw,**args)
+        show(block=False)
         self.hb=[hb1,hb2]
 
     def read_hgrid(self,fname,*args):
@@ -641,6 +642,7 @@ class schism_grid:
         qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
         self.plot_grid()
         plot(qxi,qyi,'.',color=color,ms=ms,*args)
+        show(block=False)
         pass
 
     def proj(self,prj0,prj1='epsg:4326',x=None,y=None,lon0=None,lat0=None):
@@ -903,6 +905,7 @@ class schism_bpfile:
         for i,station in enumerate(stations):
             hpi=plot(sx[i],sy[i],marker=marker,color=color,linestyle=ls,**args); self.hp.append(hpi)
             hti=text(sx[i],sy[i],station,color=lc); self.ht.append(hti)
+        show(block=False)
         return [self.hp,self.ht]
 
     def compute_acor(self,gd):
