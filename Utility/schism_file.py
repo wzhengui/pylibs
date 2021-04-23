@@ -806,7 +806,8 @@ class schism_grid_ll(schism_grid):
 
 class schism_bpfile:
     def __init__(self):
-        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]); self.station=[]
+        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
+        self.station=[]; self.hp=[]; self.ht=[]
         abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
 
     def read_bpfile(self,fname,fmt=0):
