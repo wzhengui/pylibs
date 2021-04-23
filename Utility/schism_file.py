@@ -806,7 +806,8 @@ class schism_grid_ll(schism_grid):
 
 class schism_bpfile:
     def __init__(self):
-        pass
+        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]); self.station=[]
+        abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
 
     def read_bpfile(self,fname,fmt=0):
         #read file content
@@ -831,18 +832,11 @@ class schism_bpfile:
         else:
             sys.exit('unknow format')
 
-        #get unique locations
-        upxy,ind=unique(self.x+1j*self.y,return_index=True)
-        ux=self.x[ind]; uy=self.y[ind];uz=self.z[ind]
-        self.ux=ux; self.uy=uy;self.uz=uz;
-
         #get unique station data.
         if len(stations)==self.nsta:
            self.station=array(stations)
-           self.ustation=self.station[ind];
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
-           self.ustation=self.station[ind]
 
     def write_bpfile(self,fname,fmt=0):
         '''
@@ -866,6 +860,19 @@ class schism_bpfile:
             if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
         fid.close()
 
+    def get_unique_pts(self,fmt=0):
+        '''
+        compute unique pts
+            fmt=0: compute ux,uy,uz,ustation of the point
+            fmt=1: replace (x,y,z,station) by (ux,uy,uz,ustation)
+        '''
+        #get unique locations
+        upxy,sind=unique(self.x+1j*self.y,return_index=True); sind=sort(sind)
+        self.ux=self.x[sind]; self.uy=self.y[sind]
+        self.uz=self.z[sind]; self.ustation=self.station[sind]
+        if fmt==1: self.x,self.y,self.z,self.station,self.nsta=self.ux,self.uy,self.uz,self.ustation,len(self.ux)
+        return [self.ux,self.uy,self.uz,self.ustation]
+
     def write_shapefile(self,fname,prjname='epsg:4326'):
         self.shp_bp=npz_data()
         self.shp_bp.type='POINT'
@@ -877,22 +884,64 @@ class schism_bpfile:
             self.shp_bp.attvalue=self.station
         write_shapefile_data(fname,self.shp_bp)
 
-    def plot_station(self,ax=None,marker='.',ls=None,label=True,**args):
+    def plot_station(self,ax=None,color='r',marker='.',ls=None,label=True,fmt=0,**args):
+        '''
+        plot points on current figure
+          fmt=0: plot all points
+          fmt=1: plot unique points
+        '''
+        #pre-processing
         if ls is None: ls='None'
+        lc=color if label else 'None'
         if not None: ax=gca()
-        hp=plot(self.ux,self.uy,marker=marker,linestyle=ls,**args)
-        self.hp=hp
-        if label:
-           ht=[];
-           for i in arange(len(self.ustation)):
-               hti=text(self.ux[i],self.uy[i],self.ustation[i],color='r')
-               ht.append(hti)
-           self.ht=array(ht)
+        if fmt==0: sx,sy,sz,stations=self.x,self.y,self.z,self.station
+        if fmt==1: sx,sy,sz,stations=self.get_unique_pts()
+
+        #plot
+        self.hp=[]; self.ht=[]
+        for i,station in enumerate(stations):
+            hpi=plot(sx[i],sy[i],marker=marker,color=color,linestyle=ls,**args); self.hp.append(hpi)
+            hti=text(sx[i],sy[i],station,color=lc); self.ht.append(hti)
+        return [self.hp,self.ht]
 
     def compute_acor(self,gd):
         #compute areal coordinates, and gd is the schism grid
         self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
         return self.ie,self.ip,self.acor
+
+    def edit_bp(self):
+        self.cid=gcf().canvas.mpl_connect('button_press_event', self.onclick)
+        print('edit bpfile (double click): left=add pt, right=remove pt; middle=stop')
+
+    def onclick(self,sp):
+        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+        #double click
+        if dlk==1 and btn==1: self.add_pt(bx,by)
+        if dlk==1 and btn==3: self.remove_pt(bx,by)
+        if btn==2: gcf().canvas.mpl_disconnect(self.cid)
+
+    def add_pt(self,x,y):
+        self.nsta=self.nsta+1; self.station=[*self.station,'{}'.format(self.nsta)]
+        self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,0.0]
+
+        #plot point
+        if len(self.hp)!=0:
+            hp=self.hp[-1][0]; ht=self.ht[-1]
+            color=hp.get_color(); mk=hp.get_marker(); ms=hp.get_markersize(); ls=hp.get_linestyle()
+            fs=ht.get_fontsize(); fw=ht.get_fontweight(); fc=ht.get_color()
+        else:
+            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
+        hpi=plot(x,y,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp.append(hpi)
+        hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
+
+    def remove_pt(self,x,y):
+        dist=abs((self.x-x)+1j*(self.y-y))
+        sind=nonzero(dist==min(dist))[0][0]; fp=setdiff1d(arange(self.nsta),sind)
+        self.nsta=self.nsta-1; self.x=self.x[fp]; self.y=self.y[fp]; self.z=self.z[fp]
+        self.station=array(self.station)[fp]
+        self.hp[sind][0].remove()
+        self.ht[sind].remove()
+        del self.hp[sind]; del self.ht[sind]
 
 def read_schism_hgrid(fname):
     #read_schism_hgrid(fname):
