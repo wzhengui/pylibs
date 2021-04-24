@@ -856,7 +856,7 @@ class schism_bpfile:
 
         #get station names
         stations=[i+1 for i in arange(self.nsta)]
-        if hasattr(self,'station'): stations=self.station
+        if hasattr(self,'station') and len(self.station)==self.nsta: stations=self.station
 
         #write pts
         for i in arange(self.nsta):
