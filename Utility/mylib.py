@@ -644,7 +644,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                    xi=c_[ones(npy)*pxi,px[m,sindp],px[mod(m+1,nv),sindp]]
                    yi=c_[ones(npy)*pyi,py[m,sindp],py[mod(m+1,nv),sindp]]
                    area=signa(xi,yi)
-                   fp=area<=0; isum[fp]=0;
+                   fp=area<0; isum[fp]=0;
                sindi=nonzero(isum!=0)[0]
        
                if len(sindi)==0:
