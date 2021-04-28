@@ -810,8 +810,11 @@ class schism_bpfile:
     def __init__(self):
         self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
         self.station=[]; self.hp=[]; self.ht=[]
-        if mpl._pylab_helpers.Gcf.get_active() is not None:
-            abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
+        try: 
+            if mpl._pylab_helpers.Gcf.get_active() is not None:
+                abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
+        except: 
+            pass
 
     def read_bpfile(self,fname,fmt=0):
         #read file content
