@@ -1,6 +1,5 @@
 #!/usr/bin/evn python3
 from pylib import *
-#from pylab import *
 
 #-------misc-------------------------------------------------------------------
 def load_bathymetry(x,y,fname,z=None,fmt=0):
