@@ -809,10 +809,10 @@ class schism_bpfile:
     def __init__(self):
         self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
         self.station=[]; self.hp=[]; self.ht=[]
-        try: 
+        try:
             if mpl._pylab_helpers.Gcf.get_active() is not None:
                 abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
-        except: 
+        except:
             pass
 
     def read_bpfile(self,fname,fmt=0):
@@ -976,7 +976,7 @@ def save_schism_grid(fname='grid',path='.'):
     '''
     read and save path/{hgrid.gr3,vgrid.in}
     '''
-    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path); S=npz_data(); 
+    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path); S=npz_data();
     if os.path.exists(gname): S.hgrid=read_schism_hgrid(gname)
     if os.path.exists(vname): S.vgrid=read_schism_vgrid(vname)
     if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(gname,vname))
@@ -1131,6 +1131,19 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
                 zcor[i,:kbp[i]]=zcor[i,kbp[i]]
         if method==0: return zcor
         if method==1: return [zcor,kbp]
+
+def create_schism_vgrid(fname='vgrid.in',nvrt=10,fmt=0,h_c=10,theta_b=0.5,theta_f=1.0):
+    '''
+    create a simple schism pure S vgrid for ivcor=2
+    '''
+    if fmt==0:
+        fid=open(fname,'w+')
+        fid.write('2 !ivcor\n{} 1 1.e6 !nvrt\nZ levels\n1 -1.e6\nS levels\n'.format(nvrt))
+        fid.write('{} {} {} !h_c,theta_b,theta_f\n'.format(h_c,theta_b,theta_f))
+        w=[fid.write('{:5}  {:8.5f}\n'.format(i+1,k)) for i,k in zip(arange(nvrt),linspace(-1,0,nvrt))]
+        fid.close()
+    else:
+        sys.exit('fmt!=0 not working yet')
 
 def getglob(fname=None,method=0):
     '''
