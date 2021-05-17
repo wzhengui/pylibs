@@ -89,7 +89,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         inside_polygon,command_outputs,near_pts,proj,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
-        get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram)
+        get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
+        convert_dem_format)
         #convert_matfile_format,
 
    import schism_file

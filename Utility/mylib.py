@@ -118,6 +118,33 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong fmt')
 
+def convert_dem_format(fname,sname,fmt=0):
+    '''
+    fname: name of source DEM file
+    sname: name of file to be saved
+    fmt=0: convert DEM file in *.asc format to *.npz format
+    '''
+
+    if fmt==0:
+        if not fname.endswith('.asc'): fname=fname+'.asc'
+
+        #read file
+        fid=open(fname,'r');
+        ncols=int(fid.readline().strip().split()[1])
+        nrows=int(fid.readline().strip().split()[1])
+        xll=float(fid.readline().strip().split()[1])
+        yll=float(fid.readline().strip().split()[1])
+        dxy=float(fid.readline().strip().split()[1])
+        nodata=float(fid.readline().strip().split()[1])
+        elev=loadtxt(fname,skiprows=6)
+        fid.close()
+
+        #save data
+        S=npz_data()
+        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
+        S.elev=elev.astype('float32'); S.nodata=nodata
+        save_npz(sname,S)
+
 def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
                         cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200,labels=None):
     '''
@@ -630,7 +657,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
     if nv==3 and fmt==1:
        #for triangles, and only return indices of polygons that points resides in
        px1=px.min(axis=0); px2=px.max(axis=0); py1=py.min(axis=0); py2=py.max(axis=0)
-       
+
        sind=[];
        for i in arange(npt):
            pxi=pts[i,0]; pyi=pts[i,1]
@@ -645,7 +672,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                    area=signa(xi,yi)
                    fp=area<0; isum[fp]=0;
                sindi=nonzero(isum!=0)[0]
-       
+
                if len(sindi)==0:
                    sind.append(-1)
                else:
