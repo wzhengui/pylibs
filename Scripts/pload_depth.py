@@ -110,14 +110,14 @@ fnames_sort=array(fnames_sort)
 
 #to exactly match the order to old method
 #switch the order of (db_ll_1.npz and db_ll1.npz), ('cdem13_DE_navd88_2016' and 'cdem13_PA_navd88_2010')
-dn1='db_ll1.npz'; dn2='db_ll_1.npz'
-if (dn1 in fnames_sort)*(dn2 in fnames_sort):
-    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
-    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
-dn1='cdem13_PA_navd88_2010.npz'; dn2='cdem13_DE_navd88_2016.npz'
-if (dn1 in fnames_sort)*(dn2 in fnames_sort):
-    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
-    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
+#dn1='db_ll1.npz'; dn2='db_ll_1.npz'
+#if (dn1 in fnames_sort)*(dn2 in fnames_sort):
+#    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
+#    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
+#dn1='cdem13_PA_navd88_2010.npz'; dn2='cdem13_DE_navd88_2016.npz'
+#if (dn1 in fnames_sort)*(dn2 in fnames_sort):
+#    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
+#    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
 
 #distribute jobs
 fnames=[]; inum=[]
