@@ -36,6 +36,7 @@ qnode='x5672'; nnode=8; ppn=4     #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+ibatch=1      #ibatch=1: submit batch job;   ibatch=0: run script locally (interactive)
 
 #-----------------------------------------------------------------------------
 #pre-processing
@@ -43,6 +44,7 @@ qnode='x5672'; nnode=8; ppn=4     #hurricane, ppn=8
 nproc=nnode*ppn
 bdir=os.path.abspath(os.path.curdir)
 
+if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
@@ -102,7 +104,7 @@ for header in headers:
     if len(fnames_sub)==1: fnames_sort.extend(fnames_sub); continue
 
     #get id number 
-    fid=array([i.replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
+    fid=array([i.replace('tif.','').replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
     sind=argsort(fid); fnames_sub=fnames_sub[sind]; fnames_sort.extend(fnames_sub)
 fnames_sort=array(fnames_sort)
 
