@@ -35,30 +35,27 @@ walltime='01:00:00'
 qnode='x5672'; nnode=8; ppn=4     #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='femto'; nnode=1; ppn=2      #femto,ppn=32, not working yet
+#qnode='femto'; nnode=1; ppn=2      #femto,ppn=32
 ibatch=1      #ibatch=1: submit batch job;   ibatch=0: run script locally (interactive)
 
 #-----------------------------------------------------------------------------
 #pre-processing
 #-----------------------------------------------------------------------------
-nproc=nnode*ppn
-bdir=os.path.abspath(os.path.curdir)
+nproc=nnode*ppn; bdir=os.path.abspath(os.path.curdir); scrout='screen.out'
 
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
 #-----------------------------------------------------------------------------
 #on front node; submit jobs in this section
 #-----------------------------------------------------------------------------
 if os.getenv('param')==None and os.getenv('job_on_node')==None:
-    args=sys.argv
-    param=[bdir,args[0]]
-    
+    args=sys.argv; param=[bdir,args[0]]
+
     #submit job on node
-    if qnode=='femto': 
+    if qnode=='femto':
         scode='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {} {}'.format(*param,jname,nnode,nproc,walltime,args[0])
     else:
         scode='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(args[0],*param,jname,nnode,qnode,ppn,walltime)
-    print(scode); os.system(scode)
-    os._exit(0)
+    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------
 #still on front node, but in batch mode; running jobs in this section
@@ -69,15 +66,15 @@ if os.getenv('param')!=None and os.getenv('job_on_node')==None:
     bdir=param[0]; bcode=param[1]
     os.chdir(bdir)
 
-    if qnode=='bora':
-       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& screen.out".format(bdir,nproc,bcode)
-    elif qnode=='femto':
-       pypath='/sciclone/home10/wangzg/bin/pylibs/Scripts/:/sciclone/home10/wangzg/bin/pylibs/Utility/'
-       rcode="srun --export=job_on_node=1,bdir='{}',PYTHONPATH='{}' {} >& screen.out".format(bdir,pypath,bcode)
+    if qnode=='femto':
+       rcode="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,bcode,scrout)
+    elif qnode=='bora':
+       rcode="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& {}".format(bdir,nproc,bcode,scrout)
     elif qnode=='x5672' or qnode=='vortex' or qnode=='potomac' or qnode=='james':
-       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& screen.out".format(bdir,bcode)
-    print(rcode); os.system(rcode); sys.stdout.flush()
-    os._exit(0)
+       rcode="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,bcode,scrout)
+    elif qnode=='skylake' or qnode=='haswell':
+       rcode="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,bcode,scrout)
+    print(rcode); os.system(rcode); sys.stdout.flush(); os._exit(0)
 
 #-----------------------------------------------------------------------------
 #on computation node
