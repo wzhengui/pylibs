@@ -2,6 +2,39 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',scrout='screen.out',fmt=0):
+    '''
+    get command for batch jobs on sciclone/ches/viz3 
+       code: job script
+       bdir: current working directory
+       jname: job name
+       qnode: hpc node name 
+       nnode,ppn,wtime: request node number, core per node, and walltime
+       fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
+    '''
+
+    nproc=nnode*ppn
+    if fmt==0:
+       #for submit jobs
+       if qnode in ['femto',]:
+          scmd='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {} {}'.format(bdir,code,jname,nnode,nproc,wtime,code)
+       else: 
+          scmd='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,bdir,code,jname,nnode,qnode,ppn,wtime)
+    elif fmt==1: 
+       #for run parallel jobs
+       if qnode in ['femto',]:
+          scmd="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,code,scrout)
+       elif qnode in ['bora',]:
+          scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
+       elif qnode in ['x5672','vortex','potomac','james']:
+          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
+       elif qnode in ['skylake','haswell']:
+          scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout)
+       else: 
+          sys.exit('unknow qnode: {}'.format(qnode))
+    
+    return scmd
+
 def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
     load bathymetry data onto points(xy)
@@ -15,7 +48,6 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
 
     #input
     xi0=x; yi0=y
-
 
     #read DEM
     if fname.endswith('npz'):
