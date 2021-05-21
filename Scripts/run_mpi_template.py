@@ -10,20 +10,19 @@ import time
 #Input
 #-----------------------------------------------------------------------------
 jname='mpi4py' #job name
-walltime='00:10:00' 
-ibatch=1
 
 #resource requst 
-#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+walltime='00:10:00' 
+qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
-#qnode='vortex'; nnode=2; ppn=12   #vortex, ppn=12
-#qnode='femto'; nnode=2; ppn=12      #femto,ppn=32
+#qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
+#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
-#qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
+#qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
+#qnode='haswell'; nnode=2; ppn=2    #viz3,haswell, ppn=24,or 28
 
-bdir=os.path.abspath(os.path.curdir); scrout='screen.out'
+ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
