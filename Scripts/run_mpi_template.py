@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Template for running MPI job on sciclone/ches @VIMS
+Template for running MPI job on sciclone/ches 
 Note: For MPI jobs demanding large memory, use small ppn
 '''
 from pylib import *
@@ -14,43 +14,30 @@ walltime='00:10:00'
 ibatch=1
 
 #resource requst 
+#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12   #vortex, ppn=12
-#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
-qnode='femto'; nnode=2; ppn=12      #femto,ppn=32
+#qnode='femto'; nnode=2; ppn=12      #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='skylake'; nnode=2; ppn=36    #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2   #viz3,haswell, ppn=24,or 28
 
+bdir=os.path.abspath(os.path.curdir); scrout='screen.out'
 #-----------------------------------------------------------------------------
-#pre-processing
+#on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
-nproc=nnode*ppn; bdir=os.path.abspath(os.path.curdir); scrout='screen.out'
-
-if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run local
-#-----------------------------------------------------------------------------
-#on front node; submit jobs in this section
-#-----------------------------------------------------------------------------
-if os.getenv('param')==None and os.getenv('job_on_node')==None:
-   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime)
+if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
+if os.getenv('job_on_node')==None:
+   if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]
+   if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
+   scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt)
    print(scode); os.system(scode); os._exit(0)
-
-#-----------------------------------------------------------------------------
-#still on front node, but in batch mode; running jobs in this section
-#-----------------------------------------------------------------------------
-if os.getenv('param')!=None and os.getenv('job_on_node')==None:
-    bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
-    rcode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,scrout,fmt=1)
-    print(rcode); os.system(rcode); os._exit(0)
 
 #-----------------------------------------------------------------------------
 #on computation node
 #-----------------------------------------------------------------------------
-#enter working dir
-bdir=os.getenv('bdir'); os.chdir(bdir)
-
-#get nproc and myrank
+bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
@@ -64,7 +51,4 @@ print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sy
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
-if qnode=='x5672' or qnode=='james':
-   os._exit(0)
-else:
-   sys.exit(0)
+os._exit(0)
