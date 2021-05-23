@@ -2,7 +2,8 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
-def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',scrout='screen.out',fmt=0):
+def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
+                    scrout='screen.out',fmt=0,ename='param'):
     '''
     get command for batch jobs on sciclone/ches/viz3 
        code: job script
@@ -17,19 +18,21 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
     if fmt==0:
        #for submit jobs
        if qnode in ['femto',]:
-          scmd='sbatch --export=param="{} {}" -J {} -N {} -n {} -t {} {}'.format(bdir,code,jname,nnode,nproc,wtime,code)
+          scmd='sbatch --export={}="{} {}" -J {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,nnode,nproc,wtime,code)
        else: 
-          scmd='qsub {} -v param="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,bdir,code,jname,nnode,qnode,ppn,wtime)
+          scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
     elif fmt==1: 
        #for run parallel jobs
        if qnode in ['femto',]:
-          scmd="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,code,scrout)
-       elif qnode in ['bora',]:
-          scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
-       elif qnode in ['x5672','vortex','potomac','james']:
-          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
+          scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
+       #elif qnode in ['bora',]:
+       #   scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
+       elif qnode in ['x5672','vortex','potomac','james','bora']:
+          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
+          if qnode=='bora' and ename!='run_schism':
+             scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['skylake','haswell']:
-          scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
        else: 
           sys.exit('unknow qnode: {}'.format(qnode))
     
