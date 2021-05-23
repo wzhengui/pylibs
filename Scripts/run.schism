@@ -42,4 +42,4 @@ if os.getenv('run_schism')!=None:
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)
-   os._exit(0)
+   sys.exit(0) if qnode in ['bora'] else os._exit(0)

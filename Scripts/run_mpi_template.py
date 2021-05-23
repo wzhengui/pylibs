@@ -50,4 +50,4 @@ print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sy
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
-os._exit(0)
+sys.exit(0) if qnode in ['bora'] else os._exit(0)
