@@ -61,11 +61,14 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         fid=open(bname,'r');
         ncols=int(fid.readline().strip().split()[1])
         nrows=int(fid.readline().strip().split()[1])
-        xll=float(fid.readline().strip().split()[1])
-        yll=float(fid.readline().strip().split()[1])
+        xn,xll=fid.readline().strip().split(); xll=float(xll)
+        yn,yll=fid.readline().strip().split(); yll=float(yll)
         dxy=float(fid.readline().strip().split()[1])
         nodata=float(fid.readline().strip().split()[1])
         fid.close()
+
+        #shift half a cell if ll defined at center
+        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2; 
 
         S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
         S.nodata=nodata
@@ -167,12 +170,15 @@ def convert_dem_format(fname,sname,fmt=0):
         fid=open(fname,'r');
         ncols=int(fid.readline().strip().split()[1])
         nrows=int(fid.readline().strip().split()[1])
-        xll=float(fid.readline().strip().split()[1])
-        yll=float(fid.readline().strip().split()[1])
+        xn,xll=fid.readline().strip().split(); xll=float(xll)
+        yn,yll=fid.readline().strip().split(); yll=float(yll)
         dxy=float(fid.readline().strip().split()[1])
         nodata=float(fid.readline().strip().split()[1])
         elev=loadtxt(fname,skiprows=6)
         fid.close()
+     
+        #shift half a cell if ll defined at center
+        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2; 
 
         #save data
         S=npz_data()
