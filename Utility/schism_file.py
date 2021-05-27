@@ -140,8 +140,7 @@ class schism_grid:
     def create_bnd(self,figsize=[8,9]):
 
         #compute xm and ym
-        xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y
-                                            .max()]
+        xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y.max()]
         dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
 
         #add all bnd pts
