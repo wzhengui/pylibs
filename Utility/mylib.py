@@ -5,11 +5,11 @@ from pylib import *
 def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
                     scrout='screen.out',fmt=0,ename='param'):
     '''
-    get command for batch jobs on sciclone/ches/viz3 
+    get command for batch jobs on sciclone/ches/viz3
        code: job script
        bdir: current working directory
        jname: job name
-       qnode: hpc node name 
+       qnode: hpc node name
        nnode,ppn,wtime: request node number, core per node, and walltime
        fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
     '''
@@ -19,9 +19,9 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        #for submit jobs
        if qnode in ['femto',]:
           scmd='sbatch --export=ALL,{}="{} {}" -J {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,nnode,nproc,wtime,code)
-       else: 
+       else:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
-    elif fmt==1: 
+    elif fmt==1:
        #for run parallel jobs
        if qnode in ['femto',]:
           scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
@@ -33,9 +33,9 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
              scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['skylake','haswell']:
           scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
-       else: 
+       else:
           sys.exit('unknow qnode: {}'.format(qnode))
-    
+
     return scmd
 
 def load_bathymetry(x,y,fname,z=None,fmt=0):
@@ -68,7 +68,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         fid.close()
 
         #shift half a cell if ll defined at center
-        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2; 
+        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
 
         S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
         S.nodata=nodata
@@ -176,9 +176,9 @@ def convert_dem_format(fname,sname,fmt=0):
         nodata=float(fid.readline().strip().split()[1])
         elev=loadtxt(fname,skiprows=6)
         fid.close()
-     
+
         #shift half a cell if ll defined at center
-        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2; 
+        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
 
         #save data
         S=npz_data()
@@ -532,6 +532,19 @@ def loadz(fname,svars=None,med=1):
 
     if med==1: zdata.VINFO=VINFO
     return zdata if med==1 else zdata2
+
+def least_square_fit(X,Y):
+    '''
+    perform least square fit
+    usage: CC,fit_data=least_square_fit(X,Y)
+        X: data maxtrix (npt,n)
+        Y: data to be fitted (npt)
+    where CC(n) is coefficient, fit_data is data fitted
+    '''
+    if X.shape[0]!=len(Y): X=X.T
+    CC=inv(X.T@X)@(X.T@Y); fy=X@CC
+
+    return [CC,fy]
 
 #-------mfft-------------------------------------------------------------------
 def mfft(xi,dt):
