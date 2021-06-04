@@ -1,159 +1,113 @@
 #!/usr/bin/env python3
 #generate bctides.in's tide harmonics
-#specify inputs in the bottom
 from pylib import *
 
-def get_tide_nodal(tide_name,StartT,nday):
-    tdir='tide_fac_improved'
-    #compile the code
-    os.system('cd {}; ifort -o tide_fac_improved tf_main.f90 tf_selfe.f90'.format(tdir))
+#---------------------------------------------------------------------
+#input
+#---------------------------------------------------------------------
+tnames=['O1','K1','Q1','P1','M2','S2','K2','N2']
+StartT=[2010,1,1,0]  #year,month,day,hour
+nday=365             #number of days
+ibnds=[1,]           #order of open boundaries (starts from 1)
+flags=[[3,3,0,0],]   #SCHISM bnd flags for each boundary
+Z0=0.05               #add Z0 constant if Z0!=0.0
 
-    #write input
-    with open('{}/tide.in'.format(tdir),'w+') as fid:
-        fid.write('{}\n'.format(nday))
-        fid.write('{} {} {} {}\n'.format(*flipud(StartT)))
-        fid.write('0\n');
+grd='../grid.npz'       #hgrid.ll (includes bndinfo), or grid.npz (include lon,lat)
+bdir=r'/sciclone/data10/wangzg/FES2014'   #FES2014 database 
 
-    #run the code
-    os.system('cd {}; ./tide_fac_improved <tide.in'.format(tdir))
+#---------------------------------------------------------------------
+#read bndinfo, amp, freq, nodal factor and tear
+#---------------------------------------------------------------------
+#read grid information
+if grd.endswith('.npz'):
+   gd=loadz(grd).hgrid; gd.x=gd.lon; gd.y=gd.lat
+else: 
+   gd=read_schism_hgrid(grd)
 
-    #read outputs
-    with open('{}/tide_fac.out'.format(tdir),'r') as fid:
-        lines=fid.readlines()
+#get tidal amplitude and frequency
+amp=[]; freq=[]; ts=loadz('{}/tide_fac_const/tide_fac_const.npz'.format(bdir))
+for tname in tnames: 
+    sind=nonzero(ts.name==tname.upper())[0][0]
+    amp.append(ts.amp[sind]); freq.append(ts.freq[sind])
 
-    tnodal=[]; tear=[]
-    for ti in tide_name:
-        for line in lines:
-            tline=line.strip()
-            R=re.match('{}'.format(ti),tline)
-            if R!=None:
-                num=re.findall(r"[-+]?\d*\.\d+|\d+", tline[2:])
-                tnodal.append(num[0])
-                tear.append(num[1])
+#get nodal factor
+tdir=r'tide_fac_improved'
+os.system('cp -r {}/{} ./; cd {}; ifort -o tide_fac_improved tf_main.f90 tf_selfe.f90'.format(bdir,tdir,tdir))
+fid=open('./{}/tide.in'.format(tdir),'w+'); fid.write('{}\n{} {} {} {}\n0\n'.format(nday,*StartT[::-1])); fid.close()
+os.system('cd {}; ./tide_fac_improved <tide.in'.format(tdir))
 
-    tnodal=array(tnodal); tear=array(tear)
-    return tnodal,tear
+nodal=[]; tear=[]  #read nodal factor 
+for tname in tnames:
+    lines=[i for i in open('{}/tide_fac.out'.format(tdir),'r').readlines() if len(i.split())==3]
+    line=[i for i in lines if i.strip().startswith(tname.upper())][0]
+    nodal.append(float(line.strip().split()[1]))
+    tear.append(float(line.strip().split()[2]))
 
-def get_tide_amp_freq(tide_name):
-    T=loadz('./tide_fac_const/tide_fac_const.npz');
+#---------------------------------------------------------------------
+#write bctides.in
+#---------------------------------------------------------------------
+fid=open('bctides.in','w+')
+fid.write('!{:02}/{:02}/{:4} {:02}:00:00 UTC\n'.format(*array(StartT)[array([1,2,0,3])]))
 
-    amp=[]; freq=[];
-    for ti in tide_name:
-        ind=nonzero(T.name==ti)[0];
-        amp.append(T.amp[ind])
-        freq.append(T.freq[ind])
+#tidal potential, and frequency
+fid.write(' {:d}  50.000 !number of earth tidal potential, cut-off depth for applying tidal potential\n'.format(len(tnames)))
+for i,tname in enumerate(tnames): fid.write('{}\n{} {:<.6f}  {:<.9e}  {:7.5f}  {:.2f}\n'.format(tname,tname[1],amp[i],freq[i],nodal[i],tear[i])) 
+fid.write('{} !nbfr\n'.format(len(tnames)+int(Z0!=0)))
+if Z0!=0: fid.write('Z0\n  0.0 1.0 0.0\n')
+for i,tname in enumerate(tnames): fid.write('{}\n  {:<.9e}  {:7.5f}  {:.2f}\n'.format(tname,freq[i],nodal[i],tear[i])) 
+fid.write('{} !nope\n'.format(gd.nob))
 
-    amp=squeeze(array(amp)); freq=squeeze(array(freq))
-    return amp, freq
+#write tidal harmonic for each boundary
+for i,ibnd in enumerate(ibnds):
+    fstr='{} '+'{} '*len(flags[i])+'!ocean\n'
+    fid.write(fstr.format(gd.nobn[ibnd-1],*flags[i]))
 
-def get_tide_name(fname='gen_harm_FES.m',keyword='const'):
-    #read in fname
-    fid=open(fname,'r'); lines=fid.readlines(); fid.close()
+    #get bundary lon&lat, and interpolate for the amp and pha
+    nobn=gd.nobn[ibnd-1]; sind=gd.iobn[ibnd-1]; xi=mod(gd.x[sind]+360,360); yi=gd.y[sind]; ap=[]
+    for m,tname in enumerate(tnames): 
+        print('compute amp. and pha. for tide {} of boundary: {}'.format(tname,i+1))
+        api=[]
+        for n in arange(3):  
+            if n==0: fname='{}/fes2014b_elevations_extrapolated/ocean_tide_extrapolated/{}.nc'.format(bdir,tname.lower()); an,pn='amplitude','phase'
+            if n==1: fname='{}/eastward_velocity/{}.nc'.format(bdir,tname.lower()); an,pn='Ua','Ug'
+            if n==2: fname='{}/northward_velocity/{}.nc'.format(bdir,tname.lower());an,pn='Va','Vg'
+            C=ReadNC(fname,1); lon=array(C.variables['lon'][:]); lat=array(C.variables['lat'][:])
+            amp0=array(C.variables[an][:])/100; pha0=mod(array(C.variables[pn][:])+360,360); C.close()
+            dxs=unique(diff(lon)); dys=unique(diff(lat))
+            if len(dxs)!=1 or len(dys)!=1: sys.exit('{}: lon,lat not uniform specified'.format(fname))
+            dx=dxs[0]; dy=dys[0]
 
-    #find the line starting with keyword
-    for line in lines:
-        if line.strip().startswith(keyword):
-            sline=line.strip()
-            break
+            #get interp index (todo, if lon&lat not uniformal interval, do loop to find the right index)
+            idx=floor((xi-lon[0])/dx).astype('int'); sind=nonzero((lon[idx]-xi)>0)[0]; idx[sind]=idx[sind]-1
+            idy=floor((yi-lat[0])/dy).astype('int'); sind=nonzero((lat[idy]-yi)>0)[0]; idy[sind]=idy[sind]-1 
+            xrat=(xi-lon[idx])/(lon[idx+1]-lon[idx]); yrat=(yi-lat[idy])/(lat[idy+1]-lat[idy])
+            if sum((xrat>1)|(xrat<0)|(yrat>1)|(yrat<0))!=0: sys.exit('xrat or yrat >1 or <0')
 
-    #parse tidal names
-    i1=sline.find('{')+1; i2=sline.find('}')
-    tide_name=[i.replace("'",'').upper() for i in sline[i1:i2].split(',')]
+            #interp for amp,pha
+            apii=[]
+            for k in arange(2): 
+                if k==0: v0=c_[amp0[idy,idx],amp0[idy,idx+1],amp0[idy+1,idx],amp0[idy+1,idx+1]].T; vm=100
+                if k==1: v0=c_[pha0[idy,idx],pha0[idy,idx+1],pha0[idy+1,idx],pha0[idy+1,idx+1]].T; vm=370
+                vmax=v0.max(axis=0); vmin=v0.min(axis=0)
+                v1=v0[0]*(1-xrat)+v0[1]*xrat; v2=v0[2]*(1-xrat)+v0[3]*xrat; apiii=v1*(1-yrat)+v2*yrat
+                sind=nonzero((vmax>vm)*(vmin<=vm)*(vmin>=0))[0]; apiii[sind]=vmin[sind]
+                if sum((vmax>vm)*((vmin>vm)|(vmin<0)))!=0: sys.exit('All junks for amp or pha')
+                apii.append(apiii)
+            api.append(apii)
+        ap.append(api)
+    ap=array(ap).transpose([1,0,3,2])
 
-    return tide_name
+    #write tidal amp and pha for elev 
+    if Z0!=0: fid.write('Z0\n'); [fid.write('{} 0.0\n'.format(Z0)) for i in arange(nobn)]
+    for m,tname in enumerate(tnames):  
+        fid.write('{}\n'.format(tname.lower()))
+        for k in arange(nobn):
+            fid.write('{:8.6f} {:10.6f}\n'.format(*ap[0,m,k]))
 
-def copy_inputs(bdir):
-    #link database
-    files=['eastward_velocity','northward_velocity','fes2014a_loadtide','fes2014b_elevations','fes2014b_elevations_extrapolated']
-    for fi in files:
-       os.system("ln -sf {}/{}".format(bdir,fi))
-
-    #copy files
-    files=['gen_harm_FES.m','README']
-    for fi in files:
-       os.system("cp {}/{} ./".format(bdir,fi))
-
-    #copy tide dir
-    files=['tide_fac_improved','tide_fac_const']
-    for fi in files:
-       os.system("cp -r {}/{} ./".format(bdir,fi))
-
-if __name__=="__main__":
-    #input
-    StartT=[2018,6,17,0]; #year,month,day,hour
-    nday=121; #number of days
-    ibnds=[1];  #order of open boundary segments (starting from 1)
-    iZ0=1; zconst=0.05 #iZ0==1 add Z0 constant (value=zconst)
-
-    #---setup inputs-------------------
-    bdir='/sciclone/data10/wangzg/FES2014';
-    copy_inputs(bdir);
-
-    #----get tide names from gen_harm_FES.m
-    tide_name=get_tide_name(fname='gen_harm_FES.m',keyword='const')
-
-    #----get tide amplitude and frequcy--
-    tamp,tfreq=get_tide_amp_freq(tide_name)
-
-    #---get nodal factor
-    tnodal,tear=get_tide_nodal(tide_name,StartT,nday)
-
-    #write 1st open boundary information
-    gd0=read_schism_hgrid('../hgrid.gr3')
-    gd=read_schism_hgrid_ll('../hgrid.ll',gd0)
-
-    #write bctides file
-    with open('bctides.in','w+') as fid:
-        fid.write('!{:02}/{:02}/{:4} {:02}:00:00 UTC\n'.format(StartT[1],StartT[2],StartT[0],StartT[3]))
-        fid.write(' {:d}  50.000 !number of earth tidal potential, cut-off depth for applying tidal potential\n'.format(len(tide_name)))
-        for i in arange(len(tide_name)):
-            fid.write('{}\n'.format(tide_name[i]))
-            fid.write('{} {:<.6f}  {:<.9e}  {}  {}\n'.format(tide_name[i][1],tamp[i],tfreq[i],tnodal[i],tear[i]))
-
-        fid.write('{:d} !nbfr\n'.format(int(len(tide_name)+iZ0)))
-        if iZ0==1: fid.write('Z0\n0. 1. 0.\n') 
-        for i in arange(len(tide_name)):
-            fid.write('{}\n'.format(tide_name[i]))
-            fid.write('  {:<.9e}  {}  {}\n'.format(tfreq[i],tnodal[i],tear[i]))
-
-        fid.write('{} !nope\n'.format(gd.nob))
-
-        #write each open boundary information
-        for ibnd in ibnds:
-            fid.write('{} 3 3 0 0 !ocean\n'.format(gd.nobn[ibnd-1]))
-
-            #generate boundary information
-            bnodes=gd.iobn[ibnd-1].astype('int');
-            lxi=gd.x[bnodes]; lyi=gd.y[bnodes]; lzi=gd.dp[bnodes];
-            with open('open.ll','w+') as fid2:
-                for i in arange(len(bnodes)):
-                    fid2.write("{:10d}  {:.7e}  {:.7e}  {:.7e}\n".format(bnodes[i]+1,lxi[i],lyi[i],lzi[i]))
-
-            #generate ap.out
-            os.system('matlab -nodisplay <gen_harm_FES.m')
-            with open('ap.out','r') as fid3:
-                lines_ap=fid3.readlines();
-
-            #add Z0
-            if iZ0==1: fid.write('Z0\n'+'{} 0\n'.format(zconst)*gd.nobn[ibnd-1])   
-
-            for i,line in enumerate(lines_ap):
-                fid.write(line)
-
-                #add Z0
-                if (i+1)==(1+gd.nobn[ibnd-1])*len(tide_name) and iZ0==1:
-                    fid.write('Z0\n'+'0 0 0 0\n'*gd.nobn[ibnd-1])   
-                
-            #fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
-
-        #write river boundary information
-        #ibnds_river=[2,3,4,5]
-        #rivers=['Coyote','San Joaquin','Sacramento','Napa']
-        #for m in arange(len(rivers)):
-        #    ibnd=ibnds_river[m]
-        #    fid.write('{} 0 1 1 1 !{}\n'.format(gd.nobn[ibnd-1],rivers[m]))
-        #    fid.write('1.0 !TEM nudge\n1.0 !SAL nudge\n')
-
-
-
-
+    #write tidal amp and pha for uv
+    if Z0!=0: fid.write('Z0\n'); [fid.write('0.0 0.0 0.0 0.0\n') for i in arange(nobn)]
+    for m,tname in enumerate(tnames): 
+        fid.write('{}\n'.format(tname.lower()))
+        for k in arange(nobn):
+            fid.write('{:8.6f} {:10.6f} {:8.6f} {:10.6f}\n'.format(*ap[1,m,k],*ap[2,m,k]))
+fid.close()
