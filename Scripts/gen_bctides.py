@@ -31,14 +31,13 @@ for tname in tnames:
     amp.append(ts.amp[sind]); freq.append(ts.freq[sind])
 
 #get nodal factor
-tdir=r'tide_fac_improved'
-os.system('cp -r {}/{} ./; cd {}; ifort -o tide_fac_improved tf_main.f90 tf_selfe.f90'.format(bdir,tdir,tdir))
-fid=open('./{}/tide.in'.format(tdir),'w+'); fid.write('{}\n{} {} {} {}\n0\n'.format(nday,*StartT[::-1])); fid.close()
-os.system('cd {}; ./tide_fac_improved <tide.in'.format(tdir))
+tdir='{}/tide_fac_improved'.format(bdir)
+fid=open('./tide.in'.format(tdir),'w+'); fid.write('{}\n{} {} {} {}\n0\n'.format(nday,*StartT[::-1])); fid.close()
+os.system('ifort -o tide_fac_improved {}/tf_main.f90 {}/tf_selfe.f90; ./tide_fac_improved <tide.in'.format(tdir,tdir))
 
 nodal=[]; tear=[]  #read nodal factor 
 for tname in tnames:
-    lines=[i for i in open('{}/tide_fac.out'.format(tdir),'r').readlines() if len(i.split())==3]
+    lines=[i for i in open('./tide_fac.out','r').readlines() if len(i.split())==3]
     line=[i for i in lines if i.strip().startswith(tname.upper())][0]
     nodal.append(float(line.strip().split()[1]))
     tear.append(float(line.strip().split()[2]))
