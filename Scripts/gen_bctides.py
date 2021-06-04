@@ -93,11 +93,6 @@ for i,ibnd in enumerate(ibnds):
                 if k==1: #deal with phase jump
                    for kk in nonzero(abs(vmax-vmin)>180)[0]: 
                        fpn=abs(v0[:,kk]-vmax[kk])>180; v0[fpn,kk]=v0[fpn,kk]+360
-                   #sindn=nonzero(abs(vmax-vmin)>180)[0]
-                   #for sindni in sindn:
-                   #    fpn=abs(v0[:,sindni]-vmax[sindni])>180
-                   #    v0[fpn,sindi]=v0[fpn,sindi]+360
-
                 v1=v0[0]*(1-xrat)+v0[1]*xrat; v2=v0[2]*(1-xrat)+v0[3]*xrat; apiii=v1*(1-yrat)+v2*yrat
                 sind=nonzero((vmax>vm)*(vmin<=vm)*(vmin>=0))[0]; apiii[sind]=vmin[sind]
                 if sum((vmax>vm)*((vmin>vm)|(vmin<0)))!=0: sys.exit('All junks for amp or pha')
