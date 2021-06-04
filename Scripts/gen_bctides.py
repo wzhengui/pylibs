@@ -71,7 +71,8 @@ for i,ibnd in enumerate(ibnds):
             if n==1: fname='{}/eastward_velocity/{}.nc'.format(bdir,tname.lower()); an,pn='Ua','Ug'
             if n==2: fname='{}/northward_velocity/{}.nc'.format(bdir,tname.lower());an,pn='Va','Vg'
             C=ReadNC(fname,1); lon=array(C.variables['lon'][:]); lat=array(C.variables['lat'][:])
-            amp0=array(C.variables[an][:])/100; pha0=mod(array(C.variables[pn][:])+360,360); C.close()
+            amp0=array(C.variables[an][:])/100; pha0=array(C.variables[pn][:]); C.close()
+            fpn=pha0<0; pha0[fpn]=pha0[fpn]+360
             dxs=unique(diff(lon)); dys=unique(diff(lat))
             if len(dxs)!=1 or len(dys)!=1: sys.exit('{}: lon,lat not uniform specified'.format(fname))
             dx=dxs[0]; dy=dys[0]
@@ -88,6 +89,14 @@ for i,ibnd in enumerate(ibnds):
                 if k==0: v0=c_[amp0[idy,idx],amp0[idy,idx+1],amp0[idy+1,idx],amp0[idy+1,idx+1]].T; vm=100
                 if k==1: v0=c_[pha0[idy,idx],pha0[idy,idx+1],pha0[idy+1,idx],pha0[idy+1,idx+1]].T; vm=370
                 vmax=v0.max(axis=0); vmin=v0.min(axis=0)
+                if k==1: #deal with phase jump
+                   for kk in nonzero(abs(vmax-vmin)>180)[0]: 
+                       fpn=abs(v0[:,kk]-vmax[kk])>180; v0[fpn,kk]=v0[fpn,kk]+360
+                   #sindn=nonzero(abs(vmax-vmin)>180)[0]
+                   #for sindni in sindn:
+                   #    fpn=abs(v0[:,sindni]-vmax[sindni])>180
+                   #    v0[fpn,sindi]=v0[fpn,sindi]+360
+
                 v1=v0[0]*(1-xrat)+v0[1]*xrat; v2=v0[2]*(1-xrat)+v0[3]*xrat; apiii=v1*(1-yrat)+v2*yrat
                 sind=nonzero((vmax>vm)*(vmin<=vm)*(vmin>=0))[0]; apiii[sind]=vmin[sind]
                 if sum((vmax>vm)*((vmin>vm)|(vmin<0)))!=0: sys.exit('All junks for amp or pha')
@@ -101,12 +110,12 @@ for i,ibnd in enumerate(ibnds):
     for m,tname in enumerate(tnames):  
         fid.write('{}\n'.format(tname.lower()))
         for k in arange(nobn):
-            fid.write('{:8.6f} {:10.6f}\n'.format(*ap[0,m,k]))
+            fid.write('{:8.6f} {:.6f}\n'.format(*ap[0,m,k]))
 
     #write tidal amp and pha for uv
     if Z0!=0: fid.write('Z0\n'); [fid.write('0.0 0.0 0.0 0.0\n') for i in arange(nobn)]
     for m,tname in enumerate(tnames): 
         fid.write('{}\n'.format(tname.lower()))
         for k in arange(nobn):
-            fid.write('{:8.6f} {:10.6f} {:8.6f} {:10.6f}\n'.format(*ap[1,m,k],*ap[2,m,k]))
+            fid.write('{:8.6f} {:.6f} {:8.6f} {:.6f}\n'.format(*ap[1,m,k],*ap[2,m,k]))
 fid.close()
