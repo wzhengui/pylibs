@@ -32,8 +32,8 @@ for tname in tnames:
 
 #get nodal factor
 tdir='{}/tide_fac_improved'.format(bdir)
-fid=open('./tide.in'.format(tdir),'w+'); fid.write('{}\n{} {} {} {}\n0\n'.format(nday,*StartT[::-1])); fid.close()
-os.system('ifort -o tide_fac_improved {}/tf_main.f90 {}/tf_selfe.f90; ./tide_fac_improved <tide.in'.format(tdir,tdir))
+fid=open('./tide_fac.in','w+'); fid.write('{}\n{} {} {} {}\n0\n'.format(nday,*StartT[::-1])); fid.close()
+os.system('ifort -o tide_fac_improved {}/tf_main.f90 {}/tf_selfe.f90; ./tide_fac_improved <tide_fac.in'.format(tdir,tdir))
 
 nodal=[]; tear=[]  #read nodal factor 
 for tname in tnames:
