@@ -9,7 +9,7 @@ tnames=['O1','K1','Q1','P1','M2','S2','K2','N2']
 StartT=[2010,1,1,0]  #year,month,day,hour
 nday=365             #number of days
 ibnds=[1,]           #order of open boundaries (starts from 1)
-flags=[[3,3,0,0],]   #SCHISM bnd flags for each boundary
+flags=[[5,5,4,4],]   #SCHISM bnd flags for each boundary
 Z0=0.0               #add Z0 constant if Z0!=0.0
 
 grd='../grid.npz'       #hgrid.ll (includes bndinfo), or grid.npz (include lon,lat)
@@ -41,6 +41,7 @@ for tname in tnames:
     line=[i for i in lines if i.strip().startswith(tname.upper())][0]
     nodal.append(float(line.strip().split()[1]))
     tear.append(float(line.strip().split()[2]))
+os.system('rm tide_fac_improved tide_fac.in tide_fac.out')
 
 #---------------------------------------------------------------------
 #write bctides.in
