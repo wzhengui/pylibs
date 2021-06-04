@@ -10,7 +10,7 @@ StartT=[2010,1,1,0]  #year,month,day,hour
 nday=365             #number of days
 ibnds=[1,]           #order of open boundaries (starts from 1)
 flags=[[3,3,0,0],]   #SCHISM bnd flags for each boundary
-Z0=0.05               #add Z0 constant if Z0!=0.0
+Z0=0.0               #add Z0 constant if Z0!=0.0
 
 grd='../grid.npz'       #hgrid.ll (includes bndinfo), or grid.npz (include lon,lat)
 bdir=r'/sciclone/data10/wangzg/FES2014'   #FES2014 database 
