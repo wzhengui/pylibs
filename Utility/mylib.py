@@ -55,6 +55,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     #read DEM
     if fname.endswith('npz'):
         S=loadz(fname,svars=['lon','lat'])
+        dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     elif fname.endswith('asc'):
         S=npz_data();
         #read *.asc data
@@ -63,7 +64,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         nrows=int(fid.readline().strip().split()[1])
         xn,xll=fid.readline().strip().split(); xll=float(xll)
         yn,yll=fid.readline().strip().split(); yll=float(yll)
-        dxy=float(fid.readline().strip().split()[1])
+        dxy=float(fid.readline().strip().split()[1]); dx=dxy; dy=dxy
         nodata=float(fid.readline().strip().split()[1])
         fid.close()
 
@@ -77,8 +78,8 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         sys.exit('wrong format of DEM')
 
     #check domain of DEM
-    if xi0.min()>=(S.lon.max()+dxy/2) or xi0.max()<=(S.lon.min()-dxy/2) or \
-       yi0.min()>=(S.lat.max()+dxy/2) or yi0.max()<=(S.lat.min()-dxy/2):
+    if xi0.min()>=(S.lon.max()+dx/2) or xi0.max()<=(S.lon.min()-dx/2) or \
+       yi0.min()>=(S.lat.max()+dy/2) or yi0.max()<=(S.lat.min()-dy/2):
        #return depth
        if fmt==0:
           if z is None: z=zeros(len(x))*nan
