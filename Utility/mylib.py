@@ -59,7 +59,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     elif fname.endswith('asc'):
         S=npz_data();
         #read *.asc data
-        fid=open(bname,'r');
+        fid=open(fname,'r');
         ncols=int(fid.readline().strip().split()[1])
         nrows=int(fid.readline().strip().split()[1])
         xn,xll=fid.readline().strip().split(); xll=float(xll)
@@ -94,7 +94,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         S=loadz(fname)
         if not hasattr(S,'nodata'): S.nodata=None
     elif fname.endswith('asc'):
-        S.elev=loadtxt(bname,skiprows=6)
+        S.elev=loadtxt(fname,skiprows=6)
 
     #change y direction
     if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
