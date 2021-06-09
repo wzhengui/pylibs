@@ -67,8 +67,9 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         nodata=float(fid.readline().strip().split()[1])
         fid.close()
 
-        #shift half a cell if ll defined at center
-        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
+        #shift half a cell if ll defined at corner
+        #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
+        if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2
 
         S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
         S.nodata=nodata
@@ -76,8 +77,8 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         sys.exit('wrong format of DEM')
 
     #check domain of DEM
-    if xi0.min()>=S.lon.max() or xi0.max()<=S.lon.min() or \
-       yi0.min()>=S.lat.max() or yi0.max()<=S.lat.min():
+    if xi0.min()>=(S.lon.max()+dxy/2) or xi0.max()<=(S.lon.min()-dxy/2) or \
+       yi0.min()>=(S.lat.max()+dxy/2) or yi0.max()<=(S.lat.min()-dxy/2):
        #return depth
        if fmt==0:
           if z is None: z=zeros(len(x))*nan
@@ -99,6 +100,12 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     lon=S.lon; dx=diff(lon).mean()
     lat=S.lat; dy=diff(lat).mean()
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
+
+    #move (x,y) by half cell 
+    fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1
+    fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1
+    fpn=(xi0>lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2
+    fpn=(yi0>lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2
 
     #get (x,y) inside dem domain
     sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
@@ -177,7 +184,7 @@ def convert_dem_format(fname,sname,fmt=0):
         elev=loadtxt(fname,skiprows=6)
         fid.close()
 
-        #shift half a cell if ll defined at center
+        #shift half a cell if ll defined at corner
         #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
         if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2;
 
