@@ -178,7 +178,8 @@ def convert_dem_format(fname,sname,fmt=0):
         fid.close()
 
         #shift half a cell if ll defined at center
-        if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
+        #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
+        if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2;
 
         #save data
         S=npz_data()
