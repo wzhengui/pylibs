@@ -24,9 +24,6 @@ headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_
          "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
          "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2","cb_bay_dem_v3.1_ll")
 
-headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_Carolina_USGS_3m",
-         "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
-         "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2")
 sdir=r'/sciclone/data10/wangzg/DEM/npz'  #directory of DEM data
 reverse_sign=1  #invert depth sign
 
