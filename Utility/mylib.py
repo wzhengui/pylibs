@@ -103,10 +103,10 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
 
     #move (x,y) by half cell 
-    fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1+dx*1e-6
-    fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1+dy*1e-6
-    fpn=(xi0>lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2-dx*1e-6
-    fpn=(yi0>lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2-dy*1e-6
+    fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1
+    fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1
+    fpn=(xi0>=lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2-dx*1e-6
+    fpn=(yi0>=lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2-dy*1e-6
 
     #get (x,y) inside dem domain
     sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
