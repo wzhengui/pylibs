@@ -1371,11 +1371,12 @@ def WriteNC(fname,data,method=0,order=0):
     '''
 
     #pre-processing fname
-    if fname.endswith('.nc'): fname=fname[:-3]
+    #if fname.endswith('.nc'): fname=fname[:-3]
 
     if method==1:
         #----write NC files-------------
-        fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
+        #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
+        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
         fid.setncattr('file_format',data.file_format)
 
         #set attrs
@@ -1410,7 +1411,8 @@ def WriteNC(fname,data,method=0,order=0):
         fid.close()
     elif method==0:
         #----write NC files-------------
-        fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
+        #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
+        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
 
         #set attrs
         fid.setncattr('file_format',data.file_format)
