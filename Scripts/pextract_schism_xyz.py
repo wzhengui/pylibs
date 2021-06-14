@@ -58,7 +58,7 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-nproc=min(nproc,int(diff(stacks)))
+nproc=max(min(nproc,int(diff(stacks))),1)
 if myrank==0:
    sdir=os.path.dirname(sname)
    if (not os.path.exists(sdir)) and sdir!='': os.mkdir(sdir)
