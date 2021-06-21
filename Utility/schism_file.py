@@ -1171,13 +1171,23 @@ def read_schism_local_to_global(fname):
     '''
     lines=open(fname,'r').readlines()[2:]
 
-    #get ne, np, ns
+    #get ne, np, ns, i34,elnode,
     S=npz_data()
     ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
     S.ielg=array([i.strip().split() for i in lines[1:(ne+1)]])[:,1].astype('int')-1
     S.iplg=array([i.strip().split() for i in lines[(ne+2):(ne+np+2)]])[:,1].astype('int')-1
     S.islg=array([i.strip().split() for i in lines[(ne+np+3):(ne+np+ns+3)]])[:,1].astype('int')-1
-    S.ne,S.np,S.ns=ne,np,ns
+
+    #find line for np,ne
+    for i in arange(ne+np+ns+3,len(lines)): 
+        sline=lines[i].strip().split()
+        if len(sline)!=2: continue
+        if int(sline[0])==np and int(sline[1])==ne: nd=i; break; 
+
+    slines=array([i.strip().split() if len(i.split())==5 else [*i.strip().split(),'-1'] for i in lines[(nd+np+1):(nd+np+ne+1)]]).astype('int')
+    i34=slines[:,0].astype('int'); elnode=slines[:,1:].astype('int')-1
+
+    S.ne,S.np,S.ns,S.i34,S.elnode=ne,np,ns,i34,elnode
     return S
 
 def read_schism_param(fname,*args):
