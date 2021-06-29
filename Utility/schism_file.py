@@ -310,7 +310,8 @@ class schism_grid:
         '''
         read schism prop, and return the values
         '''
-        pvalue=loadtxt(fname)[:,1]
+        pdata=loadtxt(fname); 
+        pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
 
         return pvalue
 
