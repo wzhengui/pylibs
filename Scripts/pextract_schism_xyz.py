@@ -58,7 +58,7 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-nproc=min(nproc,int(diff(stacks)))
+nproc=max(min(nproc,int(diff(stacks))),1)
 if myrank==0:
    sdir=os.path.dirname(sname)
    if (not os.path.exists(sdir)) and sdir!='': os.mkdir(sdir)
@@ -188,11 +188,19 @@ for n,istack in enumerate(istacks):
                 #extend values in the bottom: dim[2] is nvrt
                 if ('nSCHISM_vgrid_layers' in dimname):
                    sindp=arange(sbp.nsta)
-                   for nn in arange(3):
-                       kbp=sbp.kbp[:,nn]; btri=trii[sindp,nn,kbp]
-                       for k in arange(vd.nvrt):
-                           fp=k<kbp
-                           trii[sindp[fp],nn,k]=btri[fp]
+                   if ('nSCHISM_hgrid_node' in dimname):
+                      for nn in arange(3):
+                          kbp=sbp.kbp[:,nn]; btri=trii[sindp,nn,kbp]
+                          for k in arange(vd.nvrt):
+                              fp=k<kbp
+                              trii[sindp[fp],nn,k]=btri[fp]
+                   elif ('nSCHISM_hgrid_face' in dimname):
+                        kbe=sbp.kbp.max(axis=1); btri=trii[sindp,kbe]
+                        for k in arange(vd.nvrt):
+                            fp=k<kbe
+                            trii[sindp[fp],k]=btri[fp]
+                   else:
+                        sys.exit('unknown variable format: {},{}'.format(svar,dim))
 
                 #horizontal interp
                 if ('nSCHISM_hgrid_node' in dimname):

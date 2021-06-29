@@ -2,7 +2,7 @@
 '''
 Extract slabs of SCHISM variables 
   1). work for both uncombined and combined SCHISM outputs
-  2). can extract multiple variables at the same time (only node-based variables)
+  2). can extract multiple variables at the same time 
   3). can work in interactive or batch mode 
   4). native schism level (>=1), or zcoor (<=0)
 '''
@@ -25,11 +25,11 @@ fmt=0               #fmt=0: one output file;   fmt=1: one output file for each s
 grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
 
 #resource requst 
-walltime='00:10:00'
+walltime='01:00:00'
 qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
+#qnode='femto'; nnode=2; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
@@ -57,6 +57,8 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
+sdir=os.path.dirname(sname)
+if myrank==0 and (not os.path.exists(sdir)) and sdir!='': os.mkdir(sdir) 
 
 #-----------------------------------------------------------------------------
 #compute grid and bpfile information
@@ -72,20 +74,22 @@ dt=time.time()-t00; print('finish reading grid info: time={:0.2f}s, myrank={}'.f
 
 #read subdomain info
 if icmb==0:
-   t00=time.time(); nsub=getglob('{}/outputs/local_to_global_0000'.format(run)).nproc; isub=[]; subs=[]; iplg=[]
+   t00=time.time(); nsub=getglob('{}/outputs/local_to_global_0000'.format(run)).nproc; isub=[]; subs=[]; iplg=[]; ielg=[]
    for i in arange(nsub):
        if i%nproc!=myrank: continue  
        #build the ielg and ipgl tables and 
        S=read_schism_local_to_global('{}/outputs/local_to_global_{:04}'.format(run,i)); S.dp=gd.dp[S.iplg]
        if vd.ivcor==1: S.kbp=vd.kbp[S.iplg]; S.sigma=vd.sigma[S.iplg]
        if vd.ivcor==2: S.kbp=zeros(S.np).astype('int') #pure sigma
-       isub.append(i); subs.append(S); iplg.extend(S.iplg)
+       S.kbe=array([S.kbp[S.elnode[k,:S.i34[k]]].max() for k in arange(S.ne)])
+       isub.append(i); subs.append(S); iplg.extend(S.iplg); ielg.extend(S.ielg)
    dt=time.time()-t00; print('finish reading subdomain info: time={:0.2f}s, myrank={}'.format(dt,myrank)); sys.stdout.flush()
 else:
-   S=npz_data(); S.np=gd.np; S.iplg=arange(gd.np).astype('int'); S.dp=gd.dp
+   S=npz_data(); S.np=gd.np; S.iplg=arange(gd.np).astype('int'); S.ielg=arange(gd.ne).astype('int'); S.dp=gd.dp
    if vd.ivcor==1: S.kbp=vd.kbp; S.sigma=vd.sigma
    if vd.ivcor==2: S.kbp=zeros(gd.np).astype('int') #pure sigma
-   isub=[0]; subs=[S]; iplg=S.iplg 
+   S.kbe=array([S.kbp[S.elnode[k,:S.i34[k]]].max() for k in arange(S.ne)])
+   isub=[0]; subs=[S]; iplg=S.iplg; ielg=S.ielg
 if vd.ivcor==1: vd.sigma=None
 gd=None
 
@@ -104,7 +108,7 @@ if icmb==1: istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank
 
 #extract slab value for each stack and each subdomain
 for n,istack in enumerate(istacks):
-    t00=time.time(); S=npz_data(); S.iplg=array(iplg).astype('int'); S.ndim=[]
+    t00=time.time(); S=npz_data(); S.iplg=array(iplg).astype('int'); S.ielg=array(ielg).astype('int'); S.ndim=[]; S.stype=dict()
     for m,isubi in enumerate(isub):
         #open schout_*.nc
         if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
@@ -117,30 +121,43 @@ for n,istack in enumerate(istacks):
         if m==0: S.time=mti[::nspool]
 
         #compute zcor, and do interpolation
-        k1s=[]; rats=[]
+        k1s=[]; rats=[]; ek1s=[]; erats=[]
         for i in arange(nt):
             if (i%nspool!=0) or imed==0: continue
-            ei=array(C.variables['elev'][i]); k1si=[]; ratsi=[]
+            ei=array(C.variables['elev'][i]); k1si=[]; ratsi=[]; ek1si=[]; eratsi=[]
             if vd.ivcor==1: zi=vd.compute_zcor(sub.dp,ei,sigma=sub.sigma,kbp=sub.kbp,method=1)
             if vd.ivcor==2: zi=vd.compute_zcor(sub.dp,ei,method=1,ifix=1)
+            eei=array([ei[sub.elnode[i,:sub.i34[i]]].mean() for i in arange(sub.ne)])
+            ezi=array([zi[sub.elnode[i,:sub.i34[i]],:].mean(axis=0) for i in arange(sub.ne)])
 
             #for interpolation
             for nn, level in enumerate(levels): 
-                k1=ones(sub.np)*nan; rat=ones(sub.np)*nan; mzi=ones(sub.np)*level+ei 
-                fpz=mzi>=zi[:,-1]; k1[fpz]=vd.nvrt-2;  rat[fpz]=1.0 #surface
-                fpz=mzi<zi[:,0]; k1[fpz]=sub.kbp[fpz]; rat[fpz]=0.0 #bottom
+                k1=ones(sub.np)*nan; rat=ones(sub.np)*nan; mzi=ones(sub.np)*level+ei #for np
+                fpz=mzi>=zi[:,-1];   k1[fpz]=vd.nvrt-2;     rat[fpz]=1.0 #surface
+                fpz=mzi<zi[:,0];     k1[fpz]=sub.kbp[fpz];  rat[fpz]=0.0 #bottom
                 for k in arange(vd.nvrt-1):
                     fpz=(mzi>=zi[:,k])*(mzi<zi[:,k+1])
-                    k1[fpz]=k; rat[fpz]=(mzi[fpz]-zi[fpz,k])/(zi[fpz,k+1]-zi[fpz,k]) 
+                    k1[fpz]=k;   rat[fpz]=(mzi[fpz]-zi[fpz,k])/(zi[fpz,k+1]-zi[fpz,k]) 
                 if sum(isnan(r_[k1,rat]))!=0: sys.exit('check vertical interpolation')
                 k1si.append(k1); ratsi.append(rat)
-            k1s.append(k1si); rats.append(ratsi)
-        k1s=array(k1s).astype('int'); rats=array(rats)
+
+                k1=ones(sub.ne)*nan; rat=ones(sub.ne)*nan; mzi=ones(sub.ne)*level+eei #for ne
+                fpz=mzi>=ezi[:,-1];   k1[fpz]=vd.nvrt-2;     rat[fpz]=1.0 #surface
+                fpz=mzi<ezi[:,0];     k1[fpz]=sub.kbe[fpz];  rat[fpz]=0.0 #bottom
+                for k in arange(vd.nvrt-1):
+                    fpz=(mzi>=ezi[:,k])*(mzi<ezi[:,k+1])
+                    k1[fpz]=k;   rat[fpz]=(mzi[fpz]-ezi[fpz,k])/(ezi[fpz,k+1]-ezi[fpz,k]) 
+                if sum(isnan(r_[k1,rat]))!=0: sys.exit('check vertical interpolation')
+                ek1si.append(k1); eratsi.append(rat)
+            k1s.append(k1si); rats.append(ratsi); ek1s.append(ek1si); erats.append(eratsi)
+        k1s=array(k1s).astype('int'); rats=array(rats); ek1s=array(ek1s).astype('int'); erats=array(erats);
 
         #compute value for each variables
         for mm, svar in enumerate(svars):
             dimname=C.variables[svar].dimensions; ivs=C.variables[svar].ivs
-            if m==0: exec('S.{}=[]'.format(svar)); S.ndim.append(len(dimname))
+            if m==0: 
+               exec('S.{}=[]'.format(svar)); S.ndim.append(len(dimname))
+               S.stype[svar]=0 if ('nSCHISM_hgrid_node' in dimname) else 1
 
             #extract slabs
             data=[]; irec=0
@@ -150,13 +167,16 @@ for n,istack in enumerate(istacks):
                    datai=[]
                    if imed==0: #for schism levels
                       for k, level in enumerate(levels):
-                          if level>vd.nvrt:  dataii=array(C.variables[svar][i][arange(sub.np),sub.kbp])
+                          if S.stype[svar]==0: sindi,kbi=arange(sub.np),sub.kbp
+                          if S.stype[svar]==1: sindi,kbi=arange(sub.ne),sub.kbe
+                          if level>vd.nvrt:  dataii=array(C.variables[svar][i][sindi,kbi])
                           if level<=vd.nvrt: dataii=array(C.variables[svar][i,:,vd.nvrt-int(level)])
                           datai.append(dataii)
                    else:
                       for k, level in enumerate(levels):
-                          k1=k1s[irec,k]; k2=k1+1; rat=rats[irec,k]
-                          dataii=array(C.variables[svar][i][arange(sub.np),k1]*(1-rat)+C.variables[svar][i][arange(sub.np),k2]*rat)
+                          if S.stype[svar]==0: k1=k1s[irec,k];  k2=k1+1; rat=rats[irec,k];  sindi=arange(sub.np)
+                          if S.stype[svar]==1: k1=ek1s[irec,k]; k2=k1+1; rat=erats[irec,k]; sindi=arange(sub.ne) 
+                          dataii=array(C.variables[svar][i][sindi,k1]*(1-rat)+C.variables[svar][i][sindi,k2]*rat)
                           datai.append(dataii)
                    if ivs==1: data.append(array(datai).T)
                    if ivs==2: data.append(array(datai).transpose([1,0,2]))
@@ -179,16 +199,17 @@ if myrank==0:
 
    #combine result from subdomains
    for istack in arange(stacks[0],stacks[1]+1):
-       S=npz_data(); [exec('S.{}=[]'.format(m)) for m in svars]; iplg=[]
+       S=npz_data(); [exec('S.{}=[]'.format(m)) for m in svars]; iplg=[]; ielg=[]
        for n in arange(nproc):
            fname='{}_{}_{}.npz'.format(sname,istack,n)
            if not os.path.exists(fname): continue
-           Si=loadz(fname); iplg.extend(Si.iplg); S.time=Si.time
+           Si=loadz(fname); iplg.extend(Si.iplg); ielg.extend(Si.ielg); S.time=Si.time; stype=Si.stype
            for m in svars: exec('S.{}.extend(Si.{})'.format(m,m))
        
        #sort
-       tmp,sind=unique(array(iplg),return_index=True)
+       tmp,sindp=unique(array(iplg),return_index=True); sinde=argsort(array(ielg))
        for m,svar in enumerate(svars): 
+           sind=sindp if stype[svar]==0 else sinde
            if Si.ndim[m]==2: exec('S.{}=array(S.{})[sind].transpose([1,0])'.format(svar,svar))
            if Si.ndim[m]==3: exec('S.{}=array(S.{})[sind].transpose([1,2,0])'.format(svar,svar))
            if Si.ndim[m]==4: exec('S.{}=array(S.{})[sind].transpose([1,2,0,3])'.format(svar,svar))
