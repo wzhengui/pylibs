@@ -727,15 +727,12 @@ class schism_grid:
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
         self.shp_bnd=npz_data()
-        self.shp_bnd.type='POLYLINE'
+        self.shp_bnd.type='POLYLINE'; xy=array([[],[]]).T
         for i in arange(self.nob):
             ind=self.iobn[i]
             xyi=c_[self.x[ind],self.y[ind]];
             xyi=insert(xyi,0,nan,axis=0);
-            if i==0:
-                xy=xyi
-            else:
-                xy=r_[xy,xyi]
+            xy=r_[xy,xyi]
         for i in arange(self.nlb):
             ind=self.ilbn[i]
             xyi=c_[self.x[ind],self.y[ind]];
