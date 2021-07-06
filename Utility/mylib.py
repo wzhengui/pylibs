@@ -448,7 +448,7 @@ def get_xtick(fmt=0,xts=None,str=None):
             xts=[*arange(2000,2025)]
     elif len(xts)==2: #[year1,year2] or [datenum1, datenum2]
         if xts[0]>1e4: it=1
-        xts=[*arange(*xts)]
+        xts=[*arange(xts[0],xts[1]+1)]
     else: #array of datenum
         it=1
 
