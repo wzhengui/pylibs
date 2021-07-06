@@ -102,7 +102,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     lat=S.lat; dy=diff(lat).mean()
     lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
 
-    #move (x,y) by half cell 
+    #move (x,y) by half cell
     fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1
     fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1
     fpn=(xi0>=lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2-dx*1e-6
@@ -401,56 +401,73 @@ def datenum(*args,fmt=0):
 
     return dnum
 
-def get_xtick(xi=None,fmt='%Y',method=0):
+def get_xtick(fmt=0,xts=None,str=None):
     '''
-    return time ticks for plot
-    method: 0=outputs ticks of xi; xi should be date number
-            1=yearly interal; 2=monthly interval; 3=daily interaly (xi is list of year if not None)
-    fmt:
-       %d=01;     %-d=1                           (day of month)
-       %b=Jan;    %B=January;   %m=01;     %-m=1  (month)
-       %y=01;     %-y=1;        %Y=2000           (year)
-       %H=09;     %-H=9;        %I=[00,12] %-I=1  (hour)
-       %M=09;     %-M=9;                          (minute)
-       %S=09;     %-S=9                           (second)
+    return temporal ticks and labels for plot purpose
 
-       %a=MON;    %A=Monday;    %w=[0,6]          (week)
-       %U=[00,53];    %W=[00,53];                 (week of year)
-       %j=045;    %-j=45;                         (day of year)
-       %p=[AM,PM]                                 (moring, or afternoon)
+        fmt: format of xtick and xticklabel
+             0: year; 1: month; 2: day;  3: user-defined
+        xts: time aranges or time arrays
+            e.g. [2000,2010],[datenum(2000,1,1),datenum(2010,1,1)],[*arange(730120,730420)]
+        str: format of label
+            Year:   %y=01;  %-y=1;   %Y=2000
+            Month:  %m=01;  %-m=1;   %B=January;  %b=Jan
+            Day:    %d=01;  %-d=1
+            Hour:   %H=09;  %-H=9;   %I=[00,12];  %-I=1
+            Minute: %M=09;  %-M=9;
+            Second: %S=09;  %-S=9
+            AM/PM:  %p=[AM,PM]
 
-       %c='Fri Jan 25 04:05:02 2008'
-       %x='01/25/08';
-       %X='04:05:02'
+            %c='Fri Jan 25 04:05:02 2008'
+            %x='01/25/08'
+            %X='04:05:02'
+
+            Week:           %a=MON;      %A=Monday;   %w=[0,6]
+            Week of year:   %U=[00,53];  %W=[00,53]
+            Day of year:    %j=045;       %-j=45
+
+            1: 2008-02-03
+            2: 2008-02-03, 04:05:00
+            3: J,F,M,A,J,J,... (Months)
+            4： 03/15 (mm/dd)
     '''
+    #get time label
+    ft=0
+    if str==1: str='%Y-%m-%d'
+    if str==2: str='%Y-%m-%d, %H:%M:%S'
+    if str==3: str='b'; ft=1
+    if str==4: str='%m/%d'
 
-    #-----determine ti --------------------------------
-    if method==0:
-        if xi==None:
-            ti=array([datenum(i,1,1) for i in arange(1950,2050)])
+    #get time ticks
+    it=0
+    if xts is None:
+        if fmt==3: sys.exit('must provide xts for fmt=3')
+        if fmt==2:
+            xts=[2000,2000]
         else:
-            ti=array(xi)
-    elif method==1:
-        if xi==None: xi=[1950,2050]
-        ti=[]
-        [ti.append(datenum(yeari,1,1)) for yeari in arange(xi[0],xi[-1])]
-        ti=array(ti)
-    elif method==2:
-        if xi==None: xi=[1950,2050]
-        ti=[];
-        [[ti.append(datenum(yeari,j+1,1)) for j in arange(12)] for yeari in arange(xi[0],xi[-1])]
-        ti=array(ti)
-    elif method==3:
-        if xi==None: xi=[1950,2050]
-        ti=[];
-        [ti.append(i) for i in arange(datenum(xi[0],1,1),datenum(xi[-1]+1,1,1))]
-        ti=array(ti)
+            xts=[*arange(2000,2025)]
+    elif len(xts)==2: #[year1,year2] or [datenum1, datenum2]
+        if xts[0]>1e4: it=1
+        xts=[*arange(*xts)]
+    else: #array of datenum
+        it=1
 
-    #---------------------------------------------------
-    xtick=ti;
-    xticklabel=array([num2date(tii).strftime(fmt) for tii in ti])
+    #compute time ticks and ticklabels
+    if fmt==0:   #for year
+        if str is None: str='%Y'
+        if it==0: xts=[datenum(i,1,1) for i in xts]
+    elif fmt==1: #for months
+        if str is None: str='%b'
+        if it==0: xts=array([[datenum(i,k+1,1) for k in arange(12)] for i in xts]).ravel()
+    elif fmt==2: #for days
+        if str is None: str='%-d'
+        if it==0: xts=[arange(datenum(min(xts),1,1),datenum(max(xts)+1,1,1)-1)]
+    elif fmt==3: #user defined
+        if str is None: str='%-d'
+    xls=[num2date(i).strftime(str) for i in xts]
+    if ft==1: xls=[i[0] for i in xls]
 
-    return [xtick,xticklabel]
+    return [xts,xls]
 
 #-------loadz------------------------------------------------------------------
 class npz_data:
