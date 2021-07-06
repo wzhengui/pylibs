@@ -435,7 +435,7 @@ def get_xtick(fmt=0,xts=None,str=None):
     ft=0
     if str==1: str='%Y-%m-%d'
     if str==2: str='%Y-%m-%d, %H:%M:%S'
-    if str==3: str='b'; ft=1
+    if str==3: str='%b'; ft=1
     if str==4: str='%m/%d'
 
     #get time ticks
