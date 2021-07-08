@@ -19,8 +19,11 @@ else:
          flagd=1
 
 Par=[]; Key=[]; Val=[];
-for i in range(len(files)):
-   Pi=read_schism_param(files[i]);
+for i,fname in enumerate(files):
+   if 'yaml' in fname:
+      Pi=read_yaml(fname)
+   else:
+      Pi=read_schism_param(fname)
    Par.append(Pi)    
    Key.append(Pi.keys())    
    Val.append(Pi.values())    

@@ -2,6 +2,22 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def read_yaml(fname): 
+    '''
+    read yaml file and return key-value dict
+    '''
+    lines=open(fname,'r').readlines()
+    param={}
+    for line in lines:
+        sline=line.strip().split(':')
+        if len(sline)<2: continue
+        key=sline[0]; value=sline[1].strip() 
+        if value=='': continue
+        value=value.split()[0]
+        param[key]=value
+
+    return param
+   
 def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
                     scrout='screen.out',fmt=0,ename='param'):
     '''
@@ -29,7 +45,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        #   scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['x5672','vortex','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
-          if qnode=='bora' and ename!='run_schism':
+          if qnode in ['bora',] and ename!='run_schism':
              scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['skylake','haswell']:
           scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
