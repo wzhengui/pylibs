@@ -98,6 +98,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
             fpn=~isnan(szi); zmin=szi[fpn].min(); zmax=szi[fpn].max()
             fpz=(levels>=zmin)*(levels<=zmax); levels_sub=sort(levels[fpz])
             if len(levels_sub)==0: continue
+            print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
                   
             hf=figure(); hf.set_visible(False)
             P=contour(sxi,syi,szi,levels_sub)
