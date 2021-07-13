@@ -88,7 +88,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
-        ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,
+        ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,
         get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml)
         #convert_matfile_format,

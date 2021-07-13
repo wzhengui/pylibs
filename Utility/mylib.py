@@ -2,7 +2,7 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
-def read_yaml(fname): 
+def read_yaml(fname):
     '''
     read yaml file and return key-value dict
     '''
@@ -11,13 +11,13 @@ def read_yaml(fname):
     for line in lines:
         sline=line.strip().split(':')
         if len(sline)<2: continue
-        key=sline[0]; value=sline[1].strip() 
+        key=sline[0]; value=sline[1].strip()
         if value=='': continue
         value=value.split()[0]
         param[key]=value
 
     return param
-   
+
 def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
                     scrout='screen.out',fmt=0,ename='param'):
     '''
@@ -53,6 +53,68 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           sys.exit('unknow qnode: {}'.format(qnode))
 
     return scmd
+
+def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False):
+    '''
+    compute contour lines
+    Input:
+        x: array for x coordinates (nx)
+        y: array for y coordinates (ny)
+        z: matrix of data (ny,nx)
+        levels: values of contour lines to be extracted
+    Output:
+        fname: when fname is not None, write contours in shapefiles
+        prj:  projection names of shapefiles
+        show_contour: plot contours
+    '''
+
+    #check level
+    fpn=~isnan(z); zmin=z[fpn].min(); zmax=z[fpn].max()
+    levels=array(levels); fpz=(levels>=zmin)*(levels<=zmax); levels=sort(levels[fpz])
+
+    #data capsule
+    S=npz_data(); S.levels=levels; S.xy=[]
+
+    if len(levels)==0: return S
+
+    #extract contours
+    hf=figure(); hf.set_visible(False)
+    P=contour(x,y,z,levels)
+    close(hf)
+
+    for k in arange(len(P.collections)):
+        p=P.collections[k].get_paths()
+        for i in arange(len(p)):
+            xii=p[i].vertices[:,0]; yii=p[i].vertices[:,1];
+            if i==0:
+                xi=r_[xii,NaN];
+                yi=r_[yii,NaN];
+            else:
+                xi=r_[xi,xii,NaN];
+                yi=r_[yi,yii,NaN];
+        S.xy.append(c_[xi,yi])
+    S.xy=array(S.xy)
+
+    #write contours
+    if fname is not None:
+        for i,vi in enumerate(levels):
+            c=npz_data()
+            c.type='POLYLINE'
+            c.xy=S.xy[i]
+            c.prj=get_prj_file(prj)
+            cname='{}_{}'.format(fname,vi) if vi>0 else '{}_m{}'.format(fname,-vi)
+            write_shapefile_data(cname,c)
+
+    #plot contours
+    cs='krgbmcy'
+    if show_contour:
+        figure()
+        for i,vi in enumerate(levels):
+            xi,yi=S.xy[i].T
+            plot(xi,yi,color=cs[i%7],lw=0.5)
+        legend([*levels])
+
+    return S
 
 def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
