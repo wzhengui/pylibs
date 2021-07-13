@@ -54,14 +54,15 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
 
     return scmd
 
-def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False):
+def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,nx=5000,ny=5000):
     '''
     compute contour lines
     Input:
-        x: array for x coordinates (nx)
-        y: array for y coordinates (ny)
-        z: matrix of data (ny,nx)
+        x: array for x coordinates (ndx)
+        y: array for y coordinates (ndy)
+        z: matrix of data (ndy,ndx)
         levels: values of contour lines to be extracted
+        (nx,ny): when ndx(ndy)>nx(ny), subdivide the domain to speed up
     Output:
         fname: when fname is not None, write contours in shapefiles
         prj:  projection names of shapefiles
@@ -73,28 +74,50 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False):
     levels=array(levels); fpz=(levels>=zmin)*(levels<=zmax); levels=sort(levels[fpz])
 
     #data capsule
-    S=npz_data(); S.levels=levels; S.xy=[]
-
+    S=npz_data(); S.levels=levels; S.xy=[[] for i in arange(len(levels))]
     if len(levels)==0: return S
 
-    #extract contours
-    hf=figure(); hf.set_visible(False)
-    P=contour(x,y,z,levels)
-    close(hf)
+    #divide domain
+    ndx=len(x); ndy=len(y) 
+    ixs=[]; i1=0; i2=min(nx,ndx)
+    while True:
+        ixs.append([i1,i2])
+        if i2>=ndx: break
+        i1=i1+nx; i2=min(i2+nx,ndx)
 
-    for k in arange(len(P.collections)):
-        p=P.collections[k].get_paths()
-        for i in arange(len(p)):
-            xii=p[i].vertices[:,0]; yii=p[i].vertices[:,1];
-            if i==0:
-                xi=r_[xii,NaN];
-                yi=r_[yii,NaN];
-            else:
-                xi=r_[xi,xii,NaN];
-                yi=r_[yi,yii,NaN];
-        S.xy.append(c_[xi,yi])
-    S.xy=array(S.xy)
+    iys=[]; i1=0; i2=min(ny,ndy)
+    while True:
+        iys.append([i1,i2])
+        if i2>=ndy: break
+        i1=i1+ny; i2=min(i2+ny,ndy)
+       
+    #extract contours for subdomains
+    for m,[ix1,ix2] in enumerate(ixs):
+        for n,[iy1,iy2] in enumerate(iys):
+            sxi=x[ix1:ix2]; syi=y[iy1:iy2]; szi=z[iy1:iy2,ix1:ix2] 
+            fpn=~isnan(szi); zmin=szi[fpn].min(); zmax=szi[fpn].max()
+            fpz=(levels>=zmin)*(levels<=zmax); levels_sub=sort(levels[fpz])
+            if len(levels_sub)==0: continue
+                  
+            hf=figure(); hf.set_visible(False)
+            P=contour(sxi,syi,szi,levels_sub)
+            close(hf)
 
+            for k in arange(len(P.collections)):
+                p=P.collections[k].get_paths()
+                for i in arange(len(p)):
+                    xii=p[i].vertices[:,0]; yii=p[i].vertices[:,1];
+                    if i==0:
+                        xi=r_[xii,NaN];
+                        yi=r_[yii,NaN];
+                    else:
+                        xi=r_[xi,xii,NaN];
+                        yi=r_[yi,yii,NaN];
+                #collect contour in each subdomain
+                sindc=nonzero(levels==levels_sub[k])[0][0]
+                S.xy[sindc].extend(c_[xi,yi])
+    for i in arange(len(levels)): S.xy[i]=array(S.xy[i])  
+                
     #write contours
     if fname is not None:
         for i,vi in enumerate(levels):
