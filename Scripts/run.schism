@@ -21,13 +21,15 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2    #viz3,haswell, ppn=24,or 28
+#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 
+qname='flex'                        #partition name (needed for frontera)
 
 scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
 #-----------------------------------------------------------------------------
 #submit jobs first (qsub)
 #-----------------------------------------------------------------------------
 if os.getenv('run_schism')==None: 
-   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism')
+   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism',qname=qname)
    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------

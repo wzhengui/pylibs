@@ -34,6 +34,8 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2    #viz3,haswell, ppn=24,or 28
+#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 
+qname='flex'                        #partition name (needed for frontera)
 
 jname='Rd_{}'.format(os.path.basename(run)) #job name
 ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
@@ -44,7 +46,7 @@ if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locall
 if os.getenv('job_on_node')==None:
    if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]
    if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
-   scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt)
+   scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------
