@@ -12,23 +12,23 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/sciclone/data10/wangzg/fabm_dev/RUN10a'     #run dir containing outputs
-stacks=[1,73]
-sname='./fabm_station' #name for results
-svars=['cosine_MTZ1','cosine_MIDN']          #variable to be extracted
+run='/sciclone/data10/wangzg/fabm_dev/RUN10c'     #run dir containing outputs
+stacks=[3,5]
+sname='./RUN10c/fabm_diagnositc' #name for results
+svars=['cosine_{}'.format(i) for i in ['dSPM','pnh4s1','pnh4s2','fNH4S1','fNH4S2','bfNH4S1','bfNH4S2','fNO3S1','fNO3S2','bfNO3S1','bfNO3S2', 'pih1','sLight','ADPT','TN','NPS1','RPS1','MTS1','GS1Z1','NPS2','RPS2','MTS2','GS2Z2','EXZ1','MTZ1','EXZ2','MTZ2','MIDN','Nit','GDNZ2','GZ1Z2','GTZ2']]          #variable to be extracted
 bpfile=run+'/station.bp'  #file name of station.bp
 ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante)
 fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
 #optional
 grid=run+'/grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
-igather=1          #igather=1: save data on each rank,then combine; igather=0: use MPI  
+igather=1             #igather=1: save data on each rank,then combine; igather=0: use MPI  
 
 #resource requst 
 walltime='00:10:00'
 #qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
-qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
-#qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+qnode='vortex'; nnode=2; ppn=2    #vortex, ppn=12
 #qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
@@ -99,6 +99,7 @@ for i, isubi in enumerate(isub):
     sbp.ie=array([iegl[k] for k in bp.ie[sinde]])
     sbp.ip=array([[ipgl[k] for k in n ] for n in bp.ip[sinde]])
     sbp.acor=bp.acor[sinde]; sbp.dp=bp.dp[sinde]; sbp.z=bp.z[sinde]; sbp.nsta=len(sinde) 
+    sbp.sinde=sinde
     if vd.ivcor==1: sbp.sigma=bp.sigma[sinde]; sbp.kbp=bp.kbp[sinde]
     sbps.append(sbp); sindes.extend(sinde)
 sinds=argsort(array(sindes)) #indices to sort station order
@@ -107,20 +108,24 @@ dt00=time.time()-t00; print('finish reading subdomain info: time={:0.2f}s, myran
 #-----------------------------------------------------------------------------
 #extract data on each processor
 #-----------------------------------------------------------------------------
-nproc=min(nproc,len(isub))
-istacks=[*arange(stacks[0],stacks[1]+1)]
+nproc=min(nproc,len(isub)); istacks=[*arange(stacks[0],stacks[1]+1)]
+
+#declear variable capsule
+S=npz_data(); S.time=[]; S.sinde=[]
+for i in svars: exec('S.{}=[]'.format(i))
 
 #distribute jobs
 for n,isubi in enumerate(isub):
     if n%nproc!=myrank: continue
 
     #open file
-    P=ReadNC('{}/outputs/fabm_state_{:06}.nc'.format(run,isubi),1); sbp=sbps[n]
+    P=ReadNC('{}/outputs/fabm_state_{:06}.nc'.format(run,isubi),1)
     ptime=array(P.variables['time'][:])
+    sbp=sbps[n]; S.sinde.extend(sbp.sinde)
 
     #declear variables
-    S=npz_data(); S.time=[]
-    for i in svars: exec('S.{}=[]'.format(i))
+    Si=npz_data(); Si.time=[]
+    for i in svars: exec('Si.{}=[]'.format(i))
 
     #read every variables
     for nn,istack in enumerate(istacks): 
@@ -162,21 +167,28 @@ for n,isubi in enumerate(isub):
         if len(svars)==1 and svars[0]=='elev': Si.elev.extend(array(eis).T);  continue
 
         #for each variable at each time step
-        Si=npz_data()
-        for i in svars: exec('Si.{}=[]'.format(i))
+        Sii=npz_data()
+        for i in svars: exec('Sii.{}=[]'.format(i))
         for i in arange(nt):
             it=nonzero(ptime==ctime[i])[0][0]; k1=k1s[i]; k2=k2s[i]; rat=rats[i]
             sindp=arange(sbp.nsta)
             for m,svar in enumerate(svars):
                 exec('tri=array(P.variables["{}"][it,sbp.ie])'.format(svar,svar))
-                trii=tri[sindp,k1]*(1-rat)+tri[sindp,k2]*rat
-                exec('Si.{}.append(trii)'.format(svar))
-        S.time.extend(ctime)
-        for i in svars: exec('S.{}.extend(Si.{})'.format(i,i))
+                if tri.ndim==2:
+                   trii=tri[sindp,k1]*(1-rat)+tri[sindp,k2]*rat
+                else: 
+                   trii=tri
+                exec('Sii.{}.append(trii)'.format(svar))
+        Si.time.extend(ctime)
+        for i in svars: exec('Si.{}.extend(Sii.{})'.format(i,i))
 
     #save results
-    S.time=array(S.time)/86400
-    for i in svars: exec('S.{}=array(S.{}).T'.format(i,i))
+    S.time=array(Si.time)/86400
+    for i in svars: exec('S.{}.extend(array(Si.{}).T)'.format(i,i))
+
+#convert format
+S.sinde=array(S.sinde)
+for i in svars: exec('S.{}=array(S.{})'.format(i,i))
 
 #-----------------------------------------------------------------------------
 #combine results from all ranks
@@ -187,11 +199,12 @@ if igather==0: sdata=comm.gather(S,root=0)
 if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
 
 if myrank==0: 
-   S=npz_data(); S.time=[]; S.bp=bp
+   S=npz_data(); S.time=[]; S.bp=bp; sinde=[]
    for i in svars: exec('S.{}=[]'.format(i))
    for i in arange(nproc):
-       Si=sdata[i]; S.time=Si.time
+       Si=sdata[i]; S.time=Si.time; sinde.extend(Si.sinde)
        for m,svar in enumerate(svars): exec('S.{}.extend(Si.{})'.format(svar,svar))
+   sinds=argsort(array(sinde))
 
    #save data        
    for i in svars: exec('S.{}=array(S.{})[sinds]'.format(i,i))
