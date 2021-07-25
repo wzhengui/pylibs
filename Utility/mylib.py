@@ -47,7 +47,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        elif qnode in ['frontera',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
-       elif qnode in ['x5672','vortex','potomac','james','bora']:
+       elif qnode in ['x5672','vortex','vortexa','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
           if qnode in ['bora',] and ename!='run_schism':
              scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
