@@ -47,7 +47,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        elif qnode in ['frontera',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
-       elif qnode in ['x5672','vortex','vortexa','potomac','james','bora']:
+       elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
           if qnode in ['bora',] and ename!='run_schism':
              scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
@@ -1422,13 +1422,14 @@ def delete_shapefile_nan(xi,iloop=0):
     return vi
 
 #---------------------netcdf---------------------------------------------------
-def ReadNC(fname,method=0,order=0):
+def ReadNC(fname,fmt=0,order=0):
     '''
     read netcdf files, and return its values and attributes
         fname: file name
 
-        method=0: reorgnaized Dataset with format of npz_data
-        method=1: return netcdf.Dateset(fname)
+        fmt=0: reorgnaized Dataset with format of npz_data
+        fmt=1: return netcdf.Dateset(fname)
+        fmt=2: reorgnaized Dataset (*npz format), ignore attributes
 
         order=1: only works for med=2; change dimension order
         order=0: variable dimension order read not changed for python format
@@ -1438,9 +1439,9 @@ def ReadNC(fname,method=0,order=0):
     #get file handle
     C=Dataset(fname);
 
-    if method==1:
+    if fmt==1:
         return C
-    elif method==0:
+    elif fmt in [0,2]:
         F=npz_data();
         F.file_format=C.file_format
 
@@ -1456,39 +1457,42 @@ def ReadNC(fname,method=0,order=0):
         for i in ncattrs:
             exec('F.{}=C.getncattr("{}")'.format(i,i))
 
-        ncvars=[i for i in C.variables]; F.vars=ncvars
+        ncvars=[i for i in C.variables]; F.vars=array(ncvars)
         #read variables
         for i in ncvars:
-            fi=npz_data();
-            dimi=C.variables[i].dimensions;
-            fi.dimname=dimi
-            fi.dims=[C.dimensions[j].size for j in dimi]
-            fi.val=C.variables[i][:]
-            fi.attrs=C.variables[i].ncattrs()
-            for j in C.variables[i].ncattrs():
-                ncattri=C.variables[i].getncattr(j);
-                exec('fi.{}=ncattri'.format(j))
+            if fmt==0:
+               fi=npz_data()
+               dimi=C.variables[i].dimensions
+               fi.dimname=dimi
+               fi.dims=[C.dimensions[j].size for j in dimi]
+               fi.val=C.variables[i][:]
+               fi.attrs=C.variables[i].ncattrs()
+               for j in C.variables[i].ncattrs():
+                   ncattri=C.variables[i].getncattr(j)
+                   exec('fi.{}=ncattri'.format(j))
 
-            if order==1:
-                fi.dimname=list(flipud(fi.dimname))
-                fi.dims=list(flipud(fi.dims))
-                nm=flipud(arange(ndim(fi.val)));
-                fi.val=fi.val.transpose(nm)
+               if order==1:
+                   fi.dimname=list(flipud(fi.dimname))
+                   fi.dims=list(flipud(fi.dims))
+                   nm=flipud(arange(ndim(fi.val)))
+                   fi.val=fi.val.transpose(nm)
+            elif fmt==2:
+               fi=array(C.variables[i][:])
+               if order==1: fi=fi.transpose(flip(arange(fi.ndim)))
 
             exec('F.{}=fi'.format(i))
-        #close
         C.close()
         return F
     else:
-        sys.exit('wrong method')
+        sys.exit('wrong fmt')
 
-def WriteNC(fname,data,method=0,order=0):
+def WriteNC(fname,data,fmt=0,order=0):
     '''
     write npz_data to netcdf file
         fname: file name
         data:  soure data
-        method=0, data has npz_data() format
-        method=1, data has netcdf.Dataset format
+        fmt=0, data has npz_data() format
+        fmt=1, data has netcdf.Dataset format
         order=0: variable dimension order written not changed for python format
         order=1: variable dimension order written reversed follwoing in matlab/fortran format
     '''
@@ -1496,7 +1500,7 @@ def WriteNC(fname,data,method=0,order=0):
     #pre-processing fname
     #if fname.endswith('.nc'): fname=fname[:-3]
 
-    if method==1:
+    if fmt==1:
         #----write NC files-------------
         #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
         fid=Dataset(fname,'w',format=data.file_format); #C.file_format
@@ -1532,7 +1536,7 @@ def WriteNC(fname,data,method=0,order=0):
                 fid.variables[vari][:]=data.variables[vari][:].transpose(nm)
 
         fid.close()
-    elif method==0:
+    elif fmt==0:
         #----write NC files-------------
         #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
         fid=Dataset(fname,'w',format=data.file_format); #C.file_format
