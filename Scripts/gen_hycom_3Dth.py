@@ -6,9 +6,9 @@ close("all")
 #------------------------------------------------------------------------------
 #input
 #------------------------------------------------------------------------------
-StartT=datenum(2010,1,1); EndT=datenum(2010,1,4); dt=1/4
-grd='grid.npz'
-dir_hycom='Data'
+StartT=datenum(2021,4,5); EndT=datenum(2021,4,10); dt=1/8
+grd='../grid.npz'
+dir_hycom='../../../HYCOM/Data'
 
 #------------------------------------------------------------------------------
 #interpolate hycom data to boundary
@@ -16,7 +16,7 @@ dir_hycom='Data'
 mtime=arange(StartT,EndT+dt,dt); nt=len(mtime)
 
 #variables for each files
-snames=['elev2D.th','TEM_3D.th','SAL_3D.th','uv3D.th']
+snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
 svars=['surf_el','water_temp','salinity',['water_u','water_v']]
 mvars=['elev','temp','salt',['u','v']]
 
@@ -33,7 +33,8 @@ gd=loadz(grd).hgrid; vd=loadz(grd).vgrid; gd.x,gd.y=gd.lon,gd.lat; nvrt=vd.nvrt
 bind=gd.iobn[0]; nobn=gd.nobn[0]
 lxi0=gd.x[bind]; lyi0=gd.y[bind]; bxy=c_[lxi0,lyi0] #for 2D
 lxi=tile(lxi0,[nvrt,1]).T.ravel(); lyi=tile(lyi0,[nvrt,1]).T.ravel() #for 3D
-lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  bxyz=c_[lxi,lyi,lzi]
+lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel();  bxyz=c_[lxi,lyi,lzi]
+#lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  bxyz=c_[lxi,lyi,lzi]
 sx0,sy0,sz0=None,None,None
 
 #for each variables
@@ -45,7 +46,7 @@ for n,sname in enumerate(snames):
     S=npz_data(); S.time=[]
     [exec('S.{}=[]'.format(i)) for i in mvar]
     for m,fname in enumerate(fnames):
-        C=ReadNC('{}/{}'.format(dir_hycom,fname),1); #print(fname)
+        C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
         ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=mod(array(C.variables['lon'][:])+360,360)-360
         sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
 
@@ -102,7 +103,7 @@ for n,sname in enumerate(snames):
 
     #reshape the data, and save
     [exec('S.{}=S.{}.reshape([{},{},{}])'.format(i,i,nt,nobn,nvrt)) for i in mvar if i!='elev']
-    save_npz('hycom_{}'.format(mvar[0]),S) if len(mvar)==1 else save_npz('hycom_uv',S)
+    #save_npz('hycom_{}'.format(mvar[0]),S) if len(mvar)==1 else save_npz('hycom_uv',S)
 
     #--------------------------------------------------------------------------
     #create netcdf
@@ -111,11 +112,11 @@ for n,sname in enumerate(snames):
 
     #define dimensions
     nd.dimname=['nOpenBndNodes', 'nLevels', 'nComponents', 'one', 'time']
-    if sname=='elev2D.th':
+    if sname=='elev2D.th.nc':
         snvrt=1; ivs=1; vi=S.elev[...,None,None]
-    elif sname=='uv3D.th':
+    elif sname=='uv3D.th.nc':
         snvrt=nvrt; ivs=2; vi=c_[S.u[...,None],S.v[...,None]]
-    elif sname in ['TEM_3D.th','SAL_3D.th']:
+    elif sname in ['TEM_3D.th.nc','SAL_3D.th.nc']:
         snvrt=nvrt; ivs=1; exec('vi=S.{}[...,None]'.format(mvar[0]))
     nd.dims=[nobn,snvrt,ivs,1,nt]
 
