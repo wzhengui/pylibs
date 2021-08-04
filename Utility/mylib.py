@@ -35,9 +35,11 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
     if fmt==0:
        #for submit jobs
        if qnode in ['femto',]:
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,nnode,nproc,wtime,code)
+          #scmd='sbatch --export=ALL,{}="{} {}" --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,nnode,nproc,wtime,code)
+          scmd='sbatch --export=ALL,{}="{} {}" -J {} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,nnode,ppn,wtime,code)
        elif qnode in ['frontera',]:
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
+          #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
+          scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,ppn,wtime,code)
        else:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
     elif fmt==1:
