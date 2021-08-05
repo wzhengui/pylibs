@@ -6,6 +6,7 @@ import subprocess
 #-----input------------------------------------------------------------
 runs=['RUN01d','RUN02p','RUN02q']
 
+if len(sys.argv)!=1: runs=sys.argv[1:]
 #--compute runtime----------------------------------------------------
 if len(sys.argv)!=1: runs=sys.argv[1:]
 for run in runs:
