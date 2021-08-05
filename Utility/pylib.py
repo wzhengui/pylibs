@@ -81,6 +81,12 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    except:
      pass
 
+   #sympy
+   try:
+     from sympy import init_session as sym_init
+   except:
+     pass
+
    #---------------------------------------------------------------------
    #libraries of self-defined modules
    #---------------------------------------------------------------------
