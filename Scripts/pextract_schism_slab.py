@@ -76,11 +76,11 @@ dt=time.time()-t00; print('finish reading grid info: time={:0.2f}s, myrank={}'.f
 
 #read subdomain info
 if icmb==0:
-   t00=time.time(); nsub=getglob('{}/outputs/local_to_global_0000'.format(run)).nproc; isub=[]; subs=[]; iplg=[]; ielg=[]
+   t00=time.time(); nsub=getglob('{}/outputs'.format(run)).nproc; isub=[]; subs=[]; iplg=[]; ielg=[]
    for i in arange(nsub):
        if i%nproc!=myrank: continue  
        #build the ielg and ipgl tables and 
-       S=read_schism_local_to_global('{}/outputs/local_to_global_{:04}'.format(run,i)); S.dp=gd.dp[S.iplg]
+       S=read_schism_local_to_global('{}/outputs/local_to_global_{}'.format(run,srank(i,run))); S.dp=gd.dp[S.iplg]
        if vd.ivcor==1: S.kbp=vd.kbp[S.iplg]; S.sigma=vd.sigma[S.iplg]
        if vd.ivcor==2: S.kbp=zeros(S.np).astype('int') #pure sigma
        S.kbe=array([S.kbp[S.elnode[k,:S.i34[k]]].max() for k in arange(S.ne)])
@@ -113,7 +113,7 @@ for n,istack in enumerate(istacks):
     t00=time.time(); S=npz_data(); S.iplg=array(iplg).astype('int'); S.ielg=array(ielg).astype('int'); S.ndim=[]; S.stype=dict()
     for m,isubi in enumerate(isub):
         #open schout_*.nc
-        if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
+        if icmb==0: fname='{}/outputs/schout_{}_{}.nc'.format(run,srank(isubi,run),istack)
         if icmb==1: fname='{}/outputs/schout_{}.nc'.format(run,istack)
         if (not os.path.exists(fname)) and icmb==0: sys.exit('not exist: {}'.format(fname))
         C=ReadNC(fname,1); sub=subs[m]

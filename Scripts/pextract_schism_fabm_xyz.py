@@ -93,7 +93,7 @@ for i, isubi in enumerate(isub):
     sinde=nonzero(subs==isubi)[0] #elem index of stations 
   
     #build the iegl and ipgl 
-    T=read_schism_local_to_global('{}/outputs/local_to_global_{:04}'.format(run,isubi))
+    T=read_schism_local_to_global('{}/outputs/local_to_global_{}'.format(run,srank(isubi,run)))
     iegl=dict(zip(T.ielg,arange(T.ne))); ipgl=dict(zip(T.iplg,arange(T.np)))
   
     #compute subdomain ie,ip and acor,dp,z,sigma,kbp
@@ -132,7 +132,7 @@ for n,isubi in enumerate(isub):
     #read every variables
     for nn,istack in enumerate(istacks): 
         print('reading stack= {} on myrank = {}'.format(istack,myrank))
-        C=ReadNC('{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack),1)
+        C=ReadNC('{}/outputs/schout_{}_{}.nc'.format(run,srank(isubi,run),istack),1)
         ctime=array(C.variables['time'][:]); nt=len(ctime)
 
         #extract elevation -> compute zcor -> vertical interploate

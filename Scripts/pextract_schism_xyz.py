@@ -96,7 +96,7 @@ if icmb==0:
        sinde=nonzero(subs==isubi)[0] #elem index of stations 
      
        #build the iegl and ipgl 
-       T=read_schism_local_to_global('{}/outputs/local_to_global_{:04}'.format(run,isubi))
+       T=read_schism_local_to_global('{}/outputs/local_to_global_{}'.format(run,srank(isubi,run)))
        iegl=dict(zip(T.ielg,arange(T.ne))); ipgl=dict(zip(T.iplg,arange(T.np)))
      
        #compute subdomain ie,ip and acor,dp,z,sigma,kbp
@@ -127,7 +127,7 @@ for n,istack in enumerate(istacks):
     for m in svars: exec('Si.{}=[]'.format(m))
     for m,isubi in enumerate(isub):
         #open schout_*.nc
-        if icmb==0: fname='{}/outputs/schout_{:04}_{}.nc'.format(run,isubi,istack)
+        if icmb==0: fname='{}/outputs/schout_{}_{}.nc'.format(run,srank(isubi,run),istack)
         if icmb==1: fname='{}/outputs/schout_{}.nc'.format(run,istack)
         if (not os.path.exists(fname)) and icmb==0: sys.exit('not exist: {}'.format(fname))
         C=ReadNC(fname,1); sbp=sbps[m]

@@ -1142,26 +1142,53 @@ def create_schism_vgrid(fname='vgrid.in',nvrt=10,fmt=0,h_c=10,theta_b=0.5,theta_
     else:
         sys.exit('fmt!=0 not working yet')
 
-def getglob(fname=None,method=0):
+def getglob(dirpath='.',fmt=0):
     '''
     get global information about schism run (ne,ns,np,nvrt,nproc,ntracers,ntrs)
-    fname: default is 'local_to_global_0000' or 'outputs/local_to_global_0000'
-    method=0: default is 0; methods(!=0) are for eariler schism versions
+    dirpath: run directory or outputs directory
+    fmt=0: default is 0; fmt(!=0) are for eariler schism versions
     '''
+   
+    rstr,bdir=srank(0,dirpath=dirpath,fmt=1)
+    fname='{}/local_to_global_{}'.format(bdir,rstr) #local_to_global_0000 or local_to_global_000000
+    
     #get fname
-    if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
-    if (fname is None) and os.path.exists('./outputs/local_to_global_0000'): fname='./outputs/local_to_global_0000'
-    if fname is None: sys.exit('fname unknown')
+    #if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
+    #if (fname is None) and os.path.exists('local_to_global_000000'): fname='local_to_global_000000'
+    #if (fname is None) and os.path.exists('./outputs/local_to_global_0000'): fname='./outputs/local_to_global_0000'
+    #if (fname is None) and os.path.exists('./outputs/local_to_global_000000'): fname='./outputs/local_to_global_000000'
+    #if fname is None: sys.exit('fname unknown')
 
     #get info
     S=npz_data()
     S.info=array(open(fname,'r').readline().strip().split()).astype('int')
-    if method==0:
+    if fmt==0:
        S.ns,S.ne,S.np,S.nvrt,S.nproc,S.ntracers=S.info[:6]
        S.ntrs=S.info[6:]
     else:
-       sys.exit('method unknown')
+       sys.exit('fmt unknown')
     return S
+
+def srank(rank=0,dirpath='.',fmt=0):
+    '''
+    return string of schism rank number ('0032', or '000032')
+    dirpath: run directory, or RUN*/outputs
+    fmt=0: return rank string; fmt=1: return rank string and the location dir. 
+    '''
+    bdir=None;str_rank='' 
+
+    #old format with 4 digits
+    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank) 
+    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank) 
+
+    #new format with 6 digits
+    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank) 
+    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank) 
+
+    if fmt==0:
+       return str_rank
+    elif fmt==1:
+       return [str_rank,bdir]
 
 def read_schism_local_to_global(fname):
     '''
