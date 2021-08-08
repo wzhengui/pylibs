@@ -569,7 +569,7 @@ def get_xtick(fmt=0,xts=None,str=None):
         if it==0: xts=array([[datenum(i,k+1,1) for k in arange(12)] for i in xts]).ravel()
     elif fmt==2: #for days
         if str is None: str='%-d'
-        if it==0: xts=[arange(datenum(min(xts),1,1),datenum(max(xts)+1,1,1)-1)]
+        if it==0: xts=[*arange(datenum(min(xts),1,1),datenum(max(xts)+1,1,1)-1)]
     elif fmt==3: #user defined
         if str is None: str='%-d'
     xls=[num2date(i).strftime(str) for i in xts]
