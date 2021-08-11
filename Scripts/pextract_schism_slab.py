@@ -12,17 +12,18 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/sciclone/data10/wangzg/DSP/RUN01c'     #run dir containing outputs
-sname='slab'      #name for the resutls 
-stacks=[7,9]        #stacks of schout_*.nc (1st and last)
-svars=['salt','elev']      #variable to be extracted
-levels=[1,10,100]        #schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level), or fix depthis ( z coordinate, values<=0)
-nspool=12            #sub-sampling frequency within each stack (1 means all)
+run='/sciclone/data10/wangzg/fabm_dev/RUN12'     #run dir containing outputs
+sname='RUN12/cosine_slab'                        #name for saving the resutls 
+stacks=[7,9]                                     #stacks of schout_*.nc (1st and last)
+svars=['elev','salt','temp','COS_1']             #SCHISM variables to be extracted
+rvars=['elev','salt','temp','NO3']               #rename variable names 
+levels=[1,10,]      #schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level), or fix depthis ( z coordinate, values<=0)
+nspool=12           #sub-sampling frequency within each stack (1 means all)
 icmb=0              #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
 fmt=0               #fmt=0: one output file;   fmt=1: one output file for each stack
 
 #optional
-grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
+grid='/sciclone/data10/wangzg/fabm_dev/RUN12/grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
 
 #resource requst 
 walltime='01:00:00'
@@ -197,34 +198,34 @@ for n,istack in enumerate(istacks):
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: 
-   if fmt==0:  C=npz_data(); C.time=[]; [exec('C.{}=[]'.format(m)) for m in svars]
+   if fmt==0:  C=npz_data(); C.time=[]; [exec('C.{}=[]'.format(m)) for m in rvars]
 
    #combine result from subdomains
    for istack in arange(stacks[0],stacks[1]+1):
-       S=npz_data(); [exec('S.{}=[]'.format(m)) for m in svars]; iplg=[]; ielg=[]
+       S=npz_data(); [exec('S.{}=[]'.format(m)) for m in rvars]; iplg=[]; ielg=[]
        for n in arange(nproc):
            fname='{}_{}_{}.npz'.format(sname,istack,n)
            if not os.path.exists(fname): continue
            Si=loadz(fname); iplg.extend(Si.iplg); ielg.extend(Si.ielg); S.time=Si.time; stype=Si.stype
-           for m in svars: exec('S.{}.extend(Si.{})'.format(m,m))
+           for svar,rvar in zip(svars,rvars): exec('S.{}.extend(Si.{})'.format(rvar,svar))
        
        #sort
        tmp,sindp=unique(array(iplg),return_index=True); sinde=argsort(array(ielg))
-       for m,svar in enumerate(svars): 
+       for m,[svar,rvar] in enumerate(zip(svars,rvars)): 
            sind=sindp if stype[svar]==0 else sinde
-           if Si.ndim[m]==2: exec('S.{}=array(S.{})[sind].transpose([1,0])'.format(svar,svar))
-           if Si.ndim[m]==3: exec('S.{}=array(S.{})[sind].transpose([1,2,0])'.format(svar,svar))
-           if Si.ndim[m]==4: exec('S.{}=array(S.{})[sind].transpose([1,2,0,3])'.format(svar,svar))
+           if Si.ndim[m]==2: exec('S.{}=array(S.{})[sind].transpose([1,0])'.format(rvar,rvar))
+           if Si.ndim[m]==3: exec('S.{}=array(S.{})[sind].transpose([1,2,0])'.format(rvar,rvar))
+           if Si.ndim[m]==4: exec('S.{}=array(S.{})[sind].transpose([1,2,0,3])'.format(rvar,rvar))
        S.levels=array(levels)
        if fmt==1: save_npz('{}_{}'.format(sname,istack),S) 
 
        #combine all stacks
        if fmt==0: 
           C.time.extend(S.time)
-          for m in svars: exec('C.{}.extend(S.{})'.format(m,m))
+          for m in rvars: exec('C.{}.extend(S.{})'.format(m,m))
 
    if fmt==0:
-      for m in svars: exec('C.{}=array(C.{})'.format(m,m))
+      for m in rvars: exec('C.{}=array(C.{})'.format(m,m))
       C.time=array(C.time); C.levels=array(levels); save_npz(sname,C)
 
    #clean

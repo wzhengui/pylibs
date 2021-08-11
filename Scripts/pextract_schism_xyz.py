@@ -12,17 +12,18 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/sciclone/data10/wangzg/NWM/RUN06a_ZG'     #run dir containing outputs
-stacks=[1,40]           #stacks of schout_*.nc 
-sname='./elev.Coast_6b.RUN06a_ZG' #name for results
-svars=['elev']          #variable to be extracted
-bpfile='/sciclone/data10/wangzg/NWM/Results/BPfiles/Coast_6b.bp'  #file name of station.bp
+run='/sciclone/data10/wangzg/fabm_dev/RUN12'     #run dir containing outputs
+stacks=[1,146]                                    #stacks of schout_*.nc 
+sname='RUN12/cosine'                             #name for results
+svars=['elev','salt','temp','COS_1']        #SCHISM variables to be extracted
+rvars=['elev','salt','temp','NO3']          #rename variable names 
+bpfile='/sciclone/data10/wangzg/fabm_dev/RUN12/station.bp'  #file name of station.bp
 icmb=0                  #icmb=0: work on uncombined; icmb=1: work on combined schout_*.nc
 ifs=1                   #ifs=1: depth relative to surface; ifs=0: fixed depth (z coordiante) 
 fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
 #optional
-grid='./grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
+grid='/sciclone/data10/wangzg/fabm_dev/RUN12/grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
 igather=1          #igather=1: save data on each rank,then combine; igather=0: use MPI  
 
 #resource requst 
@@ -240,23 +241,23 @@ if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in 
 
 if myrank==0:
    S=npz_data(); S.time=[]; S.bp=bp
-   for i in svars: exec('S.{}=[]'.format(i))
+   for i in rvars: exec('S.{}=[]'.format(i))
    for i in arange(nproc):
        Si=sdata[i]; S.time.extend(Si.time)
-       for m,svar in enumerate(svars): exec('S.{}.extend(Si.{})'.format(svar,svar))
+       for m,[svar,rvar] in enumerate(zip(svars,rvars)): exec('S.{}.extend(Si.{})'.format(rvar,svar))
 
    #save data        
    S.time=array(S.time); sind=argsort(S.time); S.time=S.time[sind]
-   for i in svars: exec('ds=[1,0,*arange(2,array(S.{}).ndim)]; S.{}=array(S.{})[sind].transpose(ds)'.format(i,i,i)) 
+   for i in rvars: exec('ds=[1,0,*arange(2,array(S.{}).ndim)]; S.{}=array(S.{})[sind].transpose(ds)'.format(i,i,i)) 
    if fmt==0:
       save_npz('{}'.format(sname),S)
    else:
       #write out ASCII file
-      for i in svars: exec('ds=[1,*arange(2,array(S.{}).ndim),0]; S.{}=array(S.{}).transpose(ds)'.format(i,i,i)) 
+      for i in rvars: exec('ds=[1,*arange(2,array(S.{}).ndim),0]; S.{}=array(S.{}).transpose(ds)'.format(i,i,i)) 
       fid=open('{}.dat'.format(sname),'w+')
       for i,ti in enumerate(S.time):
           datai=[]
-          for svar in svars: exec('datai.extend(S.{}[{}].ravel())'.format(svar,i))
+          for rvar in rvars: exec('datai.extend(S.{}[{}].ravel())'.format(rvar,i))
           fid.write(('{:12.6f}'+' {:10.6f}'*len(datai)+'\n').format(ti,*datai))
       fid.close()
    if igather==1: [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)] #clean
