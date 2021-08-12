@@ -1094,12 +1094,12 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
     else:
        return [x1,y1]
 
-def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\projection\prj_files'):
+def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection\prj_files'):
     '''
     return projection name or entire database (dict)
-        method=0: get one projection
-        method=1: return dict of projection database
-        method=-1: process *.prj files from prj_dir
+        fmt=0: get one projection
+        fmt=1: return dict of projection database
+        fmt=-1: process *.prj files from prj_dir
 
     #-------online method-----------------
     #function to generate .prj file information using spatialreference.org
@@ -1117,13 +1117,13 @@ def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\project
     #get location of database
     bdir=os.path.dirname(__file__)
 
-    if method==0:
+    if fmt==0:
         S=loadz('{}/prj.npz'.format(bdir))
         return S.prj[prjname]
-    elif method==1:
+    elif fmt==1:
         S=loadz('{}/prj.npz'.format(bdir))
         return S.prj
-    elif method==-1:
+    elif fmt==-1:
         #dir of *.prj files
         #prj_dir=r'D:\Work\Database\projection\prj_files'
 
@@ -1145,7 +1145,7 @@ def get_prj_file(prjname='epsg:4326',method=0,prj_dir=r'D:\Work\Database\project
         # save_npz('{}/prj'.format(bdir),S)
         return prj
     else:
-        sys.exit('unknow method')
+        sys.exit('unknow fmt')
 
 #----------------convert_matfile_format----------------------------------------
 #def convert_matfile_format(file):
