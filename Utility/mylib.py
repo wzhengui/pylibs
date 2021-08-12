@@ -1019,7 +1019,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
        lon0,lat0: center for transformation between lon&lat and x&y; if lon0=None or lat0=None, then x0=mean(lon), and y0=mean(lat)
        order=0 for projected coordinate; order=1 for lat&lon (if prj='epsg:4326', order=1 is applied automatically')
 
-    tranform data directly: px,py=proj(prj0='epsg:26918',prj1='epsg:4326',order0=0,order1=0,x,y)
+    tranform data directly: px,py=proj(prj0='epsg:26918',prj1='epsg:4326',x=py,y=py)
 
     function used:
           lat,lon=Transformer.from_crs('epsg:26918','epsg:4326').transform(x,y)
