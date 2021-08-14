@@ -72,6 +72,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #url download
    try:
       import urllib
+      from urllib.request import urlretrieve as urlsave
    except:
       pass
 
@@ -92,7 +93,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    import mylib
    from mylib import (get_xtick,close_data_loop,datenum,
-        loadz,npz_data,save_npz,find_continuous_sections,
+        loadz,zdata,savez,find_continuous_sections,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
@@ -100,6 +101,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml)
         #convert_matfile_format,
+   from mylib import savez as save_npz
+   from mylib import zdata as npz_data
 
    import schism_file
    from schism_file import (read_schism_hgrid, read_schism_hgrid_ll,read_schism_bpfile,getglob,

@@ -126,9 +126,9 @@ if icmb_serial==0:
     tname=array(tname); HA=array(HA)
 
     #save for each proc
-    S=npz_data();
+    S=zdata();
     S.inode=ipt; S.tidal_name=tname; S.amplitude=HA[:,:,0]; S.phase=HA[:,:,1]; S.note='e.g. gd.dp[inode]=S.amplitude[:,2]'
-    save_npz('S_{}'.format(myrank),S)
+    savez('S_{}'.format(myrank),S)
     print('finish HA analysis: myrank={}'.format(myrank)); sys.stdout.flush()
 
 #collect results
@@ -146,7 +146,7 @@ if myrank==0:
         nproc=len(fnames)
 
     #read and combine result
-    S=npz_data(); S.inode=[]; S.amplitude=[]; S.phase=[]
+    S=zdata(); S.inode=[]; S.amplitude=[]; S.phase=[]
     for i in arange(nproc):
         if icmb_serial==0:
            Si=loadz('S_{}.npz'.format(i))
@@ -162,7 +162,7 @@ if myrank==0:
     S.inode=array(S.inode); S.amplitude=array(S.amplitude); S.phase=array(S.phase)
 
     #save result
-    save_npz('{}'.format(sname),S)
+    savez('{}'.format(sname),S)
 
     #clean
     os.system("rm S_*.npz schout_?.nc schout_??.nc hgrid.* tidal_const.dat")

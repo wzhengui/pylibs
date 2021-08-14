@@ -35,7 +35,7 @@ for year in years:
             urllib.request.urlretrieve(url,fname)
 
 #        #read the data
-        C=npz_data()
+        C=zdata()
         for svarii,nvarii in zip(svari,nvari):
             fname='{}.{}.nc'.format(nvarii,year)
             exec('C.{}=ReadNC("{}")'.format(svarii,fname))
@@ -82,7 +82,7 @@ for year in years:
 #------------------------------------------------------------------------------
 ##--prepare template for sflux based on former sflux files
 #------------------------------------------------------------------------------
-#S=npz_data();
+#S=zdata();
 #svars=['air','rad','prc']
 #for svar in svars:
 #    fname='sflux_{}_1.0001.nc'.format(svar)
@@ -92,4 +92,4 @@ for year in years:
 #        exec('Si.{}.val=None'.format(vari))
 #    exec('S.{}=Si'.format(svar));
 #S.vars=svars;
-#save_npz('sflux_template',S);
+#savez('sflux_template',S);

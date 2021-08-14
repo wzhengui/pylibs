@@ -35,7 +35,7 @@ ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=mod(array(C.variables[
 sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
 
 #interp for ST
-S=npz_data(); [exec('S.{}=[]'.format(i)) for i in mvars]
+S=zdata(); [exec('S.{}=[]'.format(i)) for i in mvars]
 for k in arange(nvrt):
     lzi=lzi0[k]; bxyz=c_[lxi,lyi,lzi]
 
@@ -68,14 +68,14 @@ for k in arange(nvrt):
 #------------------------------------------------------------------------------
 #creat netcdf
 #------------------------------------------------------------------------------
-nd=npz_data()
+nd=zdata()
 nd.dimname=['node','elem','side','nVert','ntracers','one']; nd.dims=[np,ne,ns,nvrt,2,1]
 nd.file_format='NETCDF4'
 
 #--time step, time, and time series----
 nd.vars=['time','iths','ifile','idry_e','idry_s','idry','eta2','we','tr_el',
          'tr_nd','tr_nd0','su2','sv2','q2','xl','dfv','dfh','dfq1','dfq2']
-for i in nd.vars: exec('nd.{}=npz_data(); nd.{}.attrs=[]'.format(i,i))
+for i in nd.vars: exec('nd.{}=zdata(); nd.{}.attrs=[]'.format(i,i))
 
 nd.time.dimname=('one',);nd.time.val=array(0.0) #time
 nd.iths.dimname=('one',);nd.iths.val=array(0) #iths

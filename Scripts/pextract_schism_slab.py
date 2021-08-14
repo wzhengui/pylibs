@@ -88,7 +88,7 @@ if icmb==0:
        isub.append(i); subs.append(S); iplg.extend(S.iplg); ielg.extend(S.ielg)
    dt=time.time()-t00; print('finish reading subdomain info: time={:0.2f}s, myrank={}'.format(dt,myrank)); sys.stdout.flush()
 else:
-   S=npz_data(); S.np=gd.np; S.iplg=arange(gd.np).astype('int'); S.ielg=arange(gd.ne).astype('int'); S.dp=gd.dp
+   S=zdata(); S.np=gd.np; S.iplg=arange(gd.np).astype('int'); S.ielg=arange(gd.ne).astype('int'); S.dp=gd.dp
    if vd.ivcor==1: S.kbp=vd.kbp; S.sigma=vd.sigma
    if vd.ivcor==2: S.kbp=zeros(gd.np).astype('int') #pure sigma
    S.kbe=array([S.kbp[S.elnode[k,:S.i34[k]]].max() for k in arange(S.ne)])
@@ -111,7 +111,7 @@ if icmb==1: istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank
 
 #extract slab value for each stack and each subdomain
 for n,istack in enumerate(istacks):
-    t00=time.time(); S=npz_data(); S.iplg=array(iplg).astype('int'); S.ielg=array(ielg).astype('int'); S.ndim=[]; S.stype=dict()
+    t00=time.time(); S=zdata(); S.iplg=array(iplg).astype('int'); S.ielg=array(ielg).astype('int'); S.ndim=[]; S.stype=dict()
     for m,isubi in enumerate(isub):
         #open schout_*.nc
         if icmb==0: fname='{}/outputs/schout_{}_{}.nc'.format(run,srank(isubi,run),istack)
@@ -191,18 +191,18 @@ for n,istack in enumerate(istacks):
             data=array(data).transpose([1,0,*arange(2,len(dimname))]); fpn=data>1.e9; data[fpn]=nan
             exec('S.{}.extend(data)'.format(svar))
 
-    save_npz('{}_{}_{}'.format(sname,istack,myrank),S)
+    savez('{}_{}_{}'.format(sname,istack,myrank),S)
     dt=time.time()-t00; print('finish reading stack={} on myrank={} time={:0.2f}s'.format(istack,myrank,dt)); sys.stdout.flush()
 #-----------------------------------------------------------------------------
 #combine results from all ranks
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: 
-   if fmt==0:  C=npz_data(); C.time=[]; [exec('C.{}=[]'.format(m)) for m in rvars]
+   if fmt==0:  C=zdata(); C.time=[]; [exec('C.{}=[]'.format(m)) for m in rvars]
 
    #combine result from subdomains
    for istack in arange(stacks[0],stacks[1]+1):
-       S=npz_data(); [exec('S.{}=[]'.format(m)) for m in rvars]; iplg=[]; ielg=[]
+       S=zdata(); [exec('S.{}=[]'.format(m)) for m in rvars]; iplg=[]; ielg=[]
        for n in arange(nproc):
            fname='{}_{}_{}.npz'.format(sname,istack,n)
            if not os.path.exists(fname): continue
@@ -217,7 +217,7 @@ if myrank==0:
            if Si.ndim[m]==3: exec('S.{}=array(S.{})[sind].transpose([1,2,0])'.format(rvar,rvar))
            if Si.ndim[m]==4: exec('S.{}=array(S.{})[sind].transpose([1,2,0,3])'.format(rvar,rvar))
        S.levels=array(levels)
-       if fmt==1: save_npz('{}_{}'.format(sname,istack),S) 
+       if fmt==1: savez('{}_{}'.format(sname,istack),S) 
 
        #combine all stacks
        if fmt==0: 
@@ -226,7 +226,7 @@ if myrank==0:
 
    if fmt==0:
       for m in rvars: exec('C.{}=array(C.{})'.format(m,m))
-      C.time=array(C.time); C.levels=array(levels); save_npz(sname,C)
+      C.time=array(C.time); C.levels=array(levels); savez(sname,C)
 
    #clean
    os.system('rm {}_*_*.npz'.format(sname))

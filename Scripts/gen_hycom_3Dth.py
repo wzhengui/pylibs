@@ -43,7 +43,7 @@ for n,sname in enumerate(snames):
     if isinstance(svar,str): svar=[svar]; mvar=[mvar]
 
     #interp in space
-    S=npz_data(); S.time=[]
+    S=zdata(); S.time=[]
     [exec('S.{}=[]'.format(i)) for i in mvar]
     for m,fname in enumerate(fnames):
         C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
@@ -103,12 +103,12 @@ for n,sname in enumerate(snames):
 
     #reshape the data, and save
     [exec('S.{}=S.{}.reshape([{},{},{}])'.format(i,i,nt,nobn,nvrt)) for i in mvar if i!='elev']
-    #save_npz('hycom_{}'.format(mvar[0]),S) if len(mvar)==1 else save_npz('hycom_uv',S)
+    #savez('hycom_{}'.format(mvar[0]),S) if len(mvar)==1 else savez('hycom_uv',S)
 
     #--------------------------------------------------------------------------
     #create netcdf
     #--------------------------------------------------------------------------
-    nd=npz_data(); nd.file_format='NETCDF4'
+    nd=zdata(); nd.file_format='NETCDF4'
 
     #define dimensions
     nd.dimname=['nOpenBndNodes', 'nLevels', 'nComponents', 'one', 'time']
@@ -124,15 +124,15 @@ for n,sname in enumerate(snames):
 
     #--time step, time, and time series----
     nd.vars=['time_step', 'time', 'time_series']
-    nd.time_step=npz_data()
+    nd.time_step=zdata()
     nd.time_step.attrs=['long_name'];nd.time_step.long_name='time step in seconds'
     nd.time_step.dimname=('one',); nd.time_step.val=array(dt*86400).astype('float32')
 
-    nd.time=npz_data()
+    nd.time=zdata()
     nd.time.attrs=['long_name'];nd.time.long_name='simulation time in seconds'
     nd.time.dimname=('time',); nd.time.val=(S.time-S.time[0])*86400
 
-    nd.time_series=npz_data()
+    nd.time_series=zdata()
     nd.time_series.attrs=[]
     nd.time_series.dimname=('time','nOpenBndNodes','nLevels','nComponents')
     nd.time_series.val=vi

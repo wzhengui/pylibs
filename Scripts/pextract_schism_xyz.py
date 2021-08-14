@@ -101,7 +101,7 @@ if icmb==0:
        iegl=dict(zip(T.ielg,arange(T.ne))); ipgl=dict(zip(T.iplg,arange(T.np)))
      
        #compute subdomain ie,ip and acor,dp,z,sigma,kbp
-       sbp=npz_data(); #sbp.ne,sbp.np=T.ne,T.np
+       sbp=zdata(); #sbp.ne,sbp.np=T.ne,T.np
        sbp.ie=array([iegl[k] for k in bp.ie[sinde]])
        sbp.ip=array([[ipgl[k] for k in n ] for n in bp.ip[sinde]])
        sbp.acor=bp.acor[sinde]; sbp.dp=bp.dp[sinde]; sbp.z=bp.z[sinde]; sbp.nsta=len(sinde) 
@@ -119,12 +119,12 @@ else:
 istacks=[i for i in arange(stacks[0],stacks[1]+1) if i%nproc==myrank]
 
 #initilize data capsule
-S=npz_data(); S.time=[]; #S.bp=bp
+S=zdata(); S.time=[]; #S.bp=bp
 for i in svars: exec('S.{}=[]'.format(i)) 
 
 #extract (x,y,z) value for each stack and each subdomain
 for n,istack in enumerate(istacks):
-    t00=time.time(); Si=npz_data()
+    t00=time.time(); Si=zdata()
     for m in svars: exec('Si.{}=[]'.format(m))
     for m,isubi in enumerate(isub):
         #open schout_*.nc
@@ -171,7 +171,7 @@ for n,istack in enumerate(istacks):
         if len(svars)==1 and svars[0]=='elev': Si.elev.extend(array(eis).T);  continue
 
         #compute (x,y,z) for each variables
-        Sii=npz_data()
+        Sii=zdata()
         for mm, svar in enumerate(svars):
             exec('Sii.{}=[]'.format(svar))
             ndim=C.variables[svar].ndim; dim=C.variables[svar].shape; dimname=C.variables[svar].dimensions
@@ -234,13 +234,13 @@ S.time=array(S.time); ['S.{}=array(S.{}).astype("float32")'.format(i,i) for i in
 #-----------------------------------------------------------------------------
 #combine results from all ranks
 #-----------------------------------------------------------------------------
-if igather==1 and myrank<nproc: save_npz('{}_{}'.format(sname,myrank),S)
+if igather==1 and myrank<nproc: savez('{}_{}'.format(sname,myrank),S)
 comm.Barrier()
 if igather==0: sdata=comm.gather(S,root=0)
 if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
 
 if myrank==0:
-   S=npz_data(); S.time=[]; S.bp=bp
+   S=zdata(); S.time=[]; S.bp=bp
    for i in rvars: exec('S.{}=[]'.format(i))
    for i in arange(nproc):
        Si=sdata[i]; S.time.extend(Si.time)
@@ -250,7 +250,7 @@ if myrank==0:
    S.time=array(S.time); sind=argsort(S.time); S.time=S.time[sind]
    for i in rvars: exec('ds=[1,0,*arange(2,array(S.{}).ndim)]; S.{}=array(S.{})[sind].transpose(ds)'.format(i,i,i)) 
    if fmt==0:
-      save_npz('{}'.format(sname),S)
+      savez('{}'.format(sname),S)
    else:
       #write out ASCII file
       for i in rvars: exec('ds=[1,*arange(2,array(S.{}).ndim),0]; S.{}=array(S.{}).transpose(ds)'.format(i,i,i)) 

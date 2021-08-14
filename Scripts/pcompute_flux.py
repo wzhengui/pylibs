@@ -66,7 +66,7 @@ if myrank==0:
    vd=loadz('{}/vgrid.npz'.format(run)).vgrid
 
    #for each transect
-   T=npz_data(); T.nt=len(tnames); T.tnames=tnames; T.transects=dict(); T.npt=0; T.sind=[];
+   T=zdata(); T.nt=len(tnames); T.tnames=tnames; T.transects=dict(); T.npt=0; T.sind=[];
    T.x=[]; T.y=[]; T.z=[]; T.dist=[]; T.dx=[]; T.angle=[]; T.ie=[]; T.ip=[]; T.acor=[]; T.sigma=[]
    for m,tname in enumerate(tnames):
        
@@ -87,7 +87,7 @@ if myrank==0:
        szi=(gd.dp[pip]*pacor).sum(axis=1); sigma=(vd.sigma[pip]*pacor[...,None]).sum(axis=1)
        
        #save transect information
-       S=npz_data(); S.npt=npt; S.x=sxi; S.y=syi; S.z=szi; S.dist=dist; S.dx=dx
+       S=zdata(); S.npt=npt; S.x=sxi; S.y=syi; S.z=szi; S.dist=dist; S.dx=dx
        S.angle=angle; S.ie=pie; S.ip=pip; S.acor=pacor; S.sigma=sigma
 
        T.transects[tname]=S; T.sind.append([*arange(T.npt,T.npt+npt)]); T.npt=T.npt+npt 
@@ -95,7 +95,7 @@ if myrank==0:
        T.angle.append(angle); T.ie.extend(pie); T.ip.extend(pip); T.acor.extend(pacor); T.sigma.extend(sigma)  
    
    #save information
-   save_npz('{}/{}'.format(run,sname),T)
+   savez('{}/{}'.format(run,sname),T)
    
    #plot for check
    #gd.plot_bnd(); [plot(transects[i].x,transects[i].y,'r-') for i in tnames]; 
@@ -187,7 +187,7 @@ if myrank==0:
    #save data        
    S.time=array(S.time); sind=argsort(S.time); S.time=S.time[sind]; S.flux=array(S.flux)[sind].T
    [exec('S.flux_{}=array(S.flux_{})[sind].T'.format(i,i)) for i in svars]
-   save_npz('{}'.format(sname),S)
+   savez('{}'.format(sname),S)
 
    #clean
    #[os.system('rm {}'.format(i)) for i in [*rnames_1,*rnames_2]]

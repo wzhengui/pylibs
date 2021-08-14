@@ -97,7 +97,7 @@ for i, isubi in enumerate(isub):
     iegl=dict(zip(T.ielg,arange(T.ne))); ipgl=dict(zip(T.iplg,arange(T.np)))
   
     #compute subdomain ie,ip and acor,dp,z,sigma,kbp
-    sbp=npz_data(); #sbp.ne,sbp.np=T.ne,T.np
+    sbp=zdata(); #sbp.ne,sbp.np=T.ne,T.np
     sbp.ie=array([iegl[k] for k in bp.ie[sinde]])
     sbp.ip=array([[ipgl[k] for k in n ] for n in bp.ip[sinde]])
     sbp.acor=bp.acor[sinde]; sbp.dp=bp.dp[sinde]; sbp.z=bp.z[sinde]; sbp.nsta=len(sinde) 
@@ -113,7 +113,7 @@ dt00=time.time()-t00; print('finish reading subdomain info: time={:0.2f}s, myran
 nproc=min(nproc,len(isub)); istacks=[*arange(stacks[0],stacks[1]+1)]
 
 #declear variable capsule
-S=npz_data(); S.time=[]; S.sinde=[]
+S=zdata(); S.time=[]; S.sinde=[]
 for i in svars: exec('S.{}=[]'.format(i))
 
 #distribute jobs
@@ -126,7 +126,7 @@ for n,isubi in enumerate(isub):
     sbp=sbps[n]; S.sinde.extend(sbp.sinde)
 
     #declear variables
-    Si=npz_data(); Si.time=[]
+    Si=zdata(); Si.time=[]
     for i in svars: exec('Si.{}=[]'.format(i))
 
     #read every variables
@@ -169,7 +169,7 @@ for n,isubi in enumerate(isub):
         if len(svars)==1 and svars[0]=='elev': Si.elev.extend(array(eis).T);  continue
 
         #for each variable at each time step
-        Sii=npz_data()
+        Sii=zdata()
         for i in svars: exec('Sii.{}=[]'.format(i))
         for i in arange(nt):
             it=nonzero(ptime==ctime[i])[0][0]; k1=k1s[i]; k2=k2s[i]; rat=rats[i]
@@ -195,13 +195,13 @@ for i in svars: exec('S.{}=array(S.{})'.format(i,i))
 #-----------------------------------------------------------------------------
 #combine results from all ranks
 #-----------------------------------------------------------------------------
-if igather==1 and myrank<nproc: save_npz('{}_{}'.format(sname,myrank),S)
+if igather==1 and myrank<nproc: savez('{}_{}'.format(sname,myrank),S)
 comm.Barrier()
 if igather==0: sdata=comm.gather(S,root=0)
 if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
 
 if myrank==0: 
-   S=npz_data(); S.time=[]; S.bp=bp; sinde=[]
+   S=zdata(); S.time=[]; S.bp=bp; sinde=[]
    for i in svars: exec('S.{}=[]'.format(i))
    for i in arange(nproc):
        Si=sdata[i]; S.time=Si.time; sinde.extend(Si.sinde)
@@ -211,7 +211,7 @@ if myrank==0:
    #save data        
    for i in svars: exec('S.{}=array(S.{})[sinds]'.format(i,i))
    if fmt==0:
-      save_npz('{}'.format(sname),S)
+      savez('{}'.format(sname),S)
    else:
       #write out ASCII file
       for i in svars: exec('ds=[1,*arange(2,array(S.{}).ndim),0]; S.{}=array(S.{}).transpose(ds)'.format(i,i,i))

@@ -144,7 +144,7 @@ class schism_grid:
         dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
 
         #add all bnd pts
-        self.binfo=npz_data()
+        self.binfo=zdata()
         bind=[]; [bind.extend(i) for i in self.iobn]; [bind.extend(i) for i in self.ilbn]
         self.binfo.bind=array(bind); self.binfo.x=self.x[self.binfo.bind]; self.binfo.y=self.y[self.binfo.bind]
         self.binfo.obp=array([]).astype('int');  self.binfo.lbp=array([]).astype('int'); self.binfo.hp=[]
@@ -727,7 +727,7 @@ class schism_grid:
            return [pie,pip]
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
-        self.shp_bnd=npz_data()
+        self.shp_bnd=zdata()
         self.shp_bnd.type='POLYLINE'; xy=array([[],[]]).T
         for i in arange(self.nob):
             ind=self.iobn[i]
@@ -745,7 +745,7 @@ class schism_grid:
         write_shapefile_data(fname,self.shp_bnd)
 
     def write_shapefile_node(self,fname,prjname='epsg:4326'):
-        self.shp_node=npz_data()
+        self.shp_node=zdata()
         self.shp_node.type='POINT'
         self.shp_node.xy=c_[self.x,self.y]
         self.shp_node.attname=['id_node']
@@ -754,7 +754,7 @@ class schism_grid:
         write_shapefile_data(fname,self.shp_node)
 
     def write_shapefile_element(self,fname,prjname='epsg:4326'):
-        self.shp_elem=npz_data()
+        self.shp_elem=zdata()
         self.shp_elem.type='POLYGON'
         elnode=self.elnode; fp=elnode[:,-1]<0; elnode[fp,-1]=elnode[fp,0]
         elnode=fliplr(elnode)
@@ -877,7 +877,7 @@ class schism_bpfile:
         return [self.ux,self.uy,self.uz,self.ustation]
 
     def write_shapefile(self,fname,prjname='epsg:4326'):
-        self.shp_bp=npz_data()
+        self.shp_bp=zdata()
         self.shp_bp.type='POINT'
         self.shp_bp.xy=c_[self.x,self.y]
         self.shp_bp.prj=get_prj_file(prjname)
@@ -973,11 +973,11 @@ def save_schism_grid(fname='grid',path='.'):
     '''
     read and save path/{hgrid.gr3,vgrid.in}
     '''
-    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path); S=npz_data();
+    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path); S=zdata();
     if os.path.exists(gname): S.hgrid=read_schism_hgrid(gname)
     if os.path.exists(vname): S.vgrid=read_schism_vgrid(vname)
     if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(gname,vname))
-    save_npz(fname,S)
+    savez(fname,S)
     return S
 
 class schism_vgrid:
@@ -1160,7 +1160,7 @@ def getglob(dirpath='.',fmt=0):
     #if fname is None: sys.exit('fname unknown')
 
     #get info
-    S=npz_data()
+    S=zdata()
     S.info=array(open(fname,'r').readline().strip().split()).astype('int')
     if fmt==0:
        S.ns,S.ne,S.np,S.nvrt,S.nproc,S.ntracers=S.info[:6]
@@ -1197,7 +1197,7 @@ def read_schism_local_to_global(fname):
     lines=open(fname,'r').readlines()[2:]
 
     #get ne, np, ns, i34,elnode,
-    S=npz_data()
+    S=zdata()
     ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
     S.ielg=array([i.strip().split() for i in lines[1:(ne+1)]])[:,1].astype('int')-1
     S.iplg=array([i.strip().split() for i in lines[(ne+2):(ne+np+2)]])[:,1].astype('int')-1

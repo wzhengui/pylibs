@@ -102,7 +102,7 @@ else:
    sys.exit('wrong format of grid: {}'.format(grd)); sys.stdout.flush()
 
 #load bathymetry on each core
-S=npz_data(); S.dp=dict(); S.sind=dict()
+S=zdata(); S.dp=dict(); S.sind=dict()
 for m,fname in enumerate(fnames):
     bname=fname.split('.')[0]
 
@@ -117,7 +117,7 @@ for m,fname in enumerate(fnames):
     #save results
     S.dp[bname]=dpi; S.sind[bname]=sindi
     print('finished reading {},: {}, myrank={}'.format(fname,inum[m],myrank)); sys.stdout.flush()
-#save_npz('S_{}'.format(myrank),S)
+#savez('S_{}'.format(myrank),S)
 
 #gather results
 comm.Barrier()
@@ -125,7 +125,7 @@ sdata=comm.gather(S,root=0)
 
 if myrank==0:
    #combine
-   S=npz_data(); S.dp=dict(); S.sind=dict()
+   S=zdata(); S.dp=dict(); S.sind=dict()
    for i in arange(nproc):
        Si=sdata[i]
        S.dp={**S.dp,**Si.dp}
@@ -153,7 +153,7 @@ if myrank==0:
 
    #save grid
    if grdout.endswith('npz'): 
-      S=npz_data(); S.hgrid=gd; save_npz(grdout,S)
+      S=zdata(); S.hgrid=gd; savez(grdout,S)
    else:
       gd.write_hgrid(grdout)
    

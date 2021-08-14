@@ -80,7 +80,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
     levels=array(levels); fpz=(levels>=zmin)*(levels<=zmax); levels=sort(levels[fpz])
 
     #data capsule
-    S=npz_data(); S.levels=levels; S.xy=[[] for i in arange(len(levels))]
+    S=zdata(); S.levels=levels; S.xy=[[] for i in arange(len(levels))]
     if len(levels)==0: return S
 
     #divide domain
@@ -128,7 +128,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
     #write contours
     if fname is not None:
         for i,vi in enumerate(levels):
-            c=npz_data()
+            c=zdata()
             c.type='POLYLINE'
             c.xy=S.xy[i]
             c.prj=get_prj_file(prj)
@@ -165,7 +165,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         S=loadz(fname,svars=['lon','lat'])
         dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     elif fname.endswith('asc'):
-        S=npz_data();
+        S=zdata();
         #read *.asc data
         fid=open(fname,'r');
         ncols=int(fid.readline().strip().split()[1])
@@ -298,10 +298,10 @@ def convert_dem_format(fname,sname,fmt=0):
         if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2;
 
         #save data
-        S=npz_data()
+        S=zdata()
         S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
         S.elev=elev.astype('float32'); S.nodata=nodata
-        save_npz(sname,S)
+        savez(sname,S)
 
 def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
                         cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200,labels=None):
@@ -325,7 +325,7 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
     if ticks_R is None: ticks_R=array([*arange(0.1,1.0,0.1),0.95,0.99])
     if ticks_STD is None: ticks_STD=arange(0.5,5,0.5)
     if ticks_RMSD is None: ticks_RMSD=arange(0.5,5,0.5)
-    sm=std_max; S=npz_data()
+    sm=std_max; S=zdata()
 
     #plot axis R
     xi=linspace(0,sm,npt)
@@ -469,7 +469,7 @@ def find_continuous_sections(xi,dx):
         if diff(section_max)<diff(sii): section_max=sii
 
     #save results
-    S=npz_data();
+    S=zdata();
     S.sections=array(sections);
     S.section_max=array(section_max)
 
@@ -578,14 +578,14 @@ def get_xtick(fmt=0,xts=None,str=None):
     return [xts,xls]
 
 #-------loadz------------------------------------------------------------------
-class npz_data:
+class zdata:
     '''
     self-defined data structure by Zhengui Wang.  Attributes are used to store data
     '''
     def __init__(self):
         pass
 
-def save_npz(fname,data):
+def savez(fname,data):
     '''
     save data as self-defined "fname.npz" format
     '''
@@ -630,9 +630,9 @@ def loadz(fname,svars=None,med=1):
 
     #define output format
     if med==1:
-        zdata=npz_data();
+        vdata=zdata();
     else:
-        zdata2={}
+        vdata2={}
 
     #extract data, and VINFO is used to store data info
     VINFO=[]
@@ -651,9 +651,9 @@ def loadz(fname,svars=None,med=1):
 
         #output format
         if med==1:
-            exec('zdata.'+keyi+'=datai')
+            exec('vdata.'+keyi+'=datai')
         else:
-            zdata2[keyi]=datai
+            vdata2[keyi]=datai
 
         #gather information about datai
         vinfo=keyi+": "+type(datai).__name__
@@ -664,8 +664,8 @@ def loadz(fname,svars=None,med=1):
         VINFO.append(vinfo)
     VINFO=array(VINFO)
 
-    if med==1: zdata.VINFO=VINFO
-    return zdata if med==1 else zdata2
+    if med==1: vdata.VINFO=VINFO
+    return vdata if med==1 else vdata2
 
 def least_square_fit(X,Y):
     '''
@@ -715,7 +715,7 @@ def command_outputs(code,shell=True):
     if stdout!=None: stdout=stdout.decode('utf-8')
     if stderr!=None: stderr=stderr.decode('utf-8')
 
-    out=npz_data()
+    out=zdata()
     out.stdout=stdout
     out.stderr=stderr
     return out
@@ -1140,9 +1140,9 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
                 prj['epsg:{}'.format(prj_num)]=line
 
         # #save prj file as a database
-        # S=npz_data();
+        # S=zdata();
         # S.prj=prj
-        # save_npz('{}/prj'.format(bdir),S)
+        # savez('{}/prj'.format(bdir),S)
         return prj
     else:
         sys.exit('unknow fmt')
@@ -1222,7 +1222,7 @@ def get_stat(xi_model,xi_obs):
     x1=xi_model; x2=xi_obs
     mx1=mean(x1); mx2=mean(x2)
 
-    S=npz_data(); dx=x1-x2; std1=std(x1); std2=std(x2)
+    S=zdata(); dx=x1-x2; std1=std(x1); std2=std(x2)
     #---save data
     S.R=corrcoef(x1,x2)[0,1] #R
     S.ME=mean(dx)
@@ -1248,7 +1248,7 @@ def read_shapefile_data(fname):
     import shapefile as shp
     with shp.Reader(fname) as C:
         #----read shapefile----------------
-        S=npz_data();
+        S=zdata();
         S.nrec=C.numRecords
         S.type=C.shapeTypeName
 
@@ -1429,7 +1429,7 @@ def ReadNC(fname,fmt=0,order=0):
     read netcdf files, and return its values and attributes
         fname: file name
 
-        fmt=0: reorgnaized Dataset with format of npz_data
+        fmt=0: reorgnaized Dataset with format of zdata
         fmt=1: return netcdf.Dateset(fname)
         fmt=2: reorgnaized Dataset (*npz format), ignore attributes
 
@@ -1444,7 +1444,7 @@ def ReadNC(fname,fmt=0,order=0):
     if fmt==1:
         return C
     elif fmt in [0,2]:
-        F=npz_data();
+        F=zdata();
         F.file_format=C.file_format
 
         #read dims
@@ -1463,7 +1463,7 @@ def ReadNC(fname,fmt=0,order=0):
         #read variables
         for i in ncvars:
             if fmt==0:
-               fi=npz_data()
+               fi=zdata()
                dimi=C.variables[i].dimensions
                fi.dimname=dimi
                fi.dims=[C.dimensions[j].size for j in dimi]
@@ -1490,10 +1490,10 @@ def ReadNC(fname,fmt=0,order=0):
 
 def WriteNC(fname,data,fmt=0,order=0):
     '''
-    write npz_data to netcdf file
+    write zdata to netcdf file
         fname: file name
         data:  soure data
-        fmt=0, data has npz_data() format
+        fmt=0, data has zdata() format
         fmt=1, data has netcdf.Dataset format
         order=0: variable dimension order written not changed for python format
         order=1: variable dimension order written reversed follwoing in matlab/fortran format
@@ -1676,7 +1676,7 @@ def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
     #print([executable,fname,tidal_const,sname])
     subprocess.call([executable,fname,tidal_const,sname]) #HA
     fid=open(sname,'r'); lines=fid.readlines(); fid.close()
-    S=npz_data();
+    S=zdata();
     S.tidal_name=[]; S.amplitude=[]; S.phase=[]
     for line in lines:
         linei=line.split()
@@ -1718,12 +1718,12 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
        bxyz=c_[depi,lati,loni];
 
     #-----save data----------------
-    S=npz_data();
+    S=zdata();
     S.x=xyz[:,0]; S.y=xyz[:,1]
     if xyz.shape[1]==3: S.z=xyz[:,2]
 
     #---read Hycom data and interpolate onto boundary nodes------------------
-    p=npz_data();
+    p=zdata();
     for i in vind: #arange(len(Var)):
         vari=Var[i]; varnamei=VarName[i];
 
@@ -1994,7 +1994,7 @@ if __name__=="__main__":
 #     filt[N-(k+2)]=0.715
 
 #     #expand filter dimensions
-#     fstr=',None'*(len(ds)-1); s=npz_data()
+#     fstr=',None'*(len(ds)-1); s=zdata()
 #     exec('s.filt=filt[:{}]'.format(fstr))
 
 #     #remove high freqs
