@@ -92,6 +92,8 @@ class schism_grid:
 
            self.hg=hg; #show(block=False
            if not hasattr(self,'bp'): self.bp=schism_bpfile()
+           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           if 'query' not in ats: self.query_pt()
            return hg
         elif method==1:
            #creat polygon
@@ -221,6 +223,8 @@ class schism_grid:
         #show(block=False)
         self.hb=[hb1,hb2]
         if not hasattr(self,'bp'): self.bp=schism_bpfile()
+        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+        if 'query' not in ats: self.query_pt()
 
     def read_hgrid(self,fname,*args):
         with open(fname,'r') as fid:
@@ -776,6 +780,28 @@ class schism_grid:
         self.shp_elem.prj=get_prj_file(prjname)
         write_shapefile_data(fname,self.shp_elem)
 
+    def query_pt(self):
+        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+        abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
+        abp.triggered.connect(self.connect_actions)
+
+    def connect_actions(self):
+        self.cidquery=gcf().canvas.mpl_connect('button_press_event', self.onclick)    
+
+    def onclick(self,sp):
+        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+        if dlk==0 and btn==1: 
+           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
+           if hasattr(ac,'bp'): 
+              distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]                
+              pie,pip,pacor=self.compute_acor(c_[ac.bp.x[sid],ac.bp.y[sid]]); pzi=(self.dp[pip]*pacor).sum()
+              print('query: bp depth= {}'.format(pzi))
+        elif dlk==0 and btn==3:
+           pie,pip,pacor=self.compute_acor(c_[bx,by]); pzi=(self.dp[pip]*pacor).sum()
+           print('query: depth= {}'.format(pzi))
+        elif dlk==0 and btn==2:
+           gcf().canvas.mpl_disconnect(self.cidquery)
+
 class schism_grid_ll(schism_grid):
     def __init__(self):
         pass
@@ -925,7 +951,6 @@ class schism_bpfile:
                   for i in arange(nhp):
                       abp.bp.hp[-1][0].remove(); abp.bp.ht[-1].remove()
                       del abp.bp.hp[-1],abp.bp.ht[-1]
-                  print('clean ZG: {}, {}'.format(self.nsta,abp.bp.nsta))
                   #if hasattr(self,'cidpress'): gcf().canvas.mpl_disconnect(self.cidpress)
                   #if hasattr(self,'cidmove'): gcf().canvas.mpl_disconnect(self.cidmove)
                abp.triggered.disconnect()
