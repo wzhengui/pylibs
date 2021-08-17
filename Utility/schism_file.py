@@ -90,7 +90,8 @@ class schism_grid:
               #plot grid
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
-           self.hg=hg; #show(block=False)
+           self.hg=hg; #show(block=False
+           if not hasattr(self,'bp'): self.bp=schism_bpfile()
            return hg
         elif method==1:
            #creat polygon
@@ -219,6 +220,7 @@ class schism_grid:
         hb2=plot(bx2,by2,c[-1],lw=lw,**args)
         #show(block=False)
         self.hb=[hb1,hb2]
+        if not hasattr(self,'bp'): self.bp=schism_bpfile()
 
     def read_hgrid(self,fname,*args):
         with open(fname,'r') as fid:
@@ -310,7 +312,7 @@ class schism_grid:
         '''
         read schism prop, and return the values
         '''
-        pdata=loadtxt(fname); 
+        pdata=loadtxt(fname);
         pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
 
         return pvalue
@@ -808,7 +810,9 @@ class schism_bpfile:
         self.station=[]; self.hp=[]; self.ht=[]
         try:
             if mpl._pylab_helpers.Gcf.get_active() is not None:
-                abp=gcf().canvas.toolbar.addAction('bp'); abp.triggered.connect(self.edit_bp)
+                acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+                abp=acs[nonzero(ats=='bp')[0][0]] if 'bp' in ats else gcf().canvas.toolbar.addAction('bp')
+                abp.triggered.disconnect(); abp.triggered.connect(self.edit_bp)
         except:
             pass
 
@@ -939,13 +943,19 @@ class schism_bpfile:
         hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
 
     def remove_pt(self,x,y):
-        dist=abs((self.x-x)+1j*(self.y-y))
-        sind=nonzero(dist==min(dist))[0][0]; fp=setdiff1d(arange(self.nsta),sind)
-        self.nsta=self.nsta-1; self.x=self.x[fp]; self.y=self.y[fp]; self.z=self.z[fp]
-        self.station=array(self.station)[fp]
-        self.hp[sind][0].remove()
-        self.ht[sind].remove()
-        del self.hp[sind]; del self.ht[sind]
+        distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
+        color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
+        for i in arange(sid,self.nsta):
+            if i==self.nsta-1:
+               self.hp[-1][0].remove(); self.ht[-1].remove()
+               del self.hp[-1]; del self.ht[-1]
+            else:
+               xi=self.x[i+1]; yi=self.y[i+1]
+               self.x[i]=xi; self.y[i]=yi; self.station[i]='{}'.format(i+1)
+               self.hp[i][0].remove(); self.ht[i].remove()
+               hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[i]=hpi
+               hti=text(xi,yi,self.station[i],color=fc,fontsize=fs,fontweight=fw); self.ht[i]=hti
+        self.x=self.x[:-1]; self.y=self.y[:-1]; self.z=self.z[:-1]; self.station=self.station[:-1]; self.nsta=self.nsta-1
 
 def read_schism_hgrid(fname):
     #read_schism_hgrid(fname):
@@ -1148,10 +1158,10 @@ def getglob(dirpath='.',fmt=0):
     dirpath: run directory or outputs directory
     fmt=0: default is 0; fmt(!=0) are for eariler schism versions
     '''
-   
+
     rstr,bdir=srank(0,dirpath=dirpath,fmt=1)
     fname='{}/local_to_global_{}'.format(bdir,rstr) #local_to_global_0000 or local_to_global_000000
-    
+
     #get fname
     #if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
     #if (fname is None) and os.path.exists('local_to_global_000000'): fname='local_to_global_000000'
@@ -1173,17 +1183,17 @@ def srank(rank=0,dirpath='.',fmt=0):
     '''
     return string of schism rank number ('0032', or '000032')
     dirpath: run directory, or RUN*/outputs
-    fmt=0: return rank string; fmt=1: return rank string and the location dir. 
+    fmt=0: return rank string; fmt=1: return rank string and the location dir.
     '''
-    bdir=None;str_rank='' 
+    bdir=None;str_rank=''
 
     #old format with 4 digits
-    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank) 
-    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank) 
+    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
+    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
 
     #new format with 6 digits
-    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank) 
-    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank) 
+    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
+    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
 
     if fmt==0:
        return str_rank
@@ -1204,10 +1214,10 @@ def read_schism_local_to_global(fname):
     S.islg=array([i.strip().split() for i in lines[(ne+np+3):(ne+np+ns+3)]])[:,1].astype('int')-1
 
     #find line for np,ne
-    for i in arange(ne+np+ns+3,len(lines)): 
+    for i in arange(ne+np+ns+3,len(lines)):
         sline=lines[i].strip().split()
         if len(sline)!=2: continue
-        if int(sline[0])==np and int(sline[1])==ne: nd=i; break; 
+        if int(sline[0])==np and int(sline[1])==ne: nd=i; break;
 
     slines=array([i.strip().split() if len(i.split())==5 else [*i.strip().split(),'-1'] for i in lines[(nd+np+1):(nd+np+ne+1)]]).astype('int')
     i34=slines[:,0].astype('int'); elnode=slines[:,1:].astype('int')-1
