@@ -443,14 +443,14 @@ class schism_grid:
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self, ele2nd_fmt=0):
+    def compute_gradient(self, fmt=0):
         '''
         Compute gradient of gd.dp on each element first,
         then transfer to nodes with the following options
         "see details in interp_elem_to_node()":
-          ele2nd_fmt=0: simple avarage;
-          ele2nd_fmt=1: inverse distance;
-          ele2nd_fmt=2: maximum of surrounding nodal values.
+          fmt=0: simple avarage;
+          fmt=1: inverse distance;
+          fmt=2: maximum of surrounding nodal values.
         The default is (0) simple average
         '''
         if not hasattr(self,'area'): self.compute_area()
@@ -480,9 +480,9 @@ class schism_grid:
         self.dpedxy[fpn]=(self.dpedxy[fpn]+dpedxy2)/2
 
         #get node value------
-        self.dpdx=self.interp_elem_to_node(value=self.dpedx,fmt=ele2nd_fmt)
-        self.dpdy=self.interp_elem_to_node(value=self.dpedy,fmt=ele2nd_fmt)
-        self.dpdxy=self.interp_elem_to_node(value=self.dpedxy,fmt=ele2nd_fmt)
+        self.dpdx=self.interp_elem_to_node(value=self.dpedx,fmt=fmt)
+        self.dpdy=self.interp_elem_to_node(value=self.dpedy,fmt=fmt)
+        self.dpdxy=self.interp_elem_to_node(value=self.dpedxy,fmt=fmt)
 
         return self.dpdx,self.dpdy,self.dpdxy
 
@@ -843,14 +843,14 @@ class schism_grid:
         abp.triggered.connect(self.connect_actions)
 
     def connect_actions(self):
-        self.cidquery=gcf().canvas.mpl_connect('button_press_event', self.onclick)    
+        self.cidquery=gcf().canvas.mpl_connect('button_press_event', self.onclick)
 
     def onclick(self,sp):
         dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==0 and btn==1: 
+        if dlk==0 and btn==1:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
-           if hasattr(ac,'bp'): 
-              distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]                
+           if hasattr(ac,'bp'):
+              distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
               pie,pip,pacor=self.compute_acor(c_[ac.bp.x[sid],ac.bp.y[sid]]); pzi=(self.dp[pip]*pacor).sum()
               print('query: bp depth= {}'.format(pzi))
         elif dlk==0 and btn==3:
