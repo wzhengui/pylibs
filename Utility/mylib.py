@@ -614,10 +614,10 @@ def savez(fname,data):
     #print(save_str)
     exec(save_str)
 
-def loadz(fname,svars=None,med=1):
+def loadz(fname,svars=None,fmt=0):
     '''
     load self-defined data "fname"
-        med=1: return class format; med=2:return dict format
+        fmt=0: return class format; fmt=1: format to be defined
         svars: list of variables to be read
     '''
 
@@ -629,10 +629,7 @@ def loadz(fname,svars=None,med=1):
        keys0=svars
 
     #define output format
-    if med==1:
-        vdata=zdata();
-    else:
-        vdata2={}
+    vdata=zdata();
 
     #extract data, and VINFO is used to store data info
     VINFO=[]
@@ -650,10 +647,7 @@ def loadz(fname,svars=None,med=1):
               continue
 
         #output format
-        if med==1:
-            exec('vdata.'+keyi+'=datai')
-        else:
-            vdata2[keyi]=datai
+        exec('vdata.'+keyi+'=datai')
 
         #gather information about datai
         vinfo=keyi+": "+type(datai).__name__
@@ -664,8 +658,8 @@ def loadz(fname,svars=None,med=1):
         VINFO.append(vinfo)
     VINFO=array(VINFO)
 
-    if med==1: vdata.VINFO=VINFO
-    return vdata if med==1 else vdata2
+    vdata.VINFO=VINFO
+    return vdata 
 
 def least_square_fit(X,Y):
     '''
