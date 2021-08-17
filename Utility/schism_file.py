@@ -2,8 +2,48 @@
 from pylib import *
 
 class schism_grid:
-    def __init__(self):
-        pass
+    def __init__(self, fname=None):
+        '''
+        Initialize to empty instance if fname is not provided;
+        otherwise, read from three supported file format
+        '''
+        if fname is None:
+            pass
+        elif fname.endswith('gr3'):
+            self.read_hgrid(fname)
+        elif fname.endswith('pkl'):
+            with open(fname, "rb") as f:
+                data = pickle.load(f)
+                self.__dict__ = copy.deepcopy(data).__dict__.copy()
+        elif fname.endswith('npz'):
+            gd_npz = loadz(fname).hgrid
+            self.__dict__ = copy.deepcopy(gd_npz).__dict__.copy()
+        else:
+            raise Exception(f'hgrid file format {fname} not recognized')
+        self.source_file = fname
+
+    def savez(self, fname=None):
+        '''
+        Save to *.npz file
+        If the file name is not provided, then save to the same dir of
+        the source file (the file from which the current instance was read)
+        '''
+        if fname is None:
+            fname = f'{os.path.splitext(self.source_file)[0]}.npz'
+        S = npz_data()
+        S.hgrid = self
+        save_npz(fname, S)
+
+    def save_pkl(self, fname=None):
+        '''
+        Save to *.pkl file (which reads faster but consumes more disk space than npz)
+        If the file name is not provided, then save to the same dir of
+        the source file (the file from which the current instance was read)
+        '''
+        if fname is None:
+            fname = f'{os.path.splitext(self.source_file)[0]}.pkl'
+        with open(fname, 'wb') as outp:  # Overwrites any existing file.
+            pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
 
     def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
              lw=0.1,levels=None,ticks=None,clim=None,extend='both',cb=True,**args):
@@ -223,6 +263,9 @@ class schism_grid:
         if not hasattr(self,'bp'): self.bp=schism_bpfile()
 
     def read_hgrid(self,fname,*args):
+
+        self.source_file = fname  # attribute tracking the file originally read, mainly used for savez and save_pkl
+
         with open(fname,'r') as fid:
             lines=fid.readlines()
 
@@ -336,11 +379,12 @@ class schism_grid:
 
         return dpe
 
-    def interp_elem_to_node(self,value=None,method=0,p=1):
+    def interp_elem_to_node(self,value=None,fmt=0,p=1):
         '''
         interpolate element values to nodes
         if value not given, dpe is used
-        method=0: simple avarage; method=1: inverse distance (power=p)
+        fmt=0: simple avarage; fmt=1: inverse distance (power=p)
+        fmt=2: maximum of surrounding nodal values
         '''
         #-specify element values
         if value is None:
@@ -356,11 +400,15 @@ class schism_grid:
         v=[];
         for i in arange(self.np):
             ind=self.ine[i];
-            if method==0: #aveaging
+            if fmt==0: #aveaging
                 vi=sum(v0[ind])/self.nne[i];
-            else: #inverse distance
+            elif fmt==1: #inverse distance
                 W=1/((self.xctr[ind]-self.x[i])**2+(self.yctr[ind]-self.y[i])**2)**(p/2); #weight
                 vi=sum(W*v0[ind])/sum(W)
+            elif fmt==2: #maximum of surrounding nodal values
+                vi=max(v0[ind]);
+            else:
+                raise Exception(f'fmt: {fmt} undefined\n')
             v.append(vi)
         v=array(v)
         return v
@@ -391,7 +439,16 @@ class schism_grid:
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self):
+    def compute_gradient(self, ele2nd_fmt=0):
+        '''
+        Compute gradient of gd.dp on each element first,
+        then transfer to nodes with the following options
+        "see details in interp_elem_to_node()":
+          ele2nd_fmt=0: simple avarage;
+          ele2nd_fmt=1: inverse distance;
+          ele2nd_fmt=2: maximum of surrounding nodal values.
+        The default is (0) simple average
+        '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
         #get pts
@@ -419,9 +476,9 @@ class schism_grid:
         self.dpedxy[fpn]=(self.dpedxy[fpn]+dpedxy2)/2
 
         #get node value------
-        self.dpdx=self.interp_elem_to_node(value=self.dpedx)
-        self.dpdy=self.interp_elem_to_node(value=self.dpedy)
-        self.dpdxy=self.interp_elem_to_node(value=self.dpedxy)
+        self.dpdx=self.interp_elem_to_node(value=self.dpedx,fmt=ele2nd_fmt)
+        self.dpdy=self.interp_elem_to_node(value=self.dpedy,fmt=ele2nd_fmt)
+        self.dpdxy=self.interp_elem_to_node(value=self.dpedxy,fmt=ele2nd_fmt)
 
         return self.dpdx,self.dpdy,self.dpdxy
 

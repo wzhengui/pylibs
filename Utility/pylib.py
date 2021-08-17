@@ -63,6 +63,13 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    except:
       pass
 
+  #pickle
+   try:
+       import pickle
+       import copy
+   except:
+       pass
+
    #mpi4py
    try:
       from mpi4py import MPI
