@@ -154,57 +154,57 @@ class schism_grid:
            self.hg=hg; #show(block=False)
            return hg
 
-    def create_bnd(self,figsize=[8,9]):
+    #def create_bnd(self,figsize=[8,9]):
 
-        #compute xm and ym
-        xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y.max()]
-        dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
+    #    #compute xm and ym
+    #    xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y.max()]
+    #    dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
 
-        #add all bnd pts
-        self.binfo=zdata()
-        bind=[]; [bind.extend(i) for i in self.iobn]; [bind.extend(i) for i in self.ilbn]
-        self.binfo.bind=array(bind); self.binfo.x=self.x[self.binfo.bind]; self.binfo.y=self.y[self.binfo.bind]
-        self.binfo.obp=array([]).astype('int');  self.binfo.lbp=array([]).astype('int'); self.binfo.hp=[]
+    #    #add all bnd pts
+    #    self.binfo=zdata()
+    #    bind=[]; [bind.extend(i) for i in self.iobn]; [bind.extend(i) for i in self.ilbn]
+    #    self.binfo.bind=array(bind); self.binfo.x=self.x[self.binfo.bind]; self.binfo.y=self.y[self.binfo.bind]
+    #    self.binfo.obp=array([]).astype('int');  self.binfo.lbp=array([]).astype('int'); self.binfo.hp=[]
 
-        #plot grid
-        figure(figsize=[8,9])
-        ax0=axes([0.01,0.01,0.98,0.94])
-        self.plot_bnd(marker='.',ms=3,color='k')
-        setp(gca(),xticklabels=[],yticklabels=[],xlim=xm,ylim=ym)
-        move_figure(gcf(),0,0)
+    #    #plot grid
+    #    figure(figsize=[8,9])
+    #    ax0=axes([0.01,0.01,0.98,0.94])
+    #    self.plot_bnd(marker='.',ms=3,color='k')
+    #    setp(gca(),xticklabels=[],yticklabels=[],xlim=xm,ylim=ym)
+    #    move_figure(gcf(),0,0)
 
-        #add active buttion
-        def add_pt_open_bnd(*args,gd=self,ax=ax0):
+    #    #add active buttion
+    #    def add_pt_open_bnd(*args,gd=self,ax=ax0):
 
-            sca(ax)
-            while True:
-                xy0=ginput(1)
-                if len(xy0)==0:
-                    break
-                else:
-                    xi0,yi0=xy0[0]
+    #        sca(ax)
+    #        while True:
+    #            xy0=ginput(1)
+    #            if len(xy0)==0:
+    #                break
+    #            else:
+    #                xi0,yi0=xy0[0]
 
-                #find the nearest pts
-                dist=abs((gd.binfo.x-xi0)+1j*(gd.binfo.y-yi0)); sind=nonzero(dist==min(dist))[0][0]
-                sid=gd.binfo.bind[sind]; xi=gd.x[sid]; yi=gd.y[sid]
+    #            #find the nearest pts
+    #            dist=abs((gd.binfo.x-xi0)+1j*(gd.binfo.y-yi0)); sind=nonzero(dist==min(dist))[0][0]
+    #            sid=gd.binfo.bind[sind]; xi=gd.x[sid]; yi=gd.y[sid]
 
-                gd.binfo.obp=r_[gd.binfo.obp,sid]
+    #            gd.binfo.obp=r_[gd.binfo.obp,sid]
 
-                #plot pts
-                hp=plot(xi,yi,'r.',ms=6)
-                show(); gd.binfo.hp.append(hp[0])
+    #            #plot pts
+    #            hp=plot(xi,yi,'r.',ms=6)
+    #            show(); gd.binfo.hp.append(hp[0])
 
-        def remove_pt_open_bnd(*args,gd=self,ax=ax0):
-            if len(gd.binfo.obp)!=0:
-                gd.binfo.obp=gd.binfo.obp[:-1]
-                sca(ax); gd.binfo.hp[-1].remove(); gd.binfo.hp.pop()
+    #    def remove_pt_open_bnd(*args,gd=self,ax=ax0):
+    #        if len(gd.binfo.obp)!=0:
+    #            gd.binfo.obp=gd.binfo.obp[:-1]
+    #            sca(ax); gd.binfo.hp[-1].remove(); gd.binfo.hp.pop()
 
-        ax1=axes([0.02,0.96,0.2,0.03]); ax2=axes([0.7,0.96,0.25,0.03])
-        hb1=Button(ax1,'add open boundary',color='r'); hb1.on_clicked(add_pt_open_bnd)
-        hb2=Button(ax2,'remove boundary pts',color='gray'); hb2.on_clicked(remove_pt_open_bnd)
+    #    ax1=axes([0.02,0.96,0.2,0.03]); ax2=axes([0.7,0.96,0.25,0.03])
+    #    hb1=Button(ax1,'add open boundary',color='r'); hb1.on_clicked(add_pt_open_bnd)
+    #    hb2=Button(ax2,'remove boundary pts',color='gray'); hb2.on_clicked(remove_pt_open_bnd)
 
-        sca(ax0); self.ha=gca(); self.hb=[hb1,hb2]
-        return
+    #    sca(ax0); self.ha=gca(); self.hb=[hb1,hb2]
+    #    return
 
     def plot_bnd(self,c='k',lw=1,ax=None,**args):
         '''
@@ -876,27 +876,37 @@ class schism_grid:
         self.shp_elem.prj=get_prj_file(prjname)
         write_shapefile_data(fname,self.shp_elem)
 
+    def create_bnd(self,fmt=0):
+        '''
+        add function for create grid depth
+        '''
+        pass
+
     def query_pt(self):
+        '''
+        add function for querying depth
+        '''
+        def connect_actions():
+            self.cidquery=gcf().canvas.mpl_connect('button_press_event', onclick)
+
+        def onclick(sp):
+            dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+            if dlk==0 and btn==1:
+               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
+               if hasattr(ac,'bp'):
+                  if ac.bp.nsta==0: return
+                  distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
+                  pie,pip,pacor=self.compute_acor(c_[ac.bp.x[sid],ac.bp.y[sid]]); pzi=(self.dp[pip]*pacor).sum()
+                  print('query: bp depth= {}'.format(pzi))
+            elif dlk==0 and btn==3:
+               pie,pip,pacor=self.compute_acor(c_[bx,by]); pzi=(self.dp[pip]*pacor).sum()
+               print('query: depth= {}'.format(pzi))
+            elif dlk==0 and btn==2:
+               gcf().canvas.mpl_disconnect(self.cidquery)
+
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
-        abp.triggered.connect(self.connect_actions)
-
-    def connect_actions(self):
-        self.cidquery=gcf().canvas.mpl_connect('button_press_event', self.onclick)
-
-    def onclick(self,sp):
-        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==0 and btn==1:
-           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
-           if hasattr(ac,'bp'):
-              distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
-              pie,pip,pacor=self.compute_acor(c_[ac.bp.x[sid],ac.bp.y[sid]]); pzi=(self.dp[pip]*pacor).sum()
-              print('query: bp depth= {}'.format(pzi))
-        elif dlk==0 and btn==3:
-           pie,pip,pacor=self.compute_acor(c_[bx,by]); pzi=(self.dp[pip]*pacor).sum()
-           print('query: depth= {}'.format(pzi))
-        elif dlk==0 and btn==2:
-           gcf().canvas.mpl_disconnect(self.cidquery)
+        abp.triggered.connect(connect_actions)
 
 class schism_grid_ll(schism_grid):
     def __init__(self):
@@ -1036,6 +1046,74 @@ class schism_bpfile:
         return self.ie,self.ip,self.acor
 
     def edit(self):
+        def connect_actions():
+            self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', onmove)
+            self.cidpress=gcf().canvas.mpl_connect('button_press_event', onclick)
+            if self.nsta!=0 and len(self.hp)==0: self.plot_station()
+            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
+            if not ac.isChecked(): ac.trigger()
+            gcf().canvas.draw()
+            print('double click: left=add pt, right=remove pt; middle=finish edit')
+            print('single click: middle=move pt')
+
+        def onmove(sp):
+            if sp.button is not None:
+               dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+               if dlk==0 and btn==2: move_pt(bx,by)
+
+        def onclick(sp):
+            dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+            #double click
+            if dlk==1 and btn==1: add_pt(bx,by)
+            if dlk==1 and btn==3: remove_pt(bx,by)
+            if dlk==1 and btn==2:
+               gcf().canvas.mpl_disconnect(self.cidpress)
+               gcf().canvas.mpl_disconnect(self.cidmove)
+               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
+               if ac.isChecked(): ac.trigger()
+               gcf().canvas.draw()
+
+        def add_pt(x,y):
+            self.nsta=self.nsta+1; self.station=[*self.station,'{}'.format(self.nsta)]
+            self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,0.0]
+
+            #plot point
+            if len(self.hp)!=0:
+                hp=self.hp[-1][0]; ht=self.ht[-1]
+                color=hp.get_color(); mk=hp.get_marker(); ms=hp.get_markersize(); ls=hp.get_linestyle()
+                fs=ht.get_fontsize(); fw=ht.get_fontweight(); fc=ht.get_color()
+            else:
+                color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
+            hpi=plot(x,y,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp.append(hpi)
+            hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
+            gcf().canvas.draw()
+
+        def remove_pt(x,y):
+            if self.nsta==0: return
+            distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
+            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
+            for i in arange(sid,self.nsta):
+                if i==self.nsta-1:
+                   self.hp[-1][0].remove(); self.ht[-1].remove()
+                   del self.hp[-1]; del self.ht[-1]
+                else:
+                   xi=self.x[i+1]; yi=self.y[i+1]
+                   self.x[i]=xi; self.y[i]=yi; self.station[i]='{}'.format(i+1)
+                   self.hp[i][0].remove(); self.ht[i].remove()
+                   hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[i]=hpi
+                   hti=text(xi,yi,self.station[i],color=fc,fontsize=fs,fontweight=fw); self.ht[i]=hti
+            self.x=self.x[:-1]; self.y=self.y[:-1]; self.z=self.z[:-1]; self.station=self.station[:-1]; self.nsta=self.nsta-1
+            gcf().canvas.draw()
+
+        def move_pt(xi,yi):
+            distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
+            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
+            self.x[sid]=xi; self.y[sid]=yi
+            self.hp[sid][0].remove(); self.ht[sid].remove()
+            hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[sid]=hpi
+            hti=text(xi,yi,self.station[sid],color=fc,fontsize=fs,fontweight=fw); self.ht[sid]=hti
+            gcf().canvas.draw()
+
         if mpl._pylab_helpers.Gcf.get_active() is not None:
             acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
             abp=acs[nonzero(ats=='bp')[0][0]] if 'bp' in ats else gcf().canvas.toolbar.addAction('bp')
@@ -1047,80 +1125,11 @@ class schism_bpfile:
                   for i in arange(nhp):
                       abp.bp.hp[-1][0].remove(); abp.bp.ht[-1].remove()
                       del abp.bp.hp[-1],abp.bp.ht[-1]
-                  #if hasattr(self,'cidpress'): gcf().canvas.mpl_disconnect(self.cidpress)
-                  #if hasattr(self,'cidmove'): gcf().canvas.mpl_disconnect(self.cidmove)
                abp.triggered.disconnect()
 
             #connect to new object
-            abp.triggered.connect(self.connect_actions); abp.bp=self
+            abp.triggered.connect(connect_actions); abp.bp=self
             gcf().canvas.draw()
-
-    def connect_actions(self):
-        self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', self.onmove)
-        self.cidpress=gcf().canvas.mpl_connect('button_press_event', self.onclick)
-        if self.nsta!=0 and len(self.hp)==0: self.plot_station()
-        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-        if not ac.isChecked(): ac.trigger()
-        gcf().canvas.draw()
-        print('double click: left=add pt, right=remove pt; middle=finish edit')
-        print('single click: middle=move pt')
-
-    def onmove(self,sp):
-        if sp.button is not None:
-           dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-           if dlk==0 and btn==2: self.move_pt(bx,by)
-
-    def onclick(self,sp):
-        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        #double click
-        if dlk==1 and btn==1: self.add_pt(bx,by)
-        if dlk==1 and btn==3: self.remove_pt(bx,by)
-        if dlk==1 and btn==2:
-           gcf().canvas.mpl_disconnect(self.cidpress)
-           gcf().canvas.mpl_disconnect(self.cidmove)
-           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-           if ac.isChecked(): ac.trigger()
-           gcf().canvas.draw()
-
-    def add_pt(self,x,y):
-        self.nsta=self.nsta+1; self.station=[*self.station,'{}'.format(self.nsta)]
-        self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,0.0]
-
-        #plot point
-        if len(self.hp)!=0:
-            hp=self.hp[-1][0]; ht=self.ht[-1]
-            color=hp.get_color(); mk=hp.get_marker(); ms=hp.get_markersize(); ls=hp.get_linestyle()
-            fs=ht.get_fontsize(); fw=ht.get_fontweight(); fc=ht.get_color()
-        else:
-            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-        hpi=plot(x,y,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp.append(hpi)
-        hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
-        gcf().canvas.draw()
-
-    def remove_pt(self,x,y):
-        distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
-        color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-        for i in arange(sid,self.nsta):
-            if i==self.nsta-1:
-               self.hp[-1][0].remove(); self.ht[-1].remove()
-               del self.hp[-1]; del self.ht[-1]
-            else:
-               xi=self.x[i+1]; yi=self.y[i+1]
-               self.x[i]=xi; self.y[i]=yi; self.station[i]='{}'.format(i+1)
-               self.hp[i][0].remove(); self.ht[i].remove()
-               hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[i]=hpi
-               hti=text(xi,yi,self.station[i],color=fc,fontsize=fs,fontweight=fw); self.ht[i]=hti
-        self.x=self.x[:-1]; self.y=self.y[:-1]; self.z=self.z[:-1]; self.station=self.station[:-1]; self.nsta=self.nsta-1
-        gcf().canvas.draw()
-
-    def move_pt(self,xi,yi):
-        distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
-        color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-        self.x[sid]=xi; self.y[sid]=yi
-        self.hp[sid][0].remove(); self.ht[sid].remove()
-        hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[sid]=hpi
-        hti=text(xi,yi,self.station[sid],color=fc,fontsize=fs,fontweight=fw); self.ht[sid]=hti
-        gcf().canvas.draw()
 
 def read_schism_hgrid(fname):
     gd=schism_grid()
@@ -1322,13 +1331,6 @@ def getglob(dirpath='.',fmt=0):
 
     rstr,bdir=srank(0,dirpath=dirpath,fmt=1)
     fname='{}/local_to_global_{}'.format(bdir,rstr) #local_to_global_0000 or local_to_global_000000
-
-    #get fname
-    #if (fname is None) and os.path.exists('local_to_global_0000'): fname='local_to_global_0000'
-    #if (fname is None) and os.path.exists('local_to_global_000000'): fname='local_to_global_000000'
-    #if (fname is None) and os.path.exists('./outputs/local_to_global_0000'): fname='./outputs/local_to_global_0000'
-    #if (fname is None) and os.path.exists('./outputs/local_to_global_000000'): fname='./outputs/local_to_global_000000'
-    #if fname is None: sys.exit('fname unknown')
 
     #get info
     S=zdata()
