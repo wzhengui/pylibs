@@ -154,9 +154,6 @@ class schism_grid:
            self.hg=hg; #show(block=False)
            return hg
 
-    def compute_bnd(self):
-        pass
-
     def create_bnd(self,figsize=[8,9]):
 
         #compute xm and ym
@@ -277,7 +274,7 @@ class schism_grid:
         self.elnode=num[:,2:]-1
 
         #compute ns
-        self.compute_ns()
+        self.compute_side()
 
         if len(lines)<(4+self.np+self.ne):
             return
@@ -463,18 +460,60 @@ class schism_grid:
 
         return self.dpdx,self.dpdy,self.dpdxy
 
-    def compute_ns(self):
+    def compute_side(self,fmt=0):
         '''
-        compute number of hgrid sides
+        compute side information of schism's hgrid 
+        fmt=0: compute ns (# of sides) only; fmt=1: compute ns,isidenode and isdel
         '''
-        #collect sides
-        fp3=self.i34==3; fp4=self.i34==4; sind=array([[],[]]).astype('int').T
-        for i in arange(3): sind=r_[sind,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]
-        for i in arange(4): sind=r_[sind,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]
 
+        #collect sides
+        fp3=nonzero(self.i34==3)[0]; fp4=nonzero(self.i34==4)[0]; sis=array([[],[]]).astype('int').T; sie=array([]).astype('int')
+        for i in arange(3): sis=r_[sis,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]; sie=r_[sie,fp3]
+        for i in arange(4): sis=r_[sis,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]; sie=r_[sie,fp4]
+        
         #sort side
-        sind=sort(sind,axis=1).T; sid=unique(sind[0]+1j*sind[1]); self.ns=len(sid)
+        sis=sort(sis,axis=1).T; usis,sind=unique(sis[0]+1j*sis[1],return_inverse=True); self.ns=len(usis)
+
+        #compute isdel and isidenode
+        if fmt==1 and not hasattr(self,'isdel'): 
+           ps=[[] for i in arange(self.ns)];  t=[ps[i].append(k) for i,k in zip(arange(self.ns)[sind], sie)]
+           self.isdel=array([i if len(i)==2 else [*i,-1] for i in ps])
+           self.isidenode=c_[real(usis),imag(usis)].astype('int')
+
         return self.ns
+
+    def compute_bnd(self):
+        '''
+        compute boundary information
+        '''
+        if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+
+        #find boundary side and element
+        fpn=fp=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+        
+        #sort isn
+        i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
+        for i in arange(4):
+            if i==3:
+                i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
+                fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
+            else:
+                i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
+                fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])        
+
+        #compute all boundaries
+        sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
+        ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
+        while(sum(ifb)!=0):
+            #start points
+            id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ibni=[id0,id]
+            ifb[sinds[id0]]=0; ifb[sinds[id]]=0;
+            while True:
+                id=isn[sinds[id],1]; ifb[sinds[id]]=0
+                if(id==id0): break
+                ibni.append(id)
+            nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
+        self.nb=nb; self.nbn=array(nbn); self.ibn=array(ibn)
 
     def compute_node_ball(self):
         '''
