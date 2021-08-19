@@ -111,6 +111,7 @@ class schism_grid:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
+           if 'bnd' not in ats: self.create_bnd()
            return hg
         elif method==1:
            #creat polygon
@@ -154,59 +155,7 @@ class schism_grid:
            self.hg=hg; #show(block=False)
            return hg
 
-    #def create_bnd(self,figsize=[8,9]):
-
-    #    #compute xm and ym
-    #    xm=[self.x.min(),self.x.max()]; ym=[self.y.min(),self.y.max()]
-    #    dx,dy=0.01*diff(xm),0.01*diff(ym); xm=[xm[0]-dx,xm[1]+dx]; ym=[ym[0]-dy,ym[1]+dy]
-
-    #    #add all bnd pts
-    #    self.binfo=zdata()
-    #    bind=[]; [bind.extend(i) for i in self.iobn]; [bind.extend(i) for i in self.ilbn]
-    #    self.binfo.bind=array(bind); self.binfo.x=self.x[self.binfo.bind]; self.binfo.y=self.y[self.binfo.bind]
-    #    self.binfo.obp=array([]).astype('int');  self.binfo.lbp=array([]).astype('int'); self.binfo.hp=[]
-
-    #    #plot grid
-    #    figure(figsize=[8,9])
-    #    ax0=axes([0.01,0.01,0.98,0.94])
-    #    self.plot_bnd(marker='.',ms=3,color='k')
-    #    setp(gca(),xticklabels=[],yticklabels=[],xlim=xm,ylim=ym)
-    #    move_figure(gcf(),0,0)
-
-    #    #add active buttion
-    #    def add_pt_open_bnd(*args,gd=self,ax=ax0):
-
-    #        sca(ax)
-    #        while True:
-    #            xy0=ginput(1)
-    #            if len(xy0)==0:
-    #                break
-    #            else:
-    #                xi0,yi0=xy0[0]
-
-    #            #find the nearest pts
-    #            dist=abs((gd.binfo.x-xi0)+1j*(gd.binfo.y-yi0)); sind=nonzero(dist==min(dist))[0][0]
-    #            sid=gd.binfo.bind[sind]; xi=gd.x[sid]; yi=gd.y[sid]
-
-    #            gd.binfo.obp=r_[gd.binfo.obp,sid]
-
-    #            #plot pts
-    #            hp=plot(xi,yi,'r.',ms=6)
-    #            show(); gd.binfo.hp.append(hp[0])
-
-    #    def remove_pt_open_bnd(*args,gd=self,ax=ax0):
-    #        if len(gd.binfo.obp)!=0:
-    #            gd.binfo.obp=gd.binfo.obp[:-1]
-    #            sca(ax); gd.binfo.hp[-1].remove(); gd.binfo.hp.pop()
-
-    #    ax1=axes([0.02,0.96,0.2,0.03]); ax2=axes([0.7,0.96,0.25,0.03])
-    #    hb1=Button(ax1,'add open boundary',color='r'); hb1.on_clicked(add_pt_open_bnd)
-    #    hb2=Button(ax2,'remove boundary pts',color='gray'); hb2.on_clicked(remove_pt_open_bnd)
-
-    #    sca(ax0); self.ha=gca(); self.hb=[hb1,hb2]
-    #    return
-
-    def plot_bnd(self,c='k',lw=1,ax=None,**args):
+    def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
         '''
           plot schims grid boundary
 
@@ -215,7 +164,8 @@ class schism_grid:
 
         '''
         if ax!=None: sca(ax)
-        if len(c)==1: c=c*3
+        if len(c)==1: c=c*2
+        if not hasattr(self,'nob'): self.compute_bnd()
 
         #get indices for bnds
         sindo=[]
@@ -227,7 +177,10 @@ class schism_grid:
 
         sindl=[]
         for i in arange(self.nlb):
-            sindl=r_[sindl,-1,self.ilbn[i]]
+            if self.island[i]==0:
+               sindl=r_[sindl,-1,self.ilbn[i]]
+            else:
+               sindl=r_[sindl,-1,self.ilbn[i],self.ilbn[i][0]]
         sindl=array(sindl).astype('int'); fpn=sindl==-1
         bx2=self.x[sindl]; by2=self.y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
@@ -239,94 +192,49 @@ class schism_grid:
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         if 'bp' not in ats: self.bp=schism_bpfile()
         if 'query' not in ats: self.query_pt()
+        if 'bnd' not in ats: self.create_bnd()
 
     def read_hgrid(self,fname,*args):
+        #attribute tracking the file originally read, mainly used for savez and save_pkl
+        self.source_file = fname  
 
-        self.source_file = fname  # attribute tracking the file originally read, mainly used for savez and save_pkl
+        fid=open(fname,'r'); lines=fid.readlines(); fid.close()
 
-        with open(fname,'r') as fid:
-            lines=fid.readlines()
-
-        #read ne and np
-        num=array(lines[1].split()[0:2]).astype('int')
-        self.ne=num[0]; self.np=num[1]
-
-        #read lx,ly and dp
-        num=[]
-        for i in arange(self.np):
-            num.append(array(lines[2+i].split()[1:4]));
-        num=array(num).astype('float')
-        self.x=num[:,0]
-        self.y=num[:,1]
-        self.dp=num[:,2]
-
-        if len(lines)<(2+self.np+self.ne):
-            return
+        #read ne and np; lx,ly and dp
+        self.ne,self.np=array(lines[1].split()[0:2]).astype('int')
+        self.x,self.y,self.dp=array([i.split()[1:4] for i in lines[2:(2+self.np)]]).astype('float').T
+        if len(lines)<(2+self.np+self.ne): return
 
         #read elnode and i34
-        num=[]
-        for i in arange(self.ne):
-            num.append(lines[2+self.np+i].split())
-        num=array([s if len(s)==6 else [*s,'-1'] for s in num])
-        num=num.astype('int')
-
-        self.i34=num[:,1]
-        self.elnode=num[:,2:]-1
-
+        fdata=[i.strip().split() for i in lines[(2+self.np):(2+self.np+self.ne)]]
+        fdata=array([i if len(i)==6 else [*i,'-1'] for i in fdata]).astype('int')
+        self.i34=fdata[:,1]; self.elnode=fdata[:,2:]-1; fdata=None
+        
         #compute ns
         self.compute_side()
+        if len(lines)<(4+self.np+self.ne): return
 
-        if len(lines)<(4+self.np+self.ne):
-            return
-
-        #read obnd info
-        n=2+self.np+self.ne; num=array(lines[n].split()[0]).astype('int'); n=n+2;
-        self.nob=num
-
-        self.nobn=[];
-        self.iobn=[];
+        #read open bnd info
+        n=2+self.np+self.ne; self.nob=int(lines[n].strip().split()[0]); n=n+2; self.nobn=[]; self.iobn=[]
         for i in arange(self.nob):
-            num=array(lines[n].split()[0]).astype('int')
-            self.nobn.append(num)
-            num=[];
-            for m in arange(self.nobn[i]):
-                num.append(lines[n+m+1].split()[0])
-            self.iobn.append(array(num).astype('int')-1)
-            n=n+self.nobn[i]+1;
-        self.nobn=array(self.nobn);
-        self.iobn=array(self.iobn,dtype='O')
+            self.nobn.append(int(lines[n].strip().split()[0]))
+            self.iobn.append(array([int(lines[n+1+k].strip().split()[0])-1 for k in arange(self.nobn[-1])]))
+            n=n+1+self.nobn[-1]
+        self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
         if len(self.iobn)==1: self.iobn=self.iobn.astype('int')
 
-
-        #read lbnd info
-        num=array(lines[n].split()[0]).astype('int'); n=n+2;
-        self.nlb=num
-
-        self.nlbn=[];
-        self.ilbn=[];
-        self.island=[];
+        #read land bnd info
+        self.nlb=int(lines[n].strip().split()[0]); n=n+2; self.nlbn=[]; self.ilbn=[]; self.island=[]
         for i in arange(self.nlb):
-            #if 'island' in lines[n]:
-            #    self.island.append(1)
-            #else:
-            #    self.island.append(0)
-            num=array(lines[n].split()[0]).astype('int')
-            self.nlbn.append(num)
-            num=[];
-            for m in arange(self.nlbn[i]):
-                num.append(lines[n+m+1].split()[0])
-            self.ilbn.append(array(num).astype('int')-1)
+            sline=lines[n].split('=')[0].split(); self.nlbn.append(int(sline[0])); ibtype=0
+            self.ilbn.append(array([int(lines[n+1+k].strip().split()[0])-1 for k in arange(self.nlbn[-1])]))
+            n=n+1+self.nlbn[-1]
 
-            #update island flag method
-            if num[0]==num[-1]:
-                self.island.append(1)
-            else:
-                self.island.append(0)
-
-            n=n+self.nlbn[i]+1;
-        self.island=array(self.island);
-        self.nlbn=array(self.nlbn);
-        self.ilbn=array(self.ilbn,dtype='O');
+            #add bnd type info
+            if len(sline)==2: ibtype=int(sline[1])
+            if self.ilbn[-1][0]==self.ilbn[-1][-1]: ibtype=1
+            self.island.append(ibtype)
+        self.island=array(self.island); self.nlbn=array(self.nlbn); self.ilbn=array(self.ilbn,dtype='O');
         if len(self.ilbn)==1: self.ilbn=self.ilbn.astype('int')
 
     def read_prop(self,fname):
@@ -513,7 +421,18 @@ class schism_grid:
                 if(id==id0): break
                 ibni.append(id)
             nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
-        self.nb=nb; self.nbn=array(nbn); self.ibn=array(ibn)
+
+        #save boundary information
+        if not hasattr(self,'bndinfo'): self.bndinfo=zdata() 
+        ip=[]; sind=[]; S=self.bndinfo 
+        for m,ibni in enumerate(ibn): ip.extend(ibni); sind.extend(tile(m,len(ibni)))
+        ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip
+        S.nb=nb; S.nbn=array(nbn); S.ibn=array(ibn); S.x=self.x[ip]; S.y=self.y[ip]; 
+
+        #add to grid bnd info
+        if not hasattr(self,'nob'): 
+           self.nob=0; self.nobn=array([]); self.iobn=array([[]])
+           self.nlb=S.nb; self.nlbn=S.nbn; self.ilbn=S.ibn; self.island=ones(S.nb).astype('int')
 
     def compute_node_ball(self):
         '''
@@ -580,7 +499,7 @@ class schism_grid:
         with open(fname, 'wb') as outp:  # Overwrites any existing file.
             pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
 
-    def write_hgrid(self,fname,value=None,elnode=1,bndfile=None,Info=None):
+    def write_hgrid(self,fname,value=None,fmt=0,elnode=1,bndfile=None,Info=None):
         '''
         write *.gr3 file
             fname: file name
@@ -588,6 +507,7 @@ class schism_grid:
                    value=const: uniform value in space
                    value=dp[np]: specify depth value
                    value=None:  grid's default depth self.dp is used
+            fmt=0: output grid boundary info.; fmt=1: not output grid boundary info. 
             elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
@@ -601,6 +521,7 @@ class schism_grid:
               dp=value
            else:
               dp=ones(self.np)*value
+        if fmt==1: elnode=1
 
         #write *gr3
         with open(fname,'w+') as fid:
@@ -614,7 +535,35 @@ class schism_grid:
                     if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
 
             #write bnd information
+            if fmt==1 and bndfile is None: self.write_bnd(fid=fid) 
             if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
+    
+    def write_bnd(self,fname='grd.bnd',fid=None):
+        '''
+        write grid's boundary information
+            fname: name of boundary information 
+            fid: file handle
+        '''
+        if hasattr(self,'nob'): self.compute_bnd()
+        bid=open(fname,'w+') if fid is None else fid
+
+        #open bnd
+        bid.write('{} = Number of open boundaries\n'.format(self.nob))
+        bid.write('{} = Total number of open boundary nodes\n'.format(sum(self.nobn)))
+        for i in arange(self.nob):
+            bid.write('{} = Number of nodes for open boundary {}\n'.format(self.nobn[i],i+1)) 
+            bid.writelines(['{}\n'.format(k+1) for k in self.iobn[i]])
+
+        #land bnd
+        bid.write('{} = number of land boundaries\n'.format(self.nlb))
+        bid.write('{} = Total number of land boundary nodes\n'.format(sum(self.nlbn))); nln=sum(self.island==0)
+        for i in arange(self.nlb):
+            if self.island[i]==0:
+               bid.write('{} {} = Number of nodes for land boundary {}\n'.format(self.nlbn[i],self.island[i],i+1)) 
+            else:
+               bid.write('{} {} = Number of nodes for island boundary {}\n'.format(self.nlbn[i],self.island[i],i+1-nln)) 
+            bid.writelines(['{}\n'.format(k+1) for k in self.ilbn[i]])
+        if fid is not None: bid.close()
 
     def write_prop(self,fname='schism.prop',value=None,fmt='{:8.5f}'):
         '''
@@ -876,11 +825,106 @@ class schism_grid:
         self.shp_elem.prj=get_prj_file(prjname)
         write_shapefile_data(fname,self.shp_elem)
 
-    def create_bnd(self,fmt=0):
+    def create_bnd(self):
         '''
-        add function for create grid depth
+        create open and land boundaries for grid
         '''
-        pass
+        def connect_actions():
+            self.cidbnd=gcf().canvas.mpl_connect('button_press_event', onclick)
+            if not hasattr(S,'nb'): self.compute_bnd()
+            if not hasattr(S,'hb0'): S.hb0=[plot(self.x[r_[i,i[0]]],self.y[r_[i,i[0]]],'b',lw=0.5) for i in S.ibn] 
+            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
+            if not ac.isChecked(): ac.trigger()
+            gcf().canvas.draw()
+
+        def onclick(sp):
+            dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+            #double click
+            if dlk==1 and btn==1: add_pt(bx,by)
+            if dlk==1 and btn==3: remove_pt(bx,by)
+            if dlk==1 and btn==2:
+               if S.npt%2==1: print('open boundary needs to be defined'); return #don't allow finish
+              
+               #add a new land bnd to the end of the segment
+               if S.nlb<S.nob: 
+                  bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
+                  S.nlb=S.nlb+1; ibni=S.ibn[bid][pid:]; S.ilbn.append(ibni)
+                  hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+
+               #save boundary information
+               self.nob=S.nob; self.iobn=array(S.iobn); self.nobn=array([len(i) for i in self.iobn])
+               sid=setdiff1d(unique(S.sind),unique(array(S.bid)))
+               self.nlb=S.nlb+len(sid); self.ilbn=array([*S.ilbn,*[S.ibn[i] for i in sid]])
+               self.nlbn=array([len(i) for i in self.ilbn]); self.island=r_[tile(0,S.nlb),tile(1,len(sid))]
+
+               #finish
+               gcf().canvas.mpl_disconnect(self.cidbnd)
+               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
+               if ac.isChecked(): ac.trigger()
+               gcf().canvas.draw()
+
+        def add_pt(x,y):
+            distp=squeeze(abs((S.x-x)+1j*(S.y-y))); sid=nonzero(distp==distp.min())[0][0]
+            ip=S.ip[sid]; bid=S.sind[sid]; pid=nonzero(S.ibn[bid]==ip)[0][0]
+            if S.npt!=0: 
+               bid0=S.bid[-1]; pid0=nonzero(S.ibn[bid0]==S.pt[-1])[0][0]
+               if S.npt%2==1 and bid!=bid0: return  #two pts are not on the same boundary
+               if S.npt%2==1 and pid0>=pid: return  #the 2nd pt is ahead of the 1st pt
+            if bid not in S.bid: S.ibn[bid]=r_[S.ibn[bid][pid:],S.ibn[bid][:pid]] #reorder boundary points
+
+            #new bnd pt
+            S.pt.append(ip); S.bid.append(bid); S.npt=S.npt+1
+            hp=plot(self.x[ip],self.y[ip],'ro'); S.hp.append(hp) 
+
+            #new open bnd
+            if S.npt%2==0: 
+               S.nob=S.nob+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.iobn.append(ibni)
+               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hob.append(hob) 
+
+            #new land bnd
+            if S.npt>2 and S.npt%2==1 and bid0==bid:  
+               S.nlb=S.nlb+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.ilbn.append(ibni)
+               hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+
+            #add a new land bnd to the end of the segment
+            if S.npt>=2 and bid0!=bid:  
+               S.nlb=S.nlb+1; ibni=S.ibn[bid0][pid0:]; S.ilbn.append(ibni)
+               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb) 
+
+            if hasattr(S,'hpt'): S.hpt[0].remove(); del S.hpt
+            if S.npt>0: S.hpt=plot(self.x[array(S.pt)],self.y[array(S.pt)],'c*') 
+            gcf().canvas.draw()
+
+        def remove_pt(x,y):
+            if S.npt==0: return
+            bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
+          
+            #remove bnd pt
+            S.hp[-1][0].remove(); S.hp.pop(); S.pt.pop(); S.bid.pop(); S.npt=S.npt-1
+
+            #remove open bnd 
+            if S.npt%2==1: S.hob[-1][0].remove(); S.hob.pop(); S.nob=S.nob-1; S.iobn.pop()
+
+            #remove land bnd 
+            if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0): 
+               S.hlb[-1][0].remove(); S.hlb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
+            
+            if hasattr(S,'hpt'): S.hpt[0].remove(); del S.hpt
+            if S.npt>0: S.hpt=plot(self.x[array(S.pt)],self.y[array(S.pt)],'c*') 
+            gcf().canvas.draw()
+
+        #add bnd icon
+        if mpl._pylab_helpers.Gcf.get_active() is None: self.plot_grid()
+        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+        abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else gcf().canvas.toolbar.addAction('bnd')
+
+        #add bndinfo capsule
+        if not hasattr(self,'bndinfo'): self.bndinfo=zdata() 
+        S=self.bndinfo; S.hp=[]; S.hob=[]; S.hlb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
+
+        #connect to actions
+        abn.triggered.connect(connect_actions)
+        gcf().canvas.draw()
 
     def query_pt(self):
         '''
@@ -906,6 +950,7 @@ class schism_grid:
 
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
+        #if not abp.isCheckable(): abp.setCheckable(True)
         abp.triggered.connect(connect_actions)
 
 class schism_grid_ll(schism_grid):
@@ -1117,6 +1162,7 @@ class schism_bpfile:
         if mpl._pylab_helpers.Gcf.get_active() is not None:
             acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
             abp=acs[nonzero(ats=='bp')[0][0]] if 'bp' in ats else gcf().canvas.toolbar.addAction('bp')
+            #if not abp.isCheckable(): abp.setCheckable(True)
 
             #disconnect and clean previous bpfile
             if hasattr(abp,'bp'):
