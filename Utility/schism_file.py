@@ -953,34 +953,6 @@ class schism_grid:
         #if not abp.isCheckable(): abp.setCheckable(True)
         abp.triggered.connect(connect_actions)
 
-class schism_grid_ll(schism_grid):
-    def __init__(self):
-        pass
-
-    def read_hgrid(self,fname,gr3=None):
-        with open(fname,'r') as fid:
-            lines=fid.readlines()
-
-        #read ne and np
-        num=array(lines[1].split()[0:2]).astype('int')
-        self.ne=num[0]; self.np=num[1]
-
-        #read lx,ly and dp
-        num=[]
-        for i in arange(self.np):
-            num.append(array(lines[2+i].split()[1:4]));
-        num=array(num).astype('float')
-        self.x=num[:,0]
-        self.y=num[:,1]
-        self.dp=num[:,2]
-
-        #read parents' elnode and bndinfo
-        if gr3!=None:
-           pattrs=['i34','elnode','nob','nobn','iobn','nlb','nlbn','ilbn','island']
-           for pattr in pattrs:
-               if hasattr(gr3,pattr):
-                  exec('self.'+pattr+'=gr3.'+pattr)
-
 class schism_bpfile:
     def __init__(self):
         self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
@@ -1180,11 +1152,6 @@ class schism_bpfile:
 def read_schism_hgrid(fname):
     gd=schism_grid()
     gd.read_hgrid(fname)
-    return gd
-
-def read_schism_hgrid_ll(fname,gr3=None):
-    gd=schism_grid_ll()
-    gd.read_hgrid(fname,gr3)
     return gd
 
 def read_schism_bpfile(fname,fmt=0):
