@@ -19,7 +19,7 @@ class schism_grid:
             gd_npz = loadz(fname).hgrid
             self.__dict__ = copy.deepcopy(gd_npz).__dict__.copy()
         else:
-            raise Exception(f'hgrid file format {fname} not recognized')
+            raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
 
     def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
@@ -294,7 +294,7 @@ class schism_grid:
             elif fmt==2: #maximum of surrounding nodal values
                 vi=max(v0[ind]);
             else:
-                raise Exception(f'fmt: {fmt} undefined\n')
+                raise Exception('fmt: {} undefined\n'.format(fmt))
             v.append(vi)
         v=array(v)
         return v
@@ -490,7 +490,7 @@ class schism_grid:
         the source file (the file from which the current instance was read)
         '''
         if fname is None:
-            fname = f'{os.path.splitext(self.source_file)[0]}.npz'
+            fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
         S = zdata()
         S.hgrid = self
         save_npz(fname, S)
@@ -502,7 +502,7 @@ class schism_grid:
         the source file (the file from which the current instance was read)
         '''
         if fname is None:
-            fname = f'{os.path.splitext(self.source_file)[0]}.pkl'
+            fname = '{}.pkl'.format(os.path.splitext(self.source_file)[0])
         with open(fname, 'wb') as outp:  # Overwrites any existing file.
             pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
 
