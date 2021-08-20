@@ -394,6 +394,7 @@ class schism_grid:
         '''
         compute boundary information
         '''
+        print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
 
         #find boundary side and element
@@ -848,7 +849,7 @@ class schism_grid:
                #add a new land bnd to the end of the segment
                if S.nlb<S.nob: 
                   bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
-                  S.nlb=S.nlb+1; ibni=S.ibn[bid][pid:]; S.ilbn.append(ibni)
+                  S.nlb=S.nlb+1; ibni=r_[S.ibn[bid][pid:],S.ibn[bid][0]]; S.ilbn.append(ibni)
                   hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
 
                #save boundary information
@@ -888,11 +889,8 @@ class schism_grid:
 
             #add a new land bnd to the end of the segment
             if S.npt>=2 and bid0!=bid:  
-               S.nlb=S.nlb+1; ibni=S.ibn[bid0][pid0:]; S.ilbn.append(ibni)
+               S.nlb=S.nlb+1; ibni=r_[S.ibn[bid0][pid0:],S.ibn[bid0][0]]; S.ilbn.append(ibni)
                hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb) 
-
-            if hasattr(S,'hpt'): S.hpt[0].remove(); del S.hpt
-            if S.npt>0: S.hpt=plot(self.x[array(S.pt)],self.y[array(S.pt)],'c*') 
             gcf().canvas.draw()
 
         def remove_pt(x,y):
@@ -908,9 +906,6 @@ class schism_grid:
             #remove land bnd 
             if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0): 
                S.hlb[-1][0].remove(); S.hlb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
-            
-            if hasattr(S,'hpt'): S.hpt[0].remove(); del S.hpt
-            if S.npt>0: S.hpt=plot(self.x[array(S.pt)],self.y[array(S.pt)],'c*') 
             gcf().canvas.draw()
 
         #add bnd icon
