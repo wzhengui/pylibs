@@ -427,13 +427,19 @@ class schism_grid:
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata() 
         ip=[]; sind=[]; S=self.bndinfo 
         for m,ibni in enumerate(ibn): ip.extend(ibni); sind.extend(tile(m,len(ibni)))
-        ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip
-        S.nb=nb; S.nbn=array(nbn); S.ibn=array(ibn); S.x=self.x[ip]; S.y=self.y[ip]; 
+        ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip; S.island=ones(nb).astype('int')
+        S.nb=nb; S.nbn=array(nbn); S.ibn=array(ibn); S.x=self.x[ip]; S.y=self.y[ip]
+
+        #find the outline
+        for i in arange(nb):
+            px=self.x[S.ibn[i]]; i0=nonzero(px==px.min())[0][0]
+            sid=S.ibn[i][array([(i0-1)%S.nbn[i],i0,(i0+1)%S.nbn[i]])]
+            if signa(self.x[sid],self.y[sid])>0: S.island[i]=0; break
 
         #add to grid bnd info
         if not hasattr(self,'nob'): 
-           self.nob=0; self.nobn=array([]); self.iobn=array([[]])
-           self.nlb=S.nb; self.nlbn=S.nbn; self.ilbn=S.ibn; self.island=ones(S.nb).astype('int')
+           self.nob=0; self.nobn=array([]); self.iobn=array([[]]); sind=argsort(S.island)
+           self.nlb=S.nb; self.nlbn=S.nbn[sind]; self.ilbn=S.ibn[sind]; self.island=S.island[sind]
 
     def compute_node_ball(self):
         '''
@@ -508,7 +514,7 @@ class schism_grid:
                    value=const: uniform value in space
                    value=dp[np]: specify depth value
                    value=None:  grid's default depth self.dp is used
-            fmt=0: output grid boundary info.; fmt=1: not output grid boundary info. 
+            fmt=0: not output grid boundary info.; fmt=1: output grid boundary info. 
             elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
@@ -545,19 +551,19 @@ class schism_grid:
             fname: name of boundary information 
             fid: file handle
         '''
-        if hasattr(self,'nob'): self.compute_bnd()
+        if not hasattr(self,'nob'): self.compute_bnd()
         bid=open(fname,'w+') if fid is None else fid
 
         #open bnd
         bid.write('{} = Number of open boundaries\n'.format(self.nob))
-        bid.write('{} = Total number of open boundary nodes\n'.format(sum(self.nobn)))
+        bid.write('{} = Total number of open boundary nodes\n'.format(int(sum(self.nobn))))
         for i in arange(self.nob):
             bid.write('{} = Number of nodes for open boundary {}\n'.format(self.nobn[i],i+1)) 
             bid.writelines(['{}\n'.format(k+1) for k in self.iobn[i]])
 
         #land bnd
         bid.write('{} = number of land boundaries\n'.format(self.nlb))
-        bid.write('{} = Total number of land boundary nodes\n'.format(sum(self.nlbn))); nln=sum(self.island==0)
+        bid.write('{} = Total number of land boundary nodes\n'.format(int(sum(self.nlbn)))); nln=int(sum(self.island==0))
         for i in arange(self.nlb):
             if self.island[i]==0:
                bid.write('{} {} = Number of nodes for land boundary {}\n'.format(self.nlbn[i],self.island[i],i+1)) 
