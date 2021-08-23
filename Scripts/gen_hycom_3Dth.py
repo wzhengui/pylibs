@@ -31,7 +31,7 @@ gd=loadz(grd).hgrid; vd=loadz(grd).vgrid; gd.x,gd.y=gd.lon,gd.lat; nvrt=vd.nvrt
 
 #get bnd node xyz
 bind=gd.iobn[0]; nobn=gd.nobn[0]
-lxi0=gd.x[bind]; lyi0=gd.y[bind]; bxy=c_[lxi0,lyi0] #for 2D
+lxi0=gd.x[bind]%360; lyi0=gd.y[bind]; bxy=c_[lxi0,lyi0] #for 2D
 lxi=tile(lxi0,[nvrt,1]).T.ravel(); lyi=tile(lyi0,[nvrt,1]).T.ravel() #for 3D
 lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel();  bxyz=c_[lxi,lyi,lzi]
 #lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  bxyz=c_[lxi,lyi,lzi]
@@ -47,7 +47,7 @@ for n,sname in enumerate(snames):
     [exec('S.{}=[]'.format(i)) for i in mvar]
     for m,fname in enumerate(fnames):
         C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
-        ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=mod(array(C.variables['lon'][:])+360,360)-360
+        ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
         sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
 
         #get interp index
