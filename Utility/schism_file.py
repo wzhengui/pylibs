@@ -108,10 +108,11 @@ class schism_grid:
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
            self.hg=hg; #show(block=False
-           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-           if 'bp' not in ats: self.bp=schism_bpfile()
-           if 'query' not in ats: self.query_pt()
-           if 'bnd' not in ats: self.create_bnd()
+           if 'frontera' not in str(os.getenv('HOSTNAME')):
+              acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+              if 'bp' not in ats: self.bp=schism_bpfile()
+              if 'query' not in ats: self.query_pt()
+              if 'bnd' not in ats: self.create_bnd()
            return hg
         elif method==1:
            #creat polygon
@@ -189,10 +190,11 @@ class schism_grid:
         hb2=plot(bx2,by2,c[-1],lw=lw,**args)
         #show(block=False)
         self.hb=[hb1,hb2]
-        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-        if 'bp' not in ats: self.bp=schism_bpfile()
-        if 'query' not in ats: self.query_pt()
-        if 'bnd' not in ats: self.create_bnd()
+        if 'frontera' not in str(os.getenv('HOSTNAME')):
+           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'query' not in ats: self.query_pt()
+           if 'bnd' not in ats: self.create_bnd()
 
     def read_hgrid(self,fname,*args):
         #attribute tracking the file originally read, mainly used for savez and save_pkl

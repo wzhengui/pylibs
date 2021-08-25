@@ -17,10 +17,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #matplotlib
    import matplotlib as mpl
-   if os.getenv('HOSTNAME') is not None:
-      if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg')
-   if os.getenv('TACC_SYSTEM') is not None:
-      if 'frontera' in os.getenv('TACC_SYSTEM'): mpl.use('tkagg')
+   if 'frontera' in str(os.getenv('HOSTNAME')): mpl.use('tkagg')
+   if 'frontera' in str(os.getenv('TACC_SYSTEM')): mpl.use('tkagg')
    from matplotlib import pyplot as plt
    from matplotlib import cbook, mlab
    from matplotlib.dates import *
