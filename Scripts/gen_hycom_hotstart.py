@@ -33,7 +33,7 @@ lxi=gd.x%360; lyi=gd.y; lzi0=abs(vd.compute_zcor(gd.dp)).T
 C=ReadNC('{}/{}'.format(dir_hycom,fname),1); #print(fname)
 ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
 sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
-fpz=lzi0>sz.max(); lzi0[fpz]=sz.max()-1e-6
+fpz=lzi0>=sz.max(); lzi0[fpz]=sz.max()-1e-6
 
 #interp for ST
 S=zdata(); [exec('S.{}=[]'.format(i)) for i in mvars]
