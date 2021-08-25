@@ -27,12 +27,13 @@ gd=loadz(grd).hgrid; vd=loadz(grd).vgrid; gd.x,gd.y=gd.lon,gd.lat
 ne,np,ns,nvrt=gd.ne,gd.np,gd.ns,vd.nvrt
 
 #get node xyz
-lxi=mod(gd.x+360,360)-360; lyi=gd.y; lzi0=abs(vd.compute_zcor(gd.dp)).T
+lxi=gd.x%360; lyi=gd.y; lzi0=abs(vd.compute_zcor(gd.dp)).T
 
 #get hycom time, xyz
 C=ReadNC('{}/{}'.format(dir_hycom,fname),1); #print(fname)
-ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=mod(array(C.variables['lon'][:])+360,360)-360
+ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
 sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
+fpz=lzi0>sz.max(); lzi0[fpz]=sz.max()-1e-6
 
 #interp for ST
 S=zdata(); [exec('S.{}=[]'.format(i)) for i in mvars]

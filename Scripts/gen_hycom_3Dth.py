@@ -33,8 +33,11 @@ gd=loadz(grd).hgrid; vd=loadz(grd).vgrid; gd.x,gd.y=gd.lon,gd.lat; nvrt=vd.nvrt
 bind=gd.iobn[0]; nobn=gd.nobn[0]
 lxi0=gd.x[bind]%360; lyi0=gd.y[bind]; bxy=c_[lxi0,lyi0] #for 2D
 lxi=tile(lxi0,[nvrt,1]).T.ravel(); lyi=tile(lyi0,[nvrt,1]).T.ravel() #for 3D
-lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel();  bxyz=c_[lxi,lyi,lzi]
-#lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  bxyz=c_[lxi,lyi,lzi]
+if vd.ivcor==2:
+    lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel()
+else:
+    lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  
+bxyz=c_[lxi,lyi,lzi]
 sx0,sy0,sz0=None,None,None
 
 #for each variables
@@ -49,6 +52,7 @@ for n,sname in enumerate(snames):
         C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
         ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
         sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
+        fpz=lzi>=sz.max(); lzi[fpz]=sz.max()-1e-6;
 
         #get interp index
         if not array_equal(sx,sx0)*array_equal(sy,sy0)*array_equal(sz,sz0):
