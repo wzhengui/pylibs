@@ -19,7 +19,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import matplotlib as mpl
    if os.getenv('HOSTNAME') is not None:
       if 'frontera' in os.getenv('HOSTNAME'): mpl.use('tkagg')
-      if 'femto' in os.getenv('HOSTNAME'): mpl.use('tkagg')
    if os.getenv('TACC_SYSTEM') is not None:
       if 'frontera' in os.getenv('TACC_SYSTEM'): mpl.use('tkagg')
    from matplotlib import pyplot as plt
