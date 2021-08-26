@@ -603,6 +603,19 @@ class schism_grid:
         #write prop value
         fid=open(fname,'w+'); fid.writelines(fstr.format(*fval.ravel())); fid.close()
 
+    def grd2sms(self,fname='hgrid.2dm'):
+        '''
+          convert grid to *.2dm format and save
+        '''
+       
+        lines=[]; lines.append('MESH2D\n')
+        for i in arange(self.ne):
+            if self.i34[i]==3: lines.append('E3T {} {} {} {} 1\n'.format(i+1,*(self.elnode[i,:3]+1)))
+            if self.i34[i]==4: lines.append('E4Q {} {} {} {} {} 1\n'.format(i+1,*(self.elnode[i]+1)))
+        for i in arange(self.np):
+            lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
+        fid=open(fname,'w+'); fid.writelines(lines); fid.close()
+
     def split_quads(self,angle_min=60,angle_max=120,fname='new.gr3'):
         '''
         1). split the quads that have angle (<angle_min or >angle_max), add append the connectivity in the end
@@ -1428,62 +1441,52 @@ def write_schism_param(fname,param):
         for i in range(len(pkeys)):
            fid.write('{:10}= {:}\n'.format(pkeys[i],param[pkeys[i]]))
 
-def sms2gr3(fname_2dm,fname_gr3='new.gr3'):
-    #2dm to gr3 format: sms2gr3(fname_2dm,fname_gr3='new.gr3')
-    gd=schism_grid()
+def sms2grd(sms,grd=None):
+    '''
+      1). read SMS *2dm grid, and return grid object
+      2). if grd!=None, save grid as *gr3 format
+          e.g. gd=sms2gr3('hgrid.2dm','hgrid.gr3')
+    '''
 
     #read 2dm file
-    with open(fname_2dm,'r') as fid:
-        lines=fid.readlines()
-
-    # parse every line
-    import re
-    enum=[]; i34=[]; elnode=[];
-    pnum=[]; xyz=[];
-    for line in lines:
-        #---triangle--
-        m=re.match('^E3T (\d+) (\d+) (\d+) (\d+)',line)
-        if m!=None:
-            enum.append(m.groups()[0])
-            elnode.append([*m.groups()[1:],'-1'])
-            i34.append(3)
-            continue
-
-        #---quads--
-        m=re.match('^E4Q (\d+) (\d+) (\d+) (\d+) (\d+)',line)
-        if m!=None:
-            enum.append(m.groups()[0])
-            elnode.append(m.groups()[1:])
-            i34.append(4)
-            continue
-
-        #----node---
-        m=re.match('^ND (\d+) (.*)\n',line)
-        if m!=None:
-            pnum.append(m.groups()[0])
-            xyz.append(m.groups()[1].split())
-            continue
-
-    #str2num
-    enum=array(enum).astype('int')
-    i34=array(i34)
-    elnode=array(elnode).astype('int')-1
-    ind=argsort(enum)
-    enum=enum[ind]; i34=i34[ind]; elnode=elnode[ind,:]
-
-    pnum=array(pnum).astype('int')
-    xyz=array(xyz).astype('float64')
-    ind=argsort(pnum)
-    pnum=pnum[ind]; xyz=xyz[ind,:]
-
-    #assign grid attribute and write grid
-    gd.ne=len(enum); gd.np=len(pnum)
-    gd.i34=i34; gd.elnode=elnode;
-    gd.x=xyz[:,0]; gd.y=xyz[:,1];  gd.dp=xyz[:,2];
-
-    #write grid
-    gd.write_hgrid(fname_gr3);
+    fid=open(sms,'r'); lines=fid.readlines(); fid.close()
+    
+    #for traingle and quads elements
+    E3=array([ [*i.strip().split()[1:-1],'-1'] for i in lines if i.startswith('E3T')]).astype('int')
+    E4=array([i.strip().split()[1:-1] for i in lines if i.startswith('E4Q')]).astype('int')
+    E34=r_[E3,E4]; sind=argsort(E34[:,0]); E34=E34[sind]
+    
+    #for nodes
+    ND=array([i.strip().split()[1:] for i in lines if i.startswith('ND')]).astype('float')
+    sind=argsort(ND[:,0]); ND=ND[sind]
+    
+    #save grid information
+    gd=schism_grid(); gd.ne=E34.shape[0]; gd.np=ND.shape[0]
+    gd.elnode=E34[:,1:]-1; gd.x,gd.y,gd.dp=ND[:,1:].T
+    gd.i34=4*ones(gd.ne).astype('int'); fp3=E34[:,-1]==-1; gd.i34[fp3]=3
+    
+    if grd is not None: gd.write_hgrid(grd)
     return gd
+
+def grd2sms(grd,sms):
+    '''
+      convert schism hgrid to SMS *.2dm format
+      usage:
+           1). grd2sms('hgrid.gr3','hgrid.2dm')
+           2). grd2sms(gd,'hgrid.2dm'), or gd.grd2sms('hgrid.2dm')
+           note  gd=read_schism_hgrid('hgrid.gr3') 
+    '''
+
+    #read grid
+    if isinstance(grd,str):
+       gd=read_schism_hgrid(grd)
+    elif isinstance(grd,schism_grid):
+       gd=grd
+    else:
+       sys.exit('unknow format of grd: {}'.format(grd))
+
+    #save grid save *2dm format
+    gd.grd2sms(sms)
 
 if __name__=="__main__":
     pass
