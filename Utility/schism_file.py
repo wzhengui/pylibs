@@ -108,7 +108,7 @@ class schism_grid:
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
            self.hg=hg; #show(block=False
-           if 'frontera' not in str(os.getenv('HOSTNAME')):
+           if mpl.get_backend().lower() in ['qt5agg']:
               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
               if 'bp' not in ats: self.bp=schism_bpfile()
               if 'query' not in ats: self.query_pt()
@@ -190,7 +190,7 @@ class schism_grid:
         hb2=plot(bx2,by2,c[-1],lw=lw,**args)
         #show(block=False)
         self.hb=[hb1,hb2]
-        if 'frontera' not in str(os.getenv('HOSTNAME')):
+        if mpl.get_backend().lower() in ['qt5agg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
