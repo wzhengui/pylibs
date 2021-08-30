@@ -22,6 +22,7 @@ qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
 #qnode='haswell'; nnode=2; ppn=2    #viz3,haswell, ppn=24,or 28
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 
+#qnode='mistral'; nnode=5; ppn=36    #mistral, ppn=36
 qname='flex'                        #partition name (needed for frontera)
 
 scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
