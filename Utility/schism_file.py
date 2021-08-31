@@ -1182,8 +1182,11 @@ def save_schism_grid(fname='grid',path='.'):
     '''
     read and save path/{hgrid.gr3,vgrid.in}
     '''
-    gname='{}/hgrid.gr3'.format(path); vname='{}/vgrid.in'.format(path); S=zdata();
-    if os.path.exists(gname): S.hgrid=read_schism_hgrid(gname)
+    gname='{}/hgrid.gr3'.format(path); gname_ll='{}/hgrid.ll'.format(path)
+    vname='{}/vgrid.in'.format(path); S=zdata();
+    if os.path.exists(gname):
+       S.hgrid=read_schism_hgrid(gname)
+       if os.path.exists(gname_ll): gd=read_schism_hgrid(gname_ll); S.hgrid.lon,S.hgrid.lat=gd.x,gd.y
     if os.path.exists(vname): S.vgrid=read_schism_vgrid(vname)
     if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(gname,vname))
     savez(fname,S)
