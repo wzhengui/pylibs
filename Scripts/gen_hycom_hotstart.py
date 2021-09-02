@@ -69,40 +69,39 @@ for k in arange(nvrt):
 #------------------------------------------------------------------------------
 #creat netcdf
 #------------------------------------------------------------------------------
-nd=zdata()
+tr_nd=r_[S.temp[None,...],S.salt[None,...]].T; tr_el=tr_nd[gd.elnode[:,:3]].mean(axis=1)
+
+nd=zdata(); nd.file_format='NETCDF4'
 nd.dimname=['node','elem','side','nVert','ntracers','one']; nd.dims=[np,ne,ns,nvrt,2,1]
-nd.file_format='NETCDF4'
 
 #--time step, time, and time series----
 nd.vars=['time','iths','ifile','idry_e','idry_s','idry','eta2','we','tr_el',
-         'tr_nd','tr_nd0','su2','sv2','q2','xl','dfv','dfh','dfq1','dfq2']
-for i in nd.vars: exec('nd.{}=zdata(); nd.{}.attrs=[]'.format(i,i))
+  'tr_nd','tr_nd0','su2','sv2','q2','xl','dfv','dfh','dfq1','dfq2','nsteps_from_cold','cumsum_eta']
 
-nd.time.dimname=('one',);nd.time.val=array(0.0) #time
-nd.iths.dimname=('one',);nd.iths.val=array(0) #iths
-nd.ifile.dimname=('one',);nd.ifile.val=array(1) #ifile
+vi=zdata(); vi.dimname=('one',); vi.val=array(0.0); nd.time=vi 
+vi=zdata(); vi.dimname=('one',); vi.val=array(0).astype('int'); nd.iths=vi  
+vi=zdata(); vi.dimname=('one',); vi.val=array(1).astype('int'); nd.ifile=vi 
+vi=zdata(); vi.dimname=('one',); vi.val=array(0).astype('int'); nd.nsteps_from_cold=vi 
 
-nd.idry_e.dimname=('elem',);nd.idry_e.val=zeros(ne).astype('int32') #idry_e
-nd.idry_s.dimname=('side',);nd.idry_s.val=zeros(ns).astype('int32') #idry_s
-nd.idry.dimname=('node',);nd.idry.val=zeros(np).astype('int32') #idry
-nd.eta2.dimname=('node',);nd.eta2.val=zeros(np) #eta2
+vi=zdata(); vi.dimname=('elem',); vi.val=zeros(ne).astype('int32'); nd.idry_e=vi #idry_e
+vi=zdata(); vi.dimname=('side',); vi.val=zeros(ns).astype('int32'); nd.idry_s=vi #idry_s
+vi=zdata(); vi.dimname=('node',); vi.val=zeros(np).astype('int32'); nd.idry=vi   #idry
+vi=zdata(); vi.dimname=('node',); vi.val=zeros(np); nd.eta2=vi                   #eta2
+vi=zdata(); vi.dimname=('node',); vi.val=zeros(np); nd.cumsum_eta=vi             #cumsum_eta
 
-nd.we.dimname=('elem','nVert');nd.we.val=zeros([ne,nvrt]) #we
+vi=zdata(); vi.dimname=('elem','nVert'); vi.val=zeros([ne,nvrt]); nd.we=vi   #we
+vi=zdata(); vi.dimname=('side','nVert'); vi.val=zeros([ns,nvrt]); nd.su2=vi  #su2
+vi=zdata(); vi.dimname=('side','nVert'); vi.val=zeros([ns,nvrt]); nd.sv2=vi  #sv2
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.q2=vi   #q2
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.xl=vi   #xl
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.dfv=vi  #dfv
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.dfh=vi  #dfh
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.dfq1=vi #dfq1
+vi=zdata(); vi.dimname=('node','nVert'); vi.val=zeros([np,nvrt]); nd.dfq2=vi #dfq2
 
-nd.su2.dimname=('side','nVert');nd.su2.val=zeros([ns,nvrt]) #su2
-nd.sv2.dimname=('side','nVert');nd.sv2.val=zeros([ns,nvrt]) #sv2
-
-nd.q2.dimname=('node','nVert');nd.q2.val=zeros([np,nvrt]) #q2
-nd.xl.dimname=('node','nVert');nd.xl.val=zeros([np,nvrt]) #xl
-nd.dfv.dimname=('node','nVert');nd.dfv.val=zeros([np,nvrt]) #dfv
-nd.dfh.dimname=('node','nVert');nd.dfh.val=zeros([np,nvrt]) #dfh
-nd.dfq1.dimname=('node','nVert');nd.dfq1.val=zeros([np,nvrt]) #dfq1
-nd.dfq2.dimname=('node','nVert');nd.dfq2.val=zeros([np,nvrt]) #dfq2
-
-tr_nd=r_[S.temp[None,...],S.salt[None,...]].T; tr_el=tr_nd[gd.elnode[:,:3]].mean(axis=1)
-nd.tr_el.dimname=('elem','nVert','ntracers'); nd.tr_el.val=tr_el #tr_el
-nd.tr_nd.dimname=('node','nVert','ntracers'); nd.tr_nd.val=tr_nd #tr_nd
-nd.tr_nd0.dimname=('node','nVert','ntracers');nd.tr_nd0.val=tr_nd #tr_nd0
+vi=zdata(); vi.dimname=('elem','nVert','ntracers'); vi.val=tr_el; nd.tr_el=vi  #tr_el
+vi=zdata(); vi.dimname=('node','nVert','ntracers'); vi.val=tr_nd; nd.tr_nd=vi  #tr_nd
+vi=zdata(); vi.dimname=('node','nVert','ntracers'); vi.val=tr_nd; nd.tr_nd0=vi #tr_nd0
 
 WriteNC('hotstart.nc',nd)
 

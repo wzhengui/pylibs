@@ -1564,17 +1564,19 @@ def WriteNC(fname,data,fmt=0,order=0):
             for vari in data.vars:
                 vi=eval('data.{}'.format(vari));
                 vid=fid.createVariable(vari,vi.val.dtype,vi.dimname)
-                for j in vi.attrs:
-                    attri=eval('vi.{}'.format(j))
-                    vid.setncattr(j,attri)
+                if hasattr(vi,'attrs'):
+                   for j in vi.attrs:
+                       attri=eval('vi.{}'.format(j))
+                       vid.setncattr(j,attri)
                 fid.variables[vari][:]=vi.val
         elif order==1:
             for vari in data.vars:
                 vi=eval('data.{}'.format(vari));
                 vid=fid.createVariable(vari,vi.val.dtype,flipud(vi.dimname))
-                for j in vi.attrs:
-                    attri=eval('vi.{}'.format(j))
-                    vid.setncattr(j,attri)
+                if hasattr(vi,'attrs'):
+                   for j in vi.attrs:
+                       attri=eval('vi.{}'.format(j))
+                       vid.setncattr(j,attri)
                 if ndim(vi.val)>=2:
                     nm=flipud(arange(ndim(vi.val)));
                     fid.variables[vari][:]=vi.val.transpose(nm)
