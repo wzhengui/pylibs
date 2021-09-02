@@ -25,8 +25,8 @@ nsinks=int(lines[2+nsources].split()[0]); isink=array([int(i) for i in lines[(ns
 #vsource.th and msource.th
 if nsources>0: 
    #read data
-   fdata=loadtxt('{}/msource.th'.format(sdir)).T; mti=fdata[0]; msource=fdata[1:].astype('float32')
-   fdata=loadtxt('{}/vsource.th'.format(sdir)).T; vti=fdata[0]; vsource=fdata[1:].astype('float32')
+   fdata=loadtxt('{}/msource.th'.format(sdir)).T; mti=fdata[0]; msource=fdata[1:]
+   fdata=loadtxt('{}/vsource.th'.format(sdir)).T; vti=fdata[0]; vsource=fdata[1:]
    ntm=len(mti); ntv=len(vti); dtm=floor(diff(mti)[0]); dtv=floor(diff(vti)[0]); ntracers=int(len(msource)/len(vsource))
    vsource=vsource.T;  msource=msource.reshape([ntracers,nsources,len(mti)]).transpose([2,0,1])
    
@@ -37,14 +37,14 @@ if nsources>0:
    vi=zdata(); vi.dimname=('time_msource','ntracers','nsources'); vi.val=msource; C.msource=vi
    
    #not needed
-   C.vars.extend(['time_msource','time_vsource',])
-   vi=zdata(); vi.dimname=('time_msource',); vi.val=mti; C.time_msource=vi
-   vi=zdata(); vi.dimname=('time_vsource',); vi.val=vti; C.time_vsource=vi
+   #C.vars.extend(['time_msource','time_vsource',])
+   #vi=zdata(); vi.dimname=('time_msource',); vi.val=mti; C.time_msource=vi
+   #vi=zdata(); vi.dimname=('time_vsource',); vi.val=vti; C.time_vsource=vi
 
 #vsink.th
 if nsinks>0: 
    #read data
-   fdata=loadtxt('{}/vsink.th'.format(sdir)).T; sti=fdata[0]; vsink=fdata[1:].astype('float32').T
+   fdata=loadtxt('{}/vsink.th'.format(sdir)).T; sti=fdata[0]; vsink=fdata[1:].T
    nts=len(sti); dts=floor(diff(sti)[0])
 
    #save data
@@ -53,8 +53,8 @@ if nsinks>0:
    vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink; C.vsink=vi
 
    #not needed
-   C.vars.extend(['time_vsink',])
-   vi=zdata(); vi.dimname=('time_vsink',); vi.val=sti; C.time_vsink=vi
+   #C.vars.extend(['time_vsink',])
+   #vi=zdata(); vi.dimname=('time_vsink',); vi.val=sti; C.time_vsink=vi
 
 #assign dimension value
 C.dimname=['nsources','nsinks','ntracers','time_msource','time_vsource','time_vsink','one']
