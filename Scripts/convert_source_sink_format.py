@@ -27,14 +27,14 @@ if nsources>0:
    #read data
    fdata=loadtxt('{}/msource.th'.format(sdir)).T; mti=fdata[0]; msource=fdata[1:].astype('float32')
    fdata=loadtxt('{}/vsource.th'.format(sdir)).T; vti=fdata[0]; vsource=fdata[1:].astype('float32')
-   ntm=len(mti); ntv=len(vti); dtm=floor(diff(mti)[0]); dtv=floor(diff(vti)[0])
-   ntracers=int(len(msource)/len(vsource)); msource=msource.reshape([ntracers,nsources,len(mti)]).transpose([1,0,2])
+   ntm=len(mti); ntv=len(vti); dtm=floor(diff(mti)[0]); dtv=floor(diff(vti)[0]); ntracers=int(len(msource)/len(vsource))
+   vsource=vsource.T;  msource=msource.reshape([ntracers,nsources,len(mti)]).transpose([2,0,1])
    
    #save data
    C.vars.extend(['source_elem','vsource','msource'])
    vi=zdata(); vi.dimname=('nsources',); vi.val=isource; C.source_elem=vi
-   vi=zdata(); vi.dimname=('nsources','time_vsource'); vi.val=vsource; C.vsource=vi
-   vi=zdata(); vi.dimname=('nsources','ntracers','time_msource'); vi.val=msource; C.msource=vi
+   vi=zdata(); vi.dimname=('time_vsource','nsources'); vi.val=vsource; C.vsource=vi
+   vi=zdata(); vi.dimname=('time_msource','ntracers','nsources'); vi.val=msource; C.msource=vi
    
    #not needed
    C.vars.extend(['time_msource','time_vsource',])
@@ -44,13 +44,13 @@ if nsources>0:
 #vsink.th
 if nsinks>0: 
    #read data
-   fdata=loadtxt('{}/vsink.th'.format(sdir)).T; sti=fdata[0]; vsink=fdata[1:].astype('float32')
+   fdata=loadtxt('{}/vsink.th'.format(sdir)).T; sti=fdata[0]; vsink=fdata[1:].astype('float32').T
    nts=len(sti); dts=floor(diff(sti)[0])
 
    #save data
    C.vars.extend(['sink_elem','vsink'])
    vi=zdata(); vi.dimname=('nsinks',); vi.val=isink; C.sink_elem=vi
-   vi=zdata(); vi.dimname=('nsinks','time_vsink'); vi.val=vsink; C.vsink=vi
+   vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink; C.vsink=vi
 
    #not needed
    C.vars.extend(['time_vsink',])
