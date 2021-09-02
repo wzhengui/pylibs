@@ -65,6 +65,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    try:
        import pickle
        import copy
+       from copy import deepcopy as dcopy
    except:
        pass
 
