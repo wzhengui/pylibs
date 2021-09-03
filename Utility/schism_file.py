@@ -11,13 +11,8 @@ class schism_grid:
             pass
         elif fname.endswith('gr3') or fname.endswith('.ll'):
             self.read_hgrid(fname)
-        elif fname.endswith('pkl'):
-            with open(fname, "rb") as f:
-                data = pickle.load(f)
-                self.__dict__ = copy.deepcopy(data).__dict__.copy()
-        elif fname.endswith('npz'):
-            gd_npz = loadz(fname).hgrid
-            self.__dict__ = copy.deepcopy(gd_npz).__dict__.copy()
+        elif fname.endswith('.pkl') or fname.endswith('.npz'):
+            self.__dict__=loadz(fname).hgrid.__dict__.copy()
         else:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
@@ -485,7 +480,7 @@ class schism_grid:
         dpi=(self.dp[ip]*acor).sum(axis=1)
         return dpi
 
-    def savez(self, fname=None):
+    def save(self, fname=None,fmt=0):
         '''
         Save to *.npz file
         If the file name is not provided, then save to the same dir of

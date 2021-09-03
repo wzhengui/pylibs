@@ -589,80 +589,98 @@ class zdata:
     def __init__(self):
         pass
 
-def savez(fname,data):
+def savez(fname,data,fmt=0):
     '''
-    save data as self-defined "fname.npz" format
-    '''
-
-    #get all attribute
-    svars=list(data.__dict__.keys())
-    if 'VINFO' in svars: svars.remove('VINFO')
-
-    #check whether there are functions. If yes, change function to string
-    rvars=[]
-    for vari in svars:
-        if hasattr(data.__dict__[vari], '__call__'):
-           import cloudpickle
-           try:
-              data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
-           except:
-              print('function {} not saved'.format(vari))
-              rvars.append(vari)
-    svars=setdiff1d(svars,rvars)
-
-    #constrcut save_string
-    save_str='savez_compressed("{}" '.format(fname)
-    for vari in svars:
-        save_str=save_str+',{}=data.{}'.format(vari,vari)
-    save_str=save_str+')'
-    #print(save_str)
-    exec(save_str)
-
-def loadz(fname,svars=None,fmt=0):
-    '''
-    load self-defined data "fname"
-        fmt=0: return class format; fmt=1: format to be defined
-        svars: list of variables to be read
+    save data as self-defined python format
+       fmt=0: save data as *.npz
+       fmt=1: save data as *.pkl
     '''
 
-    #get data info
-    data0=load(fname,allow_pickle=True)
-    if svars==None:
-       keys0=data0.keys()
+    #determine format
+    if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
+    if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
+    if fmt==1: fname=fname+'.pkl'
+
+    #save data
+    if fmt==0:
+       #get all attribute
+       svars=list(data.__dict__.keys())
+       if 'VINFO' in svars: svars.remove('VINFO')
+
+       #check whether there are functions. If yes, change function to string
+       rvars=[]
+       for vari in svars:
+           if hasattr(data.__dict__[vari], '__call__'):
+              import cloudpickle
+              try:
+                 data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
+              except:
+                 print('function {} not saved'.format(vari))
+                 rvars.append(vari)
+       svars=setdiff1d(svars,rvars)
+
+       #constrcut save_string
+       save_str='savez_compressed("{}" '.format(fname)
+       for vari in svars: save_str=save_str+',{}=data.{}'.format(vari,vari)
+       save_str=save_str+')';  exec(save_str)
+    elif fmt==1:
+       if hasattr(data,'VINFO'): del data.VINFO
+       fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
+
+def loadz(fname,svars=None):
+    '''
+    load self-defined data "fname.npz" or "fname.pkl"
+         svars: list of variables to be read
+    '''
+
+    if fname.endswith('.npz'):
+       #get data info
+       data0=load(fname,allow_pickle=True)
+       keys0=data0.keys() if svars is None else svars
+
+       #extract data, and VINFO is used to store data info
+       vdata=zdata();  VINFO=[]
+       for keyi in keys0:
+           datai=data0[keyi];
+           #if value is a object
+           if datai.dtype==dtype('O'): datai=datai[()]
+
+           #if value is a function
+           if 'cloudpickle.cloudpickle' in str(datai):
+              import pickle
+              try:
+                 datai=pickle.loads(datai)
+              except:
+                 continue
+
+           #output format
+           exec('vdata.'+keyi+'=datai')
+           ##gather information about datai
+           #vinfo=keyi+": "+type(datai).__name__
+           #if isinstance(datai,list):
+           #    vinfo=vinfo+'('+str(len(datai))+'), '
+           #elif isinstance(datai,np.ndarray):
+           #    vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
+           #VINFO.append(vinfo)
+       #vdata.VINFO=array(VINFO)
+    elif fname.endswith('.pkl'):
+       import pickle
+       vdata=zdata(); fid=open(fname,'rb')
+       data=pickle.load(fid)
+       vdata.__dict__=dcopy(data).__dict__.copy()
+       fid.close()
     else:
-       keys0=svars
+       sys.exit('unknown format: {}'.format(fname))
 
-    #define output format
-    vdata=zdata();
+    #gather vdata information
+    fs=[]
+    for i in vdata.__dict__.keys():
+        vi=vdata.__dict__[i]; f0='{}: '.format(i)
+        f1='{}({})'.format(str(type(vi)),len(vi)) if hasattr(vi,'__len__') else '{}'.format(type(vi))
+        f2=' ,dtype={}'.format(str(vi.dtype)) if hasattr(vi,'dtype') else ''
+        fs.append(f0+f1+f2)
+    vdata.VINFO=array(fs)
 
-    #extract data, and VINFO is used to store data info
-    VINFO=[]
-    for keyi in keys0:
-        datai=data0[keyi];
-        #if value is a object
-        if datai.dtype==dtype('O'): datai=datai[()]
-
-        #if value is a function
-        if 'cloudpickle.cloudpickle' in str(datai):
-           import pickle
-           try:
-              datai=pickle.loads(datai)
-           except:
-              continue
-
-        #output format
-        exec('vdata.'+keyi+'=datai')
-
-        #gather information about datai
-        vinfo=keyi+": "+type(datai).__name__
-        if isinstance(datai,list):
-            vinfo=vinfo+'('+str(len(datai))+'), '
-        elif isinstance(datai,np.ndarray):
-            vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
-        VINFO.append(vinfo)
-    VINFO=array(VINFO)
-
-    vdata.VINFO=VINFO
     return vdata 
 
 def least_square_fit(X,Y):
