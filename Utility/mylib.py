@@ -592,8 +592,9 @@ class zdata:
 def savez(fname,data,fmt=0):
     '''
     save data as self-defined python format
-       fmt=0: save data as *.npz
-       fmt=1: save data as *.pkl
+       fmt=0: save data as *.npz (small filesize, reads slower)
+       fmt=1: save data as *.pkl (large filesize, reads faster)
+    if fname endswith *.npz or *.pkl, then fmt is reset to match fname
     '''
 
     #determine format

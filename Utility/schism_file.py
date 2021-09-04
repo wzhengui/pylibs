@@ -480,28 +480,19 @@ class schism_grid:
         dpi=(self.dp[ip]*acor).sum(axis=1)
         return dpi
 
-    def save(self, fname=None,fmt=0):
+    def save(self, fname=None,**args):
         '''
-        Save to *.npz file
-        If the file name is not provided, then save to the same dir of
-        the source file (the file from which the current instance was read)
+        save hgrid as (*.npz, *.pkl, *.gr3, or .ll)
+          examples:
+                 1). gd.save('grid.npz') or gd.save('grid')
+                 2). gd.save('grid.pkl')
+                 3). gd.save('hgrid.gr3') or gd.save('hgrid.ll')
         '''
-        if fname is None:
-            fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
-        S = zdata()
-        S.hgrid = self
-        save_npz(fname, S)
-
-    def save_pkl(self, fname=None):
-        '''
-        Save to *.pkl file (which reads faster but consumes more disk space than npz)
-        If the file name is not provided, then save to the same dir of
-        the source file (the file from which the current instance was read)
-        '''
-        if fname is None:
-            fname = '{}.pkl'.format(os.path.splitext(self.source_file)[0])
-        with open(fname, 'wb') as outp:  # Overwrites any existing file.
-            pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+        if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
+        if fname.endswith('.gr3') or fname.endswith('.ll'):
+           self.write_hgrid(fname,**args)
+        else:
+           s=zdata(); s.hgrid=self; savez(fname,s,**args)
 
     def write_hgrid(self,fname,value=None,fmt=0,elnode=1,bndfile=None,Info=None):
         '''
