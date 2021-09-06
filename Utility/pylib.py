@@ -80,15 +80,15 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    try:
       import urllib
       from urllib.request import urlretrieve as urlsave
-      #import ssl
-      #try:
-      #    _create_unverified_https_context = ssl._create_unverified_context
-      #except AttributeError:
-      #    # Legacy Python that doesn't verify HTTPS certificates by default
-      #    pass
-      #else:
-      #    # Handle target environment that doesn't support HTTPS verification
-      #    ssl._create_default_https_context = _create_unverified_https_context
+      import ssl
+      try:
+          _create_unverified_https_context = ssl._create_unverified_context
+      except AttributeError:
+          # Legacy Python that doesn't verify HTTPS certificates by default
+          pass
+      else:
+          # Handle target environment that doesn't support HTTPS verification
+          ssl._create_default_https_context = _create_unverified_https_context
    except:
       pass
 
@@ -109,7 +109,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    import mylib
    from mylib import (get_xtick,close_data_loop,datenum,
-        loadz,zdata,savez,find_continuous_sections,
+        loadz,zdata,savez,find_continuous_sections,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,

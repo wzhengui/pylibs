@@ -1206,25 +1206,34 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
 #    fid.close()
 #    os.chdir(cdir)
 #
-##convert mat to npz
-#def convert_matfile(fnz,fnv7):
-#    fc=np.vectorize(lambda x: x[0])
-#    C=sp.io.loadmat(fnv7+'.mat')
-#    vn=C.keys();
-#
-#    iflag=0;Y={};
-#    for vni in vn:
-#        if vni[:2]=='__':
-#            continue
-#        Ci=C[vni];
-#        if issubdtype(Ci.dtype,np.number):
-#            Yi=Ci.copy();
-#        else:
-#            Yi=fc(Ci)
-#        if vni=='Doy' or vni=='doy':
-#            Yi=Yi-366;
-#        Y[vni]=Yi
-#    savez_compressed(fnz,**Y)
+
+#convert MATLAB matfile to zdata
+def convert_matfile(name_matfile,name_save=None):
+    '''
+    convert MATLAB file to zdata
+      examples: 
+           1. convert_matfile('wqdata.mat')
+           2. convert_matfile('wqdata')
+           3. convert_matfile('wqdata','sfdata')
+    '''
+    from scipy import io
+
+    #check name
+    if name_matfile.endswith('.mat'): name_matfile[:-4]
+    if name_save is None: name_save=name_matfile
+
+    #read matfile and convert
+    C=sp.io.loadmat(name_matfile+'.mat'); S=zdata()
+    for keyi in C.keys():
+        if keyi.startswith('__'):continue
+        valuei=squeeze(C[keyi])
+
+        #change format
+        if not issubdtype(valuei.dtype,np.number):
+            valuei=array([i[0] if len(i)!=0 else '' for i in valuei])
+        if keyi in ['Doy', 'doy']: valuei=valuei-366
+        exec('S.{}=squeeze(valuei)'.format(keyi))
+    savez(name_save,S)
 
 def get_stat(xi_model,xi_obs):
     '''
