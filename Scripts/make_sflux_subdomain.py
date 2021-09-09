@@ -9,7 +9,7 @@ close("all")
 StartT=datenum(2009,12,31); EndT=datenum(2011,1,3)
 xm=[-76.4,-76.25]; ym=[37.25,37.35]
 
-sdir='/sciclone/home10/yinglong/DISKS/vims20/narr' #narr source on sciclone
+sdir='/sciclone/data10/wangzg/narr' #narr source on sciclone
 tdir='sflux'   #target dir
 itag=1   #itag=[1 or 2],for sflux_air_itag.0691.nc
 

@@ -6,11 +6,9 @@ from pylib import *
 #input
 #--------------------------------------------------------------------
 StartT=datenum(2009,2,10); EndT=datenum(2011,1,1)
-tdir='sflux'                       #target dir
-itag=1   #itag=[1 or 2],for sflux_air_itag.0691.nc 
-
-#sdir='/ches/data10/yinglong/narr'                  #narr source on james  
-sdir='/sciclone/home10/yinglong/DISKS/vims20/narr' #narr source on sciclone
+tdir='sflux'                         #target dir
+itag=1                               #itag=[1 or 2],for sflux_air_itag.0691.nc 
+sdir='/sciclone/data10/wangzg/narr'  #narr source                
 
 #--------------------------------------------------------------------
 #make links
