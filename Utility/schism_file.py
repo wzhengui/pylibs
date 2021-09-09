@@ -489,7 +489,7 @@ class schism_grid:
                  3). gd.save('hgrid.gr3') or gd.save('hgrid.ll') or gd.save('temp.ic',value=5)
         '''
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
-        if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic':
+        if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic'):
            self.write_hgrid(fname,**args)
         else:
            s=zdata(); s.hgrid=self; savez(fname,s,**args)
