@@ -1612,112 +1612,85 @@ def WriteNC(fname,data,fmt=0,order=0):
                     fid.variables[vari][:]=vi.val
         fid.close()
 
-def harmonic_fit(oti,oyi,dt,mti,tidal_const=0):
+def harmonic_fit(oti,oyi,dt,mti,tidal_names=0, **args):
     '''
-    use harmonic analysis to fit time series: used to fill data gap, only for tidal parts.
-    [oti,oyi,dt]: continunous time series
-    mti: time to be interpolated
-    tidal_const=[0,1]: choose tidal const options.
-               or can be tidal_const=array(['O1','K1','Q1','P1','M2','S2',])
+    construct time series using harmonics: used to fill data gap, or extrapolation
+       [oti,oyi,dt]: observed (time, value, time interval)
+       mti: time to interpolate/extrapolate
+       tidal_names=0/1/2: tidal names options; tidal_names=['O1','K1','Q1','P1','M2','S2',]: list of tidal consituent names
     '''
-    import platform
-
     #choose tidal consts
-    if tidal_const==0:
-        tnames=array(['O1','K1','Q1','P1','M2','S2','K2','N2']);
-    elif tidal_const==1:
-        tnames=array(['O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10'])
-    elif tidal_const==2:
-        tnames=array(['SA','SSA','MM','MSF','O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10','N4','S4','S6'])
-
-    #get frequeny consituents
-    tfreqs=[]
-    sname='.temporary_tidal_consituents_for_HA.dat'
-    if platform.system()=='Windows':
-        P=loadz(r'D:\Work\Harmonic_Analysis\tide_fac_const.npz')  #directories where database may exist
-    elif platform.system()=='Linux':
-        P=loadz(r'~/bin/Harmonic_Analysis/tide_fac_const.npz')
-    else:
-        sys.exit('unknow system')
-
-    for i in arange(len(tnames)):
-        ind=nonzero(P.name==tnames[i])[0]
-        freqi=P.freq[ind]
-        tfreqs.append(freqi)
-    tfreqs=squeeze(array(tfreqs))
-
-    with open(sname,'w+') as fid:
-        fid.write('{}\n'.format(len(tnames)));
-        for i in arange(len(tnames)):
-            fid.write('{}\n'.format(tnames[i]));
-            fid.write('{}\n'.format(tfreqs[i]));
+    if not hasattr(tidal_names,'__len__'):
+       if tidal_names==0:
+          tidal_names=array(['O1','K1','Q1','P1','M2','S2','K2','N2'])
+       elif tidal_names==1:
+          tidal_names=array(['O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10'])
+       elif tidal_names==2:
+          tidal_names=array(['SA','SSA','MM','MSF','O1','K1','Q1','P1','M2','S2','K2','N2','M3','M4','M6','M7','M8','M10','N4','S4','S6'])
 
     #do harmnoic analysis
-    H=harmonic_analysis(oyi,dt,tidal_const=sname); os.remove(sname)
+    H=harmonic_analysis(oyi,dt,tidal_names=tidal_names,**args)
 
-    #fit
-    mti=mti-oti[0]; myi=mti*0+H.amplitude[0];
-    for k in arange(len(tnames)):
-        Ai=H.amplitude[k+1]
-        Pi=H.phase[k+1]
-        Fi=tfreqs[k]*86400
-        myi=myi+Ai*cos(Fi*mti-Pi)
+    #fit data
+    myi=zeros(mti.shape)+H.amplitude[0]
+    for k,tname in enumerate(tidal_names): myi=myi+H.amplitude[k+1]*cos(H.freq[k+1]*(mti-oti[0])*86400-H.phase[k+1])
 
     return myi
 
-def harmonic_analysis(yi,dt,StartT=0,executable=None,tidal_const=None):
+def harmonic_analysis(data,dt,t0=0,tidal_names=None,code=None,tname=None,fname=None,sname=None):
     '''
     harmonic analyze time series
-        yi: time series
+        data: time series
         dt: time step (day)
-        StartT: starting time of time series (day)
-        executable: path of executable for HA analysis
-        tidal_const: path of tidal consituents file
+        t0: starting time of time series (day); normally use datenum (e.g. datenum(2010,0,0))
+        tidal_names: 1) path of tidal_const.dat, or 2) names of tidal consituents
+        code: path of executable (tidal_analyze, or tidal_analyze.exe) for HA analysis
+        [tname,fname,sname]: temporary names for tidal_const, time series, and HA results
     '''
-
     import subprocess
-    if executable is None:
+
+    #names of temporary file
+    if tname is None: tname='.temporary_tidal_const_for_HA.dat'
+    if fname is None: fname='.temporary_time_series_for_HA.dat'
+    if sname is None: sname='.temporary_tidal_consituents_for_HA.dat'
+
+    #check OS type, and locate the executable
+    sdir='{}/../Scripts/Harmonic_Analysis'.format(os.path.dirname(__file__))
+    if code is None:
         import platform
-        #check OS type, and locate the executable
-        if platform.system()=='Windows':
-            bdirs=[r'D:\Work\Harmonic_Analysis'] #directories where exectuable may exist
-            for bdir in bdirs:
-                if os.path.exists('{}/tidal_analyze.exe'.format(bdir)): break
-            executable='{}/tidal_analyze.exe'.format(bdir)
-            if tidal_const is None: tidal_const='{}/tidal_const.dat'.format(bdir)
-        elif platform.system()=='Linux':
-            bdirs=[r'~/bin/Harmonic_Analysis']
-            for bdir in bdirs:
-                bdir_ex=os.path.expanduser(bdir)
-                if os.path.exists('{}/tidal_analyze'.format(bdir_ex)): break
-            executable='{}/tidal_analyze'.format(bdir_ex)
-            if tidal_const is None: tidal_const='{}/tidal_const.dat'.format(bdir_ex)
+        #directories where exectuable may exist
+        bdirs=[sdir, r'D:\Work\Harmonic_Analysis',r'~/bin/Harmonic_Analysis']
+        if platform.system().lower()=='windows':
+           code=['{}/tidal_analyze.exe'.format(i) for i in bdirs if os.path.exists('{}/tidal_analyze.exe'.format(i))][0]
+        elif platform.system().lower()=='linux':
+           code=['{}/tidal_analyze'.format(i) for i in bdirs if os.path.exists('{}/tidal_analyze'.format(i))][0]
         else:
             print('Operating System unknow: {}'.format(platform.system()))
+        if code is None: sys.exit('exectuable "tidal_analyze" was not found')
 
-    #----write time series, HA, and return results--------------------
-    fname='.temporary_time_series_for_HA.dat'
-    sname='.temporary_tidal_consituents_for_HA.dat'
-    with open(fname,'w+') as fid:
-        for i in arange(len(yi)):
-            fid.write('{:12.1f} {:12.7f}\n'.format((StartT+i*dt)*86400,yi[i]))
-    #print([executable,fname,tidal_const,sname])
-    subprocess.call([executable,fname,tidal_const,sname]) #HA
-    fid=open(sname,'r'); lines=fid.readlines(); fid.close()
-    S=zdata();
-    S.tidal_name=[]; S.amplitude=[]; S.phase=[]
-    for line in lines:
-        linei=line.split()
-        S.tidal_name.append(linei[0])
-        S.amplitude.append(linei[1])
-        S.phase.append(linei[2])
-    S.tidal_name=array(S.tidal_name)
-    S.amplitude=array(S.amplitude).astype('float')
-    S.phase=array(S.phase).astype('float')
+    #locate or write tidal_const.dat
+    if tidal_names is None:
+       tidal_names='{}/tidal_const.dat'.format(sdir)
+    else:
+       if not isinstance(tidal_names,str): #names of tidal consituents
+          C=loadz('{}/tide_fac_const.npz'.format(sdir)); tdict=dict(zip(C.name,C.freq))
+          fid=open(tname,'w+'); fid.write('{}\n'.format(len(tidal_names)))
+          for i in tidal_names: fid.write('{}\n{}\n'.format(i.upper(),tdict[i.upper()]))
+          fid.close(); tidal_names=tname
+
+    #write time series, HA, and return results
+    fid=open(fname,'w+')
+    for i,datai in enumerate(data): fid.write('{:12.1f} {:12.7f}\n'.format((t0+i*dt)*86400,datai))
+    fid.close(); subprocess.call([code,fname,tidal_names,sname]) #HA
+
+    #save results
+    S=zdata(); S.tidal_name,S.amplitude,S.phase=array([i.strip().split() for i in open(sname,'r').readlines()]).T
+    S.amplitude=array(S.amplitude).astype('float'); S.phase=array(S.phase).astype('float')
+    S.freq=r_[0,array([i.strip() for i in open(tidal_names,'r').readlines()[2::2]]).astype('float')]
 
     #clean temporaray files--------
     os.remove(fname); os.remove(sname)
-
+    if os.path.exists(tname): os.remove(tname)
     return S
 
 def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
