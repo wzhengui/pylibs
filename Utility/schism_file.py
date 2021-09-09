@@ -482,14 +482,14 @@ class schism_grid:
 
     def save(self, fname=None,**args):
         '''
-        save hgrid as (*.npz, *.pkl, *.gr3, or .ll)
+        save hgrid as (*.npz, *.pkl, *.gr3, *.ll or *.ic)
           examples:
                  1). gd.save('grid.npz') or gd.save('grid')
                  2). gd.save('grid.pkl')
-                 3). gd.save('hgrid.gr3') or gd.save('hgrid.ll')
+                 3). gd.save('hgrid.gr3') or gd.save('hgrid.ll') or gd.save('temp.ic',value=5)
         '''
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
-        if fname.endswith('.gr3') or fname.endswith('.ll'):
+        if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic':
            self.write_hgrid(fname,**args)
         else:
            s=zdata(); s.hgrid=self; savez(fname,s,**args)
