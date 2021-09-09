@@ -6,9 +6,10 @@ close("all")
 #------------------------------------------------------------------------------
 #input
 #------------------------------------------------------------------------------
-StartT=datenum(2021,4,5); EndT=datenum(2021,4,10); dt=1/8
+StartT=datenum(2017,12,29,8); EndT=datenum(2019,1,2); dt=1/8
 grd='../grid.npz'
 dir_hycom='../../../HYCOM/Data'
+iLP=1; fc=0.5  #iLP=1: remove tidal signal with cutoff frequency fc (day)
 
 #------------------------------------------------------------------------------
 #interpolate hycom data to boundary
@@ -102,6 +103,7 @@ for n,sname in enumerate(snames):
     for mvari in mvar:
         exec('vi=S.{}'.format(mvari))
         svi=interpolate.interp1d(S.time,vi,axis=0)(mtime)
+        if iLP==1: svi=lpfilt(svi,dt,fc) #low-pass
         exec('S.{}=svi'.format(mvari))
     S.time=mtime
 
@@ -142,4 +144,3 @@ for n,sname in enumerate(snames):
     nd.time_series.val=vi
 
     WriteNC(sname,nd)
-
