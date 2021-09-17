@@ -276,6 +276,74 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong fmt')
 
+def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append=None,note_delimiter=None):
+    '''
+    function to rewrite file in-situ based on conditions
+         fname: file name
+         replace: string pairs list; e.g. replace=['ON', 'OFF']
+         include: list of strings included; e.g. include=['USE_ICM']
+         startswith: list of  strings startswith; e.g. startswith=['#USE_ICM'] 
+         endswith: list of strings endswith;   e.g. endwith=['*.csv']
+         append: list of lines; e.g. ['add 1st line','add 2nd line']
+         note_delimiter: keep inline note after delimiter (ignore delimiters in the beginning)
+    '''
+
+    #read fname 
+    if os.path.exists(fname):
+       fid=open(fname,'r'); lines=fid.readlines(); fid.close()
+    else:
+       return
+    
+    #rewrite lines
+    slines=[]
+    for line in lines: 
+        sline=line; iflag=0
+
+        #check include
+        if include is not None:
+           for i in include: 
+               if i in sline: iflag=1 
+
+        #check startswith 
+        if startswith is not None:
+           for i in startswith: 
+               if sline.strip().startswith(i): iflag=1 
+
+        #check startswith 
+        if endswith is not None:
+           for i in endswith:
+               if sline.strip().endswith(i): iflag=1
+
+        #check note
+        nd=note_delimiter; note=''
+        if (nd is not None) and iflag==1:
+           note=sline.strip()
+           while note.startswith(nd): note=note[1:]
+           if nd in note: 
+              sid=note.find(nd); note=note[sid:]
+           else:
+              note=''
+     
+        #replace string 
+        if (replace is not None) and iflag==1: 
+           if len(replace)==1: 
+              sline=replace[0].rstrip()+' '+note
+           else: 
+              sline=sline.replace(*replace)   
+      
+        #save new line 
+        if not sline.endswith('\n'): sline=sline+'\n'
+        slines.append(sline)
+
+    #append
+    if append is not None: 
+       for sline in append:
+           if not sline.endswith('\n'): sline=sline+'\n'
+           slines.append(sline)
+
+    #write new line
+    fid=open(fname,'w+'); fid.writelines(slines); fid.close()
+
 def convert_dem_format(fname,sname,fmt=0):
     '''
     fname: name of source DEM file
@@ -677,7 +745,12 @@ def loadz(fname,svars=None):
     fs=[]
     for i in vdata.__dict__.keys():
         vi=vdata.__dict__[i]; f0='{}: '.format(i)
-        f1='{}({})'.format(str(type(vi)),len(vi)) if hasattr(vi,'__len__') else '{}'.format(type(vi))
+        if isinstance(vi,list):
+           f1='{}{}'.format(str(type(vi)),len(vi))
+        elif isinstance(vi,np.ndarray):
+           f1='ndarray{}'.format(vi.shape)
+        else:
+           f1='{}'.format(type(vi))
         f2=' ,dtype={}'.format(str(vi.dtype)) if hasattr(vi,'dtype') else ''
         fs.append(f0+f1+f2)
     vdata.VINFO=array(fs)
