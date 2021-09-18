@@ -1406,23 +1406,25 @@ def read_schism_local_to_global(fname):
     S.ne,S.np,S.ns,S.i34,S.elnode=ne,np,ns,i34,elnode
     return S
 
-def read_schism_param(fname,*args):
-  with open(fname,'r') as fid:
-    lines=fid.readlines()
+def read_schism_param(fname,fmt=0):
+    '''
+    read schism parameters from param.nml/param.in/cosine.in
+    fmt=0: return all field as string; fmt=1: return field as float if possible
+    '''
 
-  param={}
-  for line in lines:
-    line=line.strip()
-    if len(line)==0 or line[0]=='!' or line[0]=='&': continue
-    ind=line.find('!');
-    if(ind!=-1): line=line[0:ind];
-    ind=line.find('=');
-    keyi=line[:ind].strip();
-    vali=line[(ind+1):].strip();
-    param[keyi]=vali
-    if((len(args)>0) and (args[0]==1)):
-       if vali.lstrip('-').replace('.','',1).isdigit(): param[keyi]=float(vali)
-  return param;
+    #read all lines first
+    fid=open(fname,'r'); lines=[i.strip() for i in fid.readlines()]; fid.close() 
+    lines=[i for i in lines if ('=' in i) and (i!='') and (i[0]!='!') and (i[0]!='&')]
+
+    #parse each line
+    param={}
+    for line in lines:
+      if '!' in line: line=line[:line.find('!')] 
+      keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
+      if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit(): 
+         vali=float(vali) if ('.' in vali) else int(vali)
+      param[keyi]=vali
+    return param
 
 def write_schism_param(fname,param):
     pkeys=sorted(param.keys())
