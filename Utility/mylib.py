@@ -330,6 +330,7 @@ def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append
               sline=replace[0].rstrip()+' '+note
            else: 
               sline=sline.replace(*replace)   
+        if len(replace)==0: continue
       
         #save new line 
         if not sline.endswith('\n'): sline=sline+'\n'
