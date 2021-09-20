@@ -135,4 +135,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #import mpas_file
    #from mpas_file import (read_mpas_grid)
 
-
+   #---------------------------------------------------------------------
+   #shorthands
+   #---------------------------------------------------------------------
+   from os.path import exists as fexist
