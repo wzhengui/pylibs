@@ -117,8 +117,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml)
         #convert_matfile_format,
-   from mylib import savez as save_npz
-   from mylib import zdata as npz_data
+   from mylib import savez as save_npz; mylib.save_npz=savez
+   from mylib import zdata as npz_data; mylib.npz_data=zdata
 
    import schism_file
    from schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
