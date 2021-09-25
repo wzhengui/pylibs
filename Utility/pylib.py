@@ -35,7 +35,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    #scipy
    import scipy as sp
-   from scipy import (optimize,interpolate,signal)
+   from scipy import interpolate
    from scipy.fftpack import fft, ifft
    #from scipy import (optimize,interpolate,io,signal)
 
@@ -100,10 +100,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
      pass
 
    #sympy
-   try:
-     from sympy import init_session as sym_init
-   except:
-     pass
+   #try:
+   #  from sympy import init_session as sym_init
+   #except:
+   #  pass
 
    #---------------------------------------------------------------------
    #libraries of self-defined modules
