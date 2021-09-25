@@ -139,3 +139,4 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from os.path import exists as fexist
    from mylib import savez as save_npz; mylib.save_npz=savez
    from mylib import zdata as npz_data; mylib.npz_data=zdata
+   from mylib import move_figure as mvfig

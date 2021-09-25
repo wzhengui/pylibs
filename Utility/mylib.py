@@ -1091,10 +1091,12 @@ def daytime_length(lat,doy):
     dt=24-(24/pi)*arccos(T);
     return dt
 
-def move_figure(f, x, y):
+def move_figure(x=0,y=0,f=None):
     '''
     Move figure (f=gcf()) to upper left corner to pixel (x, y)
+    e.g. move_figure(0,0,gcf())
     '''
+    if f is None: f=gcf()
     backend = matplotlib.get_backend()
     if backend == 'TkAgg':
         f.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
