@@ -325,12 +325,16 @@ def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append
               note=''
      
         #replace string 
-        if (replace is not None) and iflag==1: 
-           if len(replace)==1: 
-              sline=replace[0].rstrip()+' '+note
-           else: 
-              sline=sline.replace(*replace)   
-        if len(replace)==0: continue
+        if iflag==1:
+           if replace is not None:
+              if len(replace)==0: 
+                 continue
+              elif len(replace)==1: 
+                 sline=replace[0].rstrip()+' '+note
+              else: 
+                 sline=sline.replace(*replace)   
+           else:
+              continue
       
         #save new line 
         if not sline.endswith('\n'): sline=sline+'\n'

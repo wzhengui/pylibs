@@ -8,7 +8,7 @@ from pylib import *
 #Inputs: 
 #mods: OLDIO,PREC_EVAP,GOTM,HA,MARSH,SED2D,WWW,ICM,MICM,GEN,AGE,ECO,ICM,PH,COSINE,FIB,SED,FABM,ANALYSIS
 #-----------------------------------------------------------------------------------------------
-modules=['OLDIO','ICM']
+modules=['OLDIO','PREC_EVAP','ANALYSIS']
 
 #directory of schism/fabm code
 schism='~/schism'; fabm='~/fabm'
@@ -18,7 +18,7 @@ schism='~/schism'; fabm='~/fabm'
 #-----------------------------------------------------------------------------------------------
 #write SCHSI.local.build
 schism=schism.replace('~',os.path.expanduser("~")); fabm=fabm.replace('~',os.path.expanduser("~")); 
-fname='{}/cmake/SCHSI.local.build'.format(schism)
+fname='{}/cmake/SCHISM.local.build'.format(schism)
 rewrite(fname,replace=['ON','OFF'],include=['USE_','PREC_EVAP','OLDIO'])
 rewrite(fname,replace=['OFF','ON'],include=[i if i in ['OLDIO','PREC_EVAP'] else 'USE_{}'.format(i) for i in modules])
 rewrite(fname,replace=[],include=['FABM_BASE'])
