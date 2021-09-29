@@ -74,9 +74,9 @@ for n,sname in enumerate(snames):
                 if mvari=='elev':
                     v0=array([cv[idy0,idx0],cv[idy0,idx0+1],cv[idy0+1,idx0],cv[idy0+1,idx0+1]])
                     #remove nan pts
-                    for k in arange(4):
-                        fpn=abs(v0[k])>1e3
-                        v0[k,fpn]=sp.interpolate.griddata(bxy[~fpn,:],v0[k,~fpn],bxy[fpn,:],'nearest')
+                    for ii in arange(4):
+                        fpn=abs(v0[ii])>1e3
+                        v0[ii,fpn]=sp.interpolate.griddata(bxy[~fpn,:],v0[ii,~fpn],bxy[fpn,:],'nearest')
 
                     v1=v0[0]*(1-ratx0)+v0[1]*ratx0;  v2=v0[2]*(1-ratx0)+v0[3]*ratx0
                     vi=v1*(1-raty0)+v2*raty0
@@ -86,9 +86,9 @@ for n,sname in enumerate(snames):
                               cv[idz+1,idy,idx],cv[idz+1,idy,idx+1],cv[idz+1,idy+1,idx],cv[idz+1,idy+1,idx+1]])
 
                     #remove nan pts
-                    for k in arange(8):
-                        fpn=abs(v0[k])>1e3
-                        v0[k,fpn]=sp.interpolate.griddata(bxyz[~fpn,:],v0[k,~fpn],bxyz[fpn,:],'nearest',rescale=True)
+                    for ii in arange(8):
+                        fpn=abs(v0[ii])>1e3
+                        v0[ii,fpn]=sp.interpolate.griddata(bxyz[~fpn,:],v0[ii,~fpn],bxyz[fpn,:],'nearest',rescale=True)
 
                     v11=v0[0]*(1-ratx)+v0[1]*ratx;  v12=v0[2]*(1-ratx)+v0[3]*ratx; v1=v11*(1-raty)+v12*raty
                     v21=v0[4]*(1-ratx)+v0[5]*ratx;  v22=v0[6]*(1-ratx)+v0[7]*ratx; v2=v21*(1-raty)+v22*raty
