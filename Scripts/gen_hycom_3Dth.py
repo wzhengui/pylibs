@@ -6,7 +6,7 @@ close("all")
 #------------------------------------------------------------------------------
 #input
 #------------------------------------------------------------------------------
-StartT=datenum(2012,1,1); EndT=datenum(2012,1,10); dt=1/8
+StartT=datenum(2012,1,1); EndT=datenum(2013,1,2); dt=1/8
 grd='../grid.npz'
 dir_hycom='../../../HYCOM/Data'
 iLP=1; fc=0.5  #iLP=1: remove tidal signal with cutoff frequency fc (day)
@@ -18,9 +18,13 @@ ifix=0  #ifix=0: fix hycom nan 1st, then interp;  ifix=1: interp 1st, then fixed
 mtime=arange(StartT,EndT+dt,dt); nt=len(mtime)
 
 #variables for each files
-snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
-svars=['surf_el','water_temp','salinity',['water_u','water_v']]
-mvars=['elev','temp','salt',['u','v']]
+#snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
+#svars=['surf_el','water_temp','salinity',['water_u','water_v']]
+#mvars=['elev','temp','salt',['u','v']]
+
+snames=['elev2D.th.nc','uv3D.th.nc']
+svars=['surf_el',['water_u','water_v']]
+mvars=['elev',['u','v']]
 
 #find all hycom files
 fnames=array([i for i in os.listdir(dir_hycom) if i.endswith('.nc')])
@@ -159,7 +163,7 @@ for n,sname in enumerate(snames):
     nd.vars=['time_step', 'time', 'time_series']
     nd.time_step=zdata()
     nd.time_step.attrs=['long_name'];nd.time_step.long_name='time step in seconds'
-    nd.time_step.dimname=('one',); nd.time_step.val=array(dt*86400).astype('float32')
+    nd.time_step.dimname=('one',); nd.time_step.val=array(dt*86400)
 
     nd.time=zdata()
     nd.time.attrs=['long_name'];nd.time.long_name='simulation time in seconds'
@@ -168,6 +172,6 @@ for n,sname in enumerate(snames):
     nd.time_series=zdata()
     nd.time_series.attrs=[]
     nd.time_series.dimname=('time','nOpenBndNodes','nLevels','nComponents')
-    nd.time_series.val=vi
+    nd.time_series.val=vi.astype('float32')
 
     WriteNC(sname,nd)
