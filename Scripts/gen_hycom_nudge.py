@@ -106,7 +106,7 @@ for n,[sname,svar,mvar] in enumerate(zip(snames,svars,mvars)):
     for mvari in mvar:
         exec('vi=S.{}'.format(mvari))
         #svi=interpolate.interp1d(S.time,vi,axis=0)(mtime).astype('float32')
-        svi=array([interpolate.interp1d(S.time,vi[:,i])(mtime).astype('float32') for i in arange(vi.shape[1])]); vi=None
+        svi=array([interpolate.interp1d(S.time,vi[:,i])(mtime).astype('float32') for i in arange(vi.shape[1])]).T; vi=None
         if iLP==1: svi=lpfilt(svi,dt,fc).astype('float32') #low-pass
         exec('S.{}=svi'.format(mvari))
     S.time=mtime

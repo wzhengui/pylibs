@@ -67,7 +67,7 @@ class schism_grid:
 
               #detemine clim
               if clim is None:
-                 vmin,vmax=min(value),max(value)
+                 fpn=~isnan(value); vmin,vmax=min(value[fpn]),max(value[fpn])
               else:
                  vmin,vmax=clim
 
@@ -79,7 +79,7 @@ class schism_grid:
               #set mask
               if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
 
-              if vmin==vmax:
+              if (vmax-vmin)/(vmax+vmin)<1e-10:
                  hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
               else:
                  hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
