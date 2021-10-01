@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-  auto compile schism model; work for cmake on sciclone
+  auto compile schism model; work for cmake on sciclone/frontera
 '''
 from pylib import *
 
@@ -8,7 +8,7 @@ from pylib import *
 #Inputs: 
 #mods: OLDIO,PREC_EVAP,GOTM,HA,MARSH,SED2D,WWW,ICM,MICM,GEN,AGE,ECO,ICM,PH,COSINE,FIB,SED,FABM,ANALYSIS
 #-----------------------------------------------------------------------------------------------
-modules=['OLDIO','PREC_EVAP','ANALYSIS']
+modules=['OLDIO','PREC_EVAP','AGE']
 
 #directory of schism/fabm code
 schism='~/schism'; fabm='~/fabm'

@@ -18,13 +18,9 @@ ifix=0  #ifix=0: fix hycom nan 1st, then interp;  ifix=1: interp 1st, then fixed
 mtime=arange(StartT,EndT+dt,dt); nt=len(mtime)
 
 #variables for each files
-#snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
-#svars=['surf_el','water_temp','salinity',['water_u','water_v']]
-#mvars=['elev','temp','salt',['u','v']]
-
-snames=['elev2D.th.nc','uv3D.th.nc']
-svars=['surf_el',['water_u','water_v']]
-mvars=['elev',['u','v']]
+snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
+svars=['surf_el','water_temp','salinity',['water_u','water_v']]
+mvars=['elev','temp','salt',['u','v']]
 
 #find all hycom files
 fnames=array([i for i in os.listdir(dir_hycom) if i.endswith('.nc')])
