@@ -6,11 +6,12 @@ close("all")
 #------------------------------------------------------------------------------
 #input
 #------------------------------------------------------------------------------
-StartT=datenum(2017,12,29,8); EndT=datenum(2019,1,2); dt=1/8
+StartT=datenum(2012,1,1); EndT=datenum(2012,1,10); dt=1/8
 grd='../grid.npz'
 dir_hycom='../../../HYCOM/Data'
 iLP=1; fc=0.5  #iLP=1: remove tidal signal with cutoff frequency fc (day)
 
+ifix=0  #ifix=0: fix hycom nan 1st, then interp;  ifix=1: interp 1st, then fixed nan
 #------------------------------------------------------------------------------
 #interpolate hycom data to boundary
 #------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ lxi=tile(lxi0,[nvrt,1]).T.ravel(); lyi=tile(lyi0,[nvrt,1]).T.ravel() #for 3D
 if vd.ivcor==2:
     lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel()
 else:
-    lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();  
+    lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();
 bxyz=c_[lxi,lyi,lzi]
 sx0,sy0,sz0=None,None,None
 
@@ -52,11 +53,21 @@ for n,sname in enumerate(snames):
     for m,fname in enumerate(fnames):
         C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
         ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
-        sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:])
-        fpz=lzi>=sz.max(); lzi[fpz]=sz.max()-1e-6;
+        sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:]); nz=len(sz)
+        fpz=lzi>=sz.max(); lzi[fpz]=sz.max()-1e-6
 
-        #get interp index
         if not array_equal(sx,sx0)*array_equal(sy,sy0)*array_equal(sz,sz0):
+            #get interp index for HYCOM data
+            if ifix==0:
+                sxi,syi=meshgrid(sx,sy); sxy=c_[sxi.ravel(),syi.ravel()];
+                cvs=array(C.variables['water_temp'][0]); sindns=[]; sindps=[]
+                for ii in arange(nz):
+                    print('computing HYCOM interpation index: level={}/{}'.format(ii,nz))
+                    cv=cvs[ii]; ds=cv.shape; cv=cv.ravel()
+                    fpn=abs(cv)>1e3; sindn=nonzero(fpn)[0]; sindr=nonzero(~fpn)[0]; sindp=sindr[near_pts(sxy[sindn],sxy[sindr])]
+                    sindns.append(sindn); sindps.append(sindp)
+
+            #get interp index for pts
             sx0=sx[:]; sy0=sy[:]; sz0=sz[:]; print('get new interp indices: {}'.format(fname))
             idx0=((lxi0[:,None]-sx0[None,:])>=0).sum(axis=1)-1; ratx0=(lxi0-sx0[idx0])/(sx0[idx0+1]-sx0[idx0])
             idy0=((lyi0[:,None]-sy0[None,:])>=0).sum(axis=1)-1; raty0=(lyi0-sy0[idy0])/(sy0[idy0+1]-sy0[idy0])
@@ -72,23 +83,40 @@ for n,sname in enumerate(snames):
 
                 #interp in space
                 if mvari=='elev':
-                    v0=array([cv[idy0,idx0],cv[idy0,idx0+1],cv[idy0+1,idx0],cv[idy0+1,idx0+1]])
-                    #remove nan pts
-                    for ii in arange(4):
-                        fpn=abs(v0[ii])>1e3
-                        v0[ii,fpn]=sp.interpolate.griddata(bxy[~fpn,:],v0[ii,~fpn],bxy[fpn,:],'nearest')
+                    #remove HYCOM nan pts
+                    if ifix==0:
+                        sindn,sindp=sindns[0],sindps[0]
+                        cv=cv.ravel(); fpn=(abs(cv[sindn])>1e3)*(abs(cv[sindp])<1e3); cv[sindn]=cv[sindp]; fpn=abs(cv)>1e3 #init fix
+                        if sum(fpn)!=0: fni=nonzero(fpn)[0]; fri=nonzero(~fpn)[0]; fpi=fri[near_pts(sxy[fni],sxy[fri])]; cv[fni]=cv[fpi] #final fix
+                        #fpn=abs(cv.ravel())>1e3; cv.ravel()[fpn]=sp.interpolate.griddata(sxy[~fpn,:],cv.ravel()[~fpn],sxy[fpn,:],'nearest') #old method
+                        cv=cv.reshape(ds)
 
+                    #find parent pts
+                    v0=array([cv[idy0,idx0],cv[idy0,idx0+1],cv[idy0+1,idx0],cv[idy0+1,idx0+1]])
+
+                    #remove nan in parent pts
+                    if ifix==1:
+                        for ii in arange(4):fpn=abs(v0[ii])>1e3; v0[ii,fpn]=sp.interpolate.griddata(bxy[~fpn,:],v0[ii,~fpn],bxy[fpn,:],'nearest')
+
+                    #interp
                     v1=v0[0]*(1-ratx0)+v0[1]*ratx0;  v2=v0[2]*(1-ratx0)+v0[3]*ratx0
                     vi=v1*(1-raty0)+v2*raty0
 
                 else:
+                    #remove HYCOM nan pts
+                    if ifix==0:
+                        for ii in arange(nz):
+                            sindn,sindp=sindns[ii],sindps[ii]
+                            cvi=cv[ii].ravel(); fpn=(abs(cvi[sindn])>1e3)*(abs(cvi[sindp])<1e3); cvi[sindn]=cvi[sindp]; fpn=abs(cvi)>1e3 #init fix
+                            if sum(fpn)!=0: fni=nonzero(fpn)[0]; fri=nonzero(~fpn)[0]; fpi=fri[near_pts(sxy[fni],sxy[fri])]; cvi[fni]=cvi[fpi] #final fix
+                            #fpn=abs(cv[ii].ravel())>1e3; cv[ii].ravel()[fpn]=sp.interpolate.griddata(sxy[~fpn,:],cv[ii].ravel()[~fpn],sxy[fpn,:],'nearest') #old method
+
                     v0=array([cv[idz,idy,idx],cv[idz,idy,idx+1],cv[idz,idy+1,idx],cv[idz,idy+1,idx+1],
                               cv[idz+1,idy,idx],cv[idz+1,idy,idx+1],cv[idz+1,idy+1,idx],cv[idz+1,idy+1,idx+1]])
 
-                    #remove nan pts
-                    for ii in arange(8):
-                        fpn=abs(v0[ii])>1e3
-                        v0[ii,fpn]=sp.interpolate.griddata(bxyz[~fpn,:],v0[ii,~fpn],bxyz[fpn,:],'nearest',rescale=True)
+                    #remove nan in parent pts
+                    if ifix==1:
+                        for ii in arange(8): fpn=abs(v0[ii])>1e3; v0[ii,fpn]=sp.interpolate.griddata(bxyz[~fpn,:],v0[ii,~fpn],bxyz[fpn,:],'nearest',rescale=True)
 
                     v11=v0[0]*(1-ratx)+v0[1]*ratx;  v12=v0[2]*(1-ratx)+v0[3]*ratx; v1=v11*(1-raty)+v12*raty
                     v21=v0[4]*(1-ratx)+v0[5]*ratx;  v22=v0[6]*(1-ratx)+v0[7]*ratx; v2=v21*(1-raty)+v22*raty
@@ -109,7 +137,6 @@ for n,sname in enumerate(snames):
 
     #reshape the data, and save
     [exec('S.{}=S.{}.reshape([{},{},{}])'.format(i,i,nt,nobn,nvrt)) for i in mvar if i!='elev']
-    #savez('hycom_{}'.format(mvar[0]),S) if len(mvar)==1 else savez('hycom_uv',S)
 
     #--------------------------------------------------------------------------
     #create netcdf
