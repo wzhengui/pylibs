@@ -8,7 +8,7 @@ from pylib import *
 #Inputs: 
 #mods: OLDIO,PREC_EVAP,GOTM,HA,MARSH,SED2D,WWW,ICM,MICM,GEN,AGE,ECO,ICM,PH,COSINE,FIB,SED,FABM,ANALYSIS
 #-----------------------------------------------------------------------------------------------
-modules=['OLDIO','PREC_EVAP','AGE']
+modules=['OLDIO',]
 
 #directory of schism/fabm code
 schism='~/schism'; fabm='~/fabm'

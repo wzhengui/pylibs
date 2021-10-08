@@ -79,7 +79,7 @@ class schism_grid:
               #set mask
               if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
 
-              if (vmax-vmin)/(vmax+vmin)<1e-10:
+              if (vmax-vmin)/(abs(vmax)+abs(vmin))<1e-10:
                  hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
               else:
                  hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
