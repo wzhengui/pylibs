@@ -1560,8 +1560,7 @@ def ReadNC(fname,fmt=0,order=0):
     if fmt==1:
         return C
     elif fmt in [0,2]:
-        F=zdata();
-        F.file_format=C.file_format
+        F=zdata(); F.file_format=C.file_format; F.VINFO=[]
 
         #read dims
         ncdims=[i for i in C.dimensions];
@@ -1569,13 +1568,15 @@ def ReadNC(fname,fmt=0,order=0):
         for i in ncdims:
             F.dims.append(C.dimensions[i].size)
             F.dim_unlimited.append(C.dimensions[i].isunlimited())
+        F.VINFO.append('dimname: {}'.format(F.dimname))
+        F.VINFO.append('dim: {}'.format(F.dims))
 
         #read attrbutes
         ncattrs=C.ncattrs(); F.attrs=ncattrs
         for i in ncattrs:
             exec('F.{}=C.getncattr("{}")'.format(i,i))
 
-        ncvars=[i for i in C.variables]; F.vars=array(ncvars)
+        ncvars=[*C.variables]; F.vars=array(ncvars)
         #read variables
         for i in ncvars:
             if fmt==0:
@@ -1594,12 +1595,14 @@ def ReadNC(fname,fmt=0,order=0):
                    fi.dims=list(flipud(fi.dims))
                    nm=flipud(arange(ndim(fi.val)))
                    fi.val=fi.val.transpose(nm)
+               vinfo='{}:{}'.format(i,fi.val.shape)
             elif fmt==2:
                fi=array(C.variables[i][:])
                if order==1: fi=fi.transpose(flip(arange(fi.ndim)))
+               vinfo='{}:{}'.format(i,fi.shape)
+            F.VINFO.append(vinfo);  exec('F.{}=fi'.format(i)); 
 
-            exec('F.{}=fi'.format(i))
-        C.close()
+        C.close(); #F.VINFO=array(F.VINFO)
         return F
     else:
         sys.exit('wrong fmt')
