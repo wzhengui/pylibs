@@ -17,8 +17,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #matplotlib
    import matplotlib as mpl
-   if 'frontera' in str(os.getenv('HOSTNAME')): mpl.use('tkagg')
-   if 'frontera' in str(os.getenv('TACC_SYSTEM')): mpl.use('tkagg')
+   HNAME=str(os.getenv('HOSTNAME')); TNAME=str(os.getenv('TACC_SYSTEM'))
+   if ('frontera' in HNAME) or ('stampede2' in HNAME): mpl.use('tkagg')
+   if ('frontera' in TNAME) or ('stampede2' in TNAME): mpl.use('tkagg')
    from matplotlib import pyplot as plt
    from matplotlib import cbook, mlab
    from matplotlib.dates import *
