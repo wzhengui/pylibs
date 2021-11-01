@@ -45,13 +45,14 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           scmd='sbatch --export=ALL -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,account,nnode,ppn,wtime,code)
        elif qnode in ['stampede2',]:
           scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
-       else:
+       elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
+       else:
+          sys.exit('unknow qnode: {},tag=1'.format(qnode))
     elif fmt==1:
-       os.environ['job_no_node']='1'; os.environ['bdir']=bdir
        #for run parallel jobs
        if qnode in ['femto',]:
-          scmd="srun --export=ALL ./{} >& {}".format(code,scrout)
+          scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
        elif qnode in ['frontera',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
@@ -63,7 +64,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
        else:
-          sys.exit('unknow qnode: {}'.format(qnode))
+          sys.exit('unknow qnode: {},tag=2'.format(qnode))
 
     return scmd
 
