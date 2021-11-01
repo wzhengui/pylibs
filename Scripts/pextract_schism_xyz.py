@@ -28,16 +28,19 @@ igather=1          #igather=1: save data on each rank,then combine; igather=0: u
 
 #resource requst 
 walltime='00:10:00'
-qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
+qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
 #qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='skylake'; nnode=2; ppn=36   #viz3,skylake, ppn=36
-#qnode='haswell'; nnode=2; ppn=2    #viz3,haswell, ppn=24,or 28
-#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 
-qname='flex'                        #partition name (needed for frontera)
+#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
+#qnode='mistral'; nnode=1; ppn=36   #mistral, ppn=36 
+#qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
+
+#additional information:  frontera,mistral,stampede2
+qname='flex'                        #partition name
+account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028
 
 jname='Rd_{}'.format(os.path.basename(run)) #job name
 ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)

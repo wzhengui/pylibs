@@ -33,40 +33,35 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
 
     nproc=nnode*ppn
     if fmt==0:
+       os.environ[ename]='{} {}'.format(bdir,code)
        #for submit jobs
        if qnode in ['femto',]:
-          #scmd='sbatch --export=ALL,{}="{} {}" --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,nnode,nproc,wtime,code)
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,nnode,ppn,wtime,code)
+          #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
+          scmd='sbatch --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
        elif qnode in ['frontera',]:
           #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,ppn,wtime,code)
+          scmd='sbatch --export=ALL -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,nnode,ppn,wtime,code)
        elif qnode in ['mistral',]:
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,account,nnode,ppn,wtime,code)
+          scmd='sbatch --export=ALL -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,account,nnode,ppn,wtime,code)
        elif qnode in ['stampede2',]:
-          scmd='sbatch --export=ALL, --export {}="{} {}" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,account,nnode,nproc,wtime,code)
+          scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
        else:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
     elif fmt==1:
+       os.environ['job_no_node']='1'; os.environ['bdir']=bdir
        #for run parallel jobs
        if qnode in ['femto',]:
-          scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
+          scmd="srun --export=ALL ./{} >& {}".format(code,scrout)
        elif qnode in ['frontera',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['stampede2',]:
-          #scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
           scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
-          #os.environ['job_on_node']='1'; os.environ['bdir']=bdir
-         #scmd="mpiexec -envall -n {} ./{} >& {}".format(nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['mistral',]:
-          scmd="ulimit -s 102400; srun --export=ALL,job_on_node=1,bdir={} -l --propagate=STACK --cpu_bind=cores --distribution=block:cyclic ./{} >& {}".format(bdir,code,scrout)
+          scmd="ulimit -s 102400; srun --export=ALL -l --propagate=STACK --cpu_bind=cores --distribution=block:cyclic ./{} >& {}".format(code,scrout)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
-          #if qnode in ['bora',] and ename!='run_schism':
-          #   scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
-       elif qnode in ['skylake','haswell']:
-          scmd="mpiexec --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
        else:
           sys.exit('unknow qnode: {}'.format(qnode))
 
