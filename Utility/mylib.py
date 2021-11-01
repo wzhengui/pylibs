@@ -19,7 +19,7 @@ def read_yaml(fname):
     return param
 
 def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
-                    scrout='screen.out',fmt=0,ename='param',qname='flex'):
+                    scrout='screen.out',fmt=0,ename='param',qname='flex',account='gg0028'):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -41,7 +41,9 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,ppn,wtime,code)
        elif qnode in ['mistral',]:
-          scmd='sbatch --export=ALL,{}="{} {}" -J {} --partition=compute2 --account=gg0028 -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,nnode,ppn,wtime,code)
+          scmd='sbatch --export=ALL,{}="{} {}" -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(ename,bdir,code,jname,account,nnode,ppn,wtime,code)
+       elif qnode in ['stampede2',]:
+          scmd='sbatch --export=ALL, --export {}="{} {}" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,account,nnode,nproc,wtime,code)
        else:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
     elif fmt==1:
@@ -50,6 +52,12 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
        elif qnode in ['frontera',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
+       elif qnode in ['stampede2',]:
+          #scmd="mpiexec -x job_on_node=1 -x bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          #os.environ['job_on_node']='1'; os.environ['bdir']=bdir
+         #scmd="mpiexec -envall -n {} ./{} >& {}".format(nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['mistral',]:
           scmd="ulimit -s 102400; srun --export=ALL,job_on_node=1,bdir={} -l --propagate=STACK --cpu_bind=cores --distribution=block:cyclic ./{} >& {}".format(bdir,code,scrout)
