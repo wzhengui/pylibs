@@ -42,7 +42,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,nnode,ppn,wtime,code)
        elif qnode in ['mistral',]:
-          scmd='sbatch --export=ALL -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,account,nnode,ppn,wtime,code)
+          #scmd='sbatch --export=ALL -J {} --partition=compute2 --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,account,nnode,ppn,wtime,code)
+          scmd='sbatch --export=ALL -J {} -p {} --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,account,nnode,ppn,wtime,code)
        elif qnode in ['stampede2',]:
           scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
@@ -60,7 +61,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['mistral',]:
-          scmd="ulimit -s 102400; srun --export=ALL -l --propagate=STACK --cpu_bind=cores --distribution=block:cyclic ./{} >& {}".format(code,scrout)
+          scmd="srun --export=ALL,job_on_node=1,bdir={} -l --propagate=STACK,CORE -l --cpu_bind=verbose,cores ./{} >& {}".format(bdir,code,scrout)
+          if ename=='run_schism': scmd="module unload python3;"+scmd 
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
        else:
