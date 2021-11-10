@@ -25,7 +25,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        code: job script
        bdir: current working directory
        jname: job name
-       qname: partition name (needed on some cluster/project) 
+       qname: partition name (needed on some cluster/project)
        qnode: hpc node name
        nnode,ppn,wtime: request node number, core per node, and walltime
        fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
@@ -92,7 +92,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
     if len(levels)==0: return S
 
     #divide domain
-    ndx=len(x); ndy=len(y) 
+    ndx=len(x); ndy=len(y)
     ixs=[]; i1=0; i2=min(nx,ndx)
     while True:
         ixs.append([i1,i2])
@@ -104,16 +104,16 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
         iys.append([i1,i2])
         if i2>=ndy: break
         i1=i1+ny; i2=min(i2+ny,ndy)
-       
+
     #extract contours for subdomains
     for m,[ix1,ix2] in enumerate(ixs):
         for n,[iy1,iy2] in enumerate(iys):
-            sxi=x[ix1:ix2]; syi=y[iy1:iy2]; szi=z[iy1:iy2,ix1:ix2] 
+            sxi=x[ix1:ix2]; syi=y[iy1:iy2]; szi=z[iy1:iy2,ix1:ix2]
             fpn=~isnan(szi); zmin=szi[fpn].min(); zmax=szi[fpn].max()
             fpz=(levels>=zmin)*(levels<=zmax); levels_sub=sort(levels[fpz])
             if len(levels_sub)==0: continue
             print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
-                  
+
             hf=figure(); hf.set_visible(False)
             P=contour(sxi,syi,szi,levels_sub)
             close(hf)
@@ -131,8 +131,8 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
                 #collect contour in each subdomain
                 sindc=nonzero(levels==levels_sub[k])[0][0]
                 S.xy[sindc].extend(c_[xi,yi])
-    for i in arange(len(levels)): S.xy[i]=array(S.xy[i])  
-                
+    for i in arange(len(levels)): S.xy[i]=array(S.xy[i])
+
     #write contours
     if fname is not None:
         for i,vi in enumerate(levels):
@@ -286,34 +286,34 @@ def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append
          fname: file name
          replace: string pairs list; e.g. replace=['ON', 'OFF']
          include: list of strings included; e.g. include=['USE_ICM']
-         startswith: list of  strings startswith; e.g. startswith=['#USE_ICM'] 
+         startswith: list of  strings startswith; e.g. startswith=['#USE_ICM']
          endswith: list of strings endswith;   e.g. endwith=['*.csv']
          append: list of lines; e.g. ['add 1st line','add 2nd line']
          note_delimiter: keep inline note after delimiter (ignore delimiters in the beginning)
     '''
 
-    #read fname 
+    #read fname
     if os.path.exists(fname):
        fid=open(fname,'r'); lines=fid.readlines(); fid.close()
     else:
        return
-    
+
     #rewrite lines
     slines=[]
-    for line in lines: 
+    for line in lines:
         sline=line; iflag=0
 
         #check include
         if include is not None:
-           for i in include: 
-               if i in sline: iflag=1 
+           for i in include:
+               if i in sline: iflag=1
 
-        #check startswith 
+        #check startswith
         if startswith is not None:
-           for i in startswith: 
-               if sline.strip().startswith(i): iflag=1 
+           for i in startswith:
+               if sline.strip().startswith(i): iflag=1
 
-        #check startswith 
+        #check startswith
         if endswith is not None:
            for i in endswith:
                if sline.strip().endswith(i): iflag=1
@@ -323,29 +323,29 @@ def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append
         if (nd is not None) and iflag==1:
            note=sline.strip()
            while note.startswith(nd): note=note[1:]
-           if nd in note: 
+           if nd in note:
               sid=note.find(nd); note=note[sid:]
            else:
               note=''
-     
-        #replace string 
+
+        #replace string
         if iflag==1:
            if replace is not None:
-              if len(replace)==0: 
+              if len(replace)==0:
                  continue
-              elif len(replace)==1: 
+              elif len(replace)==1:
                  sline=replace[0].rstrip()+' '+note
-              else: 
-                 sline=sline.replace(*replace)   
+              else:
+                 sline=sline.replace(*replace)
            else:
               continue
-      
-        #save new line 
+
+        #save new line
         if not sline.endswith('\n'): sline=sline+'\n'
         slines.append(sline)
 
     #append
-    if append is not None: 
+    if append is not None:
        for sline in append:
            if not sline.endswith('\n'): sline=sline+'\n'
            slines.append(sline)
@@ -764,7 +764,7 @@ def loadz(fname,svars=None):
         fs.append(f0+f1+f2)
     vdata.VINFO=array(fs)
 
-    return vdata 
+    return vdata
 
 def least_square_fit(X,Y):
     '''
@@ -1116,7 +1116,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
     tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,lon0,lat0,order0,order1)
        fname: file name
        fmt: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
-       prj: projection name (e.g. 'epsg:26918', 'epsg:4326','cpp'), or projection string (e.g. prj0=get_prj_file('epsg:4326')) 
+       prj: projection name (e.g. 'epsg:26918', 'epsg:4326','cpp'), or projection string (e.g. prj0=get_prj_file('epsg:4326'))
        lon0,lat0: center for transformation between lon&lat and x&y; if lon0=None or lat0=None, then x0=mean(lon), and y0=mean(lat)
        order=0 for projected coordinate; order=1 for lat&lon (if prj='epsg:4326', order=1 is applied automatically')
 
@@ -1199,8 +1199,8 @@ def proj2(x,y,prj1='epsg:4326',prj2='epsg:26918'):
     '''
     convert projection of points from prj1 to prj2
       x,y: coordinate of pts
-      prj1: name of original projection 
-      prj2: name of target projection 
+      prj1: name of original projection
+      prj2: name of target projection
     '''
     px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y)
     return [px,py]
@@ -1305,7 +1305,7 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
 def convert_matfile(name_matfile,name_save=None):
     '''
     convert MATLAB file to zdata
-      examples: 
+      examples:
            1. convert_matfile('wqdata.mat')
            2. convert_matfile('wqdata')
            3. convert_matfile('wqdata','sfdata')
@@ -1604,7 +1604,7 @@ def ReadNC(fname,fmt=0,order=0):
                fi=array(C.variables[i][:])
                if order==1: fi=fi.transpose(flip(arange(fi.ndim)))
                vinfo='{}:{}'.format(i,fi.shape)
-            F.VINFO.append(vinfo);  exec('F.{}=fi'.format(i)); 
+            F.VINFO.append(vinfo);  exec('F.{}=fi'.format(i));
 
         C.close(); #F.VINFO=array(F.VINFO)
         return F

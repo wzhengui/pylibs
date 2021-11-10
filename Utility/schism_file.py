@@ -193,7 +193,7 @@ class schism_grid:
 
     def read_hgrid(self,fname,*args):
         #attribute tracking the file originally read, mainly used for savez and save_pkl
-        self.source_file = fname  
+        self.source_file = fname
 
         fid=open(fname,'r'); lines=fid.readlines(); fid.close()
 
@@ -206,7 +206,7 @@ class schism_grid:
         fdata=[i.strip().split() for i in lines[(2+self.np):(2+self.np+self.ne)]]
         fdata=array([i if len(i)==6 else [*i,'-1'] for i in fdata]).astype('int')
         self.i34=fdata[:,1]; self.elnode=fdata[:,2:]-1; fdata=None
-        
+
         #compute ns
         self.compute_side()
         if len(lines)<(4+self.np+self.ne): return
@@ -367,7 +367,7 @@ class schism_grid:
 
     def compute_side(self,fmt=0):
         '''
-        compute side information of schism's hgrid 
+        compute side information of schism's hgrid
         fmt=0: compute ns (# of sides) only; fmt=1: compute ns,isidenode and isdel
         '''
 
@@ -375,12 +375,12 @@ class schism_grid:
         fp3=nonzero(self.i34==3)[0]; fp4=nonzero(self.i34==4)[0]; sis=array([[],[]]).astype('int').T; sie=array([]).astype('int')
         for i in arange(3): sis=r_[sis,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]; sie=r_[sie,fp3]
         for i in arange(4): sis=r_[sis,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]; sie=r_[sie,fp4]
-        
+
         #sort side
         sis=sort(sis,axis=1).T; usis,sind=unique(sis[0]+1j*sis[1],return_inverse=True); self.ns=len(usis)
 
         #compute isdel and isidenode
-        if fmt==1 and not hasattr(self,'isdel'): 
+        if fmt==1 and not hasattr(self,'isdel'):
            ps=[[] for i in arange(self.ns)];  t=[ps[i].append(k) for i,k in zip(arange(self.ns)[sind], sie)]
            self.isdel=array([i if len(i)==2 else [*i,-1] for i in ps])
            self.isidenode=c_[real(usis),imag(usis)].astype('int')
@@ -396,7 +396,7 @@ class schism_grid:
 
         #find boundary side and element
         fpn=fp=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
-        
+
         #sort isn
         i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
         for i in arange(4):
@@ -405,7 +405,7 @@ class schism_grid:
                 fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
             else:
                 i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
-                fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])        
+                fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
 
         #compute all boundaries
         sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
@@ -421,8 +421,8 @@ class schism_grid:
             nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
         #save boundary information
-        if not hasattr(self,'bndinfo'): self.bndinfo=zdata() 
-        ip=[]; sind=[]; S=self.bndinfo 
+        if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
+        ip=[]; sind=[]; S=self.bndinfo
         for m,ibni in enumerate(ibn): ip.extend(ibni); sind.extend(tile(m,len(ibni)))
         ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip; S.island=ones(nb).astype('int')
         S.nb=nb; S.nbn=array(nbn); S.ibn=array(ibn); S.x=self.x[ip]; S.y=self.y[ip]
@@ -434,7 +434,7 @@ class schism_grid:
             if signa(self.x[sid],self.y[sid])>0: S.island[i]=0; break
 
         #add to grid bnd info
-        if not hasattr(self,'nob'): 
+        if not hasattr(self,'nob'):
            self.nob=0; self.nobn=array([]); self.iobn=array([[]]); sind=argsort(S.island)
            self.nlb=S.nb; self.nlbn=S.nbn[sind]; self.ilbn=S.ibn[sind]; self.island=S.island[sind]
 
@@ -502,7 +502,7 @@ class schism_grid:
                    value=const: uniform value in space
                    value=dp[np]: specify depth value
                    value=None:  grid's default depth self.dp is used
-            fmt=0: not output grid boundary info.; fmt=1: output grid boundary info. 
+            fmt=0: not output grid boundary info.; fmt=1: output grid boundary info.
             elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
@@ -530,13 +530,13 @@ class schism_grid:
                     if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
 
             #write bnd information
-            if fmt==1 and bndfile is None: self.write_bnd(fid=fid) 
+            if fmt==1 and bndfile is None: self.write_bnd(fid=fid)
             if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
-    
+
     def write_bnd(self,fname='grd.bnd',fid=None):
         '''
         write grid's boundary information
-            fname: name of boundary information 
+            fname: name of boundary information
             fid: file handle
         '''
         if not hasattr(self,'nob'): self.compute_bnd()
@@ -546,7 +546,7 @@ class schism_grid:
         bid.write('{} = Number of open boundaries\n'.format(self.nob))
         bid.write('{} = Total number of open boundary nodes\n'.format(int(sum(self.nobn))))
         for i in arange(self.nob):
-            bid.write('{} = Number of nodes for open boundary {}\n'.format(self.nobn[i],i+1)) 
+            bid.write('{} = Number of nodes for open boundary {}\n'.format(self.nobn[i],i+1))
             bid.writelines(['{}\n'.format(k+1) for k in self.iobn[i]])
 
         #land bnd
@@ -554,9 +554,9 @@ class schism_grid:
         bid.write('{} = Total number of land boundary nodes\n'.format(int(sum(self.nlbn)))); nln=int(sum(self.island==0))
         for i in arange(self.nlb):
             if self.island[i]==0:
-               bid.write('{} {} = Number of nodes for land boundary {}\n'.format(self.nlbn[i],self.island[i],i+1)) 
+               bid.write('{} {} = Number of nodes for land boundary {}\n'.format(self.nlbn[i],self.island[i],i+1))
             else:
-               bid.write('{} {} = Number of nodes for island boundary {}\n'.format(self.nlbn[i],self.island[i],i+1-nln)) 
+               bid.write('{} {} = Number of nodes for island boundary {}\n'.format(self.nlbn[i],self.island[i],i+1-nln))
             bid.writelines(['{}\n'.format(k+1) for k in self.ilbn[i]])
         if fid is not None: bid.close()
 
@@ -593,7 +593,7 @@ class schism_grid:
         '''
           convert grid to *.2dm format and save
         '''
-       
+
         lines=[]; lines.append('MESH2D\n')
         for i in arange(self.ne):
             if self.i34[i]==3: lines.append('E3T {} {} {} {} 1\n'.format(i+1,*(self.elnode[i,:3]+1)))
@@ -717,10 +717,14 @@ class schism_grid:
         x1,y2=proj(prj0=prj0,prj1=prj1,x=x,y=y,lon0=lon0,lat0=lat0)
         return [x1,y2]
 
-    def check_skew_elems(self,angle_min=5,fname='skew_element.bp'):
+    def check_skew_elems(self,angle_min=5,fname='skew_element.bp',fmt=0):
         '''
         1) check schism grid's skewness with angle<=angle_min
         2) the locations of skew elements are (xskew,yskew), and also save in file "fname"
+        Inputs:
+            angle_min: skew element if one of element's internal angles is smaller than angle_min
+            fname=None: not save skew_element.bp; fname!=None: save skew_element.bp
+            fmt=1: return indices of skew elements
         '''
 
         if not hasattr(self,'dpe'): self.compute_ctr()
@@ -737,9 +741,9 @@ class schism_grid:
             if len(sindi)!=0: sind.extend(sindi)
         sind=array(sind)
         if len(sind)!=0:
-            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]
+            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]; sind3=sind.copy()
         else:
-            XS3=array([]); YS3=array([]); ZS3=array([])
+            XS3=array([]); YS3=array([]); ZS3=array([]); sind3=array([])
 
         #for quads
         fp=self.i34==4; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; xctr=self.xctr[fp]; yctr=self.yctr[fp]; zctr=self.dpe[fp]
@@ -753,13 +757,16 @@ class schism_grid:
             if len(sindi)!=0: sind.extend(sindi)
         sind=array(sind)
         if len(sind)!=0:
-            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]
+            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]; sind4=sind
         else:
-            XS4=array([]); YS4=array([]); ZS4=array([])
+            XS4=array([]); YS4=array([]); ZS4=array([]); sind4=array([])
 
         #combine and save
-        self.xskew=r_[XS3,XS4]; self.yskew=r_[YS3,YS4]; zskew=r_[ZS3,ZS4]
-        sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
+        if fname is not None:
+            self.xskew=r_[XS3,XS4]; self.yskew=r_[YS3,YS4]; zskew=r_[ZS3,ZS4]
+            sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
+        if fmt==1:
+            return array([*sind3,*sind4]).astype('int')
 
     def inside_grid(self,pxy,fmt=0):
         '''
@@ -840,7 +847,7 @@ class schism_grid:
         def connect_actions():
             self.cidbnd=gcf().canvas.mpl_connect('button_press_event', onclick)
             if not hasattr(S,'nb'): self.compute_bnd()
-            if not hasattr(S,'hb0'): S.hb0=[plot(self.x[r_[i,i[0]]],self.y[r_[i,i[0]]],'b',lw=0.5) for i in S.ibn] 
+            if not hasattr(S,'hb0'): S.hb0=[plot(self.x[r_[i,i[0]]],self.y[r_[i,i[0]]],'b',lw=0.5) for i in S.ibn]
             acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
             if not ac.isChecked(): ac.trigger()
             gcf().canvas.draw()
@@ -852,9 +859,9 @@ class schism_grid:
             if dlk==1 and btn==3: remove_pt(bx,by)
             if dlk==1 and btn==2:
                if S.npt%2==1: print('open boundary needs to be defined'); return #don't allow finish
-              
+
                #add a new land bnd to the end of the segment
-               if S.nlb<S.nob: 
+               if S.nlb<S.nob:
                   bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
                   S.nlb=S.nlb+1; ibni=r_[S.ibn[bid][pid:],S.ibn[bid][0]]; S.ilbn.append(ibni)
                   hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
@@ -874,7 +881,7 @@ class schism_grid:
         def add_pt(x,y):
             distp=squeeze(abs((S.x-x)+1j*(S.y-y))); sid=nonzero(distp==distp.min())[0][0]
             ip=S.ip[sid]; bid=S.sind[sid]; pid=nonzero(S.ibn[bid]==ip)[0][0]
-            if S.npt!=0: 
+            if S.npt!=0:
                bid0=S.bid[-1]; pid0=nonzero(S.ibn[bid0]==S.pt[-1])[0][0]
                if S.npt%2==1 and bid!=bid0: return  #two pts are not on the same boundary
                if S.npt%2==1 and pid0>=pid: return  #the 2nd pt is ahead of the 1st pt
@@ -882,36 +889,36 @@ class schism_grid:
 
             #new bnd pt
             S.pt.append(ip); S.bid.append(bid); S.npt=S.npt+1
-            hp=plot(self.x[ip],self.y[ip],'ro'); S.hp.append(hp) 
+            hp=plot(self.x[ip],self.y[ip],'ro'); S.hp.append(hp)
 
             #new open bnd
-            if S.npt%2==0: 
+            if S.npt%2==0:
                S.nob=S.nob+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.iobn.append(ibni)
-               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hob.append(hob) 
+               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hob.append(hob)
 
             #new land bnd
-            if S.npt>2 and S.npt%2==1 and bid0==bid:  
+            if S.npt>2 and S.npt%2==1 and bid0==bid:
                S.nlb=S.nlb+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.ilbn.append(ibni)
                hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
 
             #add a new land bnd to the end of the segment
-            if S.npt>=2 and bid0!=bid:  
+            if S.npt>=2 and bid0!=bid:
                S.nlb=S.nlb+1; ibni=r_[S.ibn[bid0][pid0:],S.ibn[bid0][0]]; S.ilbn.append(ibni)
-               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb) 
+               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb)
             gcf().canvas.draw()
 
         def remove_pt(x,y):
             if S.npt==0: return
             bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
-          
+
             #remove bnd pt
             S.hp[-1][0].remove(); S.hp.pop(); S.pt.pop(); S.bid.pop(); S.npt=S.npt-1
 
-            #remove open bnd 
+            #remove open bnd
             if S.npt%2==1: S.hob[-1][0].remove(); S.hob.pop(); S.nob=S.nob-1; S.iobn.pop()
 
-            #remove land bnd 
-            if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0): 
+            #remove land bnd
+            if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0):
                S.hlb[-1][0].remove(); S.hlb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
             gcf().canvas.draw()
 
@@ -921,7 +928,7 @@ class schism_grid:
         abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else gcf().canvas.toolbar.addAction('bnd')
 
         #add bndinfo capsule
-        if not hasattr(self,'bndinfo'): self.bndinfo=zdata() 
+        if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
         S=self.bndinfo; S.hp=[]; S.hob=[]; S.hlb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
 
         #connect to actions
@@ -1413,15 +1420,15 @@ def read_schism_param(fname,fmt=0):
     '''
 
     #read all lines first
-    fid=open(fname,'r'); lines=[i.strip() for i in fid.readlines()]; fid.close() 
+    fid=open(fname,'r'); lines=[i.strip() for i in fid.readlines()]; fid.close()
     lines=[i for i in lines if ('=' in i) and (i!='') and (i[0]!='!') and (i[0]!='&')]
 
     #parse each line
     param={}
     for line in lines:
-      if '!' in line: line=line[:line.find('!')] 
+      if '!' in line: line=line[:line.find('!')]
       keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
-      if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit(): 
+      if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit():
          vali=float(vali) if ('.' in vali) else int(vali)
       param[keyi]=vali
     return param
@@ -1441,21 +1448,21 @@ def sms2grd(sms,grd=None):
 
     #read 2dm file
     fid=open(sms,'r'); lines=fid.readlines(); fid.close()
-    
+
     #for traingle and quads elements
     E3=array([ [*i.strip().split()[1:-1],'-1'] for i in lines if i.startswith('E3T')]).astype('int')
     E4=array([i.strip().split()[1:-1] for i in lines if i.startswith('E4Q')]).astype('int')
     E34=r_[E3,E4]; sind=argsort(E34[:,0]); E34=E34[sind]
-    
+
     #for nodes
     ND=array([i.strip().split()[1:] for i in lines if i.startswith('ND')]).astype('float')
     sind=argsort(ND[:,0]); ND=ND[sind]
-    
+
     #save grid information
     gd=schism_grid(); gd.ne=E34.shape[0]; gd.np=ND.shape[0]
     gd.elnode=E34[:,1:]-1; gd.x,gd.y,gd.dp=ND[:,1:].T
     gd.i34=4*ones(gd.ne).astype('int'); fp3=E34[:,-1]==-1; gd.i34[fp3]=3
-    
+
     if grd is not None: gd.write_hgrid(grd)
     return gd
 
@@ -1465,7 +1472,7 @@ def grd2sms(grd,sms):
       usage:
            1). grd2sms('hgrid.gr3','hgrid.2dm')
            2). grd2sms(gd,'hgrid.2dm'), or gd.grd2sms('hgrid.2dm')
-           note  gd=read_schism_hgrid('hgrid.gr3') 
+           note  gd=read_schism_hgrid('hgrid.gr3')
     '''
 
     #read grid
