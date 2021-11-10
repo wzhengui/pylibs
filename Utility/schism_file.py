@@ -1,6 +1,19 @@
 #/usr/bin/env python3
 from pylib import *
 
+def remove_reversed_duplicates(iterable):
+    # Create a set for already seen elements
+    seen = set()
+    for item in iterable:
+        # Lists are mutable so we need tuples for the set-operations.
+        tup = tuple(item)
+        if tup not in seen:
+            # If the tuple is not in the set append it in REVERSED order.
+            seen.add(tup[::-1])
+            # If you also want to remove normal duplicates uncomment the next line
+            # seen.add(tup)
+            yield item
+
 class schism_grid:
     def __init__(self, fname=None):
         '''
@@ -385,7 +398,28 @@ class schism_grid:
            self.isdel=array([i if len(i)==2 else [*i,-1] for i in ps])
            self.isidenode=c_[real(usis),imag(usis)].astype('int')
 
-        return self.ns
+        if fmt == 0:
+            return self.ns
+
+        #compute side list
+        if fmt == 2:
+            sides = []
+            for i, nodes  in enumerate(self.elnode):
+                if self.i34[i] == 3:
+                    sides.append([nodes[1], nodes[2]])
+                    sides.append([nodes[2], nodes[0]])
+                    sides.append([nodes[0], nodes[1]])
+
+                elif self.i34[i] == 4:
+                    sides.append([nodes[1], nodes[2]])
+                    sides.append([nodes[2], nodes[3]])
+                    sides.append([nodes[3], nodes[0]])
+                    sides.append([nodes[0], nodes[1]])
+
+            self._sides = np.array(list(remove_reversed_duplicates(sides)))
+            return self._sides
+
+        #return self.ns
 
     def compute_bnd(self):
         '''
