@@ -18,7 +18,7 @@ class schism_grid:
         self.source_file = fname
 
     def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
-             lw=0.1,levels=None,ticks=None,clim=None,extend='both',cb=True,**args):
+             lw=0.1,levels=None,ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
@@ -103,6 +103,8 @@ class schism_grid:
               if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
 
            self.hg=hg; #show(block=False
+           if xlim is not None: setp(ax,xlim=xlim)
+           if ylim is not None: setp(ax,ylim=ylim)
            if mpl.get_backend().lower() in ['qt5agg']:
               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
               if 'bp' not in ats: self.bp=schism_bpfile()
@@ -149,6 +151,8 @@ class schism_grid:
            ax.add_collection(hg)
            ax.autoscale_view()
            self.hg=hg; #show(block=False)
+           if xlim is not None: setp(ax,xlim=xlim)
+           if ylim is not None: setp(ax,ylim=ylim)
            return hg
 
     def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
@@ -282,7 +286,7 @@ class schism_grid:
         #interpolation
         v=[];
         for i in arange(self.np):
-            ind=self.ine[i];
+            ind=self.indel[i];
             if fmt==0: #aveaging
                 vi=sum(v0[ind])/self.nne[i];
             elif fmt==1: #inverse distance
@@ -456,8 +460,8 @@ class schism_grid:
             nne[inds]=nne[inds]+1
             [ine[indi].append(i) for indi in inds]
         self.nne=nne
-        self.ine=array([array(ine[i]) for i in arange(self.np)],dtype='O');
-        return self.nne, self.ine
+        self.indel=array([array(ine[i]) for i in arange(self.np)],dtype='O'); self.ine=self.indel
+        return self.nne, self.indel
 
     def compute_acor(self,pxy):
         '''
