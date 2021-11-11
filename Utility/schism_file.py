@@ -1,19 +1,6 @@
 #/usr/bin/env python3
 from pylib import *
 
-def remove_reversed_duplicates(iterable):
-    # Create a set for already seen elements
-    seen = set()
-    for item in iterable:
-        # Lists are mutable so we need tuples for the set-operations.
-        tup = tuple(item)
-        if tup not in seen:
-            # If the tuple is not in the set append it in REVERSED order.
-            seen.add(tup[::-1])
-            # If you also want to remove normal duplicates uncomment the next line
-            # seen.add(tup)
-            yield item
-
 class schism_grid:
     def __init__(self, fname=None):
         '''
@@ -385,41 +372,27 @@ class schism_grid:
         '''
 
         #collect sides
-        fp3=nonzero(self.i34==3)[0]; fp4=nonzero(self.i34==4)[0]; sis=array([[],[]]).astype('int').T; sie=array([]).astype('int')
-        for i in arange(3): sis=r_[sis,c_[self.elnode[fp3,mod(i+3,3)],self.elnode[fp3,mod(i+4,3)]]]; sie=r_[sie,fp3]
-        for i in arange(4): sis=r_[sis,c_[self.elnode[fp4,mod(i+4,4)],self.elnode[fp4,mod(i+5,4)]]]; sie=r_[sie,fp4]
+        fp3=self.i34==3; self.elnode[fp3,-1]=self.elnode[fp3,0]; sis=[]; sie=[]
+        for i in arange(4):
+            sis.append(c_[self.elnode[:,(i+1)%4],self.elnode[:,(i+2)%4]]); sie.append(arange(self.ne))
+        sie=array(sie).T.ravel(); sis=array(sis).transpose([1,0,2]).reshape([len(sie),2])
+        fpn=diff(sis,axis=1)[:,0]!=0; sis=sis[fpn]; sie=sie[fpn]; self.elnode[fp3,-1]=-2
+        
+        #sort sides
+        usis=sort(sis,axis=1).T; usis,sind,sindr=unique(usis[0]+1j*usis[1],return_index=True,return_inverse=True)
+        self.ns=len(sind)
 
-        #sort side
-        sis=sort(sis,axis=1).T; usis,sind=unique(sis[0]+1j*sis[1],return_inverse=True); self.ns=len(usis)
+        if fmt==0:
+           return self.ns
+        elif fmt==1:
+           #build isidenode 
+           sinda=argsort(sind); sinds=sind[sinda]; self.isidenode=sis[sinds]; 
 
-        #compute isdel and isidenode
-        if fmt==1 and not hasattr(self,'isdel'):
-           ps=[[] for i in arange(self.ns)];  t=[ps[i].append(k) for i,k in zip(arange(self.ns)[sind], sie)]
-           self.isdel=array([i if len(i)==2 else [*i,-1] for i in ps])
-           self.isidenode=c_[real(usis),imag(usis)].astype('int')
-
-        if fmt == 0:
-            return self.ns
-
-        #compute side list
-        if fmt == 2:
-            sides = []
-            for i, nodes  in enumerate(self.elnode):
-                if self.i34[i] == 3:
-                    sides.append([nodes[1], nodes[2]])
-                    sides.append([nodes[2], nodes[0]])
-                    sides.append([nodes[0], nodes[1]])
-
-                elif self.i34[i] == 4:
-                    sides.append([nodes[1], nodes[2]])
-                    sides.append([nodes[2], nodes[3]])
-                    sides.append([nodes[3], nodes[0]])
-                    sides.append([nodes[0], nodes[1]])
-
-            self._sides = np.array(list(remove_reversed_duplicates(sides)))
-            return self._sides
-
-        #return self.ns
+           #build isdel
+           se1=sie[sinds]; se2=-ones(self.ns).astype('int')
+           sindl=setdiff1d(arange(len(sie)),sind); se2[sindr[sindl]]=sie[sindl]; se2=se2[sinda]
+           self.isdel=c_[se1,se2]; fps=(se1>se2)*(se2!=-1); self.isdel[fps]=fliplr(self.isdel[fps])
+           return self.ns,self.isidenode,self.isdel
 
     def compute_bnd(self):
         '''
