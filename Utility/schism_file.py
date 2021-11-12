@@ -252,18 +252,11 @@ class schism_grid:
         interpolate node values to element values
             default is self.dp => self.dpe
         '''
-        #get node value
-        if value is None:
-            dp=self.dp
-        else:
-            dp=value
-
         #interpolate
-        fp1=self.i34==3; fp2=self.i34==4;
-        dpe=zeros(self.ne)*nan
-        dpe[fp1]=mean(dp[self.elnode[fp1,0:3]],axis=1)
-        dpe[fp2]=mean(dp[self.elnode[fp2,:]],axis=1)
-
+        dp=self.dp if (value is None) else value
+        fp3=self.i34==3; dpe=zeros(self.ne)
+        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1)
+        dpe[~fp3]=dp[self.elnode[~fp3]].mean(axis=1)
         return dpe
 
     def interp_elem_to_node(self,value=None,fmt=0,p=1):
@@ -272,32 +265,21 @@ class schism_grid:
         if value not given, dpe is used
         fmt=0: simple avarage; fmt=1: inverse distance (power=p)
         fmt=2: maximum of surrounding nodal values
+        fmt=3: minimum of surrounding nodal values
         '''
-        #-specify element values
-        if value is None:
-            if not hasattr(self,'dpe'): self.compute_ctr()
-            v0=self.dpe
-        else:
-            v0=value;
-
-        #compute node ball
+        #element values
         if not hasattr(self,'nne'): self.compute_nne()
+        if (value is None) and (not hasattr(self,'dpe')): self.compute_ctr()
+        v0=self.dpe if (value is None) else value
 
         #interpolation
-        v=[];
-        for i in arange(self.np):
-            ind=self.indel[i];
-            if fmt==0: #aveaging
-                vi=sum(v0[ind])/self.nne[i];
-            elif fmt==1: #inverse distance
-                W=1/((self.xctr[ind]-self.x[i])**2+(self.yctr[ind]-self.y[i])**2)**(p/2); #weight
-                vi=sum(W*v0[ind])/sum(W)
-            elif fmt==2: #maximum of surrounding nodal values
-                vi=max(v0[ind]);
-            else:
-                raise Exception('fmt: {} undefined\n'.format(fmt))
-            v.append(vi)
-        v=array(v)
+        vs=v0[self.ine]
+        if fmt==0: w=self.ine!=-1; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
+        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
+        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+        if fmt==1:
+              dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
+              w=1/(dist**p); w[self.ine==-1]=0; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
         return v
 
     def compute_ctr(self):
