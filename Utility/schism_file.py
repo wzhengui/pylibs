@@ -1497,6 +1497,84 @@ def grd2sms(grd,sms):
     #save grid save *2dm format
     gd.grd2sms(sms)
 
+def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg=None):
+    '''
+    create schism grid from scatter pts
+        xyz: c_[x,y] or c_[x,y,z]
+        angle_min: remove element with internal_angle < angle_min
+        area_max:  remove element with element_area   > area_max
+        side_min:  remove element with side_length    < side_min
+        side_max:  remove element with side_length    > side_max
+        reg:       ACE/xgredit region file. remove elements in region if reg is provided
+    '''
+
+    #get xyz
+    x,y=xyz.T[:2]; np=len(x)
+    z=xyz[:,2] if xyz.shape[1]>=3 else zeros(np)
+
+    #triangulate scatter
+    tr=mpl.tri.Triangulation(x,y); gd=schism_grid()
+    gd.np,gd.ne=np,len(tr.triangles); gd.x,gd.y,gd.dp=x,y,z
+    gd.elnode=c_[tr.triangles,-2*ones([gd.ne,1])].astype('int'); gd.i34=3*ones(gd.ne).astype('int')
+
+    #clean mesh
+    gd=delete_schism_grid_element(gd,angle_min=angle_min,area_max=area_max,side_min=side_min,side_max=side_max,reg=reg)
+    return gd
+
+def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_max=None,reg=None,method=0):
+    '''
+    delete schism grid's elements
+        grd: schism_grid object
+        angle_min: remove element with internal_angle < angle_min
+        area_max:  remove element with element_area   > area_max
+        side_min:  remove element with side_length    < side_min
+        side_max:  remove element with side_length    > side_max
+        reg:       ACE/xgredit region file. remove elements in region if reg is provided
+        method=0: use side_max for dangling pts; method=1: use angle_min for dangling pts
+    '''
+
+    #find max/min side or angle values
+    angles,sides=[],[];  fp3=gd.i34==3; fp4=gd.i34==4
+    id1,id2,id3=ones([3,gd.ne]).astype('int'); sid=arange(gd.ne)
+    for i in arange(4):
+        id1[fp3]=i%3; id2[fp3]=(i+1)%3; id3[fp3]=(i+2)%3
+        id1[fp4]=i%4; id2[fp4]=(i+1)%4; id3[fp4]=(i+2)%4
+        x1=gd.x[gd.elnode[sid,id1]]; x2=gd.x[gd.elnode[sid,id2]]; x3=gd.x[gd.elnode[sid,id3]]
+        y1=gd.y[gd.elnode[sid,id1]]; y2=gd.y[gd.elnode[sid,id2]]; y3=gd.y[gd.elnode[sid,id3]]
+        ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi; angles.append(ai)
+        si=abs((x1+1j*y1)-(x2+1j*y2)); sides.append(si)
+    angles=array(angles).T; sides=array(sides)
+    mangle=angles.min(axis=1); sidemin=sides.min(axis=0); sidemax=sides.max(axis=0)
+
+    #filter illegal elements
+    gd.compute_area(); gd.compute_ctr()
+    fangle=nonzero(mangle<angle_min)[0] if (angle_min is not None) else array([])
+    farea=nonzero(gd.area>area_max)[0] if (area_max is not None) else array([])
+    fside_max=nonzero(sidemax>side_max)[0] if (side_max is not None) else array([])
+    fside_min=nonzero(sidemin<side_min)[0] if (side_min is not None) else array([])
+    sindp=r_[fangle,farea,fside_max,fside_min].astype('int')
+
+    #filter elements inside region
+    if (reg is not None) and len(sindp)!=0:
+        bp=read_schism_bpfile(reg,fmt=1)
+        fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],bp.x,bp.y)==1; sindp=sindp[fpr]
+    sind=setdiff1d(arange(gd.ne),sindp)
+
+    #add back elements with dangling pts
+    ips=setdiff1d(arange(gd.np),unique(gd.elnode[sind].ravel()))
+    if len(ips)!=0:
+        gd.compute_node_ball(); sinde=[]
+        for ip in ips:
+            ies=gd.indel[ip]
+            if method==0: ai=sidemax[ies]; sinde.append(ies[nonzero(ai==min(ai))[0][0]])
+            if method==1: ai=mangle[ies]; sinde.append(ies[nonzero(ai==max(ai))[0][0]])
+        sind=sort(r_[sind,array(sinde)])
+
+    #delete elements
+    gd.ne,gd.i34,gd.elnode=len(sind),gd.i34[sind],gd.elnode[sind]
+    gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
+    return gd
+
 if __name__=="__main__":
     pass
 
