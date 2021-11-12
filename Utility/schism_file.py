@@ -1023,6 +1023,9 @@ class schism_bpfile:
         self.station=[]; self.hp=[]; self.ht=[]
         self.edit()
 
+    def read_reg(self,fname):
+        self.read_bpfile(fname,fmt=1)
+
     def read_bpfile(self,fname,fmt=0):
         #read file content
         lines=[i.strip().split() for i in open(fname,'r').readlines()]
@@ -1051,6 +1054,9 @@ class schism_bpfile:
            self.station=array(stations)
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
+
+    def write_reg(self,fname):
+        self.write_bpfile(fname,fmt=1)
 
     def write_bpfile(self,fname,fmt=0):
         '''
@@ -1225,6 +1231,12 @@ def read_schism_bpfile(fname,fmt=0):
     bp=schism_bpfile();
     bp.read_bpfile(fname,fmt=fmt)
     return bp
+
+def read_schism_reg(fname):
+    '''
+    read schism *.reg file created by ACE/gredit
+    '''
+    return read_schism_bpfile(fname,fmt=1)
 
 def save_schism_grid(fname='grid',path='.'):
     '''
