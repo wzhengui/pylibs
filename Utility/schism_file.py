@@ -282,9 +282,22 @@ class schism_grid:
               w=1/(dist**p); w[self.ine==-1]=0; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
         return v
 
+    def compute_all(self,fmt=0):
+        '''
+        compute all geometry information of hgrid by invoking:
+           functions: compute_ctr(),compute_area(),compute_side(fmt=2),compute_nne(),compute_ic3()
+           attrs: (xctr,yctr,dpe),(area),(ns,isidenode,isdel,xcj,ycj,dps,distj),(nne,mnei,indel,ine),(ic3,elside)
+           fmt=0: skip if already attrs are already available; fmt=1: recompute all attrs
+        '''
+        if (not hasattr(self,'dpe'))  and fmt==0: self.compute_ctr()
+        if (not hasattr(self,'area')) and fmt==0: self.compute_area()
+        if (not hasattr(self,'dps'))  and fmt==0: self.compute_side(fmt=2)
+        if (not hasattr(self,'ine'))  and fmt==0: self.compute_nne()
+        if (not hasattr(self,'ic3'))  and fmt==0: self.compute_ic3()
+
     def compute_ctr(self):
         '''
-        compute element center XYZ
+        compute element center information: (xctr,yctr,dpe)
         '''
         if not hasattr(self,'xctr'):
            fp3=self.i34==3; fp4=~fp3; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
