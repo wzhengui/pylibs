@@ -1541,7 +1541,7 @@ def grd2sms(grd,sms):
     #save grid save *2dm format
     gd.grd2sms(sms)
 
-def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg=None):
+def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None):
     '''
     create schism grid from scatter pts
         xyz: c_[x,y] or c_[x,y,z]
@@ -1549,7 +1549,8 @@ def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_m
         area_max:  remove element with element_area   > area_max
         side_min:  remove element with side_length    < side_min
         side_max:  remove element with side_length    > side_max
-        reg:       ACE/xgredit region file. remove elements in region if reg is provided
+        reg_in:    ACE/xgredit region file. remove elements in region if reg_in is provided
+        reg_out:   ACE/xgredit region file. remove elements outside of region if reg_out is provided
     '''
 
     #get xyz
@@ -1562,10 +1563,10 @@ def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_m
     gd.elnode=c_[tr.triangles,-2*ones([gd.ne,1])].astype('int'); gd.i34=3*ones(gd.ne).astype('int')
 
     #clean mesh
-    gd=delete_schism_grid_element(gd,angle_min=angle_min,area_max=area_max,side_min=side_min,side_max=side_max,reg=reg)
+    gd=delete_schism_grid_element(gd,angle_min=angle_min,area_max=area_max,side_min=side_min,side_max=side_max,reg_in=reg_in,reg_out=reg_out)
     return gd
 
-def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_max=None,reg=None,method=0):
+def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None,method=0):
     '''
     delete schism grid's elements
         grd: schism_grid object
@@ -1573,7 +1574,8 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
         area_max:  remove element with element_area   > area_max
         side_min:  remove element with side_length    < side_min
         side_max:  remove element with side_length    > side_max
-        reg:       ACE/xgredit region file. remove elements in region if reg is provided
+        reg_in:    ACE/xgredit region file. remove elements in region if reg_in is provided
+        reg_out:   ACE/xgredit region file. remove elements outside of region if reg_out is provided
         method=0: use side_max for dangling pts; method=1: use angle_min for dangling pts
     '''
 
@@ -1599,9 +1601,15 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     sindp=r_[fangle,farea,fside_max,fside_min].astype('int')
 
     #filter elements inside region
-    if (reg is not None) and len(sindp)!=0:
-        bp=read_schism_bpfile(reg,fmt=1)
+    if (reg_in is not None) and len(sindp)!=0:
+        bp=read_schism_bpfile(reg_in,fmt=1)
         fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],bp.x,bp.y)==1; sindp=sindp[fpr]
+
+    #filter elements outside region
+    if reg_out is not None:
+        bp=read_schism_bpfile(reg_out,fmt=1)
+        sindo=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],bp.x,bp.y)==0)[0]; sindp=r_[sindp,sindo]
+
     sind=setdiff1d(arange(gd.ne),sindp)
 
     #add back elements with dangling pts
