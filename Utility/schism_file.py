@@ -281,7 +281,7 @@ class schism_grid:
             v0=value;
 
         #compute node ball
-        if not hasattr(self,'nne'): self.compute_node_ball()
+        if not hasattr(self,'nne'): self.compute_nne()
 
         #interpolation
         v=[];
@@ -449,19 +449,43 @@ class schism_grid:
            self.nob=0; self.nobn=array([]); self.iobn=array([[]]); sind=argsort(S.island)
            self.nlb=S.nb; self.nlbn=S.nbn[sind]; self.ilbn=S.ibn[sind]; self.island=S.island[sind]
 
+    def compute_nne(self,**args):
+        '''
+        alias for compute_node_ball()
+        '''
+        return self.compute_node_ball(**args)
+
     def compute_node_ball(self):
         '''
-        compute nodal ball information
+        compute nodal ball information: nne,indel,ine
+        where:
+             nne:   number of elements in nodal ball
+             indel: indices for each nodal ball
+             ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
         '''
-        nne=zeros(self.np).astype('int');
-        ine=[[] for i in arange(self.np)];
-        for i in arange(self.ne):
-            inds=self.elnode[i,:self.i34[i]];
-            nne[inds]=nne[inds]+1
-            [ine[indi].append(i) for indi in inds]
-        self.nne=nne
-        self.indel=array([array(ine[i]) for i in arange(self.np)],dtype='O'); self.ine=self.indel
-        return self.nne, self.indel
+
+        #get index of all node and elements
+        elem=tile(arange(self.ne),[4,1]).T.ravel(); node=self.elnode.ravel()
+        fpn=node!=-2;      elem,node=elem[fpn],node[fpn]
+        fpn=argsort(node); elem,node=elem[fpn],node[fpn]
+
+        #compute nne,ine,indel
+        unode,sind,self.nne=unique(node,return_index=True,return_counts=True); mnne=self.nne.max()
+        self.ine=-ones([self.np,mnne]).astype('int')
+        for i in arange(mnne): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
+        self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)])
+        return self.nne
+
+        #old method for nodal ball
+        #nne=zeros(self.np).astype('int');
+        #ine=[[] for i in arange(self.np)];
+        #for i in arange(self.ne):
+        #    inds=self.elnode[i,:self.i34[i]];
+        #    nne[inds]=nne[inds]+1
+        #    [ine[indi].append(i) for indi in inds]
+        #self.nne=nne
+        #self.indel=array([array(ine[i]) for i in arange(self.np)],dtype='O'); self.ine=self.indel
+        #return self.nne, self.indel
 
     def compute_acor(self,pxy):
         '''
@@ -1563,7 +1587,7 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     #add back elements with dangling pts
     ips=setdiff1d(arange(gd.np),unique(gd.elnode[sind].ravel()))
     if len(ips)!=0:
-        gd.compute_node_ball(); sinde=[]
+        gd.compute_nne(); sinde=[]
         for ip in ips:
             ies=gd.indel[ip]
             if method==0: ai=sidemax[ies]; sinde.append(ies[nonzero(ai==min(ai))[0][0]])
