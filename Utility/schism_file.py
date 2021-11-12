@@ -254,9 +254,9 @@ class schism_grid:
         '''
         #interpolate
         dp=self.dp if (value is None) else value
-        fp3=self.i34==3; dpe=zeros(self.ne)
+        fp3=self.i34==3; fp4=~fp3; dpe=zeros(self.ne)
         dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1)
-        dpe[~fp3]=dp[self.elnode[~fp3]].mean(axis=1)
+        dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
         return dpe
 
     def interp_elem_to_node(self,value=None,fmt=0,p=1):
@@ -287,16 +287,13 @@ class schism_grid:
         compute element center XYZ
         '''
         if not hasattr(self,'xctr'):
-           fp1=self.i34==3; fp2=self.i34==4;
-           self.xctr=zeros(self.ne)*nan
-           self.yctr=zeros(self.ne)*nan
-
-           self.xctr[fp1]=mean(self.x[self.elnode[fp1,0:3]],axis=1)
-           self.yctr[fp1]=mean(self.y[self.elnode[fp1,0:3]],axis=1)
-           self.xctr[fp2]=mean(self.x[self.elnode[fp2,:]],axis=1)
-           self.yctr[fp2]=mean(self.y[self.elnode[fp2,:]],axis=1)
-
-        self.dpe=self.interp_node_to_elem()
+           fp3=self.i34==3; fp4=~fp3; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
+           self.xctr[fp3]=self.x[self.elnode[fp3,:3]].mean(axis=1)
+           self.xctr[fp4]=self.x[self.elnode[fp4,:]].mean(axis=1)
+           self.yctr[fp3]=self.y[self.elnode[fp3,:3]].mean(axis=1)
+           self.yctr[fp4]=self.y[self.elnode[fp4,:]].mean(axis=1)
+           self.dpe[fp3]=self.dp[self.elnode[fp3,:3]].mean(axis=1)
+           self.dpe[fp4]=self.dp[self.elnode[fp4,:]].mean(axis=1)
         return self.dpe
 
     def compute_area(self):
@@ -354,7 +351,9 @@ class schism_grid:
     def compute_side(self,fmt=0):
         '''
         compute side information of schism's hgrid
-        fmt=0: compute ns (# of sides) only; fmt=1: compute ns,isidenode and isdel
+        fmt=0: compute ns (# of sides) only
+        fmt=1: compute (ns,isidenode,isdel)
+        fmt=2: compute (ns,isidenode,isdel), and (xcj,ycj,dps,distj)
         '''
 
         #collect sides
@@ -370,7 +369,7 @@ class schism_grid:
 
         if fmt==0:
            return self.ns
-        elif fmt==1:
+        elif fmt in [1,2]:
            #build isidenode 
            sinda=argsort(sind); sinds=sind[sinda]; self.isidenode=sis[sinds]; 
 
@@ -378,6 +377,10 @@ class schism_grid:
            se1=sie[sinds]; se2=-ones(self.ns).astype('int')
            sindl=setdiff1d(arange(len(sie)),sind); se2[sindr[sindl]]=sie[sindl]; se2=se2[sinda]
            self.isdel=c_[se1,se2]; fps=(se1>se2)*(se2!=-1); self.isdel[fps]=fliplr(self.isdel[fps])
+
+           #compute xcj,ycj and dps
+           if fmt==2:
+              self.xcj,self.ycj,self.dps=c_[self.x,self.y,self.dp][self.isidenode].mean(axis=1).T
            return self.ns,self.isidenode,self.isdel
 
     def compute_bnd(self):
@@ -442,6 +445,7 @@ class schism_grid:
         compute nodal ball information: nne,indel,ine
         where:
              nne:   number of elements in nodal ball
+             mnei:  maximum number of elements in nodal ball
              indel: indices for each nodal ball
              ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
         '''
@@ -452,22 +456,11 @@ class schism_grid:
         fpn=argsort(node); elem,node=elem[fpn],node[fpn]
 
         #compute nne,ine,indel
-        unode,sind,self.nne=unique(node,return_index=True,return_counts=True); mnne=self.nne.max()
-        self.ine=-ones([self.np,mnne]).astype('int')
-        for i in arange(mnne): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
+        unode,sind,self.nne=unique(node,return_index=True,return_counts=True); self.mnei=self.nne.max()
+        self.ine=-ones([self.np,self.mnei]).astype('int')
+        for i in arange(self.mnei): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
         self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)])
         return self.nne
-
-        #old method for nodal ball
-        #nne=zeros(self.np).astype('int');
-        #ine=[[] for i in arange(self.np)];
-        #for i in arange(self.ne):
-        #    inds=self.elnode[i,:self.i34[i]];
-        #    nne[inds]=nne[inds]+1
-        #    [ine[indi].append(i) for indi in inds]
-        #self.nne=nne
-        #self.indel=array([array(ine[i]) for i in arange(self.np)],dtype='O'); self.ine=self.indel
-        #return self.nne, self.indel
 
     def compute_acor(self,pxy):
         '''
