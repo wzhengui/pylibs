@@ -381,6 +381,7 @@ class schism_grid:
            #compute xcj,ycj and dps
            if fmt==2:
               self.xcj,self.ycj,self.dps=c_[self.x,self.y,self.dp][self.isidenode].mean(axis=1).T
+              self.distj=abs(diff(self.x[self.isidenode],axis=1)+1j*diff(self.y[self.isidenode],axis=1))[:,0]
            return self.ns,self.isidenode,self.isdel
 
     def compute_bnd(self):
@@ -442,7 +443,7 @@ class schism_grid:
 
     def compute_node_ball(self):
         '''
-        compute nodal ball information: nne,indel,ine
+        compute nodal ball information: nne,mnei,indel,ine
         where:
              nne:   number of elements in nodal ball
              mnei:  maximum number of elements in nodal ball
@@ -461,6 +462,37 @@ class schism_grid:
         for i in arange(self.mnei): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
         self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)])
         return self.nne
+
+    def compute_ic3(self):
+        '''
+        compute element-to-side table, where
+             elside: element-to-side table
+        '''
+
+        #get index for all elements and sides
+        if not hasattr(self,'isdel'): self.compute_side(fmt=1)
+        side=tile(arange(self.ns),[2,1]).T.ravel(); elem=self.isdel.ravel()
+        fpn=elem!=-1; side,elem=side[fpn],elem[fpn]
+        fpn=argsort(elem); side,elem=side[fpn],elem[fpn]
+
+        #build elside
+        uelem,sind=unique(elem,return_index=True); self.elside=-ones([self.ne,4]).astype('int'); m34=self.i34.max()
+        for i in arange(m34):
+            fps=nonzero(self.i34>i)[0]; i34=self.i34[fps]; sinds=sind[fps]+i
+            sd=side[sinds];  n1,n2=self.isidenode[sd].T
+            for k in arange(m34): #sort order of sides
+                id1,id2=(k+1)%i34,(k+2)%i34
+                fpk=((self.elnode[fps,id1]==n1)*(self.elnode[fps,id2]==n2))|((self.elnode[fps,id1]==n2)*(self.elnode[fps,id2]==n1))
+                self.elside[fps[fpk],k]=sd[fpk]
+        self.elside[self.i34==3,-1]=-1
+
+        #build ic3
+        self.ic3=-ones([self.ne,4]).astype('int'); ie=arange(self.ne)
+        for i in arange(m34):
+            es=self.isdel[self.elside[:,i]]; fp=es[:,0]==ie
+            self.ic3[fp,i]=es[fp,1]; self.ic3[~fp,i]=es[~fp,0]
+        self.ic3[self.elside==-1]=-1
+        return self.ic3,self.elside
 
     def compute_acor(self,pxy):
         '''
