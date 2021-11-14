@@ -823,19 +823,22 @@ def command_outputs(code,shell=True):
 
 def near_pts(pts,pts0,method=0,N=100):
     '''
-    return index of pts0(x0,y0) that pts(x,y) is nearest
+    return index of pts0 that pts is nearest
+       usage: sind=near_pts(pts,pts0)
+       pts0: c_[x0,y0];  pts: c_[x,y]
+       algorithm: using sp.spatial.cKDTree (default)
 
-    usage: sind=near_pts(pts,pts0,method=0,N=100)
+    old methods: method=1 and  method=2
+       usage: sind=near_pts(pts,pts0,method=1[2],N=100)
        pts[n,2]: xy of points
        pts0[n,2]: xy of points
 
-       method=0: using sp.spatial.KDTree (default)
        method=1: quick method by subgroups (N);
        method=2: slower methods
     '''
 
     if method==0:
-        tmp,sind=sp.spatial.KDTree(pts0).query(pts)
+        sind=sp.spatial.cKDTree(pts0).query(pts)[1]
     elif method==1:
         p=pts[:,0]+(1j)*pts[:,1]
         p0=pts0[:,0]+(1j)*pts0[:,1]
