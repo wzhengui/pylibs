@@ -557,7 +557,7 @@ class schism_grid:
 
            #use point-wise method for the remain pts
            sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid(pxy[sindp])==1]
-           if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor2(pxy[sindp],fmt=1)
+           if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor(pxy[sindp],fmt=1)
 
         elif fmt==1:
             #check 1st triangle
