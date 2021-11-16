@@ -71,7 +71,8 @@ if myrank==0:
    for m,tname in enumerate(tnames):
        
        #check pts are inside grid
-       sxy=txys[m]; sind=gd.inside_grid(sxy)
+       #sxy=txys[m]; sind=gd.inside_grid(sxy)
+       sxy=txys[m]; sind=gd.compute_acor(sxy)[0]
        if sum(sind==-1)!=0: sys.exit('pts outside of domain: {},{} {}'.format(m,sxy,sind))
        
        #compute xy of transect
