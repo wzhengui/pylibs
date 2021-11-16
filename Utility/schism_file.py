@@ -541,6 +541,8 @@ class schism_grid:
                ie:  the element number
                ip:  the nodal indices of the ie
                acor: the area coordinate
+               fmt=0: faster method by searching the neighbors of  elements and nodes
+               fmt=1: slower method using point-wise comparison
         '''
 
         npt=len(pxy); pip=-ones([npt,3]).astype('int'); pacor=zeros([npt,3])
@@ -592,9 +594,13 @@ class schism_grid:
                fps=pie2!=-1; pie[sind2[fps]]=sind4[pie2[fps]]; pip[sind2[fps]]=sindn.T[pie2[fps]]
 
             #compute acor
-            fpn=pie!=-1; x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
-            A1=signa(c_[x,x2,x3],c_[y,y2,y3]); A2=signa(c_[x1,x,x3],c_[y1,y,y3])
-            A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
+            fpn=pie!=-1
+            if sum(fpn)!=0:
+               x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
+               A1=signa(c_[x,x2,x3],c_[y,y2,y3]); A2=signa(c_[x1,x,x3],c_[y1,y,y3])
+               A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
+            if sum(~fpn)!=0:
+               sindn=near_pts(pxy[~fpn],c_[self.x,self.y]); pip[~fpn]=sindn[:,None]; pacor[~fpn,0]=1
 
         return pie,pip,pacor
 
