@@ -431,7 +431,7 @@ class schism_grid:
             nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
         #sort bnd
-        nbn=array(nbn); ibn=array(ibn); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
+        nbn=array(nbn); ibn=array(ibn,dtype='O'); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
 
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
@@ -476,7 +476,7 @@ class schism_grid:
         unode,sind,self.nne=unique(node,return_index=True,return_counts=True); self.mnei=self.nne.max()
         self.ine=-ones([self.np,self.mnei]).astype('int')
         for i in arange(self.mnei): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
-        self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)])
+        self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)],dtype='O')
         return self.nne
 
     def compute_ic3(self):
@@ -525,14 +525,15 @@ class schism_grid:
 
         npt=len(pxy); pip=-ones([npt,3]).astype('int'); pacor=zeros([npt,3])
         if fmt==0:
-           pie=-ones(npt).astype('int')
+           pie=-ones(npt).astype('int'); sindp=arange(npt)
            #search element ctr
            if not hasattr(self,'xctr'): self.compute_ctr()
-           sinde=near_pts(pxy,c_[self.xctr,self.yctr]); fps,sip,sacor=self.inside_elem(pxy,sinde)
-           if len(fps)!=0: pie[fps]=sinde[fps]; pip[fps]=sip; pacor[fps]=sacor
+           #if hasattr(self,'bndinfo'): sindp=sindp[self.inside_grid(pxy)==1]
+           sinde=near_pts(pxy[sindp],c_[self.xctr,self.yctr]); fps,sip,sacor=self.inside_elem(pxy[sindp],sinde)
+           if len(fps)!=0: pie[sindp[fps]]=sinde[fps]; pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
 
            #search the direct neighbors of element ctr
-           fp=pie==-1; sindp,sinde=nonzero(fp)[0],sinde[fp]
+           fp=pie[sindp]==-1; sindp,sinde=sindp[fp],sinde[fp]
            if len(sindp)!=0:
                if not hasattr(self,'ic3'): self.compute_ic3()
                for i in arange(self.i34.max()):
@@ -1313,15 +1314,20 @@ def read_schism_reg(fname):
     '''
     return read_schism_bpfile(fname,fmt=1)
 
-def save_schism_grid(fname='grid',path='.'):
+def save_schism_grid(fname='grid',path='.',fmt=0):
     '''
-    read and save path/{hgrid.gr3,vgrid.in}
+    read and save path/{hgrid.gr3,hgrid.ll,vgrid.in}
+       fname: save name
+       path:  directory whether grids exist
+       fmt=0: not save grid's full geometry; fmt=1: save
     '''
     gname='{}/hgrid.gr3'.format(path); gname_ll='{}/hgrid.ll'.format(path)
     vname='{}/vgrid.in'.format(path); S=zdata();
     if os.path.exists(gname):
-       S.hgrid=read_schism_hgrid(gname)
-       if os.path.exists(gname_ll): gd=read_schism_hgrid(gname_ll); S.hgrid.lon,S.hgrid.lat=gd.x,gd.y
+       gd=read_schism_hgrid(gname)
+       if os.path.exists(gname_ll): gdl=read_schism_hgrid(gname_ll); gd.lon,gd.lat=gdl.x,gdl.y
+       if fmt==1: gd.compute_all(); gd.compute_bnd()
+       S.hgrid=gd
     if os.path.exists(vname): S.vgrid=read_schism_vgrid(vname)
     if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(gname,vname))
     savez(fname,S)
