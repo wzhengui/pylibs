@@ -289,11 +289,11 @@ class schism_grid:
            attrs: (xctr,yctr,dpe),(area),(ns,isidenode,isdel,xcj,ycj,dps,distj),(nne,mnei,indel,ine),(ic3,elside)
            fmt=0: skip if already attrs are already available; fmt=1: recompute all attrs
         '''
-        if (not hasattr(self,'dpe'))  and fmt==0: self.compute_ctr()
-        if (not hasattr(self,'area')) and fmt==0: self.compute_area()
-        if (not hasattr(self,'dps'))  and fmt==0: self.compute_side(fmt=2)
-        if (not hasattr(self,'ine'))  and fmt==0: self.compute_nne()
-        if (not hasattr(self,'ic3'))  and fmt==0: self.compute_ic3()
+        if (not hasattr(self,'dpe'))  or fmt==1: self.compute_ctr()
+        if (not hasattr(self,'area')) or fmt==1: self.compute_area()
+        if (not hasattr(self,'dps'))  or fmt==1: self.compute_side(fmt=2)
+        if (not hasattr(self,'ine'))  or fmt==1: self.compute_nne()
+        if (not hasattr(self,'ic3'))  or fmt==1: self.compute_ic3()
 
     def compute_ctr(self):
         '''
@@ -405,7 +405,7 @@ class schism_grid:
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
 
         #find boundary side and element
-        fpn=fp=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+        fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
 
         #sort isn
         i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
@@ -430,12 +430,15 @@ class schism_grid:
                 ibni.append(id)
             nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
+        #sort bnd
+        nbn=array(nbn); ibn=array(ibn); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
+
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
         ip=[]; sind=[]; S=self.bndinfo
         for m,ibni in enumerate(ibn): ip.extend(ibni); sind.extend(tile(m,len(ibni)))
         ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip; S.island=ones(nb).astype('int')
-        S.nb=nb; S.nbn=array(nbn); S.ibn=array(ibn); S.x=self.x[ip]; S.y=self.y[ip]
+        S.nb=nb; S.nbn=nbn; S.ibn=ibn; S.x=self.x[ip]; S.y=self.y[ip]
 
         #find the outline
         for i in arange(nb):
@@ -529,9 +532,75 @@ class schism_grid:
         pacor=zeros(pip.shape); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
         return [pie,pip,pacor]
 
+    def compute_acor2(self,pxy,fmt=0):
+        '''
+        compute acor coodinate for points pxy[npt,2]
+
+        usage: ie,ip,acor=compute_acor(c_[xi,yi]), where xi and yi are array of coordinates
+        outputs: ie[npt],ip[npt,3],acor[npt,3]
+               ie:  the element number
+               ip:  the nodal indices of the ie
+               acor: the area coordinate
+        '''
+
+        npt=len(pxy); pip=-ones([npt,3]).astype('int'); pacor=zeros([npt,3])
+        if fmt==0:
+           pie=-ones(npt).astype('int')
+           #search element ctr
+           if not hasattr(self,'xctr'): self.compute_ctr()
+           sinde=near_pts(pxy,c_[self.xctr,self.yctr]); fps,sip,sacor=self.inside_elem(pxy,sinde)
+           if len(fps)!=0: pie[fps]=sinde[fps]; pip[fps]=sip; pacor[fps]=sacor
+
+           #search the direct neighbors of element ctr
+           fp=pie==-1; sindp,sinde=nonzero(fp)[0],sinde[fp]
+           if len(sindp)!=0:
+               if not hasattr(self,'ic3'): self.compute_ic3()
+               for i in arange(self.i34.max()):
+                   ie=self.ic3[sinde,i]; fps,sip,sacor=self.inside_elem(pxy[sindp],ie)
+                   if len(fps)!=0: pie[sindp[fps]]=ie[fps]; pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
+
+                   #update sindp
+                   fp=pie[sindp]==-1; sindp,sinde=sindp[fp],sinde[fp]
+                   if len(sindp)==0: break
+
+           #search elements inside node ball
+           if not array_equal(sindp,nonzero(pie==-1)[0]): sys.exit('bomb')
+           if len(sindp)!=0:
+               if not hasattr(self,'ine'): self.compute_nne()
+               sindn=near_pts(pxy[sindp],c_[self.x,self.y]); pip[sindp]=sindn[:,None]; pacor[sindp,0]=1
+               for i in arange(self.mnei):
+                   ie=self.ine[sindn,i]; fps,sip,sacor=self.inside_elem(pxy[sindp],ie)
+                   if len(fps)!=0: pie[sindp[fps]]=ie[fps]; pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
+
+                   #update sindp
+                   if i<(self.mnei-1): fp=(pie[sindp]==-1)*(self.ine[sindn,i+1]!=-1); sindp,sindn=sindp[fp],sindn[fp]
+                   if len(sindp)==0: break
+
+           #use point-wise method for the remain pts
+           sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid2(pxy[sindp])==1]
+           if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor2(pxy[sindp],fmt=1)
+
+        elif fmt==1:
+            #check 1st triangle
+            sindn=self.elnode.T[:3]; pie=inside_polygon(pxy,self.x[sindn],self.y[sindn],fmt=1)
+            fps=pie!=-1; pip[fps]=sindn.T[pie[fps]]
+
+            #check 2nd triangle
+            sind4=nonzero(self.i34==4)[0]; sind2=nonzero(~fps)[0]
+            if len(sind2)!=0 and len(sind4)!=0:
+               sindn=self.elnode[sind4].T[array([0,2,3])]; pie2=inside_polygon(pxy[sind2],self.x[sindn],self.y[sindn],fmt=1)
+               fps=pie2!=-1; pie[sind2[fps]]=sind4[pie2[fps]]; pip[sind2[fps]]=sindn.T[pie2[fps]]
+
+            #compute acor
+            fpn=pie!=-1; x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
+            A1=signa(c_[x,x2,x3],c_[y,y2,y3]); A2=signa(c_[x1,x,x3],c_[y1,y,y3])
+            A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
+
+        return pie,pip,pacor
+
     def interp(self,xyi):
         #interpolate to get depth at xyi
-        ie,ip,acor=self.compute_acor(xyi)
+        ip,acor=self.compute_acor(xyi)[1:]
         dpi=(self.dp[ip]*acor).sum(axis=1)
         return dpi
 
@@ -743,9 +812,6 @@ class schism_grid:
         if not hasattr(self,'xctr'): self.compute_ctr()
         qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
         sbp=schism_bpfile(); sbp.nsta=len(qxi); sbp.x=qxi; sbp.y=qyi; sbp.z=zeros(sbp.nsta); sbp.write_bpfile(fname)
-        #with open("{}".format(fname),'w+') as fid:
-        #    for i in arange(len(qxi)):
-        #        fid.write('{} {} 0\n'.format(qxi[i],qyi[i]))
 
     def plot_bad_quads(self,color='r',ms=12,*args):
         #plot grid with bad quads
@@ -822,6 +888,48 @@ class schism_grid:
             sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
         if fmt==1:
             return array([*sind3,*sind4]).astype('int')
+
+    def inside_elem(self,pxy,ie):
+        '''
+        check whether pts are inside elements, then compute area coordinates for pts in elements
+           pxy: c_[x,y]
+           ie: array of element indices corresponding to each pt
+        '''
+        sind=[]; pip=[]; pacor=[]
+        for i in arange(self.i34.max()-2):
+            #get pts and element info
+            if i==0: ip=self.elnode[ie,:3]; x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy.T
+            if i==1:
+                fpr=(~fps)*(self.i34[ie]==4); sindr=nonzero(fpr)[0];
+                ip=self.elnode[ie[fpr]][:,array([0,2,3])]; x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy[fpr].T
+
+            #compute area coordinates
+            A0=signa(c_[x1,x2,x3],c_[y1,y2,y3]); A1=signa(c_[xi,x2,x3],c_[yi,y2,y3])
+            A2=signa(c_[x1,xi,x3],c_[y1,yi,y3]); A3=signa(c_[x1,x2,xi],c_[y1,y2,yi])
+            fps=(A1>=0)*(A2>=0)*(A3>=0); ac1=A1[fps]/A0[fps]; ac2=A2[fps]/A0[fps]
+            if not isinstance(fps,np.ndarray): fps=array([fps])
+
+            #get index of pts
+            if i==0: sind.extend(nonzero(fps)[0])
+            if i==1: sind.extend(sindr[fps])
+            pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,1-ac1-ac2])
+        return array(sind),array(pip),array(pacor)
+
+    def inside_grid2(self,pxy):
+        '''
+        check whether pts are inside grid
+        usage:
+            sind=gd.inside_grid(pxy)
+            sind=0: outside; sind=1: inside
+        '''
+        npt=len(pxy); sindp=arange(npt)
+        if not hasattr(self,'bndinfo'): self.compute_bnd()
+        for i in arange(self.bndinfo.nb):
+            fpb=self.bndinfo.ibn[i]; fp=inside_polygon(pxy[sindp],self.x[fpb],self.y[fpb])==1
+            sindp=sindp[fp] if self.bndinfo.island[i]==0 else sindp[~fp]
+            if len(sindp)==0: break
+        sind=zeros(npt).astype('int'); sind[sindp]=1
+        return sind
 
     def inside_grid(self,pxy,fmt=0):
         '''
