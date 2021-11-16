@@ -521,6 +521,8 @@ class schism_grid:
                acor: the area coordinate
                fmt=0: (default) faster method by searching the neighbors of elements and nodes
                fmt=1: slower method using point-wise comparison
+
+               Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
 
         npt=len(pxy); pip=-ones([npt,3]).astype('int'); pacor=zeros([npt,3])
