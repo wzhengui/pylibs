@@ -510,7 +510,7 @@ class schism_grid:
         self.ic3[self.elside==-1]=-1
         return self.ic3,self.elside
 
-    def compute_acor(self,pxy):
+    def compute_acor(self,pxy,fmt=0):
         '''
         compute acor coodinate for points pxy[npt,2]
 
@@ -519,29 +519,7 @@ class schism_grid:
                ie:  the element number
                ip:  the nodal indices of the ie
                acor: the area coordinate
-        '''
-        #compute parents element
-        pie,pip=self.inside_grid(pxy,fmt=1); fpn=pie!=-1
-
-        #cooridate for triangles, and areas
-        x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
-        A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); A1=signa(c_[x,x2,x3],c_[y,y2,y3])
-        A2=signa(c_[x1,x,x3],c_[y1,y,y3]);  #A3=signa(c_[x1,x2,x],c_[y1,y2,y])
-
-        #area coordinate
-        pacor=zeros(pip.shape); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
-        return [pie,pip,pacor]
-
-    def compute_acor2(self,pxy,fmt=0):
-        '''
-        compute acor coodinate for points pxy[npt,2]
-
-        usage: ie,ip,acor=compute_acor(c_[xi,yi]), where xi and yi are array of coordinates
-        outputs: ie[npt],ip[npt,3],acor[npt,3]
-               ie:  the element number
-               ip:  the nodal indices of the ie
-               acor: the area coordinate
-               fmt=0: faster method by searching the neighbors of  elements and nodes
+               fmt=0: (default) faster method by searching the neighbors of elements and nodes
                fmt=1: slower method using point-wise comparison
         '''
 
@@ -566,7 +544,6 @@ class schism_grid:
                    if len(sindp)==0: break
 
            #search elements inside node ball
-           if not array_equal(sindp,nonzero(pie==-1)[0]): sys.exit('bomb')
            if len(sindp)!=0:
                if not hasattr(self,'ine'): self.compute_nne()
                sindn=near_pts(pxy[sindp],c_[self.x,self.y]); pip[sindp]=sindn[:,None]; pacor[sindp,0]=1
@@ -579,7 +556,7 @@ class schism_grid:
                    if len(sindp)==0: break
 
            #use point-wise method for the remain pts
-           sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid2(pxy[sindp])==1]
+           sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid(pxy[sindp])==1]
            if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor2(pxy[sindp],fmt=1)
 
         elif fmt==1:
@@ -604,11 +581,19 @@ class schism_grid:
 
         return pie,pip,pacor
 
-    def interp(self,xyi):
-        #interpolate to get depth at xyi
-        ip,acor=self.compute_acor(xyi)[1:]
-        dpi=(self.dp[ip]*acor).sum(axis=1)
-        return dpi
+    def interp(self,pxy,value=None):
+        '''
+        interpolate to get value at pxy
+          pxy: c_[x,y]
+          value=None: gd.dp is used; value: array of [np,] or [ne,]
+        '''
+        #get node value
+        vi=self.dp if value is None else value
+        if len(vi)==self.ne: vi=self.interp_elem_to_node(value=vi)
+       
+        #interp 
+        pip,pacor=self.compute_acor(pxy)[1:]
+        return (self.dp[pip]*pacor).sum(axis=1)
 
     def save(self, fname=None,**args):
         '''
@@ -921,7 +906,7 @@ class schism_grid:
             pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,1-ac1-ac2])
         return array(sind),array(pip),array(pacor)
 
-    def inside_grid2(self,pxy):
+    def inside_grid(self,pxy):
         '''
         check whether pts are inside grid
         usage:
@@ -936,30 +921,6 @@ class schism_grid:
             if len(sindp)==0: break
         sind=zeros(npt).astype('int'); sind[sindp]=1
         return sind
-
-    def inside_grid(self,pxy,fmt=0):
-        '''
-          compute element indices that pxy[npt,2] resides. '-1' means outside of the grid domain
-          usage:
-               sind=inside_grid(pxy)
-               sind,ptr=inside_grid(pxy,fmt=1)
-               ptr is triange indice (=1:1st triangle; =2: 2nd triangle), used for computing area coordinates
-        '''
-        #first triangles
-        sindp=self.elnode[:,:3]; px=self.x[sindp]; py=self.y[sindp]
-        pie=inside_polygon(pxy,px.T,py.T,fmt=1); fp1=pie!=-1; sind2=nonzero(~fp1)[0]
-        if fmt==1: pip=-ones([len(pxy),3]).astype('int'); pip[fp1]=sindp[pie[fp1]]
-
-        #2nd triangles
-        if len(sind2)!=0:
-           fp34=self.i34==4; sindp=self.elnode[fp34,:][:,array([0,2,3])]; px=self.x[sindp]; py=self.y[sindp]
-           pie2=inside_polygon(pxy[sind2],px.T,py.T,fmt=1); fp2=pie2!=-1; pie[sind2[fp2]]=nonzero(fp34)[0][pie2[fp2]]
-           if fmt==1: pip[sind2[fp2]]=sindp[pie2[fp2]]
-
-        if fmt==0:
-           return pie
-        else:
-           return [pie,pip]
 
     def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
         self.shp_bnd=zdata()
