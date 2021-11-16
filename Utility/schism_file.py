@@ -584,18 +584,22 @@ class schism_grid:
 
         return pie,pip,pacor
 
-    def interp(self,pxy,value=None):
+    def interp(self,pxy,value=None,fmt=0):
         '''
         interpolate to get value at pxy
           pxy: c_[x,y]
           value=None: gd.dp is used; value: array of [np,] or [ne,]
+          fmt=0: (default) faster method by searching the neighbors of elements and nodes
+          fmt=1: slower method using point-wise comparison
+
+          Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
         #get node value
         vi=self.dp if value is None else value
         if len(vi)==self.ne: vi=self.interp_elem_to_node(value=vi)
        
         #interp 
-        pip,pacor=self.compute_acor(pxy)[1:]
+        pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (self.dp[pip]*pacor).sum(axis=1)
 
     def save(self, fname=None,**args):
