@@ -1397,10 +1397,9 @@ class schism_vgrid:
 
 def read_schism_vgrid(fname):
     '''
-    read schism vgrid information working only for ivcor=1
+    read schism vgrid information
     '''
-    vd=schism_vgrid()
-    vd.read_vgrid(fname)
+    vd=schism_vgrid(); vd.read_vgrid(fname)
     return vd
 
 def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
