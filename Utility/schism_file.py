@@ -375,7 +375,7 @@ class schism_grid:
             sis.append(c_[self.elnode[:,(i+1)%4],self.elnode[:,(i+2)%4]]); sie.append(arange(self.ne))
         sie=array(sie).T.ravel(); sis=array(sis).transpose([1,0,2]).reshape([len(sie),2])
         fpn=diff(sis,axis=1)[:,0]!=0; sis=sis[fpn]; sie=sie[fpn]; self.elnode[fp3,-1]=-2
-        
+
         #sort sides
         usis=sort(sis,axis=1).T; usis,sind,sindr=unique(usis[0]+1j*usis[1],return_index=True,return_inverse=True)
         self.ns=len(sind)
@@ -383,8 +383,8 @@ class schism_grid:
         if fmt==0:
            return self.ns
         elif fmt in [1,2]:
-           #build isidenode 
-           sinda=argsort(sind); sinds=sind[sinda]; self.isidenode=sis[sinds]; 
+           #build isidenode
+           sinda=argsort(sind); sinds=sind[sinda]; self.isidenode=sis[sinds]
 
            #build isdel
            se1=sie[sinds]; se2=-ones(self.ns).astype('int')
@@ -597,8 +597,8 @@ class schism_grid:
         #get node value
         vi=self.dp if value is None else value
         if len(vi)==self.ne: vi=self.interp_elem_to_node(value=vi)
-       
-        #interp 
+
+        #interp
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (self.dp[pip]*pacor).sum(axis=1)
 
@@ -1431,6 +1431,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
 
         #add elevation
         zcor=hw[:,None]*sigma+eta[:,None]
+        fpz=hw<0; zcor[fpz]=-dp[fpz][:,None]
 
         #change format
         if fmt==1:
@@ -1500,6 +1501,117 @@ def create_schism_vgrid(fname='vgrid.in',nvrt=10,fmt=0,h_c=10,theta_b=0.5,theta_
         fid.close()
     else:
         sys.exit('fmt!=0 not working yet')
+
+def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
+    '''
+    3D interpolation for multiple variables; interplation only for the variables with a dimension of ne or np
+        (gd,  vd):    (hgrid,vgrid) from save_schism_grid
+        (pxy, pz): (c_[x,y],   z[:,:])  or (hgrid,vgrid) from save_schism_grid
+        values: list of np.array, or np.array
+        pind: indice of ne/np dimension for each variable; use -1 to skip interpolation of the variables
+        zind: indice of nvrt dimension for each variable;  use -1 to skip the vertical dimension
+        fmt=0: higher efficency for many pts; fmt=1: higher efficency for fewer pts
+    '''
+    #get xyz of interpolation pts
+    if hasattr(pxy,'dp') and hasattr(pz,'ivcor'):
+        pz=-pz.compute_zcor(pxy.dp); pxy=c_[pxy.x,pxy.y]
+    elif isinstance(pxy,np.ndarray) and isinstance(pz,np.ndarray):
+        if pz.ndim==1: pz=pz[:,None]
+    else:
+        sys.exit('(pxy,pz) should be either (schism_grid, schism_vgrid) or (np.array, np.array)')
+    npt=len(pxy); nz=pz.shape[1]
+
+    #compute zcor
+    if not hasattr(vd,'ivcor'): sys.exit('vgrid should a "schism_vgrid" object')
+    nvrt=vd.nvrt; zcor=-vd.compute_zcor(gd.dp)
+
+    #compute area coordinate
+    pie,pip,pacor=gd.compute_acor(pxy,fmt=fmt); zcor=(zcor[pip]*pacor[...,None]).sum(axis=1)
+
+    #limit pz
+    zm=tile(zcor[:,-1],[nz,1]).T; fpz=pz<zm; pz[fpz]=zm[fpz]
+    zm=tile(zcor[:,0],[nz,1]).T;  fpz=pz>zm; pz[fpz]=zm[fpz]; zm=None
+
+    #get variables' dimension information
+    ilst,nvar,values=[0,1,[values,]] if isinstance(values,np.ndarray) else [1,len(values),values]
+    dims=[array(i.shape) for i in values]; ndims=[len(i) for i in dims]
+    if pind is None: pind=nan*ones(nvar)
+    if zind is None: zind=nan*ones(nvar)
+    pind=array(pind).astype('int'); zind=array(zind).astype('int')
+
+    #modify variables dimension, interp from elem to node, interp horizontally,
+    tind=[]; w0=None; pvalues=[]
+    for i,[value,ds,ndim] in enumerate(zip(values,dims,ndims)):
+        sindp=nonzero(ds==gd.np)[0]; sinde=nonzero(ds==gd.ne)[0]; sindk=nonzero(ds==nvrt)[0]
+
+        #get index of ne or np
+        if pind[i]!=-1:
+            if len(sindp)==1: pind[i]=sindp[0]
+            if len(sindp)==0 and len(sinde)==1: pind[i]=sinde[0]
+            if len(sindp)==0 and len(sinde)==0: pind[i]=-1
+            if len(sindp)>1 and len(sinde)>1:  sys.exit('need "pind" for np/ne in {}th variable: dims={}, np={}, ne={}'.format(i+1,ds,gd.ne,gd.np))
+
+        #get index for nvrt
+        if zind[i]!=-1:
+            if len(sindk)==1: zind[i]=sindk[0]
+            if len(sindk)==0: zind[i]=-1
+            if len(sindk)>1: sys.exit('need "zind" for nvrt in {}th variable: dims={}, nvrt={} '.format(i+1,ds,nvrt))
+
+        #transpose the dimensions
+        if pind[i]!=-1 and zind[i]!=-1:
+            sind=[pind[i],zind[i],*setdiff1d(arange(ndim),[pind[i],zind[i]])]
+        elif pind[i]!=-1 and zind[i]==-1:
+            sind=[pind[i],*setdiff1d(arange(ndim),[pind[i]])]
+        else:
+            sind=None
+        tind.append(sind)
+        if sind is not None: values[i]=value.transpose(sind); dims[i]=dims[i][sind]
+
+        #compute weight function, and interpolate from elem to node
+        if pind[i]!=-1 and dims[i][0]==gd.ne:
+            if not hasattr(gd,'nne'): gd.compute_nne()
+            if w0 is None: w0=gd.ine!=-1; tw0=w0.sum(axis=1)
+            w=w0.copy(); tw=tw0.copy()
+            for n in arange(ndim-1): w=expand_dims(w,axis=2); tw=expand_dims(tw,axis=1)
+            values[i]=(w*values[i][gd.ine]).sum(axis=1)/tw
+
+        #create variables for pxyz
+        dsn=dims[i].copy()
+        if pind[i]!=-1: dsn[0]=npt
+        if zind[i]!=-1: dsn[1]=nz
+        pvalue=zeros(dsn)
+
+        #interp horizontal
+        if pind[i]!=-1:
+            acor=pacor.copy()
+            for n in arange(ndim-1): acor=expand_dims(acor,axis=2)
+            values[i]=(values[i][pip]*acor).sum(axis=1)
+            if zind[i]==-1: pvalue=values[i]
+        pvalues.append(pvalue)
+
+    #interp in vertical
+    for k, pzi in enumerate(pz.T):
+        for n in arange(nvrt):
+            z1,z2=zcor[:,min(nvrt-1,n+1)],zcor[:,n]
+            if n==(nvrt-1):
+                fpz=pzi==z1; ratz=zeros(sum(fpz))
+            else:
+                fpz=(pzi>z1)*(pzi<=z2); ratz=(pzi[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
+            if sum(fpz)==0: continue
+
+            for i,[value,ds,ndim,ip,iz] in enumerate(zip(values,dims,ndims,pind,zind)):
+                if ip==-1 or iz==-1: continue
+                v1,v2=value[fpz,min(nvrt-1,n+1)],value[fpz,n]; rat=ratz.copy()
+                for m in arange(ndim-2):rat=expand_dims(rat,axis=1)
+                pvalues[i][fpz,k]=v1*(1-rat)+v2*rat
+
+    #restore dimension order
+    for i,[pvalue,sind] in enumerate(zip(pvalues,tind)):
+        if sind is None: continue
+        sinds=argsort(sind); pvalues[i]=pvalues[i].transpose(sinds)
+    if ilst==0: pvalues=pvalues[0]
+
+    return pvalues
 
 def getglob(dirpath='.',fmt=0):
     '''
