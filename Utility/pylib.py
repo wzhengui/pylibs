@@ -26,6 +26,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    if hasattr(mpl.dates,'set_epoch'): mpl.dates.set_epoch('0000-12-31')
    from matplotlib.pyplot import *
 
+   import platform
+   if platform.system().lower()=='windows': mpl.use('Qt5Agg')
+
    #numpy
    import numpy as np
    from numpy import *
