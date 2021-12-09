@@ -68,6 +68,7 @@ class schism_grid:
               #detemine clim
               if clim is None:
                  fpn=~isnan(value); vmin,vmax=min(value[fpn]),max(value[fpn])
+                 if vmin==vmax: vmax=vmax+1e-6
               else:
                  vmin,vmax=clim
 
@@ -1394,6 +1395,16 @@ class schism_vgrid:
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
+    def write_vgrid(self,fname='vgrid.in'):
+        ''' 
+        write schism vertical grid
+        ''' 
+        if self.ivcor==1: 
+           fid=open(fname,'w+'); fid.write('{:12d}\n{:12d}\n'.format(self.ivcor,self.nvrt))
+           for i,[kbp,sigma] in enumerate(zip(self.kbp,self.sigma)): 
+               fstr='{:11d} {:11d}'+' {:11.6f}'*(self.nvrt-kbp)+'\n'
+               fid.write(fstr.format(i+1,kbp+1,*sigma[kbp:]))
+           fid.close()
 
 def read_schism_vgrid(fname):
     '''
