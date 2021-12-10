@@ -32,7 +32,7 @@ scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basenam
 #submit jobs first (qsub)
 #-----------------------------------------------------------------------------
 if os.getenv('run_schism')==None: 
-   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism',qname=qname)
+   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism',qname=qname,account=account)
    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------
