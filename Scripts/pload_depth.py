@@ -29,7 +29,7 @@ reverse_sign=1  #invert depth sign
 
 #resource requst 
 walltime='00:10:00'
-qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
+qnode='x5672'; nnode=8; ppn=4       #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
 #qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
@@ -135,10 +135,12 @@ if myrank==0:
        S.sind={**S.sind,**Si.sind}
 
    #load bathymetry
+   did=ones(gd.np).astype('int'); dname=[]
    for i,fname in enumerate(fnames_sort):
        bname=fname.split('.')[0]
        sind=S.sind[bname]; dp=S.dp[bname]
-       gd.dp[sind]=dp
+       gd.dp[sind]=dp; did[sind]=i+1
+       dnamei=[k for k in fnames0 if k.startswith(fname)][0]; dname.append(dnamei) 
 
    #reverse depth sign
    if reverse_sign==1:
@@ -159,6 +161,8 @@ if myrank==0:
       S=zdata(); S.hgrid=gd; savez(grdout,S)
    else:
       gd.write_hgrid(grdout)
+   fid=open('{}_dem_id'.format(grdout),'w+'); [fid.write('{}\n'.format(i)) for i in did]; fid.close()
+   fid=open('{}_dem_name'.format(grdout),'w+'); [fid.write('{}: {}\n'.format(i+1,k)) for i,k in enumerate(dname)]; fid.close()
    
 #-----------------------------------------------------------------------------
 #finish MPI jobs
