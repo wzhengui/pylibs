@@ -534,31 +534,29 @@ def close_data_loop(xi):
 #           vi=c_[xi,xi[...,:,0][...,None]]
 #     return vi
 
-#-----find all continous sections of a time series
-def find_continuous_sections(xi,dx):
+def find_cs(xi,dx):
     '''
-    analyze time series of xi; when a gap is larger than dx, it is a break;
+    analyze time series to find the locations where differences are larger than dx: (xi[i+1]-xi[i]>dx)
+    return: 
+      bind: locations of differences>dx
+      sections: continous sections where all differences are smaller than dx 
+      gaps:     gap sections where differences are larger than dx 
+      slen,glen: lens for each section or gap 
+      msection,mgap: maximum section/gap
     '''
-    dxi=diff(xi); ind=nonzero(dxi>dx)[0];
-
-    #divide xi into sub-sections
-    sections=[];
-    if len(ind)==0:
-        sii=[xi[0],xi[-1]]; sections.append(sii); section_max=sii;
+    sind=nonzero(diff(xi)>dx)[0]; sections=[]; gaps,glen,mgap=[],[],[]
+    if len(sind)==0:
+       sx=[xi[0],xi[-1]]; sections.append(sx)
     else:
-        i1=0; i2=ind[0]; sii=[xi[i1],xi[i2]]; sections.append(sii); section_max=sii;
-        for i in arange(len(ind)-1):
-            i1=ind[i]+1; i2=ind[i+1]
-            sii=[xi[i1],xi[i2]]; sections.append(sii);
-            if diff(section_max)<diff(sii): section_max=sii
-        i1=ind[-1]+1; sii=[xi[i1],xi[-1]]; sections.append(sii)
-        if diff(section_max)<diff(sii): section_max=sii
-
-    #save results
-    S=zdata();
-    S.sections=array(sections);
-    S.section_max=array(section_max)
-
+       sx=[xi[0],xi[sind[0]]]; sections.append(sx)
+       for m in arange(len(sind)-1):
+           sx=[xi[sind[m]+1],xi[sind[m+1]]]; sections.append(sx) 
+           gx=[xi[sind[m]],xi[sind[m]+1]]; gaps.append(sx)
+       sx=[xi[sind[-1]+1],xi[-1]]; sections.append(sx)
+    sections=array(sections); gaps=array(gaps)
+    slen=diff(sections,axis=1); msection=sections[nonzero(slen==slen.max())[0][0]]
+    if len(gaps)!=0: glen=diff(gaps,axis=1); mgap=gaps[nonzero(glen==glen.max())[0][0]]
+    S=zdata(); S.bind,S.sections,S.msection,S.slen,S.gaps,S.mgap,S.glen=sind,sections,msection,slen,gaps,mgap,glen
     return S
 
 def datenum(*args,fmt=0):

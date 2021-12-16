@@ -114,7 +114,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    import mylib
    from mylib import (get_xtick,close_data_loop,datenum,
-        loadz,zdata,savez,find_continuous_sections,convert_matfile,
+        loadz,zdata,savez,find_cs,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,proj2,rewrite,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
@@ -145,3 +145,4 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from mylib import savez as save_npz; mylib.save_npz=savez
    from mylib import zdata as npz_data; mylib.npz_data=zdata
    from mylib import move_figure as mvfig
+   from mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
