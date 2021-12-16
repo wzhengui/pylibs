@@ -551,7 +551,7 @@ def find_cs(xi,dx):
        sx=[xi[0],xi[sind[0]]]; sections.append(sx)
        for m in arange(len(sind)-1):
            sx=[xi[sind[m]+1],xi[sind[m+1]]]; sections.append(sx) 
-           gx=[xi[sind[m]],xi[sind[m]+1]]; gaps.append(sx)
+           gx=[xi[sind[m]],xi[sind[m]+1]]; gaps.append(gx)
        sx=[xi[sind[-1]+1],xi[-1]]; sections.append(sx)
     sections=array(sections); gaps=array(gaps)
     slen=diff(sections,axis=1); msection=sections[nonzero(slen==slen.max())[0][0]]
