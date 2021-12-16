@@ -1351,11 +1351,16 @@ class schism_vgrid:
         self.ivcor=int(lines[0].strip().split()[0]); self.nvrt=int(lines[1].strip().split()[0])
         if self.ivcor==1:
             #read vgrid info
-            lines=lines[2:]
-            self.kbp=array([int(i.split()[1])-1 for i in lines]); self.np=len(self.kbp)
-            self.sigma=-ones([self.np,self.nvrt])
-            for i,line in enumerate(lines):
-                self.sigma[i,self.kbp[i]:]=array(line.strip().split()[2:]).astype('float')
+            lines=lines[2:]; sline=array(lines[0].split()).astype('float')
+            if sline.min()<0: #old format
+               self.kbp=array([int(i.split()[1])-1 for i in lines]); self.np=len(self.kbp)
+               self.sigma=-ones([self.np,self.nvrt])
+               for i,line in enumerate(lines):
+                   self.sigma[i,self.kbp[i]:]=array(line.strip().split()[2:]).astype('float')
+            else:
+              sline=sline.astype('int'); self.kbp=sline-1; self.np=len(sline)
+              self.sigma=array([i.split()[1:] for i in lines[1:]]).T.astype('float')
+              fpm=self.sigma<-1; self.sigma[fpm]=-1
         elif self.ivcor==2:
             self.kz,self.h_s=lines[1].strip().split()[1:3]; self.kz=int(self.kz); self.h_s=float(self.h_s)
 
@@ -1395,16 +1400,27 @@ class schism_vgrid:
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
-    def write_vgrid(self,fname='vgrid.in'):
+    def write_vgrid(self,fname='vgrid.in',fmt=0):
         ''' 
         write schism vertical grid
+            fmt=0: write vgrid.in in latest format of ivcor=1 (one line per lelvel)
+            fmt=1: write vgrid.in in old format of ivcor=1    (one line per node)
         ''' 
         if self.ivcor==1: 
-           fid=open(fname,'w+'); fid.write('{:12d}\n{:12d}\n'.format(self.ivcor,self.nvrt))
-           for i,[kbp,sigma] in enumerate(zip(self.kbp,self.sigma)): 
-               fstr='{:11d} {:11d}'+' {:11.6f}'*(self.nvrt-kbp)+'\n'
-               fid.write(fstr.format(i+1,kbp+1,*sigma[kbp:]))
+           nvrt,np,kbp,sigma=self.nvrt,self.np,self.kbp.copy(),self.sigma.copy()
+           fid=open(fname,'w+'); fid.write('1    !average # of layers={}\n{}  \n'.format(mean(nvrt-kbp),nvrt))
+           if fmt==0: 
+              for i in arange(np): sigma[i,:kbp[i]]=-9
+              fstr='    '+' {:10d}'*np+'\n'; kbp=kbp+1; fid.write(fstr.format(*kbp))
+              fstr='{:8d}'+' {:10.6f}'*np+'\n'; sigma=sigma.T
+              [fid.write(fstr.format(i+1,*k)) for i,k in enumerate(sigma)]
+           elif fmt==1:
+              for i,[k,sigma] in enumerate(zip(kbp,sigma)): 
+                  fstr='{:9d} {:3d}'+' {:11.6f}'*(nvrt-k)+'\n'
+                  fid.write(fstr.format(i+1,k+1,*sigma[k:]))
            fid.close()
+        else: 
+           pass
 
 def read_schism_vgrid(fname):
     '''
