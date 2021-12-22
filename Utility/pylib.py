@@ -116,7 +116,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from mylib import (get_xtick,close_data_loop,datenum,
         loadz,zdata,savez,find_cs,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
-        inside_polygon,command_outputs,near_pts,proj,proj2,rewrite,
+        inside_polygon,command_outputs,near_pts,proj,proj2,rewrite,rewrite_input,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,
         get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,

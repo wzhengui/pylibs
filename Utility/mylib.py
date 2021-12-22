@@ -285,6 +285,23 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     else:
         sys.exit('wrong fmt')
 
+def rewrite_input(fname,qnode=None,nnode=1,ppn=1,**args):
+    '''
+    function to rewrite the inputs in job-submit scripts (e.g.run_mpi_template.py)
+    '''
+    #write qnode,nnode,ppn
+    if qnode is None: sys.exit('please specify qnode')
+    rewrite(fname,replace=['qnode','#qnode'],startswith=['qnode='])
+    rewrite(fname,replace=["qnode='{}'; nnode={}; ppn={}\n".format(qnode,nnode,ppn)],startswith=["#qnode='{}'".format(qnode)],note_delimiter='#')       
+
+    #change parameters
+    for key,value in args.items(): 
+        if key in ['icmb','ifs','fmt','stacks']: 
+           fstr="{}={}".format(key,value)
+        else:
+           fstr="{}='{}'".format(key,value)
+        rewrite(fname,replace=[fstr],startswith=['{}='.format(key)],note_delimiter='#')
+
 def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append=None,note_delimiter=None):
     '''
     function to rewrite file in-situ based on conditions
