@@ -106,7 +106,7 @@ class schism_grid:
            self.hg=hg; #show(block=False
            if xlim is not None: setp(ax,xlim=xlim)
            if ylim is not None: setp(ax,ylim=ylim)
-           if mpl.get_backend().lower() in ['qt5agg']:
+           if mpl.get_backend().lower() in ['qt5agg','qtagg']:
               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
               if 'bp' not in ats: self.bp=schism_bpfile()
               if 'query' not in ats: self.query_pt()
@@ -190,7 +190,7 @@ class schism_grid:
         hb2=plot(bx2,by2,c[-1],lw=lw,**args)
         #show(block=False)
         self.hb=[hb1,hb2]
-        if mpl.get_backend().lower() in ['qt5agg']:
+        if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
@@ -1005,9 +1005,9 @@ class schism_grid:
                   hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
 
                #save boundary information
-               self.nob=S.nob; self.iobn=array(S.iobn); self.nobn=array([len(i) for i in self.iobn])
+               self.nob=S.nob; self.iobn=array(S.iobn,dtype='O'); self.nobn=array([len(i) for i in self.iobn])
                sid=setdiff1d(unique(S.sind),unique(array(S.bid)))
-               self.nlb=S.nlb+len(sid); self.ilbn=array([*S.ilbn,*[S.ibn[i] for i in sid]])
+               self.nlb=S.nlb+len(sid); self.ilbn=array([*S.ilbn,*[S.ibn[i] for i in sid]],dtype='O')
                self.nlbn=array([len(i) for i in self.ilbn]); self.island=r_[tile(0,S.nlb),tile(1,len(sid))]
 
                #finish
