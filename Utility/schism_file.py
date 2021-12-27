@@ -1419,8 +1419,15 @@ class schism_vgrid:
                   fstr='{:9d} {:3d}'+' {:11.6f}'*(nvrt-k)+'\n'
                   fid.write(fstr.format(i+1,k+1,*sigma[k:]))
            fid.close()
+        elif self.ivcor==2:
+           fid=open(fname,'w+'); fid.write('2  !ivcor\n')
+           fid.write('{} {} {} !nvrt, kz, h_s \nZ levels\n'.format(self.nvrt,self.kz,self.h_s))
+           for k,zlevel in enumerate(self.ztot): fid.write('{} {}\n'.format(k+1,zlevel))
+           fid.write('S levels\n{} {} {} !h_c, theta_b, theta_f\n'.format(self.h_c,self.theta_b,self.theta_f))
+           for k,slevel in enumerate(self.sigma): fid.write('{} {:9.6f}\n'.format(k+1,slevel))
+           fid.close()
         else: 
-           pass
+           sys.exit('unknow ivcor={}'.format(self.ivcor))
 
 def read_schism_vgrid(fname):
     '''
@@ -1515,18 +1522,27 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
         if method==0: return zcor
         if method==1: return [zcor,kbp]
 
-def create_schism_vgrid(fname='vgrid.in',nvrt=10,fmt=0,h_c=10,theta_b=0.5,theta_f=1.0):
+def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e-6,h_c=10,theta_b=0.5,theta_f=1.0):
     '''
-    create a simple schism pure S vgrid for ivcor=2
+    create schism vertical grid:
+        fname: name of the grid
+        nvrt: number of vertical layers
+        ivcor=2: SZ grid
+              zlevels: 1). Z levels or 2). single number for h_s
+              h_c, theta_b, theta_f:  strench constants for sigma grid
+        ivcor=1: LCS^2 grid
     '''
-    if fmt==0:
-        fid=open(fname,'w+')
-        fid.write('2 !ivcor\n{} 1 1.e6 !nvrt\nZ levels\n1 -1.e6\nS levels\n'.format(nvrt))
-        fid.write('{} {} {} !h_c,theta_b,theta_f\n'.format(h_c,theta_b,theta_f))
-        w=[fid.write('{:5}  {:8.5f}\n'.format(i+1,k)) for i,k in zip(arange(nvrt),linspace(-1,0,nvrt))]
-        fid.close()
+    vd=schism_vgrid(); vd.ivcor,vd.nvrt=ivcor,nvrt
+    if ivcor==2:
+        if hasattr(zlevels,'__len__'): 
+           vd.kz,vd.ztot,vd.h_s=len(zlevels),zlevels,-zlevels[-1]
+        else:
+           vd.kz,vd.ztot,vd.h_s=1,[zlevels],-zlevels
+        vd.h_c,vd.theta_b,vd.theta_f=h_c,theta_b,theta_f
+        vd.sigma=linspace(-1,0,nvrt+1-vd.kz)
+        vd.write_vgrid(fname) 
     else:
-        sys.exit('fmt!=0 not working yet')
+        sys.exit('ivcor=1 option not available yet')
 
 def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
     '''
