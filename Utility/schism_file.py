@@ -155,6 +155,11 @@ class schism_grid:
            if xlim is not None: setp(ax,xlim=xlim)
            if ylim is not None: setp(ax,ylim=ylim)
            return hg
+    def plot(self,**args):
+        '''
+        alias for plot_grid()
+        '''
+        return self.plot_grid(**args)
 
     def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
         '''
