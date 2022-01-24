@@ -928,6 +928,7 @@ class schism_grid:
         '''
         npt=len(pxy); sindp=arange(npt)
         if not hasattr(self,'bndinfo'): self.compute_bnd()
+        if not hasattr(self.bndinfo,'nb'): self.compute_bnd()
         for i in arange(self.bndinfo.nb):
             fpb=self.bndinfo.ibn[i]; fp=inside_polygon(pxy[sindp],self.x[fpb],self.y[fpb])==1
             sindp=sindp[fp] if self.bndinfo.island[i]==0 else sindp[~fp]
