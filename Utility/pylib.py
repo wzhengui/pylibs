@@ -23,7 +23,11 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from matplotlib import pyplot as plt
    from matplotlib import cbook, mlab
    from matplotlib.dates import *
-   if hasattr(mpl.dates,'set_epoch'): mpl.dates.set_epoch('0000-12-31')
+   if hasattr(mpl.dates,'set_epoch'):
+      try:
+         mpl.dates.set_epoch('0000-12-31')
+      except:
+         pass
    from matplotlib.pyplot import *
 
    import platform

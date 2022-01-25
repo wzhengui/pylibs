@@ -1352,11 +1352,12 @@ def convert_matfile(name_matfile,name_save=None):
         exec('S.{}=squeeze(valuei)'.format(keyi))
     savez(name_save,S)
 
-def get_stat(xi_model,xi_obs):
+def get_stat(xi_model,xi_obs,fmt=0):
     '''
     compute statistics between two time series
     x1, x2 must have the same dimension
     x1: model; x2: obs
+    fmt=1: compute pvalue using scipy.stats.pearsonr
 
     #import matlab.engine
     #eng=matlab.engine.start_matlab()
@@ -1373,8 +1374,7 @@ def get_stat(xi_model,xi_obs):
     S.RMSD=sqrt((dx**2).mean())
     S.std=std(dx)
     S.ms=1-sum(dx**2)/sum((abs(x1-mx2)+abs(x2-mx2))**2)
-    a,pvalue=sp.stats.pearsonr(x1,x2)
-    S.pvalue=pvalue
+    if fmt==1: a,S.pvalue=sp.stats.pearsonr(x1,x2)
     S.std1=std1; S.std2=std2
     S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R])
 
