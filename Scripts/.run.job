@@ -4,6 +4,8 @@ submit a job container
 '''
 from pylib import *
 import time
+import signal
+import subprocess
 
 #-----------------------------------------------------------------------------
 #Input
@@ -11,11 +13,11 @@ import time
 jname='pjob' #job name
 
 #resource requst 
-walltime='00:02:20' 
-qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
-#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+walltime='48:00:00' 
+qnode='x5672'; nnode=1; ppn=4       #hurricane, ppn=8
+#qnode='bora'; nnode=12; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
+#qnode='femto'; nnode=5; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -26,31 +28,51 @@ qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 qname='flex'                        #partition name
 account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028 
 
-ibatch=1; scrout='job.out'; bdir=os.path.abspath(os.path.curdir)
+ibatch=1; scrin='job.in'; scrout='job.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('param')==None: 
-   #submit job on HPC
+   #submit job on HPC nodes
    fmt=0; bcode=sys.argv[0]
    scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
    print(scode); os.system(scode); os._exit(0)
 else:
-   fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir); fname='job.in'
-   #loop to run pending jobs 
-   while True:
-       if fexist(fname): 
-          #read command to be executed and comment out
-          lines=open(fname,'r').readlines()
-          rcode='; '.join([i.strip() for i in lines if i.strip()!='' and not i.startswith('#')])
+   fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
 
+   #loop to run pending jobs 
+   hjob=None; tm=0.0
+   while True:
+       if fexist(scrin): 
+          #read command from scrin to be executed, and then comment out
+          if os.path.getmtime(scrin)>tm:
+             lines0=open(scrin,'r').readlines(); iclean=0; tm=time.time()
+             lines=[i.strip() for i in lines0 if i.strip()!='' and not i.startswith('#')]
+             rcode='; '.join(lines)
+             if len(lines)!=0: 
+                if lines[0].lower()=='kill': iclean=1
+          else:
+             rcode=''
+          
           #if there is valid command, run it 
           if rcode=='':
              time.sleep(1)  
+             if hjob is not None: hjob.stdout.flush()
           else:
-             scode=get_hpc_command(rcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
-             fid=open(fname,'w+'); fid.writelines([i if i.startswith('#') else '#'+i for i in lines]); fid.close()
-             print(scode); os.system(scode)
+             fid=open(scrin,'w+'); fid.writelines([i if i.startswith('#') else '#'+i for i in lines0]); fid.close()
+
+             #kill previous job
+             if hjob is not None: 
+                os.killpg(os.getpgid(hjob.pid), signal.SIGTERM) 
+                hjob=None
+          
+             #run job 
+             if iclean==0:      
+                scode=get_hpc_command(rcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
+                try: 
+                   hjob = subprocess.Popen(scode, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid) 
+                except:
+                   pass
        else:
           time.sleep(1)  
