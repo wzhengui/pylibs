@@ -31,7 +31,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from matplotlib.pyplot import *
 
    import platform
-   if platform.system().lower()=='windows': mpl.use('Qt5Agg')
+   if platform.system().lower()=='windows':
+      if get_ipython().__class__.__name__!='ZMQInteractiveShell': mpl.use('Qt5Agg')
 
    #numpy
    import numpy as np
