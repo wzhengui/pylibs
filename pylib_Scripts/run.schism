@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+'''
+  atuo script to submit SCHISM batch jobs on sciclone/james
+  note: environmental variables "run_schism" is used to load correct modules 
+'''
+from pylib import *
+
+#-----------------------------------------------------------------------------
+#Input
+#-----------------------------------------------------------------------------
+code='pschism_WW_GEN_TVD-VL'
+runs=[]  #used to submit multiple jobs
+
+#resource requst 
+walltime='00:10:00'
+qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
+#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+#qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
+#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
+#qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
+#qnode='james'; nnode=5; ppn=20     #james, ppn=20
+#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
+#qnode='mistral'; nnode=1; ppn=36   #mistral, ppn=36 
+#qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
+
+#additional information:  frontera,mistral,stampede2
+qname='flex'                        #partition name
+account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028
+
+scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
+#-----------------------------------------------------------------------------
+#submit jobs first (qsub)
+#-----------------------------------------------------------------------------
+if os.getenv('run_schism')==None: 
+   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism',qname=qname,account=account)
+   print(scode); os.system(scode); os._exit(0)
+
+#-----------------------------------------------------------------------------
+#running parallel jobs (mpirun) 
+#-----------------------------------------------------------------------------
+if os.getenv('run_schism')!=None: 
+   fmt=1; bdir=os.getenv('run_schism').split()[0]; os.chdir(bdir)
+   scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'run_schism')
+
+   if len(runs)==0: #single jobs 
+      print(scode); sys.stdout.flush(); os.system(scode)
+   else: #multiple jobs: put script outside of run dir
+      for m,run in enumerate(runs): 
+          print(scode); os.chdir(bdir+'/'+run); os.system(scode)
+   sys.exit(0) if qnode in ['bora'] else os._exit(0)
