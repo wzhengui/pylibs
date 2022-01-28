@@ -13,7 +13,7 @@ setup(
     packages=[
         'pylib_Utility',
         'pylib_Scripts',
-    ]
+    ],
     py_modules=['pylib'],
     version='0.1.11',  # Ideally should be same as your GitHub release tag varsion
     package_data={'pylib_Utility': ['prj.npz']},
