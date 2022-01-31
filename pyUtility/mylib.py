@@ -1151,7 +1151,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
 
-    from schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
+    from .schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
 
     #read file
     if fmt0==0:

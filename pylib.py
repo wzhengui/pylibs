@@ -118,6 +118,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #libraries of self-defined modules
    #---------------------------------------------------------------------
    import pyUtility.mylib as mylib
+   sys.modules['mylib'] = mylib 
    from pyUtility.mylib import (get_xtick,close_data_loop,datenum,
         loadz,zdata,savez,find_cs,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
@@ -128,6 +129,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml)
 
    import pyUtility.schism_file as schism_file
+   sys.modules['schism_file'] = schism_file
    from pyUtility.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
