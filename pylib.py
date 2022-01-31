@@ -117,8 +117,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #libraries of self-defined modules
    #---------------------------------------------------------------------
-   import pylib_Utility.mylib as mylib
-   from pylib_Utility.mylib import (get_xtick,close_data_loop,datenum,
+   import pyUtility.mylib as mylib
+   from pyUtility.mylib import (get_xtick,close_data_loop,datenum,
         loadz,zdata,savez,find_cs,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,proj2,rewrite,rewrite_input,
@@ -127,8 +127,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml)
 
-   import pylib_Utility.schism_file as schism_file
-   from pylib_Utility.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
+   import pyUtility.schism_file as schism_file
+   from pyUtility.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
         create_schism_vgrid,srank,grd2sms,scatter_to_schism_grid,delete_schism_grid_element,
@@ -147,7 +147,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #shorthands
    #---------------------------------------------------------------------
    from os.path import exists as fexist
-   from pylib_Utility.mylib import savez as save_npz; mylib.save_npz=savez
-   from pylib_Utility.mylib import zdata as npz_data; mylib.npz_data=zdata
-   from pylib_Utility.mylib import move_figure as mvfig
-   from pylib_Utility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
+   from pyUtility.mylib import savez as save_npz; mylib.save_npz=savez
+   from pyUtility.mylib import zdata as npz_data; mylib.npz_data=zdata
+   from pyUtility.mylib import move_figure as mvfig
+   from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs

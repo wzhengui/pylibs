@@ -6,12 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
     setup(
         name='pylibs',
         packages=[
-            'pylib_Utility',
-    	    'pylib_Scripts',
+            'pyUtility',
+    	    'pyScripts',
         ],
         py_modules=['pylib'],
         version='0.1.11',  # Ideally should be same as your GitHub release tag varsion
-        package_data={'pylib_Utility': ['prj.npz']},
+        package_data={'pyUtility': ['prj.npz']},
         description='python libraries and utilities for pre/post-processing SCHISM models',
         long_description='python libraries and utilities for pre/post-processing SCHISM models',
         author='Zhengui Wang',
