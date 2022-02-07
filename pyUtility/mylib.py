@@ -1218,7 +1218,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
     else:
        return [x1,y1]
 
-def proj2(x,y,prj1='epsg:4326',prj2='epsg:26918'):
+def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918'):
     '''
     convert projection of points from prj1 to prj2
       x,y: coordinate of pts
