@@ -1775,7 +1775,7 @@ def harmonic_analysis(data,dt,t0=0,tidal_names=None,code=None,tname=None,fname=N
     if sname is None: sname='.temporary_tidal_consituents_for_HA.dat'
 
     #check OS type, and locate the executable
-    sdir='{}/../Scripts/Harmonic_Analysis'.format(os.path.dirname(__file__))
+    sdir='{}/../pyScripts/Harmonic_Analysis'.format(os.path.dirname(__file__))
     if code is None:
         import platform
         #directories where exectuable may exist
