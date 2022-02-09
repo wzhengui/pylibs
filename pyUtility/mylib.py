@@ -5,6 +5,7 @@ from pylib import *
 def read_yaml(fname):
     '''
     read yaml file and return key-value dict
+    
     '''
     lines=open(fname,'r').readlines()
     param={}
