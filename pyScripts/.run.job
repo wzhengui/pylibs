@@ -10,14 +10,14 @@ import subprocess
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-jname='pjob' #job name
+jname='p' #job name init
 
 #resource requst 
 walltime='48:00:00' 
-qnode='x5672'; nnode=1; ppn=4       #hurricane, ppn=8
+#qnode='x5672'; nnode=1; ppn=4       #hurricane, ppn=8
 #qnode='bora'; nnode=12; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=5; ppn=32     #femto,ppn=32
+qnode='femto'; nnode=8; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -35,44 +35,60 @@ ibatch=1; scrin='job.in'; scrout='job.out'; bdir=os.path.abspath(os.path.curdir)
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('param')==None: 
    #submit job on HPC nodes
-   fmt=0; bcode=sys.argv[0]
+   fmt=0; bcode=sys.argv[0]; jname=jname+'_'+os.path.basename(bdir)
    scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
    print(scode); os.system(scode); os._exit(0)
 else:
    fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
 
    #loop to run pending jobs 
-   hjob=None; tm=0.0
+   hjob,sjob=None,None; tm=0.0; scrin='{}/{}'.format(bdir,scrin)
    while True:
        if fexist(scrin): 
           #read command from scrin to be executed, and then comment out
+          rcode=''; ccode=''; rdir=bdir
           if os.path.getmtime(scrin)>tm:
-             lines0=open(scrin,'r').readlines(); iclean=0; tm=time.time()
-             lines=[i.strip() for i in lines0 if i.strip()!='' and not i.startswith('#')]
-             rcode='; '.join(lines)
-             if len(lines)!=0: 
-                if lines[0].lower()=='kill': iclean=1
-          else:
-             rcode=''
+             lines0=open(scrin,'r').readlines(); tm=time.time()
+             slines=[i.strip() for i in lines0 if i.strip()!='' and not i.startswith('#')]
+             
+             #get system command
+             clines=[i[1:] for i in slines if i.startswith('!')]
+             if len(clines)!=0: ccode=clines[-1]
+
+             #get normal command
+             rlines=[i for i in slines if not i.startswith('!')]
+             if len(rlines)!=0: rcode=rlines[-1]
+
+             #run system commend
+             if ccode!='':
+                if ccode.lower()=='kill': #terminate the current job
+                   if hjob is not None: os.killpg(os.getpgid(hjob.pid), signal.SIGTERM); hjob=None
+                   if sjob is not None: os.killpg(os.getpgid(sjob.pid), signal.SIGTERM); sjob=None
+                elif ccode.startswith('cd '): #chdir   
+                   if ';' in ccode: 
+                       sid=ccode.find(';'); rdir=ccode[3:sid]; ccode=ccode[(sid+1):]; os.chdir(rdir); 
+                       sjob=subprocess.Popen(ccode, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid) 
+                   else:
+                       rdir=os.path.abspath(ccode[3:]); os.chdir(rdir)
+                else: #run system command
+                   sjob=subprocess.Popen(ccode, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid) 
+
+             #comment out
+             if len(slines)!=0: fid=open(scrin,'w+'); fid.writelines([i if i.startswith('#') else '#'+i for i in lines0]); fid.close()
           
           #if there is valid command, run it 
           if rcode=='':
              time.sleep(1)  
              if hjob is not None: hjob.stdout.flush()
           else:
-             fid=open(scrin,'w+'); fid.writelines([i if i.startswith('#') else '#'+i for i in lines0]); fid.close()
-
-             #kill previous job
-             if hjob is not None: 
-                os.killpg(os.getpgid(hjob.pid), signal.SIGTERM) 
-                hjob=None
-          
              #run job 
-             if iclean==0:      
-                scode=get_hpc_command(rcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
-                try: 
-                   hjob = subprocess.Popen(scode, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid) 
-                except:
-                   pass
+             scode=get_hpc_command(rcode,rdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
+             try: 
+                hjob = subprocess.Popen(scode, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid) 
+             except:
+                pass
+
+          #reset bdir
+          if ccode.startswith('cd '): os.chdir(bdir)
        else:
           time.sleep(1)  
