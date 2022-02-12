@@ -32,7 +32,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    import platform
    if platform.system().lower()=='windows':
-      if get_ipython().__class__.__name__!='ZMQInteractiveShell': mpl.use('Qt5Agg')
+      try:
+         if get_ipython().__class__.__name__!='ZMQInteractiveShell': mpl.use('Qt5Agg')
+      except:
+         pass
 
    #numpy
    import numpy as np
