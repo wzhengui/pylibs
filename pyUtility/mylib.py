@@ -1510,6 +1510,7 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
                     vali=S.xy
                 #reorganize the shape of vali
                 valii=delete_shapefile_nan(vali,1)
+                valii=[[[*k] for k in valii[0]]]
                 W.poly(valii)
 
             #add attribute
