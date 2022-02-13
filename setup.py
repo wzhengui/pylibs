@@ -24,7 +24,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     	    'numpy',
     	    'pyproj>=3.0.0',
     	    'netCDF4>=1.5.8',
-    	    'pyshp>=2.1.3',
+    	    'pyshp>=2.1.0',
     	    'matplotlib>=3.0.0',
     	    'scipy'
         ]
