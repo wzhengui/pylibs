@@ -1136,7 +1136,7 @@ class schism_bpfile:
         elif fmt==1:
             self.nsta=int(lines[2][0])
             if self.nsta==0: return
-            data=squeeze(array([lines[3:]])).astype('float')
+            data=squeeze(array([lines[3:]])[:,:-1]).astype('float')
             self.x=data[:,0]
             self.y=data[:,1]
             self.z=zeros(self.nsta)
