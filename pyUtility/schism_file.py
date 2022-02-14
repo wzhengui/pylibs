@@ -941,7 +941,7 @@ class schism_grid:
         sind=zeros(npt).astype('int'); sind[sindp]=1
         return sind
 
-    def write_shapefile_bnd(self,fname,prjname='epsg:4326'):
+    def write_shapefile_bnd(self,fname,prj='epsg:4326'):
         self.shp_bnd=zdata()
         self.shp_bnd.type='POLYLINE'; xy=array([[],[]]).T
         for i in arange(self.nob):
@@ -956,19 +956,19 @@ class schism_grid:
             xyi=insert(xyi,0,nan,axis=0)
             xy=r_[xy,xyi]
         self.shp_bnd.xy=xy
-        self.shp_bnd.prj=get_prj_file(prjname)
+        self.shp_bnd.prj=get_prj_file(prj)
         write_shapefile_data(fname,self.shp_bnd)
 
-    def write_shapefile_node(self,fname,prjname='epsg:4326'):
+    def write_shapefile_node(self,fname,prj='epsg:4326'):
         self.shp_node=zdata()
         self.shp_node.type='POINT'
         self.shp_node.xy=c_[self.x,self.y]
         self.shp_node.attname=['id_node']
         self.shp_node.attvalue=arange(self.np)+1;
-        self.shp_node.prj=get_prj_file(prjname)
+        self.shp_node.prj=get_prj_file(prj)
         write_shapefile_data(fname,self.shp_node)
 
-    def write_shapefile_element(self,fname,prjname='epsg:4326'):
+    def write_shapefile_element(self,fname,prj='epsg:4326'):
         self.shp_elem=zdata()
         self.shp_elem.type='POLYGON'
         elnode=self.elnode; fp=elnode[:,-1]<0; elnode[fp,-1]=elnode[fp,0]
@@ -986,7 +986,7 @@ class schism_grid:
 
         self.shp_elem.attname=['id_elem']
         self.shp_elem.attvalue=arange(self.ne)+1;
-        self.shp_elem.prj=get_prj_file(prjname)
+        self.shp_elem.prj=get_prj_file(prj)
         write_shapefile_data(fname,self.shp_elem)
 
     def create_bnd(self):
@@ -1187,11 +1187,11 @@ class schism_bpfile:
         if fmt==1: self.x,self.y,self.z,self.station,self.nsta=self.ux,self.uy,self.uz,self.ustation,len(self.ux)
         return [self.ux,self.uy,self.uz,self.ustation]
 
-    def write_shapefile(self,fname,prjname='epsg:4326'):
+    def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
         self.shp_bp.type='POINT'
         self.shp_bp.xy=c_[self.x,self.y]
-        self.shp_bp.prj=get_prj_file(prjname)
+        self.shp_bp.prj=get_prj_file(prj)
 
         if hasattr(self,'station'):
             self.shp_bp.attname=['station']
