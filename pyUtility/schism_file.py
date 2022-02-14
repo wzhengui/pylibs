@@ -280,7 +280,12 @@ class schism_grid:
 
         #interpolation
         vs=v0[self.ine]
-        if fmt==0: w=self.ine!=-1; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
+        if fmt==0:
+           w=self.ine!=-1; tw=w.sum(axis=1)
+           if sum(isnan(value))!=0:
+              vs[~w]=0; v=vs.sum(axis=1)/tw
+           else:
+              v=(w*vs).sum(axis=1)/tw
         if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
         if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
         if fmt==1:
