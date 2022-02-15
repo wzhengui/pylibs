@@ -1136,7 +1136,7 @@ class schism_bpfile:
         elif fmt==1:
             self.nsta=int(lines[2][0])
             if self.nsta==0: return
-            data=squeeze(array([lines[3:]])[:,:-1]).astype('float')
+            data=squeeze(array([lines[3:]])).astype('float')
             self.x=data[:,0]
             self.y=data[:,1]
             self.z=zeros(self.nsta)
@@ -1161,8 +1161,8 @@ class schism_bpfile:
         fid=open(fname,'w+')
         #write header
         if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
-        if fmt==0: fid.write('\n{}\n'.format(self.nsta))
-        if fmt==1: fid.write('\n1\n{} 1\n'.format(self.nsta))
+        if fmt==0: fid.write('bpfile in ACE/gredit format\n{}\n'.format(self.nsta))
+        if fmt==1: fid.write('Region in ACE/gredit format\n1\n{} 1\n'.format(self.nsta))
 
         #get station names
         stations=[i+1 for i in arange(self.nsta)]
