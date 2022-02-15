@@ -149,10 +149,11 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #from mpas_file import (read_mpas_grid)
 
    #---------------------------------------------------------------------
-   #shorthands
+   #alias
    #---------------------------------------------------------------------
    from os.path import exists as fexist
    from pyUtility.mylib import savez as save_npz; mylib.save_npz=savez
    from pyUtility.mylib import zdata as npz_data; mylib.npz_data=zdata
+   from pyUtility.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
    from pyUtility.mylib import move_figure as mvfig
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
