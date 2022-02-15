@@ -1533,7 +1533,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
         if method==0: return zcor
         if method==1: return [zcor,kbp]
 
-def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e-6,h_c=10,theta_b=0.5,theta_f=1.0):
+def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e6,h_c=10,theta_b=0.5,theta_f=1.0):
     '''
     create schism vertical grid:
         fname: name of the grid
