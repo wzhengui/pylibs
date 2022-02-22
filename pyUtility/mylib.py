@@ -2,6 +2,69 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def read_excel(fname,sht=0,fmt=0):
+    '''
+    use pd.read_excel to read Excel file
+      fname: name of Excel file
+      sht:   name of sheet_name, or number of sheet (default is 0)
+      fmt=0: not treat 1st line as header, return data only; fmt=1: treat 1st line as header, return header and data
+    '''
+    if fmt==0:
+       fd=pd.read_excel(fname,sheet_name=sht,header=None)
+    else:
+       fd=pd.read_excel(fname,sheet_name=sht)
+    header=array(fd.columns); fdata=fd.values
+
+    if fmt==0: return fdata
+    if fmt==1: return header, fdata
+
+def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row'):
+    '''
+    use xlsxwriter to write Excel file
+       data: can be a single data, 1D array or 2D array
+       fname: name of Excel file
+       sht:  name of sheet_name
+       indy: starting Row index of cell for data to be written
+       indx: starting Column index of cell for data to be written
+       align='row': write 1D data as a row; align='column': write 1D data as a column
+
+       fmt=0: append data to existing file, or create file if not existing
+       fmt=1: replace mode of excel file
+       fmt=2: only replace sheet, but keep other sheets of excel file
+    '''
+
+    #open fname
+    if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
+    if os.path.exists(fname) and (fmt==0 or fmt==2):
+        fid=pd.ExcelWriter(fname,mode='a',engine='openpyxl',if_sheet_exists='replace')
+    else:
+        fid=pd.ExcelWriter(fname,mode='w+',engine='openpyxl')
+
+    #reorganize data to a 2D array
+    if type(data)==str or (not hasattr(data,'__len__')): data=array([[data,],]) #for single data
+    data=array(data) #for list
+    if data.ndim==1: data=data[None,:] if (align=='row') else data[:,None]  #for 1D array
+
+    #get dimension info
+    ds=data.shape; ny, nx=ds[0]+indy, ds[1]+indx
+
+    #create matrix of fields
+    if (sht in list(fid.sheets)) and fmt==0:
+        data0=read_excel(fname,sht).astype('O'); ny0,nx0=data0.shape
+        if ny0<ny: data0=r_[data0,tile('',[(ny-ny0),nx0])]; ny0=ny
+        if nx0<nx: data0=c_[data0,tile('',[ny0,(nx-nx0)])]; nx0=nx
+    else:
+        data0=tile('',[ny,nx]).astype('O')
+
+    #write data
+    for k, datai in enumerate(data):
+        for i, dataii in enumerate(datai):
+            data0[indy+k,indx+i]=dataii
+
+    df=pd.DataFrame([list(i) for i in data0])
+    df.to_excel(fid,sheet_name=sht,header=False,index=False)
+    fid.close()
+
 def read_yaml(fname):
     '''
     read yaml file and return key-value dict
