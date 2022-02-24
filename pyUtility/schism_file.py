@@ -22,7 +22,7 @@ class schism_grid:
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
-        fmt=0: plot grid only; fmt=1: plot color
+        fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines 
         value: color value size(np,or ne)
         mask: size(ne); only plot elements (mask=True))
         ec: color of grid line;  fc: element color; lw: grid line width
@@ -54,7 +54,7 @@ class schism_grid:
            if fmt==0:
               if ec=='None': ec='k'
               hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
-           elif fmt==1:
+           elif fmt in [1,2]:
               tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
               #determine value
               if value is None:
@@ -74,20 +74,21 @@ class schism_grid:
 
               #detemine levels
               if levels is None: levels=51
-              if squeeze(array([levels])).size==1:
-                 levels=linspace(vmin,vmax,int(levels))
+              if not hasattr(levels,'__len__'): levels=linspace(vmin,vmax,int(levels))
 
               #set mask
               if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
 
               if (vmax-vmin)/(abs(vmax)+abs(vmin))<1e-10:
-                 hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
+                 if fmt==1: hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
+                 if fmt==2: hg=tricontour(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
               else:
-                 hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+                 if fmt==1: hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+                 if fmt==2: hg=tricontour(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
 
               #add colobar
               cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
-              if cb:
+              if cb and fmt==1:
                  #----new method
                  hc=colorbar(hg); self.hc=hc
                  if ticks is not None:
