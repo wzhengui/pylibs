@@ -18,7 +18,8 @@ def read_excel(fname,sht=0,fmt=0):
     if fmt==0: return fdata
     if fmt==1: return header, fdata
 
-def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',**args):
+def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
+                color=None,fontsize=None,fontweight=None,**args):
     '''
     use xlsxwriter to write Excel file
        data: can be a single data, 1D array or 2D array
@@ -27,11 +28,14 @@ def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',**args)
        indy: starting Row index of cell for data to be written
        indx: starting Column index of cell for data to be written
        align='row': write 1D data as a row; align='column': write 1D data as a column
+       old_font=1: for existing sheet,keep old font styles; old_font=0: discard
+       color,fontsize,fontweight: options for specify cell font (see openpyxl.styles.Font)
 
        fmt=0: append data to existing file, or create file if not existing
        fmt=1: replace mode of excel file
        fmt=2: only replace sheet, but keep other sheets of excel file
     '''
+    import openpyxl
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
@@ -51,6 +55,10 @@ def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',**args)
     #create matrix of fields
     if (sht in list(fid.sheets)) and fmt==0:
         data0=read_excel(fname,sht).astype('O'); ny0,nx0=data0.shape
+        if old_font==1:
+           sid=fid.sheets[sht]; fonts=ones([ny0,nx0]).astype('O')
+           for k in arange(ny0):
+               for i in arange(nx0): fonts[k,i]=sid.cell(k+1,i+1).font.copy()
         if ny0<ny: data0=r_[data0,tile('',[(ny-ny0),nx0])]; ny0=ny
         if nx0<nx: data0=c_[data0,tile('',[ny0,(nx-nx0)])]; nx0=nx
     else:
@@ -58,11 +66,24 @@ def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',**args)
 
     #write data
     for k, datai in enumerate(data):
-        for i, dataii in enumerate(datai):
-            data0[indy+k,indx+i]=dataii
+        for i, dataii in enumerate(datai): data0[indy+k,indx+i]=dataii
 
     df=pd.DataFrame([list(i) for i in data0])
     df.to_excel(fid,sheet_name=sht,header=False,index=False)
+
+    #specify cell font
+    if old_font==1 and (sht in list(fid.sheets)) and fmt==0:
+       sid=fid.sheets[sht]
+       for k in arange(fonts.shape[0]):
+           for i in arange(fonts.shape[1]): sid.cell(k+1,i+1).font=fonts[k,i]
+    if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
+       #from openpyxl.styles import Color, PatternFill, Font, Border
+       if color is not None: color=mpl.colors.to_hex(color)[1:]
+       cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
+       sid=fid.sheets[sht]
+       for k, datai in enumerate(data):
+           for i, dataii in enumerate(datai): sid.cell(indy+k+1,indx+i+1).font=cf
+
     fid.close()
 
 def read_yaml(fname):
