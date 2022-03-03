@@ -2,19 +2,25 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
-def rtext(x,y,s, fontdict=None, **kwargs):
+def rtext(x,y,note,xm=None,ym=None,ax=None,**args):
     '''
-    add text to the ax by the relative location in x-axis and y-axis
-    E.g., to add a bold text '(a)' at the top left corner, use rtext(0.02,0.9,'(a)',size=10,weight='bold')
-    x: relative location in x-axis; 0 at left ege, 1 at right edge
-    y: relative location in y-axis; 0 at bottom, 1 at top
-    s: the string to be added
-    all other parameters as used in matploblib.plot.text are also applicable
-    suggest not to rearrange the x/ylim after using this function
+    add annoation to the current axes at relative location to x-axis and y-axis
+       x: relative location in x-axis (0,1)
+       y: relative location in y-axis (0,1)
+       note: annotation string
+       xm: range of x-axis; gca().xlim() is used if not given
+       ym: range of y-axis; gca().ylim() is used if not given
+       ax: axes; gca() is used if not given
+       **args: all other parameters as used in matploblib.plot.text are also applicable
+
+    E.q., rtext(0.1,0.9,"(a)",size=10,weight='bold') -> place label at top left corner
+
+    note: suggest not to rearrange the x/ylim after using this function, or place this after
     '''
-    ylims=gca().get_ylim()
-    xlims=gca().get_xlim()
-    text(xlims[0]+diff(xlims)*x,ylims[0]+diff(ylims)*y,s, fontdict=fontdict, **kwargs)
+    if ax is None: ax=gca()
+    sca(ax)
+    if (xm is None) and (ym is None): xm,ym=xlim(),ylim()
+    text(xm[0]+x*diff(xm),ym[0]+y*diff(ym)*y,note,**args)
     
 def read_excel(fname,sht=0,fmt=0):
     '''
