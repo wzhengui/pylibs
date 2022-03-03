@@ -2,6 +2,20 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def rtext(x,y,s, fontdict=None, **kwargs):
+    '''
+    add text to the ax by the relative location in x-axis and y-axis
+    E.g., to add a bold text '(a)' at the top left corner, use rtext(0.02,0.9,'(a)',size=10,weight='bold')
+    x: relative location in x-axis; 0 at left ege, 1 at right edge
+    y: relative location in y-axis; 0 at bottom, 1 at top
+    s: the string to be added
+    all other parameters as used in matploblib.plot.text are also applicable
+    suggest not to rearrange the x/ylim after using this function
+    '''
+    ylims=gca().get_ylim()
+    xlims=gca().get_xlim()
+    text(xlims[0]+diff(xlims)*x,ylims[0]+diff(ylims)*y,s, fontdict=fontdict, **kwargs)
+    
 def read_excel(fname,sht=0,fmt=0):
     '''
     use pd.read_excel to read Excel file
