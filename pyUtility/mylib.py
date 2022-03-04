@@ -5,13 +5,13 @@ from pylib import *
 def rtext(x,y,note,xm=None,ym=None,ax=None,**args):
     '''
     add annoation to the current axes at relative location to x-axis and y-axis
-       x: relative location in x-axis (0,1)
-       y: relative location in y-axis (0,1)
+       x: relative location in x-axis, tpycially 0-1, but can be negative or larger than 1 
+       y: relative location in y-axis, typically 0-1, but can be negative or larger than 1
        note: annotation string
        xm: range of x-axis; gca().xlim() is used if not given
        ym: range of y-axis; gca().ylim() is used if not given
        ax: axes; gca() is used if not given
-       **args: all other parameters as used in matploblib.plot.text are also applicable
+       **args: all other parameters used in matploblib.plot.text are also applicable
 
     E.q., rtext(0.1,0.9,"(a)",size=10,weight='bold') -> place label at top left corner
 
@@ -19,7 +19,8 @@ def rtext(x,y,note,xm=None,ym=None,ax=None,**args):
     '''
     if ax is None: ax=gca()
     sca(ax)
-    if (xm is None) and (ym is None): xm,ym=xlim(),ylim()
+    if xm is None: xm=xlim()
+    if ym is None: ym=ylim()
     text(xm[0]+x*diff(xm),ym[0]+y*diff(ym)*y,note,**args)
     
 def read_excel(fname,sht=0,fmt=0):
