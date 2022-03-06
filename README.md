@@ -1,7 +1,7 @@
 # pylibs
 * **Repository of python functions/classes/scripts. This library is designed for dealing with different kinds of daily work. Processing SCHISM related work is a significant part of the usgae of this library.**   
 
-* There are mainly two types of functions:  <br>
+* There are mainly two types of functions: <br>
   *  For general purpose use (e.g., lpfilt, inside_polygon,proj,get_subplot_position) <br>
   *  For pre/post-procesing SCHISM-Grid related input/outputs/analysis (e.g., read_schism_hgrid,read_schism_bpfile) <br>
 
