@@ -1149,6 +1149,15 @@ class schism_bpfile:
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
 
+    def save(self,fname): 
+        '''
+        If fname.endswith('reg'), save points as ACE/gredit *.reg file. Otherwise, save as *.bp file 
+        '''
+        if fname.endswith('.reg'):
+           self.write_bpfile(fname,fmt=1)
+        else:
+           self.write_bpfile(fname,fmt=0)
+
     def write_reg(self,fname):
         self.write_bpfile(fname,fmt=1)
 
