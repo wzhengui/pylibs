@@ -249,10 +249,9 @@ class schism_grid:
         '''
         read schism prop, and return the values
         '''
-        pdata=loadtxt(fname);
-        pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
-
-        return pvalue
+        evi=read_schism_prop(fname)
+        if len(evi)!=self.ne: sys.exit("check dimension: ne={}, prop={}".format(self.ne,len(evi)))
+        return evi
 
     def interp_node_to_elem(self,value=None):
         '''
@@ -1326,6 +1325,14 @@ def read_schism_bpfile(fname,fmt=0):
     bp=schism_bpfile();
     bp.read_bpfile(fname,fmt=fmt)
     return bp
+
+def read_schism_prop(fname):
+    '''
+    read schism *.prop file (element based), and return the values
+    '''
+    pdata=loadtxt(fname)
+    pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
+    return pvalue 
 
 def read_schism_reg(fname):
     '''
