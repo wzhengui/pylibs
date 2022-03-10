@@ -592,6 +592,24 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
         if hasattr(labels,'__len__'): [S.hl.get_texts()[i+1].set_text(lstr) for i,lstr in enumerate(labels)]
 
     return S
+def get_subplot_position2(margin=[0.1,0.1,0.1,0.1],dxy=[0.05,0.05],ds=[3,4],**args):
+    '''
+    return subplot position. Based on and calling get_subplot_position, but using the margin as input. 
+    Inut:
+        margin=[left,right,up,down]: distance from left, right, up, and bottom edge
+        for other arguments, see get_subplot_position
+    Sample function call:
+        [ps,pc]=get_subplot_position2(margin=[0.05,0.05,0.1,0.1],dxy=[0.00,0.00],ds=[3,4],dc=[0.01,0.005])
+        ps=reshape(ps,(12,4)) #to make 3D dimension array to 2 dimension
+        for imon in arange(12)+1:
+            axes(position=ps[imon-1])
+    '''
+    left,right,up,down=margin
+    rown,coln=ds
+    xspan=(1-left-right-(coln-1)*dxy[0])/coln #get x-span for each subplot
+    yspan=(1-up-down-(rown-1)*dxy[1])/rown #get y-span for each subplot
+    p0=[left,1-up-yspan,xspan,yspan] #get the upper left subplot position
+    return get_subplot_position(p0,dxy,ds,**args)
 
 def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
     '''

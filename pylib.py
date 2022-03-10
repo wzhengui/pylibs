@@ -128,7 +128,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         inside_polygon,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,
-        get_stat,get_subplot_position,load_bathymetry,plot_taylor_diagram,
+        get_stat,get_subplot_position,get_subplot_position2,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml,read_excel,
         write_excel,rtext)
 
