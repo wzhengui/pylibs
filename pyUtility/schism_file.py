@@ -249,10 +249,9 @@ class schism_grid:
         '''
         read schism prop, and return the values
         '''
-        pdata=loadtxt(fname);
-        pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
-
-        return pvalue
+        evi=read_schism_prop(fname)
+        if len(evi)!=self.ne: sys.exit("check dimension: ne={}, prop={}".format(self.ne,len(evi)))
+        return evi
 
     def interp_node_to_elem(self,value=None):
         '''
@@ -1150,6 +1149,15 @@ class schism_bpfile:
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
 
+    def save(self,fname): 
+        '''
+        If fname.endswith('reg'), save points as ACE/gredit *.reg file. Otherwise, save as *.bp file 
+        '''
+        if fname.endswith('.reg'):
+           self.write_bpfile(fname,fmt=1)
+        else:
+           self.write_bpfile(fname,fmt=0)
+
     def write_reg(self,fname):
         self.write_bpfile(fname,fmt=1)
 
@@ -1326,6 +1334,14 @@ def read_schism_bpfile(fname,fmt=0):
     bp=schism_bpfile();
     bp.read_bpfile(fname,fmt=fmt)
     return bp
+
+def read_schism_prop(fname):
+    '''
+    read schism *.prop file (element based), and return the values
+    '''
+    pdata=loadtxt(fname)
+    pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
+    return pvalue 
 
 def read_schism_reg(fname):
     '''
