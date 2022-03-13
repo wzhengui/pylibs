@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     setup(
         name='pylibs',
         packages=[
-            'pyUtility',
+          'pyUtility',
     	    'pyScripts',
         ],
         py_modules=['pylib'],
