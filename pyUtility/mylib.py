@@ -408,10 +408,11 @@ def rewrite_input(fname,qnode=None,nnode=1,ppn=1,**args):
            fstr="{}='{}'".format(key,value)
         rewrite(fname,replace=[fstr],startswith=['{}='.format(key)],note_delimiter='#')
 
-def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append=None,note_delimiter=None):
+def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,append=None,note_delimiter=None):
     '''
     function to rewrite file in-situ based on conditions
          fname: file name
+         fmt: remove whitespace at line head and tail (0: not; 1: head & tail; 2: head only;  3: tail only)
          replace: string pairs list; e.g. replace=['ON', 'OFF']
          include: list of strings included; e.g. include=['USE_ICM']
          startswith: list of  strings startswith; e.g. startswith=['#USE_ICM']
@@ -430,6 +431,11 @@ def rewrite(fname,replace=None,include=None,startswith=None,endswith=None,append
     slines=[]
     for line in lines:
         sline=line; iflag=0
+
+        #whitespace in the begining and end
+        if fmt==1: sline=sline.strip()
+        if fmt==2: sline=sline.lstrip()
+        if fmt==3: sline=sline.rstrip()
 
         #check include
         if include is not None:

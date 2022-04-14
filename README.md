@@ -13,7 +13,7 @@
     * schism_file.py: schism-grid related functions/classes
 
 * Usage: <br>
-  * First, add pylibs path to environmental variable 'PYTHONPATH'  <br> e.g. on C-Shell: **setenv PYTHONPATH 'mydir/pylibs/Utility/:mydir/pylibs/Scripts/'** <br>
-  * Second add following line in the beginning of each script <br> **from pylib import** * <br>
+  * Install pylibs: `cd mydir; git clone https://github.com/wzhengui/pylibs.git; pip install -e mydir/pylibs`
+  * Import pylibs: 1). `from pylib import ReadNC, read_schism_hgrid ` (explicit), 2). `from pylib import *` (import all)
 
 
