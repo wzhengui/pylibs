@@ -1339,7 +1339,10 @@ def read_schism_prop(fname):
     '''
     read schism *.prop file (element based), and return the values
     '''
-    pdata=loadtxt(fname)
+    try:
+      pdata=loadtxt(fname)
+    except:
+      pdata=array([i.strip().split() for i in open(fname,'r').readlines() if len(i.split())==2]).astype('float')
     pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
     return pvalue 
 
