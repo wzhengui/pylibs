@@ -1911,6 +1911,120 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
+def extract_schism_xyz(run,varname,xyz,stacks=None,ifs=0,sname=None,module=None):
+    '''
+    extract time series of SCHISM results @xyz based on output format of scribe-IO
+       run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
+       varname: variable to be extracted; accept shortname or fullname (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
+       xyz:     c_[x,y,z] or station file(bpfile: x,y,z)
+       stacks:  (optional) outpus stack to be extract; all avaiable stacks will be extracted if not specified
+       ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels 
+       sname:   (optional) variable name for save
+       module:  (optional) specify SCHISM module that varname belongs to 
+    '''
+    #read grid and station coordinates (xyz)
+    if fexist('{}/grid.npz'.format(run)):
+        gd=loadz('{}/grid.npz'.format(run)).hgrid
+    else:
+        gd=read_schism_hgrid('{}/hgrid.gr3'.format(run))
+    if isinstance(xyz,str): bp=read_schism_bpfile(xyz); lx,ly,lz,npt=bp.x,bp.y,bp.z,bp.nsta
+    if isinstance(xyz,np.ndarray):  lx,ly,lz=xyz.T; npt=len(xyz)
+    pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
+
+    #extract time series@xyz
+    S=zdata(); mtime=[]; mdata=[]
+    if stacks is None: stacks=[int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if i.startswith('out2d_')]
+    svars=get_schism_output_info(varname,module) #get variable information
+    for istack in arange(stacks[0],stacks[1]+1):
+        C0=ReadNC('{}/outputs/out2d_{}.nc'.format(run,istack),1)
+        Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1)
+        mti=array(C0.variables['time'])/86400; nt=len(mti)
+        if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size; cvars=[*C0.variables]
+
+        vs=[]
+        for [vari,svar] in svars:
+            if svar in cvars: #2D
+                C=C0.variables[svar]; nd=C.shape[1]
+                if nd==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(nt)])
+                if nd==gd.ne: vi=array([C[i,pie] for i in arange(nt)])
+            else: #3D
+                C1=ReadNC('{}/outputs/{}_{}.nc'.format(run,svar,istack),1)
+                Z=Z0.variables['zCoordinates'];  C=C1.variables[svar]; nd=C.shape[1]
+                zii=(array([[[Z[i,j,k] for j in pip] for k in arange(nvrt)] for i in arange(nt)])*pacor[None,None,...]).sum(axis=2)
+                if nd==gd.np: vii=(array([[[C[i,j,k] for j in pip] for k in arange(nvrt)] for i in arange(nt)])*pacor[None,None,...]).sum(axis=2)
+                if nd==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(nt)])
+                zii=zii.transpose([1,0,2]); vii=vii.transpose([1,0,2]);
+
+                #extend zcoor downward
+                for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
+                if ifs==0: zii=zii-zii[-1][None,...]
+
+                #interp in the vertical
+                vi=ones([nt,npt]); zm=-tile(lz,[nt,1]); dz=1e-10
+                ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
+                ziii=zii[0]+dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
+                for k in arange(nvrt-1):
+                    z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
+                    if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-v1[fpz])/(z2[fpz]-z1[fpz])
+            vs.append(vi)
+        mdata.extend(array(vs).transpose([1,2,0])); mtime.extend(mti)
+
+    #save data
+    if sname is None: sname=varname
+    S.time=array(mtime); exec('S.{}=squeeze(array(mdata).transpose([1,0,2]))'.format(sname))
+    return S
+
+def get_schism_output_info(svar=None,module=None):
+    '''
+      usage:
+         1. get_schism_output_info(): return all module information
+         2. varname,fullname=get_schism_output_info('elev')
+            or varname,fullname=get_schism_output_info('elev','Hydro'): get SCHISM output variable information
+    '''
+
+    #dicts for SCHISM output variables
+    Hydro={'elev':'elevation','apres':'airPressure','atemp':'airTemperature',
+           'shum':'specificHumidity','srad':'solarRadiation','heat_sen':'sensibleHeat',
+           'heat_lat':'latentHeat','rad_up':'upwardLongwave','rad_down':'downwardLongwave',
+           'heat_tot':'totalHeat','evap':'evaporationRate','prec':'precipitationRate',
+           'tau_bot_x':'bottomStressX','tau_bot_y':'bottomStressY','wind_x':'windSpeedX','wind_y':'windSpeedY',
+           'tau_wind_x':'windStressX','tau_wind_y':'windStressY','dahv_x':'depthAverageVelX','dahv_y':'depthAverageVelY',
+           'zvel':'verticalVelocity','temp':'temperature','salt':'salinity','rho':'waterDensity',
+           'diff':'diffusivity','vis':'viscosity','TKE':'turbulentKineticEner','ML':'mixingLength',
+           'zcor':'zCoordinates','hvel_x':'horizontalVelX','hvel_y':'horizontalVelY',
+           'hvel_side_x':'horizontalSideVelX','hvel_side_y':'horizontalSideVelY',
+           'zvel_elem':'verticalVelAtElement','temp_elem':'temperatureAtElement','salt_elem':'salinityAtElement',
+           'pres_x':'barotropicPresGradX','pres_y':'barotropicPresGradY'}
+
+    ICM={'PB1':'ICM_PB1','PB2':'ICM_PB2','PB3':'ICM_PB3',  #core: phytoplankton
+        'RPOC':'ICM_RPOC','LPOC':'ICM_LPOC','DOC':'ICM_DOC', #core: carbon
+        'RPON':'ICM_RPON','LPON':'ICM_LPON','DON':'ICM_DON','NH4':'ICM_NH4','NO3':'ICM_NO3', #core: nitrogen
+        'RPOP':'ICM_RPOP','LPOP':'ICM_LPOP','DOP':'ICM_DOP','PO4':'ICM_PO4', #core: phosphorus
+        'COD':'ICM_COD','DOX':'ICM_DOX', #core: COD and DO
+        'SU':'ICM_SU','SA':'ICM_SA', #silica
+        'ZB1':'ICM_ZB1','ZB2':'ICM_ZB2', #zooplankton
+        'TIC':'ICM_TIC','ALK':'ICM_ALK','CA':'ICM_CA','CACO3':'ICM_CACO3', #pH
+        'sleaf':'ICM_sleaf','sstem':'ICM_sstem','sroot':'ICM_sroot', #sav: leaf/stem/root
+        'stleaf':'ICM_stleaf','ststem':'ICM_ststem','stroot':'ICM_stroot','sht':'ICM_sht', #sav: total leaf/stem/root, height
+        'vtleaf1':'ICM_vtleaf1','vtleaf2':'ICM_vtleaf2','vtleaf3':'ICM_vtleaf3', #veg: leaf
+        'vtstem1':'ICM_vtstem1','vtstem2':'ICM_vtstem2','vtstem3':'ICM_vtstem3', #veg: stem
+        'vtroot1':'ICM_vtroot1','vtroot2':'ICM_vtroot2','vtroot3':'ICM_vtroot3', #veg: root
+        'vht1':'ICM_vht1','vht2':'ICM_vht2','vht3':'ICM_vht3'}                   #veg: vht
+
+    mdict={'Hydro':Hydro,'ICM':ICM}; S=zdata(); C=[]
+    if svar is None: #get all module info
+       for n,m in mdict.items(): exec('S.{}=m'.format(n))
+       return S
+    else: #get variable info
+       for n,m in mdict.items():
+           if (module is not None) and n!=module: continue
+           for key,value in m.items():
+               if svar in [key,value]: C.append((key,value))
+               if key.endswith('_x') or key.endswith('_y'):
+                  if svar in [key[:-2],value[:-2]]: C.append((key,value))
+       if len(C)==0: C=[(svar,svar)]
+       return C
+
 if __name__=="__main__":
     pass
 

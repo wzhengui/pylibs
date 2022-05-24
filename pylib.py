@@ -138,7 +138,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
         create_schism_vgrid,srank,grd2sms,scatter_to_schism_grid,delete_schism_grid_element,
-        read_schism_prop,read_schism_reg,interp_schism_3d)
+        read_schism_prop,read_schism_reg,interp_schism_3d,extract_schism_xyz,get_schism_output_info)
 
    if os.getenv('HOME')!=None:
        sys.path.append(os.getenv('HOME'))
