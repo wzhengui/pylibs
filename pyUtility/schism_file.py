@@ -22,7 +22,7 @@ class schism_grid:
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
-        fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines 
+        fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
         value: color value size(np,or ne)
         mask: size(ne); only plot elements (mask=True))
         ec: color of grid line;  fc: element color; lw: grid line width
@@ -1149,9 +1149,9 @@ class schism_bpfile:
         else:
            self.station=array(['{}'.format(i) for i in arange(self.nsta)])
 
-    def save(self,fname): 
+    def save(self,fname):
         '''
-        If fname.endswith('reg'), save points as ACE/gredit *.reg file. Otherwise, save as *.bp file 
+        If fname.endswith('reg'), save points as ACE/gredit *.reg file. Otherwise, save as *.bp file
         '''
         if fname.endswith('.reg'):
            self.write_bpfile(fname,fmt=1)
@@ -1344,7 +1344,7 @@ def read_schism_prop(fname):
     except:
       pdata=array([i.strip().split() for i in open(fname,'r').readlines() if len(i.split())==2]).astype('float')
     pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
-    return pvalue 
+    return pvalue
 
 def read_schism_reg(fname):
     '''
@@ -1432,21 +1432,21 @@ class schism_vgrid:
            if method==0: return zcor
            if method==1: return [zcor,kbp]
     def write_vgrid(self,fname='vgrid.in',fmt=0):
-        ''' 
+        '''
         write schism vertical grid
             fmt=0: write vgrid.in in latest format of ivcor=1 (one line per lelvel)
             fmt=1: write vgrid.in in old format of ivcor=1    (one line per node)
-        ''' 
-        if self.ivcor==1: 
+        '''
+        if self.ivcor==1:
            nvrt,np,kbp,sigma=self.nvrt,self.np,self.kbp.copy(),self.sigma.copy()
            fid=open(fname,'w+'); fid.write('1    !average # of layers={}\n{}  \n'.format(mean(nvrt-kbp),nvrt))
-           if fmt==0: 
+           if fmt==0:
               for i in arange(np): sigma[i,:kbp[i]]=-9
               fstr='    '+' {:10d}'*np+'\n'; kbp=kbp+1; fid.write(fstr.format(*kbp))
               fstr='{:8d}'+' {:10.6f}'*np+'\n'; sigma=sigma.T
               [fid.write(fstr.format(i+1,*k)) for i,k in enumerate(sigma)]
            elif fmt==1:
-              for i,[k,sigma] in enumerate(zip(kbp,sigma)): 
+              for i,[k,sigma] in enumerate(zip(kbp,sigma)):
                   fstr='{:9d} {:3d}'+' {:11.6f}'*(nvrt-k)+'\n'
                   fid.write(fstr.format(i+1,k+1,*sigma[k:]))
            fid.close()
@@ -1457,7 +1457,7 @@ class schism_vgrid:
            fid.write('S levels\n{} {} {} !h_c, theta_b, theta_f\n'.format(self.h_c,self.theta_b,self.theta_f))
            for k,slevel in enumerate(self.sigma): fid.write('{} {:9.6f}\n'.format(k+1,slevel))
            fid.close()
-        else: 
+        else:
            sys.exit('unknow ivcor={}'.format(self.ivcor))
 
 def read_schism_vgrid(fname):
@@ -1565,13 +1565,13 @@ def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e6,h_c=10,th
     '''
     vd=schism_vgrid(); vd.ivcor,vd.nvrt=ivcor,nvrt
     if ivcor==2:
-        if hasattr(zlevels,'__len__'): 
+        if hasattr(zlevels,'__len__'):
            vd.kz,vd.ztot,vd.h_s=len(zlevels),zlevels,-zlevels[-1]
         else:
            vd.kz,vd.ztot,vd.h_s=1,[zlevels],-zlevels
         vd.h_c,vd.theta_b,vd.theta_f=h_c,theta_b,theta_f
         vd.sigma=linspace(-1,0,nvrt+1-vd.kz)
-        vd.write_vgrid(fname) 
+        vd.write_vgrid(fname)
     else:
         sys.exit('ivcor=1 option not available yet')
 
@@ -1791,7 +1791,16 @@ def sms2grd(sms,grd=None):
     #for traingle and quads elements
     E3=array([ [*i.strip().split()[1:-1],'-1'] for i in lines if i.startswith('E3T')]).astype('int')
     E4=array([i.strip().split()[1:-1] for i in lines if i.startswith('E4Q')]).astype('int')
-    E34=r_[E3,E4]; sind=argsort(E34[:,0]); E34=E34[sind]
+    if len(E4)==0 and len(E3)==0:
+          raise Exception('no element found\n')
+    else:
+      if len(E4)==0:
+        E34=E3
+      elif len(E3)==0:
+        E34=E4
+      else:
+        E34=r_[E3,E4]
+    sind=argsort(E34[:,0]); E34=E34[sind]
 
     #for nodes
     ND=array([i.strip().split()[1:] for i in lines if i.startswith('ND')]).astype('float')
@@ -1918,9 +1927,9 @@ def extract_schism_xyz(run,varname,xyz,stacks=None,ifs=0,sname=None,module=None)
        varname: variable to be extracted; accept shortname or fullname (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
        xyz:     c_[x,y,z] or station file(bpfile: x,y,z)
        stacks:  (optional) outpus stack to be extract; all avaiable stacks will be extracted if not specified
-       ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels 
+       ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
        sname:   (optional) variable name for save
-       module:  (optional) specify SCHISM module that varname belongs to 
+       module:  (optional) specify SCHISM module that varname belongs to
     '''
     #read grid and station coordinates (xyz)
     if fexist('{}/grid.npz'.format(run)):
