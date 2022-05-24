@@ -1791,16 +1791,7 @@ def sms2grd(sms,grd=None):
     #for traingle and quads elements
     E3=array([ [*i.strip().split()[1:-1],'-1'] for i in lines if i.startswith('E3T')]).astype('int')
     E4=array([i.strip().split()[1:-1] for i in lines if i.startswith('E4Q')]).astype('int')
-    if len(E4)==0 and len(E3)==0:
-          raise Exception('no element found\n')
-    else:
-      if len(E4)==0:
-        E34=E3
-      elif len(E3)==0:
-        E34=E4
-      else:
-        E34=r_[E3,E4]
-    sind=argsort(E34[:,0]); E34=E34[sind]
+    E34=array([*E3,*E4]); sind=argsort(E34[:,0]); E34=E34[sind]
 
     #for nodes
     ND=array([i.strip().split()[1:] for i in lines if i.startswith('ND')]).astype('float')
