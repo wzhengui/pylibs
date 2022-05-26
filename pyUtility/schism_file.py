@@ -1911,7 +1911,7 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
-def extract_schism_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,module=None,fname=None,grid=None):
+def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,module=None,fname=None,grid=None):
     '''
     extract time series of SCHISM results @xyz based on output format of scribe-IO
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -1925,6 +1925,79 @@ def extract_schism_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,mod
        fname:   (optional) save the results as fname.npz
        grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
     '''
+    if len([i for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])==0:
+       S=read_schism_OLDIO_output_xyz(run,varname,xyz,stacks,ifs,nspool,sname,module,fname,grid)
+    else: 
+       #read grid and station coordinates (xyz)
+       if grid is not None: gd=grid
+       if (grid is None) and os.path.exists(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
+       if (grid is None) and not os.path.exists(run+'/grid.npz'): gd=read_schism_hgrid(run+'/hgrid.gr3')
+       if isinstance(xyz,str): bp=read_schism_bpfile(xyz); lx,ly,lz,npt=bp.x,bp.y,bp.z,bp.nsta
+       if isinstance(xyz,np.ndarray):  lx,ly,lz=xyz.T; npt=len(xyz)
+       pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
+
+       #extract time series@xyz
+       S=zdata(); mtime=[]; mdata=[]
+       if stacks is None:
+           stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])
+       else:
+           stacks=arange(stacks[0],stacks[1]+1)
+       svars=get_schism_output_info(varname,module) #get variable information
+       for istack in stacks:
+           C0=ReadNC('{}/outputs/out2d_{}.nc'.format(run,istack),1)
+           Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1)
+           mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti)
+           if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size; cvars=[*C0.variables]
+
+           vs=[]
+           for n,[vari,svar] in enumerate(svars):
+               if svar in cvars: #2D
+                   C=C0.variables[svar]; nd=C.shape[1]
+                   if nd==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
+                   if nd==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
+               else: #3D
+                   C1=ReadNC('{}/outputs/{}_{}.nc'.format(run,svar,istack),1)
+                   Z=Z0.variables['zCoordinates'];  C=C1.variables[svar]; nd=C.shape[1]
+                   if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
+                   if nd==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
+                   if nd==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
+                   vii=vii.transpose([1,0,2]); C1.close()
+
+                   #extend zcoor downward
+                   for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
+                   if ifs==0: zii=zii-zii[-1][None,...]
+
+                   #interp in the vertical
+                   vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
+                   ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
+                   ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
+                   for k in arange(nvrt-1):
+                       z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
+                       if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
+               vs.append(vi)
+           mdata.extend(array(vs).transpose([1,2,0])); mtime.extend(mti); C0.close(); Z0.close()
+
+       #save data
+       if sname is None: sname=varname
+       S.time=array(mtime); exec('S.{}=squeeze(array(mdata).transpose([1,0,2]))'.format(sname))
+       if fname is not None: savez(fname,S)
+    return S
+
+def read_schism_OLDIO_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,module=None,fname=None,grid=None):
+    '''
+    extract time series of SCHISM results @xyz based on combined OLDIO format (schout_*.nc)
+       run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
+       varname: variable to be extracted; accept shortname or fullname (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
+       xyz:     c_[x,y,z] or station file(bpfile: x,y,z)
+       stacks:  (optional) outpus stack to be extract; all avaiable stacks will be extracted if not specified
+       ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
+       nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
+       sname:   (optional) variable name for save
+       module:  (optional) specify SCHISM module that varname belongs to
+       fname:   (optional) save the results as fname.npz
+       grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
+    '''
+
     #read grid and station coordinates (xyz)
     if grid is not None: gd=grid
     if (grid is None) and os.path.exists(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
@@ -1932,63 +2005,76 @@ def extract_schism_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,mod
     if isinstance(xyz,str): bp=read_schism_bpfile(xyz); lx,ly,lz,npt=bp.x,bp.y,bp.z,bp.nsta
     if isinstance(xyz,np.ndarray):  lx,ly,lz=xyz.T; npt=len(xyz)
     pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
-
+    
     #extract time series@xyz
     S=zdata(); mtime=[]; mdata=[]
     if stacks is None:
-        stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])
+        stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if (i.startswith('schout_') and i.endswith('.nc') and len(i.split('_'))==2)])
     else:
         stacks=arange(stacks[0],stacks[1]+1)
-    svars=get_schism_output_info(varname,module) #get variable information
+    svar=get_schism_output_info(varname,module,fmt=1)[0][1] #get variable name in schout_*.nc 
     for istack in stacks:
-        C0=ReadNC('{}/outputs/out2d_{}.nc'.format(run,istack),1)
-        Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1)
+        C0=ReadNC('{}/outputs/schout_{}.nc'.format(run,istack),1)
         mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti)
-        if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size; cvars=[*C0.variables]
-
-        vs=[]
-        for n,[vari,svar] in enumerate(svars):
-            if svar in cvars: #2D
-                C=C0.variables[svar]; nd=C.shape[1]
-                if nd==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
-                if nd==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
-            else: #3D
-                C1=ReadNC('{}/outputs/{}_{}.nc'.format(run,svar,istack),1)
-                Z=Z0.variables['zCoordinates'];  C=C1.variables[svar]; nd=C.shape[1]
-                if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
-                if nd==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
-                if nd==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
-                vii=vii.transpose([1,0,2]); C1.close()
-
-                #extend zcoor downward
-                for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
-                if ifs==0: zii=zii-zii[-1][None,...]
-
-                #interp in the vertical
-                vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
-                ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
-                ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
-                for k in arange(nvrt-1):
-                    z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
-                    if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-            vs.append(vi)
-        mdata.extend(array(vs).transpose([1,2,0])); mtime.extend(mti); C0.close(); Z0.close()
-
+        if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
+        Z=C0.variables['zcor']; C=C0.variables[svar]; nd=C.shape
+    
+        if len(nd)==2: #2D
+            if nd[1]==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
+            if nd[1]==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
+        else: #3D and 4D
+            #read zoor, and extend downward
+            zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
+            for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
+            if ifs==0: zii=zii-zii[-1][None,...]
+    
+            #read data
+            if len(nd)==3:
+               if nd[1]==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
+               if nd[1]==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
+               vii=vii.transpose([1,0,2]); zm=-tile(lz[None,:],[nrec,1]); vi=ones([nrec,npt])
+            elif len(nd)==4:
+               if nd[1]==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...,None]).sum(axis=2)
+               if nd[1]==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
+               vii=vii.transpose([1,0,2,3]); zii=tile(zii[...,None],[1,2]); vi=ones([nrec,npt,2]); zm=-tile(lz[None,:,None],[nrec,1,2])
+    
+            #interp in the vertical
+            dz=1e-10; ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
+            dz=1e-10; ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
+            for k in arange(nvrt-1):
+                z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
+                if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
+        mdata.extend(vi); mtime.extend(mti); C0.close()
+    
     #save data
     if sname is None: sname=varname
-    S.time=array(mtime); exec('S.{}=squeeze(array(mdata).transpose([1,0,2]))'.format(sname))
+    S.time=array(mtime); exec('n=len(nd)-1; S.{}=squeeze(array(mdata).transpose([1,0,*arange(2,n)]))'.format(sname))
     if fname is not None: savez(fname,S)
     return S
 
-def get_schism_output_info(svar=None,modules=None):
+def get_schism_output_info(svar=None,modules=None,fmt=0):
     '''
       usage:
+         svar: variable name (either short and long names)
+         modules: modules that svar may belong to
+         fmt=0: scribe IO;   fmt=1: OLDIO (schout_*.nc)
+
          1. get_schism_output_info(): return all module information
          2. varname,fullname=get_schism_output_info('elev')
             or varname,fullname=get_schism_output_info('elev',['Hydro',]): get SCHISM output variable information
     '''
 
     #dicts for SCHISM output variables
+    oHydro={'elev':'elev','apres':'air_pressure','atemp':'air_temperature',
+           'shum':'specific_humidity','srad':'solar_radiation','heat_sen':'sensible_flux',
+           'heat_lat':'latent_heat','rad_up':'upward_longwave','rad_down':'downward_longwave',
+           'heat_tot':'total_heat_flux','evap':'evaporation','prec':'precipitation',
+           'tau_bot':'bottom_stress','wind':'wind_speed','tau_wind':'wind_stress','dahv':'dahv',
+           'zvel':'vertical_velocity','temp':'temp','salt':'salt','rho':'water_density',
+           'diff':'diffusivity','vis':'viscosity','TKE':'TKE','ML':'mixing_length',
+           'zcor':'zCoordinates','hvel':'hvel', 'hvel_side':'hvel_side','zvel_elem':'wvel_elem',
+           'temp_elem':'temp_elem','salt_elem':'salt_elem','pres':'pressure_gradient'}
+
     Hydro={'elev':'elevation','apres':'airPressure','atemp':'airTemperature',
            'shum':'specificHumidity','srad':'solarRadiation','heat_sen':'sensibleHeat',
            'heat_lat':'latentHeat','rad_up':'upwardLongwave','rad_down':'downwardLongwave',
@@ -2017,6 +2103,7 @@ def get_schism_output_info(svar=None,modules=None):
         'vtroot1':'ICM_vtroot1','vtroot2':'ICM_vtroot2','vtroot3':'ICM_vtroot3', #veg: root
         'vht1':'ICM_vht1','vht2':'ICM_vht2','vht3':'ICM_vht3'}                   #veg: vht
 
+    if fmt==1: Hydro=oHydro
     mdict={'Hydro':Hydro,'ICM':ICM}; S=zdata(); C=[]
     if (modules is not None) and isinstance(modules,str): modules=[modules,]
     if svar is None: #get all module info
@@ -2034,4 +2121,5 @@ def get_schism_output_info(svar=None,modules=None):
 
 if __name__=="__main__":
     pass
+
 
