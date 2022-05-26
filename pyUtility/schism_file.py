@@ -1941,6 +1941,7 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
        if stacks is None:
            stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])
        else:
+           if not hasattr(stacks,'__len__'): stacks=[stacks,stacks] 
            stacks=arange(stacks[0],stacks[1]+1)
        svars=get_schism_output_info(varname,module) #get variable information
        for istack in stacks:
@@ -2011,6 +2012,7 @@ def read_schism_OLDIO_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,snam
     if stacks is None:
         stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if (i.startswith('schout_') and i.endswith('.nc') and len(i.split('_'))==2)])
     else:
+        if not hasattr(stacks,'__len__'): stacks=[stacks,stacks] 
         stacks=arange(stacks[0],stacks[1]+1)
     svar=get_schism_output_info(varname,module,fmt=1)[0][1] #get variable name in schout_*.nc 
     for istack in stacks:

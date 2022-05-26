@@ -8,15 +8,17 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/sciclone/data10/wangzg/BGC_Tests/Test_ICM_SAV_ChesBay_NewIO'
-svars=['elev','salt','temp','hvel','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4'] #variables to be extracted
+iflag=1
+
+run='/sciclone/data10/wangzg/BGC_Tests/RUN_T1'
+svars=['elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4'] #variables to be extracted
 bpfile='./database/station.bp'  #station file
 sname='./outputs/icm'
 
 #optional
-#stacks=[1,2] #outputs stacks to be extracted
+#stacks=[1,10] #outputs stacks to be extracted
 #ifs=0        #=0: refer to free surface; =1: fixed depth
-#nspool=1     #sub-sampling frequency within each stack (1 means all)
+#nspool=6     #sub-sampling frequency within each stack (1 means all)
 #modules=['Hydro','ICM'] #SCHISM modules that output variables belong to 
 #rvars=['elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4'] #rname the varibles 
 
@@ -25,7 +27,7 @@ walltime='00:10:00'
 qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=1; ppn=12     #femto,ppn=32
+#qnode='femto'; nnode=1; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -58,14 +60,14 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-#get values for ifs,nspool,modules,rvars,stacks,grid,svars_2d
-sdir=run+'/outputs'
-n2d=len([i for i in os.listdir(sdir) if i.startswith('out2d_')])
-if 'ifs' not in locals(): ifs=0
-if 'nspool' not in locals(): nspool=1
-if 'modules' not in locals(): modules=None
-if 'rvars' not in locals(): rvars=svars
+sdir=run+'/outputs'                                              #output directory
+n2d=len([i for i in os.listdir(sdir) if i.startswith('out2d_')]) #scribe IO or OLDIO 
+if 'ifs' not in locals(): ifs=0                                  #refer to free surface
+if 'nspool' not in locals(): nspool=1                            #subsample
+if 'modules' not in locals(): modules=None                       #module (Hydro,ICM, etc.)
+if 'rvars' not in locals(): rvars=svars                          #rename variables
 
+#check available stacks
 if 'stacks' in locals(): 
     stacks=arange(stacks[0],stacks[1]+1)
 else:
@@ -74,15 +76,18 @@ else:
     else:
        stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(sdir) if i.startswith('out2d_')])
 
+#get 2D variables list
 if n2d==0:
    C=ReadNC('{}/schout_{}.nc'.format(sdir,stacks[0]),1); svars_2d=[i for i in C.variables if C.variables[i].ndim==2]; C.close()
 else:
    C=ReadNC('{}/out2d_{}.nc'.format(sdir,stacks[0]),1); svars_2d=[*C.variables]; C.close()
 
+#read model grid
 if os.path.exists(run+'/grid.npz'):
-    gd=loadz('{}/grid.npz'.format(run)).hgrid; gd.compute_bnd()
+    gd=loadz('{}/grid.npz'.format(run)).hgrid
 else:
-    gd=read_schism_hgrid(run+'/hgrid.gr3'); gd.compute_bnd()
+    gd=read_schism_hgrid(run+'/hgrid.gr3')
+gd.compute_bnd(); sys.stdout.flush()
 
 #extract results
 irec=0; oname=sdir+'/.schout'
@@ -90,11 +95,14 @@ for svar in svars:
     ovars=get_schism_output_info(svar,modules) 
     for istack in stacks:
         fname='{}_{}_{}'.format(oname,svar,istack); t00=time.time() 
-        if (ovars[0][1] in svars_2d) and (myrank==0): read_schism_output_xyz(run,svar,bpfile,[istack,istack],ifs,nspool,fname=fname,grid=gd)
+        if (ovars[0][1] in svars_2d) and (myrank==0): 
+           read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd)
+           dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
         if (ovars[0][1] not in svars_2d): 
            irec=irec+1
-           if(irec%nproc==myrank): read_schism_output_xyz(run,svar,bpfile,[istack,istack],ifs,nspool,fname=fname,grid=gd)
-        dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt))
+           if nproc==1 or (irec%(nproc-1)==(myrank-1) and nproc>1): 
+              read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd)
+              dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results
 comm.Barrier()
