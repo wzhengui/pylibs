@@ -453,8 +453,8 @@ class schism_grid:
 
         #find the outline
         for i in arange(nb):
-            px=self.x[S.ibn[i]]; i0=nonzero(px==px.min())[0][0]
-            sid=S.ibn[i][array([(i0-1)%S.nbn[i],i0,(i0+1)%S.nbn[i]])]
+            px=self.x[S.ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
+            sid=S.ibn[i][array([(i0-1)%S.nbn[i],i0,(i0+1)%S.nbn[i]])].astype('int')
             if signa(self.x[sid],self.y[sid])>0: S.island[i]=0; break
 
         #add to grid bnd info
