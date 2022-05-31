@@ -13,9 +13,9 @@ import subprocess
 #resource requst 
 walltime='72:00:00' 
 #qnode='x5672'; nnode=1; ppn=4       #hurricane, ppn=8
-#qnode='bora'; nnode=12; ppn=20      #bora, ppn=20
+qnode='bora'; nnode=30; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-qnode='femto'; nnode=10; ppn=32     #femto,ppn=32
+#qnode='femto'; nnode=6; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -58,7 +58,7 @@ else:
              if len(rlines)!=0: rcode=rlines[-1]
 
              #terminate the current job
-             if ccode.lower()=='kill' or scode!='' : 
+             if ccode.lower()=='kill' or rcode!='' : 
                 if hjob is not None: os.killpg(os.getpgid(hjob.pid), signal.SIGTERM); hjob=None
                 if sjob is not None: os.killpg(os.getpgid(sjob.pid), signal.SIGTERM); sjob=None
 
