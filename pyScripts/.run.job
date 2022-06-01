@@ -11,11 +11,11 @@ import subprocess
 #Input
 #-----------------------------------------------------------------------------
 #resource requst 
-walltime='72:00:00' 
+walltime='12:00:00' 
 #qnode='x5672'; nnode=1; ppn=4       #hurricane, ppn=8
-qnode='bora'; nnode=30; ppn=20      #bora, ppn=20
+#qnode='bora'; nnode=30; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=6; ppn=32     #femto,ppn=32
+qnode='femto'; nnode=6; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -26,14 +26,15 @@ qnode='bora'; nnode=30; ppn=20      #bora, ppn=20
 qname='flex'                        #partition name
 account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028 
 
-ibatch=1; scrin='job.in'; scrout='job.out'; bdir=os.path.abspath(os.path.curdir)
+ibatch=1; scrin='job.in'; scrout='job.out'
+bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('param')==None: 
    #submit job on HPC nodes
-   fmt=0; bcode=sys.argv[0]; jname=os.path.basename(bdir)
+   fmt=0; bcode=sys.argv[0]
    scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
    print(scode); os.system(scode); os._exit(0)
 else:
