@@ -833,18 +833,20 @@ class schism_grid:
         #show(block=False)
         pass
 
-    def proj(self,prj0,prj1='epsg:4326',x=None,y=None,lon0=None,lat0=None):
+    def proj(self,prj0,prj1='epsg:4326',fmt=0,x=None,y=None,lon0=None,lat0=None):
         '''
         transform the projection of schism grid's coordinates
         Inputs:
             prj0: projection name of schism grid
             prj1: target projection name; default is 'epsg:4326'
+            fmt=0: only return transformed xy; fmt=1: change gd.x,gd.y to transform xy
             x,y: values of grid coordiantes; default is (gd.x, gd.y)
             lon0,lat0: lon&lat of cpp projection center; needed only if 'cpp' in [prj0,prj1]
                        if ("ll"=>"cpp") and (lon0 or lat0 is not provided): lon0=mean(x); lat0=mean(y)
         '''
         if (x is None) or (y is None): x=self.x; y=self.y
         x1,y2=proj(prj0=prj0,prj1=prj1,x=x,y=y,lon0=lon0,lat0=lat0)
+        if fmt==1: self.x,self.y=x1,y2
         return [x1,y2]
 
     def check_skew_elems(self,angle_min=5,fname='skew_element.bp',fmt=0):
