@@ -611,7 +611,7 @@ class schism_grid:
 
         #interp
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
-        return (self.dp[pip]*pacor).sum(axis=1)
+        return (vi[pip]*pacor).sum(axis=1)
 
     def save(self, fname=None,**args):
         '''
