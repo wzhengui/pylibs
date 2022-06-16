@@ -488,16 +488,22 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
     #write new line
     fid=open(fname,'w+'); fid.writelines(slines); fid.close()
 
-def convert_dem_format(fname,sname,fmt=0):
+def convert_dem_format(fname,sname=None,fmt=None):
     '''
     fname: name of source DEM file
-    sname: name of file to be saved
-    fmt=0: convert DEM file in *.asc format to *.npz format
-    '''
+    sname (optional): name of file to be saved if value is provided 
+    fmt=0 : convert DEM file in *.asc format to *.npz format
+    fmt=1 : convert DEM file in *.tif or *.tiff format to *.npz format
 
+    Note: fmt is optional if fname endswith *.asc, *.tif or *.tiff
+    '''
+    #check fname format
+    if fmt==None and (fname.endswith('.tif') or fname.endswith('.tiff')): fmt=1 
+    if fmt==None: fmt=0 
+
+    #read dem data
     if fmt==0:
         if not fname.endswith('.asc'): fname=fname+'.asc'
-
         #read file
         fid=open(fname,'r');
         ncols=int(fid.readline().strip().split()[1])
@@ -513,11 +519,19 @@ def convert_dem_format(fname,sname,fmt=0):
         #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
         if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2;
 
-        #save data
-        S=zdata()
-        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
-        S.elev=elev.astype('float32'); S.nodata=nodata
-        savez(sname,S)
+        lon=xll+dxy*arange(ncols); lat=yll-dxy*arange(nrows)+(nrows-1)*dxy; elev=elev.astype('float32')
+        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev; S.nodata=nodata
+    elif fmt==1:
+        import tifffile as tiff
+        elev=tiff.imread(fname).astype('float32'); nrows,ncols=elev.shape
+        ginfo=tiff.TiffFile(fname).geotiff_metadata
+        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
+        lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
+        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev
+
+    #save data
+    if sname is not None: savez(sname,S)
+    return S
 
 def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
                         cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200,labels=None):
