@@ -122,7 +122,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    import pyUtility.mylib as mylib
    sys.modules['mylib'] = mylib 
-   from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum
+   from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
         loadz,zdata,savez,find_cs,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
