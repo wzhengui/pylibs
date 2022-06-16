@@ -751,9 +751,7 @@ def quickdatenum(times):
     A recursive call is used when the above condition is not met.
     '''
     if len(times)==1: return(datenum(times))
-    t0=datenum(times[0])
-    t1=datenum(times[1])
-    tend=datenum(times[-1])
+    t0=datenum(times[0]); t1=datenum(times[1]); tend=datenum(times[-1])
     if abs(tend-t0-(len(times)-1)*(t1-t0))<1e-5 and t1!=t0:
         nums=arange(t0,tend,t1-t0)
         if len(nums) != len(times):
