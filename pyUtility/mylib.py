@@ -743,7 +743,7 @@ def datenum(*args,fmt=0):
 
 def quickdatenum(times):
     '''
-    This function is suitable for data with continuously increasing time. It will save
+    To quickly process time stamps, suitable for data with continuously increasing time. It will save
     a lot of time when the number of record is large.
     Algorithm: If difference in timing between first and last records are equal to (n-1)*(t1-t0),
     where t0 and t1 is the first and second record,
@@ -752,8 +752,8 @@ def quickdatenum(times):
     '''
     if len(times)==1: return(datenum(times))
     t0=datenum(times[0]); t1=datenum(times[1]); tend=datenum(times[-1])
-    if abs(tend-t0-(len(times)-1)*(t1-t0))<1e-5 and t1!=t0:
-        nums=arange(t0,tend,t1-t0)
+    if abs(tend-t0-(len(times)-1)*(t1-t0))<(t1-t0)*1e-5 and t1!=t0:
+        nums=arange(t0,tend+(t1-t0)*1e-5,t1-t0)
         if len(nums) != len(times):
             print(len(nums),len(times),times)
             raise ValueError('something is wrong')
