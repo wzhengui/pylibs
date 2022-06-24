@@ -1746,7 +1746,7 @@ def read_schism_local_to_global(fname):
     for i in arange(ne+np+ns+3,len(lines)):
         sline=lines[i].strip().split()
         if len(sline)!=2: continue
-        if int(sline[0])==np and int(sline[1])==ne: nd=i; break;
+        if int(float(sline[0]))==np and int(float(sline[1]))==ne: nd=i; break;
 
     slines=array([i.strip().split() if len(i.split())==5 else [*i.strip().split(),'-1'] for i in lines[(nd+np+1):(nd+np+ne+1)]]).astype('int')
     i34=slines[:,0].astype('int'); elnode=slines[:,1:].astype('int')-1
