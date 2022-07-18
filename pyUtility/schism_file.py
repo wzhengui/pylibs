@@ -1757,7 +1757,10 @@ def read_schism_local_to_global(fname):
 def read_schism_param(fname,fmt=0):
     '''
     read schism parameters from param.nml/param.in/cosine.in
-    fmt=0: return all field as string; fmt=1: return field as float if possible
+      fmt=0: return dictionary with all field as string 
+      fmt=1: return dictionary with all field as float if possible
+      fmt=2: return zdata with all field as string attributes
+      fmt=3: return zdata with all field as float attributes if possible
     '''
 
     #read all lines first
@@ -1765,13 +1768,28 @@ def read_schism_param(fname,fmt=0):
     lines=[i for i in lines if ('=' in i) and (i!='') and (i[0]!='!') and (i[0]!='&')]
 
     #parse each line
-    param={}
+    P={}
     for line in lines:
       if '!' in line: line=line[:line.find('!')]
       keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
-      if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit():
-         vali=float(vali) if ('.' in vali) else int(vali)
-      param[keyi]=vali
+      #if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit():
+      #   vali=float(vali) if ('.' in vali) else int(vali)
+      if fmt in [1,3]:  #convert string to float
+         try: 
+            #vali=array(vali.replace(',',' ').replace(';',' ').split()).astype('float') 
+            vali=[float(i) for i in vali.replace(',',' ').replace(';',' ').split()]
+            if len(vali)==1: vali=vali[0]
+         except:
+            pass
+      P[keyi]=vali
+    param=P
+
+    #change output format as zdata
+    if fmt in [2,3]:
+       S=zdata()
+       for keyi,vali in P.items(): S.__dict__[keyi]=vali
+       param=S
+
     return param
 
 def write_schism_param(fname,param):
