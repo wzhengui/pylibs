@@ -117,7 +117,7 @@ def read_yaml(fname):
     for line in lines:
         sline=line.strip().split(':')
         if len(sline)<2: continue
-        key=sline[0]; value=sline[1].strip()
+        key=sline[0].strip(); value=sline[1].strip()
         if value=='': continue
         value=value.split()[0]
         param[key]=value

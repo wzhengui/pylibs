@@ -1917,7 +1917,7 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
     '''
     extract time series of SCHISM results @xyz based on output format of scribe-IO
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
-       varname: variable to be extracted; accept shortname or fullname (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
+       varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
        xyz:     c_[x,y,z] or station file(bpfile: x,y,z)
        stacks:  (optional) outpus stack to be extract; all avaiable stacks will be extracted if not specified
        ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
@@ -1927,6 +1927,8 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
        fname:   (optional) save the results as fname.npz
        grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
     '''
+    if isinstance(varname,str): varname=[varname]
+    if isinstance(sname,str): sname=[sname] 
     if len([i for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])==0:
        S=read_schism_OLDIO_output_xyz(run,varname,xyz,stacks,ifs,nspool,sname,module,fname,grid)
     else: 
@@ -1939,50 +1941,54 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
        pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
 
        #extract time series@xyz
-       S=zdata(); mtime=[]; mdata=[]
+       S=zdata(); mtime=[]; mdata=[[] for i in varname]
        if stacks is None:
            stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(run+'/outputs') if i.startswith('out2d_')])
        else:
            if not hasattr(stacks,'__len__'): stacks=[stacks,stacks] 
            stacks=arange(stacks[0],stacks[1]+1)
-       svars=get_schism_output_info(varname,module) #get variable information
+       #svars=get_schism_output_info(varname,module) #get variable information
        for istack in stacks:
            C0=ReadNC('{}/outputs/out2d_{}.nc'.format(run,istack),1)
-           Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1)
-           mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti)
+           Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1); Z=Z0.variables['zCoordinates'];  
+           mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti)
            if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size; cvars=[*C0.variables]
 
-           vs=[]
-           for n,[vari,svar] in enumerate(svars):
-               if svar in cvars: #2D
-                   C=C0.variables[svar]; nd=C.shape[1]
-                   if nd==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
-                   if nd==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
-               else: #3D
-                   C1=ReadNC('{}/outputs/{}_{}.nc'.format(run,svar,istack),1)
-                   Z=Z0.variables['zCoordinates'];  C=C1.variables[svar]; nd=C.shape[1]
-                   if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
-                   if nd==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
-                   if nd==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
-                   vii=vii.transpose([1,0,2]); C1.close()
+           for m,varnamei in enumerate(varname):
+               vs=[]; svars=get_schism_output_info(varnamei,module) #get variable information
+               for n,[vari,svar] in enumerate(svars):
+                   if svar in cvars: #2D
+                       C=C0.variables[svar]; nd=C.shape[1]
+                       if nd==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
+                       if nd==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
+                   else: #3D
+                       #read zcoor,and extend zcoor downward
+                       if m==0:
+                          if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
+                          for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
+                          if ifs==0: zii=zii-zii[-1][None,...]
 
-                   #extend zcoor downward
-                   for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
-                   if ifs==0: zii=zii-zii[-1][None,...]
+                       #read data for the whole vertical
+                       C1=ReadNC('{}/outputs/{}_{}.nc'.format(run,svar,istack),1); C=C1.variables[svar]; nd=C.shape[1]
+                       if nd==gd.np: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
+                       if nd==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
+                       vii=vii.transpose([1,0,2]); C1.close()
 
-                   #interp in the vertical
-                   vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
-                   ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
-                   ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
-                   for k in arange(nvrt-1):
-                       z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
-                       if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-               vs.append(vi)
-           mdata.extend(array(vs).transpose([1,2,0])); mtime.extend(mti); C0.close(); Z0.close()
+                       #interp in the vertical
+                       vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
+                       ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
+                       ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
+                       for k in arange(nvrt-1):
+                           z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
+                           if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
+                   vs.append(vi)
+               mdata[m].extend(array(vs).transpose([1,2,0]))
+           C0.close(); Z0.close()
 
        #save data
        if sname is None: sname=varname
-       S.time=array(mtime); exec('S.{}=squeeze(array(mdata).transpose([1,0,2]))'.format(sname))
+       S.time=array(mtime)
+       for m,snamei in enumerate(sname): exec('S.{}=squeeze(array(mdata[{}]).transpose([1,0,2]))'.format(snamei,m))
        if fname is not None: savez(fname,S)
     return S
 
