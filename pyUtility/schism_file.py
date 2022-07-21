@@ -2129,7 +2129,13 @@ def get_schism_output_info(svar=None,modules=None,fmt=0):
         'vtleaf1':'ICM_vtleaf1','vtleaf2':'ICM_vtleaf2','vtleaf3':'ICM_vtleaf3', #veg: leaf
         'vtstem1':'ICM_vtstem1','vtstem2':'ICM_vtstem2','vtstem3':'ICM_vtstem3', #veg: stem
         'vtroot1':'ICM_vtroot1','vtroot2':'ICM_vtroot2','vtroot3':'ICM_vtroot3', #veg: root
-        'vht1':'ICM_vht1','vht2':'ICM_vht2','vht3':'ICM_vht3'}                   #veg: vht
+        'vht1':'ICM_vht1','vht2':'ICM_vht2','vht3':'ICM_vht3',                   #veg: vht
+        'bPOC1':'ICM_bPOC1','bPOC2':'ICM_bPOC2','bPOC3':'ICM_bPOC3','bPON1':'ICM_bPON1', #SFM
+        'bPON2':'ICM_bPON2','bPON3':'ICM_bPON3','bPOP1':'ICM_bPOP1','bPOP2':'ICM_bPOP2', #SFM
+        'bPOP3':'ICM_bPOP3','bNH4':'ICM_bNH4','bNO3':'ICM_bNO3','bPO4':'ICM_bPO4','bH2S':'ICM_bH2S', #SFM
+        'bCH4':'ICM_bCH4','bPOS':'ICM_bPOS','bSA':'ICM_bSA','bstc':'ICM_bstc','bSTR':'ICM_bSTR', #SFM
+        'bThp':'ICM_bThp','bTox':'ICM_bTox','SOD':'ICM_SOD','JNH4':'ICM_JNH4','JNO3':'ICM_JNO3', #SFM
+        'JPO4':'ICM_JPO4','JSA':'ICM_JSA','JCOD':'ICM_JCOD'} #SFM
 
     if fmt==1: Hydro=oHydro
     mdict={'Hydro':Hydro,'ICM':ICM}; S=zdata(); C=[]
