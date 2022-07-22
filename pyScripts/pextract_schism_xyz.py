@@ -8,10 +8,8 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-iflag=1
-
-run='/sciclone/data10/wangzg/BGC_Tests/RUN_T1'
-svars=['elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4'] #variables to be extracted
+run='/sciclone/data10/wangzg/BGC_Tests/Test_ICM_SAV_ChesBay_v1'
+svars=('elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4') #variables to be extracted
 bpfile='./database/station.bp'  #station file
 sname='./outputs/icm'
 
@@ -89,18 +87,15 @@ else:
     gd=read_schism_hgrid(run+'/hgrid.gr3')
 gd.compute_bnd(); sys.stdout.flush()
 
-#extract results
-irec=0; oname=sdir+'/.schout'
-for svar in svars: 
-    ovars=get_schism_output_info(svar,modules) 
-    for istack in stacks:
-        fname='{}_{}_{}'.format(oname,svar,istack); t00=time.time() 
-        if (ovars[0][1] in svars_2d) and (myrank==0): 
-           read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd)
-           dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
-        if (ovars[0][1] not in svars_2d): 
-           irec=irec+1
-           if nproc==1 or (irec%(nproc-1)==(myrank-1) and nproc>1): 
+for itype in [1,2]: 
+    irec=0; oname=sdir+'/.schout'
+    for svar in svars: 
+       ovars=get_schism_output_info(svar,modules) 
+       if itype==1 and (ovars[0][1] not in svars_2d): continue #read 2D outputs 
+       if itype==2 and (ovars[0][1] in svars_2d): continue #read 3D outputs 
+       for istack in stacks:
+           fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
+           if irec%nproc==myrank: 
               read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd)
               dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
