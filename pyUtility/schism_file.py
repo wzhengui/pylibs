@@ -627,7 +627,7 @@ class schism_grid:
         else:
            s=zdata(); s.hgrid=self; savez(fname,s,**args)
 
-    def write_hgrid(self,fname,value=None,fmt=0,elnode=1,bndfile=None,Info=None):
+    def write_hgrid(self,fname,value=None,fmt=0,outfmt='{:<.8f}',elnode=1,bndfile=None,Info=None):
         '''
         write *.gr3 file
             fname: file name
@@ -636,6 +636,7 @@ class schism_grid:
                    value=dp[np]: specify depth value
                    value=None:  grid's default depth self.dp is used
             fmt=0: not output grid boundary info.; fmt=1: output grid boundary info.
+            outfmt: depth format
             elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
@@ -655,8 +656,10 @@ class schism_grid:
         with open(fname,'w+') as fid:
             fid.write('!grd info:{}\n'.format(Info))
             fid.write('{} {}\n'.format(self.ne,self.np))
+            lineformat='{:<d} {:<.8f} {:<.8f} '+outfmt+'\n'
             for i in arange(self.np):
-                fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],dp[i]))
+                #fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],dp[i]))
+                fid.write(lineformat.format(i+1,self.x[i],self.y[i],dp[i]))
             if elnode!=0:
                 for i in arange(self.ne):
                     if self.i34[i]==3: fid.write('{:<d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
