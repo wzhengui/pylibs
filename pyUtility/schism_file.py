@@ -658,7 +658,6 @@ class schism_grid:
             fid.write('{} {}\n'.format(self.ne,self.np))
             lineformat='{:<d} {:<.8f} {:<.8f} '+outfmt+'\n'
             for i in arange(self.np):
-                #fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f}\n'.format(i+1,self.x[i],self.y[i],dp[i]))
                 fid.write(lineformat.format(i+1,self.x[i],self.y[i],dp[i]))
             if elnode!=0:
                 for i in arange(self.ne):
