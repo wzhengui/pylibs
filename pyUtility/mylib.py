@@ -1491,7 +1491,27 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
 #    os.chdir(cdir)
 #
 
-#convert MATLAB matfile to zdata
+#convert between MATLAB matfile and zdata
+def npz2mat(npz_data,fname):
+    '''
+      convert Python *.npz file/data to Matlab *mat file
+      Exmaples
+        1. npz2mat('test.npz','test.mat')
+        2. npz2mat(C,'test.mat') #C=loadz('test.npz')
+    '''
+    from scipy import io
+
+    if isinstance(npz_data,str): npz_data=loadz(npz_data)
+    sp.io.savemat(fname,npz_data.__dict__)
+
+def mat2npz(matfile,fname):
+    '''
+      convert Matlab *mat file to Python *.npz file
+      Exmaples
+        1. mat2npz('test.mat','test.npz')
+    '''
+    convert_matfile(matfile,fname)    
+
 def convert_matfile(name_matfile,name_save=None):
     '''
     convert MATLAB file to zdata
@@ -1503,7 +1523,7 @@ def convert_matfile(name_matfile,name_save=None):
     from scipy import io
 
     #check name
-    if name_matfile.endswith('.mat'): name_matfile[:-4]
+    if name_matfile.endswith('.mat'): name_matfile=name_matfile[:-4]
     if name_save is None: name_save=name_matfile
 
     #read matfile and convert
