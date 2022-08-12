@@ -1755,7 +1755,7 @@ def delete_shapefile_nan(xi,iloop=0):
     return vi
 
 #---------------------netcdf---------------------------------------------------
-def ReadNC(fname,fmt=0,order=0):
+def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
     read netcdf files, and return its values and attributes
         fname: file name
@@ -1764,13 +1764,15 @@ def ReadNC(fname,fmt=0,order=0):
         fmt=1: return netcdf.Dateset(fname)
         fmt=2: reorgnaized Dataset (*npz format), ignore attributes
 
+        mode='r+': change variable in situ. other choices are: 'r','w','a'
+
         order=1: only works for med=2; change dimension order
         order=0: variable dimension order read not changed for python format
         order=1: variable dimension order read reversed follwoing in matlab/fortran format
     '''
 
     #get file handle
-    C=Dataset(fname);
+    C=Dataset(fname,mode=mode);
 
     if fmt==1:
         return C
@@ -1826,17 +1828,80 @@ def WriteNC(fname,data,fmt=0,order=0):
     '''
     write zdata to netcdf file
         fname: file name
-        data:  soure data
+        data:  soure data (can be zdata or capsule of zdatas)
         fmt=0, data has zdata() format
         fmt=1, data has netcdf.Dataset format
         order=0: variable dimension order written not changed for python format
         order=1: variable dimension order written reversed follwoing in matlab/fortran format
     '''
 
-    #pre-processing fname
-    #if fname.endswith('.nc'): fname=fname[:-3]
+    if fmt==0: #write NC files for zdata
+        #--------------------------------------------------------------------
+        # pre-processing zdata format
+        #--------------------------------------------------------------------
+        if not fname.endswith('.nc'): fname=fname+'.nc'
+        if not hasattr(data,'file_format'): data.file_format='NETCDF4'
+        S=data.__dict__
+        #check variables
+        if not hasattr(data,'vars'):
+           svars=[i for i,vi in S.items() if isinstance(vi,zdata) or isinstance(vi,np.ndarray)] 
+        else:
+           svars=data.vars
+        for svar,vi in S.items():  #change np.array to zdata
+            if isinstance(vi,np.ndarray): fvi=zdata(); fvi.val=vi; S[svar]=fvi
 
-    if fmt==1:
+        #check global dimensions
+        if not hasattr(data,'dims'):  
+           dims=[]; [dims.extend(S[svar].val.shape) for svar in svars]; dims=unique(array(dims)) 
+           dimname=['dim_{}'.format(i) for i in dims]
+        else:
+           dims,dimname=array(data.dims),data.dimname
+        if not hasattr(data,'dim_unlimited'):
+           dim_unlimited=[False for i in dims]
+        else: 
+           dim_unlimited=data.dim_unlimited
+
+        #check variable dimensions and attributes
+        for svar in svars:
+            if not hasattr(S[svar],'dimname'): S[svar].dimname=[dimname[nonzero(dims==i)[0][0]] for i in S[svar].val.shape]
+            if not hasattr(S[svar],'attrs'): S[svar].attrs=[i for i in S[svar].__dict__ if i!='val']
+
+        #check global attribute
+        if not hasattr(data,'attrs'):  
+           attrs=[i for i in S if i not in svars]
+        else:
+           attrs=data.attrs
+
+        #--------------------------------------------------------------------
+        # write zdata as netcdf file
+        #--------------------------------------------------------------------
+        #open netcdf file handle
+        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
+
+        #set attrs
+        fid.setncattr('file_format',data.file_format)
+        for i in attrs: fid.setncattr(i,S[i])
+
+        #set dimension
+        for dimi,dimnamei,dim_unlimitedi in zip(dims,dimname,dim_unlimited):
+            if dim_unlimitedi is True:
+               fid.createDimension(dimnamei,None)
+            else:
+               fid.createDimension(dimnamei,dimi)
+
+        #set variable
+        for svar in svars:
+            vi=S[svar]; nm=vi.val.ndim
+            if order==0: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname)
+            if order==1: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname[::-1])
+            if hasattr(vi,'attrs'):
+               #for j in vi.attrs: attri=eval('vi.{}'.format(j)); vid.setncattr(j,attri)
+               for i in vi.attrs: vid.setncattr(i,vi.__dict__[i])
+            if order==0: fid.variables[svar][:]=vi.val
+            if order==1: fid.variables[svar][:]=transpose(vi.val,arange(nm)[::-1])
+        fid.close()
+
+    elif fmt==1:
         #----write NC files-------------
         #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
         fid=Dataset(fname,'w',format=data.file_format); #C.file_format
@@ -1870,54 +1935,6 @@ def WriteNC(fname,data,fmt=0,order=0):
                     vid.setncattr(attri,data.variables[vari].getncattr(attri))
                 nm=flipud(arange(ndim(data.variables[vari][:])));
                 fid.variables[vari][:]=data.variables[vari][:].transpose(nm)
-
-        fid.close()
-    elif fmt==0:
-        #----write NC files-------------
-        #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
-        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
-
-        #set attrs
-        fid.setncattr('file_format',data.file_format)
-        if hasattr(data,'attrs'):
-           for i in data.attrs:
-               exec("fid.setncattr('{}',data.{})".format(i,i))
-
-        #set dimension
-        for i in range(len(data.dims)):
-            if hasattr(data,'dim_unlimited'):
-               dim_flag=data.dim_unlimited[i]
-            else:
-               dim_flag=False
-
-            if dim_flag is True:
-               fid.createDimension(data.dimname[i],None)
-            else:
-               fid.createDimension(data.dimname[i],data.dims[i])
-
-        #set variable
-        if order==0:
-            for vari in data.vars:
-                vi=eval('data.{}'.format(vari));
-                vid=fid.createVariable(vari,vi.val.dtype,vi.dimname)
-                if hasattr(vi,'attrs'):
-                   for j in vi.attrs:
-                       attri=eval('vi.{}'.format(j))
-                       vid.setncattr(j,attri)
-                fid.variables[vari][:]=vi.val
-        elif order==1:
-            for vari in data.vars:
-                vi=eval('data.{}'.format(vari));
-                vid=fid.createVariable(vari,vi.val.dtype,flipud(vi.dimname))
-                if hasattr(vi,'attrs'):
-                   for j in vi.attrs:
-                       attri=eval('vi.{}'.format(j))
-                       vid.setncattr(j,attri)
-                if ndim(vi.val)>=2:
-                    nm=flipud(arange(ndim(vi.val)));
-                    fid.variables[vari][:]=vi.val.transpose(nm)
-                else:
-                    fid.variables[vari][:]=vi.val
         fid.close()
 
 def harmonic_fit(oti,oyi,dt,mti,tidal_names=0, **args):
