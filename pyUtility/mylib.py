@@ -1847,7 +1847,7 @@ def WriteNC(fname,data,fmt=0,order=0):
            svars=[i for i,vi in S.items() if isinstance(vi,zdata) or isinstance(vi,np.ndarray)] 
         else:
            svars=data.vars
-        for svar,vi in S.items():  #change np.array to zdata
+        for svar,vi in S.items():   #change np.array to zdata
             if isinstance(vi,np.ndarray): fvi=zdata(); fvi.val=vi; S[svar]=fvi
 
         #check global dimensions
