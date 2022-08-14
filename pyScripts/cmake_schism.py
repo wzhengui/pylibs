@@ -26,6 +26,7 @@ rewrite(fname,replace=['ON','OFF'],include=['USE_','PREC_EVAP','OLDIO'])
 rewrite(fname,replace=['OFF','ON'],include=[i if i in ['OLDIO','PREC_EVAP'] else 'USE_{}'.format(i) for i in modules])
 rewrite(fname,replace=[],include=['FABM_BASE'])
 rewrite(fname,append=['set( FABM_BASE {} CACHE STRING "Path to FABM base")\n'.format(fabm)])
+if 'SED2D' not in modules: rewrite(fname,replace=['ON','OFF'],include=['SED2D'])
 
 #determine host
 host=os.getenv('HOST').split('.')[0]
