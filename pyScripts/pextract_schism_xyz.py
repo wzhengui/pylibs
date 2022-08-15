@@ -88,7 +88,7 @@ else:
 gd.compute_bnd(); sys.stdout.flush()
 
 for itype in [1,2]: 
-    irec=0; oname=sdir+'/.schout'
+    irec=0; oname=os.path.dirname(os.path.abspath(sname))+'/.schout'
     for svar in svars: 
        ovars=get_schism_output_info(svar,modules) 
        if itype==1 and (ovars[0][1] not in svars_2d): continue #read 2D outputs 

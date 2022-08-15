@@ -2139,8 +2139,11 @@ def get_schism_output_info(svar=None,modules=None,fmt=0):
         'bThp':'ICM_bThp','bTox':'ICM_bTox','SOD':'ICM_SOD','JNH4':'ICM_JNH4','JNO3':'ICM_JNO3', #SFM
         'JPO4':'ICM_JPO4','JSA':'ICM_JSA','JCOD':'ICM_JCOD'} #SFM
 
+    COS={'NO3':'COS_NO3','SiO4':'COS_SiO4','NH4':'COS_NH4','S1':'COS_S1','S2':'COS_S2','Z1':'COS_Z1',
+         'Z2':'COS_Z2','DN':'COS_DN','DSi':'COS_DSi','PO4':'COS_PO4','DO':'COS_DOX','CO2':'COS_CO2'}
+
     if fmt==1: Hydro=oHydro
-    mdict={'Hydro':Hydro,'ICM':ICM}; S=zdata(); C=[]
+    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS}; S=zdata(); C=[]
     if (modules is not None) and isinstance(modules,str): modules=[modules,]
     if svar is None: #get all module info
        for n,m in mdict.items(): exec('S.{}=m'.format(n))
