@@ -17,7 +17,7 @@ itag=1   #itag=[1 or 2],for sflux_air_itag.0691.nc
 #make sflux files
 #---------------------------------------------------------------------------
 if not os.path.exists(tdir): os.mkdir(tdir)
-fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n/'); fid.close()
+fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n \n/'); fid.close()
 mtime=arange(StartT,EndT+1); svars=['air','prc','rad']
 for irec,ti in enumerate(mtime):
     #get date 

@@ -28,4 +28,4 @@ for irec,ti in enumerate(mtime):
         os.system('cd {}; ln -sf {} sflux_{}_{}.{:04d}.nc'.format(tdir,fname,svar,itag,irec+1))
 
 #write sflux_inputs.txt
-fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n/'); fid.close()
+fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n \n/'); fid.close()
