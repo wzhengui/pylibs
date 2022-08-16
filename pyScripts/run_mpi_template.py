@@ -13,19 +13,19 @@ jname='mpi4py' #job name
 
 #resource requst 
 walltime='00:10:00' 
-qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
+#qnode='x5672'; nnode=2; ppn=8      #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
 #qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-#qnode='mistral'; nnode=1; ppn=36   #mistral, ppn=36 
+qnode='levante'; nnode=1; ppn=48   #levante, ppn=128
 #qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
 
-#additional information:  frontera,mistral,stampede2
-qname='flex'                        #partition name
-account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028 
+#additional information:  frontera,levante,stampede2
+qname='compute'                        #partition name
+account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028 
 
 ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
@@ -55,4 +55,4 @@ print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sy
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
-sys.exit(0) if qnode in ['bora'] else os._exit(0)
+sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)
