@@ -2,13 +2,13 @@
 from ftplib import FTP
 from pylib import *
 
-################################################
+###############################################
 StartT=datenum('2016-9-1'); EndT=datenum('2016-9-4') # time period to download
 host='ftp-access.aviso.altimetry.fr' # domain name 
 user='kmpark19900616@gmail.com'; passwd = 'Y0PLwL' # user id and password
 wdir='/duacs-experimental/dt-phy-grids/multiscale_interpolation_alti_drifters/version_01_00'# target directory to download
 #ftp.dir() #list contents in current dir
-################################################
+###############################################
 
 # connect to host and go to target directory
 ftp = FTP(host)
