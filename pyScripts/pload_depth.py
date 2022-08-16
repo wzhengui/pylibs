@@ -36,12 +36,12 @@ qnode='x5672'; nnode=8; ppn=4       #hurricane, ppn=8
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-#qnode='mistral'; nnode=1; ppn=36   #mistral, ppn=36 
+#qnode='levante'; nnode=1; ppn=36   #levante, ppn=128
 #qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
 
-#additional information:  frontera,mistral,stampede2
+#additional information:  frontera,levante,stampede2
 qname='flex'                        #partition name
-account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; mistral: gg0028
+account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
 
 jname='load_dem' #job name
 ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
@@ -169,4 +169,4 @@ if myrank==0:
 #-----------------------------------------------------------------------------
 comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
-sys.exit(0) if qnode in ['bora'] else os._exit(0)
+sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)
