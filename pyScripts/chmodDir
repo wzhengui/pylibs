@@ -14,7 +14,6 @@ sdirs0=[os.path.abspath(i) for i in sdirs0]
 #get all filenames recursively
 fnames=[]
 while len(sdirs0)!=0: 
-    #print('dirs: ',sdirs0)
     sdirs=sdirs0[:]; sdirs0=[]
     for sdir in sdirs:
         for rname in os.listdir(sdir):
@@ -26,8 +25,11 @@ while len(sdirs0)!=0:
 
 #change file permission 
 for fname in fnames: 
-    mode=os.stat(fname).st_mode
-    os.chmod(fname,int(mode/64)*64+4*8+4) #keep origin user permission
+    try:
+       mode=os.stat(fname).st_mode
+       os.chmod(fname,int(mode/64)*64+4*8+4) #keep origin user permission
+    except:
+       pass
 
 #change directory permission
 snames=np.unique(np.array([os.path.dirname(i) for i in fnames]))
@@ -35,6 +37,9 @@ user=os.getlogin() #user id
 for sname in snames:
     rdir=sdir[:sdir.find(user)]
     while len(sname)>len(rdir):
-          mode=os.stat(sname).st_mode
-          os.chmod(sname,int(mode/64)*64+5*8+5) #keep origin user permission
+          try:
+             mode=os.stat(sname).st_mode
+             os.chmod(sname,int(mode/64)*64+5*8+5) #keep origin user permission
+          except:
+             pass
           sname=os.path.dirname(sname)
