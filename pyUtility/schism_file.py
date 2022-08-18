@@ -410,10 +410,11 @@ class schism_grid:
 
     def compute_bnd(self,bxy=None):
         '''
-        compute boundary information
-          bxy: endpoints of open boundaries
-              1).only one open boundary:  bxy=[x1,x2,y1,y2]
-              2).multiple open boundaries:  bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]
+        compute boundary information. If bxy is provided, define open/land boundries
+
+        bxy: endpoint coordinates of open boundaries. Examples:
+            1). bxy=[x1,x2,y1,y2]  #only one open boundary
+            2). bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]  #multiple open boundaries
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
