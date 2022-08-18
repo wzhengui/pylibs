@@ -408,9 +408,12 @@ class schism_grid:
               self.distj=abs(diff(self.x[self.isidenode],axis=1)+1j*diff(self.y[self.isidenode],axis=1))[:,0]
            return self.ns,self.isidenode,self.isdel
 
-    def compute_bnd(self):
+    def compute_bnd(self,bxy=None):
         '''
         compute boundary information
+          bxy: endpoints of open boundaries
+              1).only one open boundary:  bxy=[x1,x2,y1,y2]
+              2).multiple open boundaries:  bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
@@ -458,9 +461,40 @@ class schism_grid:
             if signa(self.x[sid],self.y[sid])>0: S.island[i]=0; break
 
         #add to grid bnd info
-        if not hasattr(self,'nob'):
+        if (not hasattr(self,'nob')) and (bxy is None):
            self.nob=0; self.nobn=array([]); self.iobn=array([[]]); sind=argsort(S.island)
            self.nlb=S.nb; self.nlbn=S.nbn[sind]; self.ilbn=S.ibn[sind]; self.island=S.island[sind]
+
+        #define open/land/island boundaries
+        if bxy is not None:
+           S=self.bndinfo; bf=array([zeros(i) for i in S.nbn],dtype='O')
+           pxy=array([*bxy]) if array([*bxy]).ndim==2 else array([*bxy])[None,:]
+           gxy=c_[self.x[S.ip],self.y[S.ip]]; p1=near_pts(pxy[:,0::2],gxy); p2=near_pts(pxy[:,1::2],gxy)
+           sindb,sindb2=S.sind[p1],S.sind[p2]; p1,p2=S.ip[p1],S.ip[p2];
+           if not array_equal(sindb,sindb2): sys.exit('piont pairs are not on the same boundary')
+
+           #parse each segment for open boundaries
+           self.nob=len(pxy); self.nobn=[]; self.iobn=[]; self.nlb=0; self.nlbn=[]; self.ilbn=[]; self.island=[]
+           for m in sindb[sort(unique(sindb, return_index=True)[1])]:
+               sind=nonzero(sindb==m)[0];  sids=[]; bf=ones(S.nbn[m])
+               if len(sind)==0: continue
+               for n,sindi in enumerate(sind): # add open bnd
+                   id1=nonzero(S.ibn[m]==p1[sindi])[0][0]; id2=nonzero(S.ibn[m]==p2[sindi])[0][0]; sids.extend([id1,id2])
+                   itype=(((id1<id2) and (S.island[m]==0)) or ((id1>id2) and (S.island[m]==1)))
+                   sid=arange(id1,id2+1) if (id1<id2) else r_[arange(id1,S.nbn[m]),arange(id2+1)]
+                   self.nobn.append(sid.size); self.iobn.append(S.ibn[m][sid]); bf[sid]=0
+               for n,id1 in enumerate(sids):  #add land boundaries
+                   id2=sids[(n+1)%len(sids)]
+                   itype=(((id1<id2) and (S.island[m]==0)) or ((id1>id2) and (S.island[m]==1)))
+                   sid=arange(id1,id2+1) if (id1<id2) else r_[arange(id1,S.nbn[m]),arange(id2+1)]
+                   if sum(bf[sid])!=0:
+                      self.nlb=self.nlb+1; self.nlbn.append(sid.size); self.ilbn.append(S.ibn[m][sid]); self.island.append(0)
+           for m in arange(S.nb): #add remaining land bnd
+               sind=nonzero(sindb==m)[0]
+               if len(sind)!=0: continue
+               self.nlb=self.nlb+1; self.nlbn.append(S.nbn[m]); self.ilbn.append(S.ibn[m]); self.island.append(S.island[m])
+           self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
+           self.nlbn=array(self.nlbn); self.ilbn=array(self.ilbn,dtype='O'); self.island=array(self.island)
 
     def compute_nne(self,**args):
         '''
