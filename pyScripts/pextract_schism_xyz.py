@@ -53,7 +53,9 @@ if os.getenv('job_on_node')==None:
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
-if myrank==0: t0=time.time()
+if myrank==0: 
+   t0=time.time(); odir=os.path.dirname(os.path.abspath(sname))
+   if not fexist(odir): os.system('mkdir -p {}'.format(odir))
 
 #-----------------------------------------------------------------------------
 #do MPI work on each core
@@ -110,7 +112,7 @@ if myrank==0:
            exec('S.{}.extend(C.{}.transpose([1,0,*arange(2,C.{}.ndim)]))'.format(rvar,svar,svar))
            if m==0: S.time.extend(C.time)
        exec('S.{}=array(S.{}); S.{}=S.{}.transpose([1,0,*arange(2,S.{}.ndim)])'.format(rvar,rvar,rvar,rvar,rvar))
-       S.time=array(S.time)
+       S.time=array(S.time); S.bp=read_schism_bpfile(bpfile)
    savez(sname,S)
 
 #-----------------------------------------------------------------------------
