@@ -2,6 +2,37 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def mklink(fname,fmt=0):
+    '''
+      execute in windows: convert symbolic links of directory  to mklink (DOS)
+      fname: directory name(s)
+      fmt=0: skip symbolic sub-direcotries; fmt=1: include search in sub-directories
+    '''
+
+    if platform.system().lower()=="windows":
+       #directory need to check symbolic links
+       if isinstance(fname,str):
+          sdirs=[fname]
+       else:
+          sdirs=[*fname]
+
+       #change symlink recursively
+       while len(sdirs)!=0:
+           sdirs0=unique(array([os.path.abspath(i) for i in sdirs])); sdirs=[]
+           for sdir in sdirs0:
+               os.chdir(sdir); fnames=os.listdir(sdir)
+
+               #change symlink
+               for fname in fnames:
+                   if os.path.isdir(fname): sdirs.append('{}/{}'.format(sdir,fname)); continue #gather directory
+                   if not os.path.islink(fname): continue
+
+                   tname=os.readlink(fname)
+                   if not os.path.isdir(tname): continue
+                   os.remove(fname); os.system('mklink /D {} {}'.format(fname,tname))
+                   sdirs.append('{}/{}'.format(sdir,fname))
+           if fmt==0: sdirs=[i for i in sdirs if not os.path.islink(i)]
+
 def rtext(x,y,note,xm=None,ym=None,ax=None,**args):
     '''
     add annoation to the current axes at relative location to x-axis and y-axis
