@@ -329,48 +329,50 @@ class schism_grid:
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self, fmt=0):
+    def compute_gradient(self,fmt=0,value=None,outfmt=0):
         '''
-        Compute gradient of gd.dp on each element first,
-        then transfer to nodes with the following options
-        "see details in interp_elem_to_node()":
-          fmt=0: simple avarage;
-          fmt=1: inverse distance;
-          fmt=2: maximum of surrounding nodal values.
-        The default is (0) simple average
+        Compute gradient on each element first, then convert to node value
+          fmt: interploation method (see details in interp_elem_to_node())
+              (0: simple avarage; fmt=1: inverse distance; fmt=2: maximum of surrounding nodal values)
+          value=None: gd.dp is used;    value: array of [np,] or [ne]
+          outfmt=0: return (dpdx,dpdy,dpdxy); outfmt=1: return (dpdx,dpdy,dpdxy,dpedx,dpedy,dpedxy)
         '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
+
+        #get node value
+        v0=self.dp if value is None else value
+        if len(v0)==self.ne: v0=self.interp_elem_to_node(value=v0)
+
         #get pts
         fp=self.elnode[:,-1]<0; fpn=~fp;
-        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]]; v1=self.dp[self.elnode[:,0]]
-        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]]; v2=self.dp[self.elnode[:,1]]
-        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]]; v3=self.dp[self.elnode[:,2]]
-        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; v4=self.dp[self.elnode[:,3]]
+        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]]; v1=v0[self.elnode[:,0]]
+        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]]; v2=v0[self.elnode[:,1]]
+        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]]; v3=v0[self.elnode[:,2]]
+        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; v4=v0[self.elnode[:,3]]
         x4[fp]=x1[fp]; y4[fp]=y1[fp]; v4[fp]=v1[fp]
         a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
         a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
 
         #compute gradients
-        self.dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
-        self.dpedy=((x3-x2)*v1+(x1-x3)*v2+(x2-x1)*v3)/(2*a1)
-        self.dpedxy=sqrt(self.dpedx**2+self.dpedy**2)
+        dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
+        dpedy=((x3-x2)*v1+(x1-x3)*v2+(x2-x1)*v3)/(2*a1)
 
-        #modify quads
+        #for quads
         dpedx2=(v1[fpn]*(y3[fpn]-y4[fpn])+v3[fpn]*(y4[fpn]-y1[fpn])+v4[fpn]*(y1[fpn]-y3[fpn]))/(2*a2[fpn])
         dpedy2=((x4[fpn]-x3[fpn])*v1[fpn]+(x1[fpn]-x4[fpn])*v3[fpn]+(x3[fpn]-x1[fpn])*v4[fpn])/(2*a2[fpn])
-        dpedxy2=sqrt(dpedx2**2+dpedy2**2)
+        dpedx[fpn]=(dpedx[fpn]+dpedx2)/2;  dpedy[fpn]=(dpedy[fpn]+dpedy2)/2
 
-        self.dpedx[fpn]=(self.dpedx[fpn]+dpedx2)/2
-        self.dpedy[fpn]=(self.dpedy[fpn]+dpedy2)/2
-        self.dpedxy[fpn]=(self.dpedxy[fpn]+dpedxy2)/2
+        #interp to node
+        dpedxy=sqrt(dpedx**2+dpedy**2)
+        dpdx=self.interp_elem_to_node(value=dpedx,fmt=fmt)
+        dpdy=self.interp_elem_to_node(value=dpedy,fmt=fmt)
+        dpdxy=self.interp_elem_to_node(value=dpedxy,fmt=fmt)
 
-        #get node value------
-        self.dpdx=self.interp_elem_to_node(value=self.dpedx,fmt=fmt)
-        self.dpdy=self.interp_elem_to_node(value=self.dpedy,fmt=fmt)
-        self.dpdxy=self.interp_elem_to_node(value=self.dpedxy,fmt=fmt)
-
-        return self.dpdx,self.dpdy,self.dpdxy
+        if outfmt==0:
+           return dpdx,dpdy,dpdxy
+        else:
+           return dpdx,dpdy,dpdxy,dpedx,dpedy,dpedxy
 
     def compute_side(self,fmt=0):
         '''
