@@ -1811,11 +1811,8 @@ def read_schism_param(fname,fmt=0):
     for line in lines:
       if '!' in line: line=line[:line.find('!')]
       keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
-      #if fmt==1 and vali.lstrip('-').replace('.','',1).isdigit():
-      #   vali=float(vali) if ('.' in vali) else int(vali)
       if fmt in [1,3]:  #convert string to float
          try: 
-            #vali=array(vali.replace(',',' ').replace(';',' ').split()).astype('float') 
             vali=[float(i) for i in vali.replace(',',' ').replace(';',' ').split()]
             if len(vali)==1: vali=vali[0]
          except:

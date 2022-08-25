@@ -9,7 +9,7 @@ from pylib import *
 
 flagd=0;
 if len(sys.argv)==1:
-   files=['param.in']
+   files=['param.nml']
 else:
    files=[];
    for vi in sys.argv[1:]:
@@ -23,7 +23,7 @@ for i,fname in enumerate(files):
    if 'yaml' in fname:
       Pi=read_yaml(fname)
    else:
-      Pi=read_schism_param(fname)
+      Pi=read_schism_param(fname,fmt=1)
    Par.append(Pi)    
    Key.append(Pi.keys())    
    Val.append(Pi.values())    
@@ -36,8 +36,9 @@ print("{:20s}:    ".format('Parameters')+', '.join("{:10s}".format(vi) for vi in
 AKey=sorted(list(AKey)); 
 for ki in AKey:
     v=[p[ki] if (ki in k) else 'N/A' for k, p in zip(Key,Par)]  
-    if len(set(v))!=1:
+    v=[str(i) if isinstance(i,list) else i for i in v]
+    if len(unique(v))!=1:
        if flagd==1 and 'N/A' in v:
           pass
        else:
-          print("{:20s}:    ".format(ki)+', '.join("{:10s}".format(vi) for vi in v))
+          print("{:20s}:    ".format(ki)+', '.join("{:10s}".format(str(vi)) for vi in v))

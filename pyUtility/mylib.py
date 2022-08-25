@@ -455,6 +455,11 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
          note_delimiter: keep inline note after delimiter (ignore delimiters in the beginning)
     '''
 
+    if isinstance(replace,str): replace=[replace]
+    if isinstance(include,str): include=[include]
+    if isinstance(startswith,str): startswith=[startswith]
+    if isinstance(endswith,str): endswith=[endswith]
+
     #read fname
     if os.path.exists(fname):
        fid=open(fname,'r'); lines=fid.readlines(); fid.close()
