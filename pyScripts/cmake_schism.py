@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 '''
   auto compile schism model; work for cmake on sciclone/frontera
+  Usage (examples):
+    1). cmake_schism                     #compile pschism_*
+    2). cmake_schism all                 #compile all Utility; copy all to curdir
+    3). cmake_schism all gen_            #compile all Utility; copy gen_* to curdir
+    4). cmake_schism combine_hotstart7   #compile combine_hotstart7; copy to curdir
 '''
 from pylib import *
 
@@ -15,6 +20,7 @@ modules=['OLDIO', 'ICM', 'PREC_EVAP']
 schism='~/schism'; fabm='~/fabm'
 
 target=sys.argv[1] if len(sys.argv)>1 else 'pschism' #combine target
+cnames=sys.argv[2:] if len(sys.argv)>2 else [target] #executables to be copied to current directory
 #-----------------------------------------------------------------------------------------------
 #compile the code
 #-----------------------------------------------------------------------------------------------
@@ -43,6 +49,12 @@ try:
       sname=os.listdir('{}/build/bin'.format(schism))[0]
       irev=command_outputs('cd {}; git log'.format(schism)).stdout.split('\n')[0].split()[1][:8]
       os.system('cp {}/build/bin/{} ./{}.{}'.format(schism,sname,sname,irev))
+   else:
+      snames=os.listdir('{}/build/bin'.format(schism))
+      for sname in snames:
+          icopy=array([sname.startswith(i) for i in cnames]).sum()
+          if target=='all': icopy=1
+          if icopy!=0: os.system('cp {}/build/bin/{} ./'.format(schism,sname))
 
    #write original file
    fid=open(fname,'w+'); fid.writelines(lines); fid.close() 
