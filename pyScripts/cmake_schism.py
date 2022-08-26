@@ -15,7 +15,6 @@ modules=['OLDIO', 'ICM', 'PREC_EVAP']
 schism='~/schism'; fabm='~/fabm'
 
 target=sys.argv[1] if len(sys.argv)>1 else 'pschism' #combine target
-print(target); sys.exit()
 #-----------------------------------------------------------------------------------------------
 #compile the code
 #-----------------------------------------------------------------------------------------------
