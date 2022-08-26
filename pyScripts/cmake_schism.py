@@ -14,6 +14,8 @@ modules=['OLDIO', 'ICM', 'PREC_EVAP']
 #directory of schism/fabm code
 schism='~/schism'; fabm='~/fabm'
 
+target=sys.argv[1] if len(sys.argv)>1 else 'pschism' #combine target
+print(target); sys.exit()
 #-----------------------------------------------------------------------------------------------
 #compile the code
 #-----------------------------------------------------------------------------------------------
@@ -35,7 +37,7 @@ if host=='hurricane': host='whirlwind'
 try: 
    #compile 
    if not fexist('{}/build'.format(schism)): os.mkdir('{}/build'.format(schism))
-   os.system('cd {}/build; rm -rf *; cmake -C ../cmake/SCHISM.local.build -C ../cmake/SCHISM.local.{} ../src; make -j8 pschism'.format(schism,host))
+   os.system('cd {}/build; rm -rf *; cmake -C ../cmake/SCHISM.local.build -C ../cmake/SCHISM.local.{} ../src; make -j8 {}'.format(schism,host,target))
    
    #put tag number
    sname=os.listdir('{}/build/bin'.format(schism))[0]

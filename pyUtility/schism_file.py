@@ -1813,7 +1813,7 @@ def read_schism_param(fname,fmt=0):
       keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
       if fmt in [1,3]:  #convert string to float
          try: 
-            vali=[float(i) for i in vali.replace(',',' ').replace(';',' ').split()]
+            vali=[float(i) if (('.' in i) or ('e' in i) or ('E' in i)) else int(i) for i in vali.replace(',',' ').replace(';',' ').split()]
             if len(vali)==1: vali=vali[0]
          except:
             pass
