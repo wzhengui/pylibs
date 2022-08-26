@@ -1828,6 +1828,50 @@ def read_schism_param(fname,fmt=0):
 
     return param
 
+def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='!'):
+    '''
+    change parameter values
+      fname: the name of parameter file (param.nml,param.in, ...) 
+      param: parameter name to be changed 
+      value: new parameter value are to be assigned 
+      source: either a reference parameter file, or and object of "read_schism_param"
+    '''
+    def _newline(line,param,value):
+       eid=line.find('='); nid=line.find(note_delimiter)
+       ns1=len(line)-len(line.lstrip())
+       ns2=len(line[:eid])-len(line[:eid].rstrip())
+       ns3=len(line[:nid])-len(line[:nid].rstrip())
+       sline=' '*ns1+param+' '*ns2+'= '+value
+       sline=sline+' '*ns3+note_delimiter+line[(nid+1):] if nid!=-1 else sline+'\n'
+       return sline
+  
+    #read fname information
+    fid=open(fname,'r'); slines=fid.readlines(); fid.close()
+
+    #change parameter value based on refernece parameter file 
+    if source is not None: 
+       P=read_schism_param(fname,1); lines=slines[:]; slines=[]
+       S=read_schism_param(source,1) if isinstance(fname,str) else source
+       for line in lines:
+           eid=line.find('='); pname=line[:eid].strip(); sline=line 
+           if (eid!=-1) and (pname in S):
+              if P[pname]!=S[pname]: 
+                 svalue=' '.join([str(i) for i in S[pname]]) if isinstance(S[pname],list) else str(S[pname])
+                 sline=_newline(line,pname,svalue)
+           slines.append(sline)
+
+    #change parameter value based on arguments
+    if param is not None: 
+       lines=slines[:]; slines=[]
+       for line in lines:
+          if line.strip().startswith(param):
+             slines.append(_newline(line,param,value))
+          else:
+             slines.append(line)
+
+    #write parameter file
+    fid=open(fname,'w+'); fid.writelines(slines); fid.close()
+
 def write_schism_param(fname,param):
     pkeys=sorted(param.keys())
     with open(fname,'w+') as fid:
