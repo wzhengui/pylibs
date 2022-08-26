@@ -39,12 +39,14 @@ try:
    os.system('cd {}/build; rm -rf *; cmake -C ../cmake/SCHISM.local.build -C ../cmake/SCHISM.local.{} ../src; make -j8 {}'.format(schism,host,target))
    
    #put tag number
-   sname=os.listdir('{}/build/bin'.format(schism))[0]
-   irev=command_outputs('cd {}; git log'.format(schism)).stdout.split('\n')[0].split()[1][:8]
-   os.system('cp {}/build/bin/{} ./{}.{}'.format(schism,sname,sname,irev)); 
+   if target=='pschism':
+      sname=os.listdir('{}/build/bin'.format(schism))[0]
+      irev=command_outputs('cd {}; git log'.format(schism)).stdout.split('\n')[0].split()[1][:8]
+      os.system('cp {}/build/bin/{} ./{}.{}'.format(schism,sname,sname,irev))
 
    #write original file
    fid=open(fname,'w+'); fid.writelines(lines); fid.close() 
+   print('target {}: combine sucessfully'.format(target))
 except: 
    #write original file
    fid=open(fname,'w+'); fid.writelines(lines); fid.close()
