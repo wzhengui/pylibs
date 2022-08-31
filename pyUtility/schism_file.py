@@ -2222,7 +2222,7 @@ def get_schism_output_info(svar=None,modules=None,fmt=0):
         'bPOP3':'ICM_bPOP3','bNH4':'ICM_bNH4','bNO3':'ICM_bNO3','bPO4':'ICM_bPO4','bH2S':'ICM_bH2S', #SFM
         'bCH4':'ICM_bCH4','bPOS':'ICM_bPOS','bSA':'ICM_bSA','bstc':'ICM_bstc','bSTR':'ICM_bSTR', #SFM
         'bThp':'ICM_bThp','bTox':'ICM_bTox','SOD':'ICM_SOD','JNH4':'ICM_JNH4','JNO3':'ICM_JNO3', #SFM
-        'JPO4':'ICM_JPO4','JSA':'ICM_JSA','JCOD':'ICM_JCOD'} #SFM
+        'JPO4':'ICM_JPO4','JSA':'ICM_JSA','JCOD':'ICM_JCOD','BA':'ICM_BA'} #SFM
 
     COS={'NO3':'COS_NO3','SiO4':'COS_SiO4','NH4':'COS_NH4','S1':'COS_S1','S2':'COS_S2','Z1':'COS_Z1',
          'Z2':'COS_Z2','DN':'COS_DN','DSi':'COS_DSi','PO4':'COS_PO4','DO':'COS_DOX','CO2':'COS_CO2'}
