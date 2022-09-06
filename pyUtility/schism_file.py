@@ -450,23 +450,31 @@ class schism_grid:
         #sort bnd
         nbn=array(nbn); ibn=array(ibn,dtype='O'); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
 
+        #find the outline
+        island=ones(nb).astype('int')
+        for i in arange(nb):
+            px=self.x[ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
+            sid=ibn[i][array([(i0-1)%nbn[i],i0,(i0+1)%nbn[i]])].astype('int')
+            if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid=i; break
+
+        #put outline bnd ahead
+        if bid!=0:
+           island=ones(nb).astype('int'); island[0]=0
+           nbn=array([nbn[bid],*nbn[:bid],*nbn[(bid+1):]])
+           ibn=array([ibn[bid],*ibn[:bid],*ibn[(bid+1):]],dtype='O')
+
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
         ip=[]; sind=[]; S=self.bndinfo
         for m,ibni in enumerate(ibn): ip.extend(ibni); sind.extend(tile(m,len(ibni)))
-        ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip; S.island=ones(nb).astype('int')
+        ip=array(ip); sind=array(sind); S.sind=sind; S.ip=ip; S.island=island
         S.nb=nb; S.nbn=nbn; S.ibn=ibn; S.x=self.x[ip]; S.y=self.y[ip]
-
-        #find the outline
-        for i in arange(nb):
-            px=self.x[S.ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
-            sid=S.ibn[i][array([(i0-1)%S.nbn[i],i0,(i0+1)%S.nbn[i]])].astype('int')
-            if signa(self.x[sid],self.y[sid])>0: S.island[i]=0; break
 
         #add to grid bnd info
         if (not hasattr(self,'nob')) and (bxy is None):
-           self.nob=0; self.nobn=array([]); self.iobn=array([[]]); sind=argsort(S.island)
-           self.nlb=S.nb; self.nlbn=S.nbn[sind]; self.ilbn=S.ibn[sind]; self.island=S.island[sind]
+           self.nob=0; self.nobn=array([]); self.iobn=array([[]])
+           self.nlb=S.nb+1; self.nlbn=array([2,*S.nbn]); self.island=array([0,*S.island])
+           self.ilbn=array([array([S.ibn[0][-1],S.ibn[0][0]]).astype('int'), *S.ibn],dtype='O')
 
         #define open/land/island boundaries
         if bxy is not None:
