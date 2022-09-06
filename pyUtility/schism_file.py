@@ -710,7 +710,9 @@ class schism_grid:
                     if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
 
             #write bnd information
-            if fmt==1 and bndfile is None: self.write_bnd(fid=fid)
+            if fmt==1 and bndfile is None:
+               if not hasattr(self,'nob'): self.compute_bnd()
+               self.write_bnd(fid=fid)
             if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
 
     def write_bnd(self,fname='grd.bnd',fid=None):
