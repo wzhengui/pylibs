@@ -2057,6 +2057,7 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
            stacks=arange(stacks[0],stacks[1]+1)
        #svars=get_schism_output_info(varname,module) #get variable information
        for istack in stacks:
+           print('reading stack: {}'.format(istack))
            C0=ReadNC('{}/outputs/out2d_{}.nc'.format(run,istack),1)
            Z0=ReadNC('{}/outputs/zCoordinates_{}.nc'.format(run,istack),1); Z=Z0.variables['zCoordinates'];  
            mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti)
@@ -2134,6 +2135,7 @@ def read_schism_OLDIO_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,snam
         if not hasattr(stacks,'__len__'): stacks=[stacks,stacks] 
         stacks=arange(stacks[0],stacks[1]+1)
     for istack in stacks:
+        print('reading stack {}'.format(istack))
         C0=ReadNC('{}/outputs/schout_{}.nc'.format(run,istack),1)
         mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti)
         if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
