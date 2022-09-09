@@ -410,16 +410,26 @@ class schism_grid:
               self.distj=abs(diff(self.x[self.isidenode],axis=1)+1j*diff(self.y[self.isidenode],axis=1))[:,0]
            return self.ns,self.isidenode,self.isdel
 
-    def compute_bnd(self,bxy=None):
+    def compute_bnd(self,bxy=None,bpfile=None):
         '''
         compute boundary information. If bxy is provided, define open/land boundries
 
         bxy: endpoint coordinates of open boundaries. Examples:
             1). bxy=[x1,x2,y1,y2]  #only one open boundary
             2). bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]  #multiple open boundaries
+        bpfile: paired build points defining the corners of open boundaries
+            only used when bxy is not defined.
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+
+        #get the bxy if bpfile is provided, must have even number of build points
+        if bxy==None and bpfile!=None:
+            bp=read_schism_bpfile(bpfile)
+            if len(bp.x)%2!=0: sys.exit('build points must be in even number')
+            bxy=[]
+            for i in arange(len(bp.x)/2,dtype='int'):
+                bxy.append([bp.x[i*2+0],bp.x[i*2+1],bp.y[i*2+0],bp.y[i*2+1]])
 
         #find boundary side and element
         fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
