@@ -422,7 +422,6 @@ class schism_grid:
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
 
-
         #find boundary side and element
         fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
 
@@ -1241,6 +1240,7 @@ class schism_bpfile:
             if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
         fid.close()
 
+
     def get_unique_pts(self,fmt=0):
         '''
         compute unique pts
@@ -1253,6 +1253,20 @@ class schism_bpfile:
         self.uz=self.z[sind]; self.ustation=self.station[sind]
         if fmt==1: self.x,self.y,self.z,self.station,self.nsta=self.ux,self.uy,self.uz,self.ustation,len(self.ux)
         return [self.ux,self.uy,self.uz,self.ustation]
+
+    def proj(self,prj0,prj1='epsg:4326',fmt=0,lon0=None,lat0=None):
+        '''
+        transform the projection of schism grid's coordinates
+        Inputs:
+            prj0: projection name of schism grid
+            prj1: target projection name; default is 'epsg:4326'
+            fmt=0: only return transformed xy; fmt=1: change gd.x,gd.y to transform xy
+            lon0,lat0: lon&lat of cpp projection center; needed only if 'cpp' in [prj0,prj1]
+                       if ("ll"=>"cpp") and (lon0 or lat0 is not provided): lon0=mean(x); lat0=mean(y)
+        '''
+        px,py=proj(prj0=prj0,prj1=prj1,x=self.x,y=self.y,lon0=lon0,lat0=lat0)
+        if fmt==1: self.x,self.y=px,py
+        return [px,py]
 
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
