@@ -13,19 +13,17 @@ sdir='/sciclone/data10/wangzg/narr'  #narr source
 #--------------------------------------------------------------------
 #make links
 #--------------------------------------------------------------------
-if not os.path.exists(tdir): os.mkdir(tdir)
-mtime=arange(StartT,EndT+1); svars=['air','prc','rad']
+bdir=os.path.abspath(os.path.curdir); tdir=os.path.abspath(tdir)
+if fexist(tdir): os.system('rm -rf {}'.format(tdir))
+os.mkdir(tdir); os.chdir(tdir)
+mtime=arange(StartT-2,EndT+2); svars=['air','prc','rad']
 for irec,ti in enumerate(mtime):
-    #get date 
-    year=num2date(ti).year
-    month=num2date(ti).month
-    day=num2date(ti).day
-
     #link each file
+    year=num2date(ti).year; month=num2date(ti).month; day=num2date(ti).day
     for m,svar in enumerate(svars):
         fname='{}/{}_{:02}/narr_{}.{}_{:02d}_{:02d}.nc'.format(sdir,year,month,svar,year,month,day)
-        print(fname)
-        os.system('cd {}; ln -sf {} sflux_{}_{}.{:04d}.nc'.format(tdir,fname,svar,itag,irec+1))
-
+        os.symlink(fname,'sflux_{}_{}.{:04d}.nc'.format(svar,itag,irec+1))
+        if m==1 and day==1: print('    sflux: {:04d}-{:02d}-{:02d}'.format(year,month,day))
 #write sflux_inputs.txt
 fid=open('{}/sflux_inputs.txt'.format(tdir),'w+'); fid.write('&sflux_inputs\n \n/'); fid.close()
+os.chdir(bdir)
