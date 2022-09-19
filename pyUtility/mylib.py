@@ -1564,16 +1564,16 @@ def convert_matfile(name_matfile,name_save=None):
     if name_save is None: name_save=name_matfile
 
     #read matfile and convert
-    C=sp.io.loadmat(name_matfile+'.mat'); S=zdata()
-    for keyi in C.keys():
-        if keyi.startswith('__'):continue
-        valuei=squeeze(C[keyi])
+    C=sp.io.loadmat(name_matfile+'.mat',simplify_cells=True); S=zdata()
+    for x in C.keys():
+       if x.startswith('__') or x=='VINFO':continue
 
-        #change format
-        if not issubdtype(valuei.dtype,np.number):
-            valuei=array([i[0] if len(i)!=0 else '' for i in valuei])
-        if keyi in ['Doy', 'doy']: valuei=valuei-366
-        exec('S.{}=squeeze(valuei)'.format(keyi))
+       #for list of strings
+       if isinstance(C[x],np.ndarray):
+          if C[x].size!=1 and ('<U' in str(C[x].dtype)):
+             C[x]=array([i.strip() for i in C[x]])
+
+       S.__dict__[x]=C[x]
     savez(name_save,S)
 
 def get_stat(xi_model,xi_obs,fmt=0):
