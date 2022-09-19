@@ -1576,6 +1576,21 @@ def convert_matfile(name_matfile,name_save=None):
        S.__dict__[x]=C[x]
     savez(name_save,S)
 
+def cindex(index,shape):
+    '''
+    convert array index: same as unravel_index and ravel_multi_index
+      1) cindex(id, ds):  convert flat index (1D) to indices (nD)
+      2) cindex(c_[id1,id2,...], ds):  convert flat indices (nD) to index (1D)
+    '''
+    index=array(index)
+    if index.ndim!=1 and index.shape[0]!=len(shape): index=index.T
+
+    if index.ndim==1:
+       cid=[*unravel_index(index,shape)]
+    else:
+       cid=ravel_multi_index(index,shape)
+    return cid
+
 def get_stat(xi_model,xi_obs,fmt=0):
     '''
     compute statistics between two time series
