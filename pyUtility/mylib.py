@@ -2,6 +2,14 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def resize(data,shape):
+    '''
+    re-define resize function with zeros for the new data
+    '''
+    ds=data.shape; fdata=zeros(shape).astype(data.dtype)
+    exec('fdata[{}]=data'.format(':'+',:'.join([str(i) for i in ds])+',0'*(len(shape)-len(ds))))
+    return fdata
+
 def mklink(fname,fmt=0):
     '''
       execute in windows: convert symbolic links of directory  to mklink (DOS)
