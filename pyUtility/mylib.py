@@ -1916,7 +1916,7 @@ def WriteNC(fname,data,fmt=0,order=0):
            dimname=['dim_{}'.format(i) for i in dims]
         else:
            dims,dimname=array(data.dims),data.dimname
-        if not hasattr(data,'dim_unlimited'):
+        if (not hasattr(data,'dim_unlimited')) or (len(data.dim_unlimited)!=len(data.dims)):
            dim_unlimited=[False for i in dims]
         else: 
            dim_unlimited=data.dim_unlimited

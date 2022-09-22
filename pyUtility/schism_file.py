@@ -664,6 +664,37 @@ class schism_grid:
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (vi[pip]*pacor).sum(axis=1)
 
+    def smooth(self,dist,value=None,fmt=0):
+        '''
+        smooth field by averaging values within radius of dist
+          dist: averaging radius
+          value=None: gd.dp is used; value: array of [np,] or [ne,]
+          fmt=0: return smoothed nodal values; fmt=1: return smoothed elem. values
+        '''
+        from scipy.spatial.distance import cdist
+
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        if not hasattr(self,'area'): self.compute_area()
+        if value is None: value=gd.dpe
+        if value.size==self.np: value=self.interp_node_to_elem(value)
+
+        #smooth unstructure data
+        ne,x,y=self.ne,self.xctr,self.yctr; exy=x+1j*y; pxy=x+1j*y
+        w=gd.area; v=value*w; sinde=arange(ne); pv=zeros(ne); sindp=arange(ne)
+        while sindp.size!=0:
+            fpc=abs(pxy-pxy[0])<=dist; pid=sindp[fpc] #node inside circle of dc
+            eid=sinde[nonzero(abs(exy-pxy[0])<=(2*dist))[0]]; #elem. inside circle of 2*dc
+
+            #find dist maxtrix, get weight and value, and assign average value at node
+            pdist=cdist(c_[x[pid],y[pid]],c_[x[eid],y[eid]]); fpd=pdist>dist
+            ew=tile(w[eid],[pid.size,1]); ev=tile(v[eid],[pid.size,1]); ew[fpd]=0; ev[fpd]=0
+            pv[pid]=ev.sum(axis=1)/ew.sum(axis=1)
+            sindp,pxy=sindp[~fpc],pxy[~fpc] #update remaining nodes
+        if fmt==1:
+           return pv
+        else:
+           return self.interp_elem_to_node(pv)
+
     def save(self, fname=None,**args):
         '''
         save hgrid as (*.npz, *.pkl, *.gr3, *.ll or *.ic)
