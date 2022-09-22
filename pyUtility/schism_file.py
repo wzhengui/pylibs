@@ -675,12 +675,12 @@ class schism_grid:
 
         if not hasattr(self,'dpe'): self.compute_ctr()
         if not hasattr(self,'area'): self.compute_area()
-        if value is None: value=gd.dpe
+        if value is None: value=self.dpe
         if value.size==self.np: value=self.interp_node_to_elem(value)
 
         #smooth unstructure data
         ne,x,y=self.ne,self.xctr,self.yctr; exy=x+1j*y; pxy=x+1j*y
-        w=gd.area; v=value*w; sinde=arange(ne); pv=zeros(ne); sindp=arange(ne)
+        w=self.area; v=value*w; sinde=arange(ne); pv=zeros(ne); sindp=arange(ne)
         while sindp.size!=0:
             fpc=abs(pxy-pxy[0])<=dist; pid=sindp[fpc] #node inside circle of dc
             eid=sinde[nonzero(abs(exy-pxy[0])<=(2*dist))[0]]; #elem. inside circle of 2*dc
