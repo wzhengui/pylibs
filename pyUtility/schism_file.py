@@ -664,12 +664,13 @@ class schism_grid:
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (vi[pip]*pacor).sum(axis=1)
 
-    def smooth(self,dist,value=None,fmt=0):
+    def smooth(self,dist,value=None,fmt=0,ms=1e8):
         '''
         smooth field by averaging values within radius of dist
           dist: averaging radius
           value=None: gd.dp is used; value: array of [np,] or [ne,]
           fmt=0: return smoothed nodal values; fmt=1: return smoothed elem. values
+          ms: matrix size; reduce ms to avoid "out of memory" error
         '''
         from scipy.spatial.distance import cdist
 
@@ -682,13 +683,18 @@ class schism_grid:
         ne,x,y=self.ne,self.xctr,self.yctr; exy=x+1j*y; pxy=x+1j*y
         w=self.area; v=value*w; sinde=arange(ne); pv=zeros(ne); sindp=arange(ne)
         while sindp.size!=0:
+            #print(sindp.size,self.ne,sindp.size/self.ne)
             fpc=abs(pxy-pxy[0])<=dist; pid=sindp[fpc] #node inside circle of dc
             eid=sinde[nonzero(abs(exy-pxy[0])<=(2*dist))[0]]; #elem. inside circle of 2*dc
+            if eid.size==1: pv[pid]=value[eid] 
 
             #find dist maxtrix, get weight and value, and assign average value at node
-            pdist=cdist(c_[x[pid],y[pid]],c_[x[eid],y[eid]]); fpd=pdist>dist
-            ew=tile(w[eid],[pid.size,1]); ev=tile(v[eid],[pid.size,1]); ew[fpd]=0; ev[fpd]=0
-            pv[pid]=ev.sum(axis=1)/ew.sum(axis=1)
+            ds=pid.size*eid.size; nloop=int(ceil(ds/ms)); dsb=int(ceil(pid.size/nloop))
+            for n in arange(nloop):
+                pidi=pid[arange((dsb*n),min(dsb*(n+1),pid.size)).astype('int')] 
+                pdist=cdist(c_[x[pidi],y[pidi]],c_[x[eid],y[eid]]); fpd=pdist>dist
+                ew=tile(w[eid],[pidi.size,1]); ev=tile(v[eid],[pidi.size,1]); ew[fpd]=0; ev[fpd]=0
+                pv[pidi]=ev.sum(axis=1)/ew.sum(axis=1)
             sindp,pxy=sindp[~fpc],pxy[~fpc] #update remaining nodes
         if fmt==1:
            return pv
