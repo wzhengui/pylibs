@@ -1651,7 +1651,7 @@ def read_shapefile_data(fname):
             #insert nan for delimiter
             #to get original index: ind=nonzero(isnan(xyi[:,0]))[0]-arange(len(parti));
             S.xy.append(insert(xyi,parti,nan,axis=0))
-        S.xy=squeeze(array(S.xy))
+        S.xy=squeeze(array(S.xy,dtype='O'))
 
         #---read attributes----------------------------------------------------
         S.attname=array([C.fields[i][0] for i in arange(1,len(C.fields))]);
