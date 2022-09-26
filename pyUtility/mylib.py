@@ -1237,15 +1237,19 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
             sind=sind[:,0]
     return sind
 
-class mdist:
+def mdist(xy1,xy2,fmt=0,outfmt=0):
     '''
-      functions to compute minimum distance between geometry(pts,lines)
-      to geomtry(pts,lines,polygons)
+      compute distance or (minimum distance) between geometry (pts,lines) to geomtry(pts,lines,polygons)
+      format of xy:
+        points: c_[x,y]
+        lines:  c_[x,y], or c_[x1,y1,x2,y2]
+        polygon: c_[x,y];  if polygon is not closed, (x[0],y[0]) will be added in the end
+      fmt: choose geometry types
+          0: pts and pts;      1: pts and lines;       2: lines and lines
+          3: pts and polygon;  4: lines and polygon;   5: polygon and polygon
+      outfmt=0: return an array of minimum distance;  outfmt=1: return an matrix of distance
     '''
-    def __init__(self, fname=None):
-        pass
-
-    def _reshape_lines(self,lxy):
+    def _reshape_lines(lxy):
         '''
           if lxy=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
           if lxy=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
@@ -1256,90 +1260,109 @@ class mdist:
             sys.exit('unknown shape of lines: lxy={}'.format(lxy.shape))
         return lxy
 
-    def pts_pts(self,xy,xy0):
+    def pts_pts(xy,xy0,outfmt=0):
         '''
         find the minimum distance of c_[x,y] to a set of points c_[x0,y0]
+          outfmt=0: minimum distance of pts to all pts (return an array)
+          outfmt=1: minimum distance of pts to each pts (return a matrix)
         '''
-        pid=near_pts(xy,xy0)
-        return abs((xy[:,0]+1j*xy[:,1])-(xy0[pid,0]+1j*xy0[pid,1]))
+        if outfmt==0:
+            pid=near_pts(xy,xy0); dist=abs((xy[:,0]+1j*xy[:,1])-(xy0[pid,0]+1j*xy0[pid,1]))
+        else:
+            dist=abs((xy[:,0]+1j*xy[:,1])[:,None]-(xy0[pid,0]+1j*xy0[pid,1])[None,:])
+        return dist
 
-    def pts_lines(self,xy,lxy,fmt=0):
+    def pts_lines(xy,lxy,outfmt=0):
         '''
         find the minimum distance of c_[x,y] to a set of lines lxy
           1). lxy=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
           2). lxy=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
-          fmt=0: minimum distance of pts to all lines (return an array)
-          fmt=1: minimum distance of pts to each lines (return a matrix)
+          outfmt=0: minimum distance of pts to all lines (return an array)
+          outfmt=1: minimum distance of pts to each lines (return a matrix)
         '''
 
         #reshape pts and lines
-        x,y=xy.T[:,:,None]; x1,y1,x2,y2=self._reshape_lines(lxy).T[:,None,:]
+        x,y=xy.T[:,:,None]; x1,y1,x2,y2=_reshape_lines(lxy).T[:,None,:]
 
-        #compute the foot of a perpendicular, and distance between pts
         dist=nan*ones([x.size,x1.size])
+        #compute the foot of a perpendicular, and distance between pts
         k=-((x1-x)*(x2-x1)+(y1-y)*(y2-y1))/((x1-x2)**2+(y1-y2)**2); xn=k*(x2-x1)+x1; yn=k*(y2-y1)+y1
         fpn=(k>=0)*(k<=1); dist[fpn]=abs((x+1j*y)-(xn+1j*yn))[fpn] #normal line
         dist[~fpn]=array(r_[abs((x+1j*y)-(x1+1j*y1))[None,...], abs((x+1j*y)-(x2+1j*y2))[None,...]]).min(axis=0)[~fpn] #pt-pt dist
-        if fmt==0: dist=dist.min(axis=1)
+        if outfmt==0: dist=dist.min(axis=1)
         return dist
 
-    def lines_lines(self,lxy,lxy0,fmt=0):
+    def lines_lines(lxy,lxy0,outfmt=0):
         '''
         find the minimum distance of lines lxy to a set of lines lxy0
           1). lxy or lxy0=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
           2). lxy or lxy0=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
-        fmt=0: minimum distance of lines lxy to all lines lxy0 (return an array)
-        fmt=1: minimum distance of lines lxy to each lines in lxy0 (return a matrix)
+        outfmt=0: minimum distance of lines lxy to all lines lxy0 (return an array)
+        outfmt=1: minimum distance of lines lxy to each lines in lxy0 (return a matrix)
         Note: if lines are intersecting, the minimum distance is zero.
         '''
         #reshape lines
-        x1,y1,x2,y2=self._reshape_lines(lxy).T[:,:,None]; x3,y3,x4,y4=self._reshape_lines(lxy0).T[:,None,:]
+        x1,y1,x2,y2=_reshape_lines(lxy).T[:,:,None]; x3,y3,x4,y4=_reshape_lines(lxy0).T[:,None,:]
 
         #check whether intersects
         fc1=(((x1-x3)*(y4-y3)+(x3-x4)*(y1-y3))*((x2-x3)*(y4-y3)+(x3-x4)*(y2-y3)))<=0
         fc2=(((x3-x1)*(y2-y1)+(x1-x2)*(y3-y1))*((x4-x1)*(y2-y1)+(x1-x2)*(y4-y1)))<=0
-        fpn=(fc1*fc2)
+        fpn=(fc1*fc2); x1,y1,x2,y2=x1[:,0],y1[:,0],x2[:,0],y2[:,0]; x3,y3,x4,y4=x3[0],y3[0],x4[0],y4[0]
 
-        if fmt==1:
+        if outfmt==1:
             dist=nan*ones([x1.size,x3.size]); dist[fpn]=0
+
+            print('ZG', x1.shape,x3.shape)
             if sum(~fpn)!=0:
                 #check distance between pts to lines
-                dist[~fpn]=r_[self.pts_lines(c_[x1,y1],c_[x3,y3,x4,y4],fmt=1)[None,...],self.pts_lines(c_[x2,y2],c_[x3,y3,x4,y4],fmt=1)[None,...],
-                   self.pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],fmt=1).T[None,...],self.pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],fmt=1).T[None,...]].min(axis=0)[~fpn]
+                dist[~fpn]=array([pts_lines(c_[x1,y1],c_[x3,y3,x4,y4],1),pts_lines(c_[x2,y2],c_[x3,y3,x4,y4],1),
+                   pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],1).T,pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],1).T]).min(axis=0)[~fpn]
         else:
             dist=nan*ones(x1.size); fpn=fpn.sum(axis=1)>0; dist[fpn]=0
+            x1,y1,x2,y2=x1[~fpn],y1[~fpn],x2[~fpn],y2[~fpn]
             if sum(~fpn)!=0:
-                x1,y1,x2,y2=x1[~fpn],y1[~fpn],x2[~fpn],y2[~fpn]; x3,y3,x4,y4=x3.T,y3.T,x4.T,y4.T
-                dist[~fpn]=c_[self.pts_lines(c_[x1,y1],c_[x3,y3,x4,y4]),self.pts_lines(c_[x2,y2],c_[x3,y3,x4,y4]),
-                   self.pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],fmt=1).min(axis=0),self.pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],fmt=1).min(axis=0)].min(axis=1)
+                dist[~fpn]=array([pts_lines(c_[x1,y1],c_[x3,y3,x4,y4]),pts_lines(c_[x2,y2],c_[x3,y3,x4,y4]),
+                   pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],1).min(axis=0),pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],1).min(axis=0)]).min(axis=0)
         return dist
 
-    def pts_polygon(self,xy,pxy,fmt=0):
+    def pts_polygon(xy,pxy,outfmt=0):
         '''
         find the minimum distance of c_[x,y] to a polygon pxy
-            fmt=0: If pts are inside the polygon, the minimum distance is zero
-            fmt=1: minimum distance between pts and lines of the polygon
+        Note: If pts are inside the polygon, the distance (minimum distance) is zero
         '''
-        dist=nan*ones(xy.shape[0]); pxy=close_data_loop(pxy) #make sure polygon are closed
-        fpn=inside_polygon(xy, pxy[:,0],pxy[:,1])==1; dist[fpn]=0
-        if sum(~fpn)!=0: dist[~fpn]=self.pts_lines(xy[~fpn],pxy)
+        pxy=close_data_loop(pxy); fpn=inside_polygon(xy, pxy[:,0],pxy[:,1])==1
+
+        if outfmt==0:
+            dist=nan*ones(len(xy)); dist[fpn]=0
+            if sum(~fpn)!=0: dist[~fpn]=pts_lines(xy[~fpn],pxy)
+        else:
+            dist=nan*ones([len(xy),len(pxy)-1]); dist[fpn]=0
+            if sum(~fpn)!=0: dist[~fpn]=pts_lines(xy[~fpn],pxy,1)
         return dist
 
-    def lines_polygon(self,lxy,pxy,fmt=0):
+    def lines_polygon(lxy,pxy,outfmt=0):
         '''
         find the minimum distance of lines lxy to a polygon pxy
         Note: if pts of lines are inside the polygon, the minimum distance is zero.
         '''
-        x1,y1,x2,y2=self._reshape_lines(lxy).T; dist=nan*ones(x1.size); pxy=close_data_loop(pxy)
+        x1,y1,x2,y2=_reshape_lines(lxy).T;  pxy=close_data_loop(pxy)
 
         #check pts inside the polygon
-        fpn1=inside_polygon(c_[x1,y1],pxy[:,0],pxy[:,1])==1; dist[fpn1]=0
-        fpn2=inside_polygon(c_[x2,y2],pxy[:,0],pxy[:,1])==1; dist[fpn2]=0
-        fpn=~(fpn1|fpn2)
+        fpn1=inside_polygon(c_[x1,y1],pxy[:,0],pxy[:,1])==1
+        fpn2=inside_polygon(c_[x2,y2],pxy[:,0],pxy[:,1])==1
+        fpn=fpn1|fpn2
 
-        #check dist between lines
-        x1,y1,x2,y2=x1[fpn],y1[fpn],x2[fpn],y2[fpn]; dist[fpn]=self.lines_lines(c_[x1,y1,x2,y2],pxy)
+        dist=nan*ones(x1.size) if outfmt==0 else nan*ones([x1.size,len(pxy)-1])
+        dist[fpn]=0; x1,y1,x2,y2=x1[~fpn],y1[~fpn],x2[~fpn],y2[~fpn]
+        dist[~fpn]=lines_lines(c_[x1,y1,x2,y2],pxy,outfmt)
         return dist
+
+    if fmt==0: dist=pts_pts(xy1,xy2,outfmt)
+    if fmt==1: dist=pts_lines(xy1,xy2,outfmt)
+    if fmt==2: dist=lines_lines(xy1,xy2,outfmt)
+    if fmt==3: dist=pts_polygon(xy1,xy2,outfmt)
+    if fmt==4: dist=lines_polygon(xy1,xy2,outfmt)
+    return dist
 
 def signa(x,y):
     '''
