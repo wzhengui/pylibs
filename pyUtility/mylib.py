@@ -1237,6 +1237,110 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
             sind=sind[:,0]
     return sind
 
+class mdist:
+    '''
+      functions to compute minimum distance between geometry(pts,lines)
+      to geomtry(pts,lines,polygons)
+    '''
+    def __init__(self, fname=None):
+        pass
+
+    def _reshape_lines(self,lxy):
+        '''
+          if lxy=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
+          if lxy=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
+        '''
+        if lxy.shape[1]==2:
+            lxy=c_[lxy[:-1],lxy[1:]]
+        elif lxy.shape[1]!=4:
+            sys.exit('unknown shape of lines: lxy={}'.format(lxy.shape))
+        return lxy
+
+    def pts_pts(self,xy,xy0):
+        '''
+        find the minimum distance of c_[x,y] to a set of points c_[x0,y0]
+        '''
+        pid=near_pts(xy,xy0)
+        return abs((xy[:,0]+1j*xy[:,1])-(xy0[pid,0]+1j*xy0[pid,1]))
+
+    def pts_lines(self,xy,lxy,fmt=0):
+        '''
+        find the minimum distance of c_[x,y] to a set of lines lxy
+          1). lxy=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
+          2). lxy=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
+          fmt=0: minimum distance of pts to all lines (return an array)
+          fmt=1: minimum distance of pts to each lines (return a matrix)
+        '''
+
+        #reshape pts and lines
+        x,y=xy.T[:,:,None]; x1,y1,x2,y2=self._reshape_lines(lxy).T[:,None,:]
+
+        #compute the foot of a perpendicular, and distance between pts
+        dist=nan*ones([x.size,x1.size])
+        k=-((x1-x)*(x2-x1)+(y1-y)*(y2-y1))/((x1-x2)**2+(y1-y2)**2); xn=k*(x2-x1)+x1; yn=k*(y2-y1)+y1
+        fpn=(k>=0)*(k<=1); dist[fpn]=abs((x+1j*y)-(xn+1j*yn))[fpn] #normal line
+        dist[~fpn]=array(r_[abs((x+1j*y)-(x1+1j*y1))[None,...], abs((x+1j*y)-(x2+1j*y2))[None,...]]).min(axis=0)[~fpn] #pt-pt dist
+        if fmt==0: dist=dist.min(axis=1)
+        return dist
+
+    def lines_lines(self,lxy,lxy0,fmt=0):
+        '''
+        find the minimum distance of lines lxy to a set of lines lxy0
+          1). lxy or lxy0=c_[x1,y1,x2,y2]: each row is a line (x1,y1) -> (x2,y2)
+          2). lxy or lxy0=c_[px,py]: lines are obtained with (px[i],px[i]) -> (px[i+1],px[i+1])
+        fmt=0: minimum distance of lines lxy to all lines lxy0 (return an array)
+        fmt=1: minimum distance of lines lxy to each lines in lxy0 (return a matrix)
+        Note: if lines are intersecting, the minimum distance is zero.
+        '''
+        #reshape lines
+        x1,y1,x2,y2=self._reshape_lines(lxy).T[:,:,None]; x3,y3,x4,y4=self._reshape_lines(lxy0).T[:,None,:]
+
+        #check whether intersects
+        fc1=(((x1-x3)*(y4-y3)+(x3-x4)*(y1-y3))*((x2-x3)*(y4-y3)+(x3-x4)*(y2-y3)))<=0
+        fc2=(((x3-x1)*(y2-y1)+(x1-x2)*(y3-y1))*((x4-x1)*(y2-y1)+(x1-x2)*(y4-y1)))<=0
+        fpn=(fc1*fc2)
+
+        if fmt==1:
+            dist=nan*ones([x1.size,x3.size]); dist[fpn]=0
+            if sum(~fpn)!=0:
+                #check distance between pts to lines
+                dist[~fpn]=r_[self.pts_lines(c_[x1,y1],c_[x3,y3,x4,y4],fmt=1)[None,...],self.pts_lines(c_[x2,y2],c_[x3,y3,x4,y4],fmt=1)[None,...],
+                   self.pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],fmt=1).T[None,...],self.pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],fmt=1).T[None,...]].min(axis=0)[~fpn]
+        else:
+            dist=nan*ones(x1.size); fpn=fpn.sum(axis=1)>0; dist[fpn]=0
+            if sum(~fpn)!=0:
+                x1,y1,x2,y2=x1[~fpn],y1[~fpn],x2[~fpn],y2[~fpn]; x3,y3,x4,y4=x3.T,y3.T,x4.T,y4.T
+                dist[~fpn]=c_[self.pts_lines(c_[x1,y1],c_[x3,y3,x4,y4]),self.pts_lines(c_[x2,y2],c_[x3,y3,x4,y4]),
+                   self.pts_lines(c_[x3,y3],c_[x1,y1,x2,y2],fmt=1).min(axis=0),self.pts_lines(c_[x4,y4],c_[x1,y1,x2,y2],fmt=1).min(axis=0)].min(axis=1)
+        return dist
+
+    def pts_polygon(self,xy,pxy,fmt=0):
+        '''
+        find the minimum distance of c_[x,y] to a polygon pxy
+            fmt=0: If pts are inside the polygon, the minimum distance is zero
+            fmt=1: minimum distance between pts and lines of the polygon
+        '''
+        dist=nan*ones(xy.shape[0]); pxy=close_data_loop(pxy) #make sure polygon are closed
+        fpn=inside_polygon(xy, pxy[:,0],pxy[:,1])==1; dist[fpn]=0
+        if sum(~fpn)!=0: dist[~fpn]=self.pts_lines(xy[~fpn],pxy)
+        return dist
+
+    def lines_polygon(self,lxy,pxy,fmt=0):
+        '''
+        find the minimum distance of lines lxy to a polygon pxy
+        Note: if pts of lines are inside the polygon, the minimum distance is zero.
+        '''
+        x1,y1,x2,y2=self._reshape_lines(lxy).T; dist=nan*ones(x1.size); pxy=close_data_loop(pxy)
+
+        #check pts inside the polygon
+        fpn1=inside_polygon(c_[x1,y1],pxy[:,0],pxy[:,1])==1; dist[fpn1]=0
+        fpn2=inside_polygon(c_[x2,y2],pxy[:,0],pxy[:,1])==1; dist[fpn2]=0
+        fpn=~(fpn1|fpn2)
+
+        #check dist between lines
+        x1,y1,x2,y2=x1[fpn],y1[fpn],x2[fpn],y2[fpn]; dist[fpn]=self.lines_lines(c_[x1,y1,x2,y2],pxy)
+        return dist
+
 def signa(x,y):
     '''
         compute signed area for triangles along the last dimension (x[...,0:3],y[...,0:3])
@@ -2239,314 +2343,3 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
 
 if __name__=="__main__":
     pass
-
-##---------get_hycom------------------------------------------------------------
-#    #----inputs--------------
-#    StartT=datenum(2014,1,1)
-#    EndT=datenum(2014,1,4)
-#    ti=arange(StartT,EndT,1/24);
-#
-#    #--convert coordinate if not lon&lat---
-#    bp=read_schism_bpfile('Station.bp_WQ')
-#    loni,lati=transform(Proj(init='epsg:26919'),Proj(init='epsg:4326'),bp.x,bp.y);
-#    xyz=c_[loni,lati,zeros(loni.shape)]
-#    xyz=array([-65.91084725,  42.33315317,   0.])
-#
-#    vind=[0,1,2,3]; #variable index for extract, vind=['elev','temp','salt','uv']
-#
-#    S=get_hycom(ti,xyz,vind,hdir='./Data');
-
-##-------------HA --------------------------------------------------------------
-#    data=loadtxt(r'D:\Work\Harmonic_Analysis\TS.txt');
-#    S=harmonic_analysis(data[:,1],1/24,tidal_const=r'D:\Work\Harmonic_Analysis\tmp.dat')
-#    S=harmonic_analysis(data[:,1],1/24)
-
-#---------------------projection-----------------------------------------------
-#    fname0=r'D:\Work\E3SM\ChesBay\Grid\ChesBay_1a.gr3';
-#    fname1=r'D:\Work\E3SM\ChesBay\Grid\ChesBay_1a.ll';
-#    proj(fname0,0,'epsg:26918',fname1,3,'epsg:26918')
-#    proj(fname0,0,'epsg:26918',fname1,0,'epsg:4326')
-#    proj(fname0,3,'epsg:26918',fname1,2,'epsg:4326')
-
-#------------------------------------------------------------------------------
-#    clear_globals()
-#------------------------------------------------------------------------------
-#    xi=arange(100)*0.1;
-#    yi=np.random.rand(100)+sin(xi)
-#    y1=smooth(yi,3); y2=smooth(yi,5); y3=smooth(yi,7)
-#    plot(xi,yi,'r-',xi,y1,'b-',xi,y2,'g-',xi,y3,'k-')
-#    show()
-
-#------------------str2num-----------------------------------------------------
-#        x='3.5, 4, 5; 5  6.5, 78';
-#    x='3.5 4 5 5 6.5   78'
-#        xi=str2num(x);
-#    x=['3 4 5','4 3 6 8']
-#    x=['3 4 5','4 3 6']
-#    xi=str2num(x)
-#    print(xi)
-
-#     #--test files--
-#     fname=r'C:\Users\Zhengui\Desktop\Python\learn\hgrid.gr3'
-#     with open(fname,'r') as fid:
-#         lines=fid.readlines()
-#     line=lines[24535:24545]
-#     rline=remove_tail(line)
-#     print(line)
-#     print(rline)
-
-#-------date_proc---------------------------------------------------------------
-#    n1=(2006.,1,1)
-#    n2=array([2006,2,1]);
-#    n3=array([[2006,3,2,1,1],[2006,3,3,3,0]]);
-#
-#    f1=datenum(*n1);
-#    f2=datenum(n2);
-#    f3=datenum(n3,doy=1);
-
-#-------mfft--------------------------------------------------------------------
-#    plt.close('all')
-#    T=10; dt=0.01; N=T/dt;
-#    x=linspace(0.0, T, N);
-#    y=4*cos(2.0*pi*(x-0.3)/0.5)+2*cos(2.0*pi*(x-0.4)/1.0)+4*cos(2.0*pi*(x-0.5)/2.0)
-#    f,a,p=mfft(y,dt)
-#
-#    subplot(2,1,1)
-#    plot(x,y,'k-')
-#    subplot(2,1,2)
-#    plot(f,a,'k.',ms=20)
-#    setp(gca(),'xlim',[0,5])
-
-#---------------------shpfile--------------------------------------------------
-
-#---------------------netcdf---------------------------------------------------
-#    # read NC files
-#    C=Dataset('sflux_air_1.002.nc')
-#
-#    ncdims=[i for i in C.dimensions]
-#    ncvars=[i for i in C.variables]
-#
-#
-#    [print("{}".format(i)) for i in ncdims]
-#    [print("{}".format(i)) for i in ncvars]
-#
-#    #----write NC files-------------
-#    fid=Dataset('test.nc','w',format='NETCDF3_CLASSIC'); #C.file_format
-#
-#    for dimi in ncdims:
-#        fid.createDimension(dimi,C.dimensions[dimi].size)
-#
-#    for vari in ncvars:
-#        vid=fid.createVariable(vari,C.variables[vari].dtype,C.variables[vari].dimensions)
-#        for attri in C.variables[vari].ncattrs():
-#           vid.setncattr(attri,C.variables[vari].getncattr(attri))
-#        fid.variables[vari][:]=C.variables[vari][:]
-#    fid.close()
-#
-#    ## check results
-#    F=Dataset('test.nc');
-
-#----------------convert_matfile_format----------------------------------------
-#    fname=r'C:\Users\Zhengui\Desktop\Observation2\USGS\SFBay_USGSData_MAL.mat'
-#    fname=r'C:\Users\Zhengui\Desktop\convert_matfile\tem.mat'
-#    cmat.convert_matfile_format(fname)
-
-
-#------------------------------------------------------------------------------
-##################code outdated: just for reference############################
-#------------------------------------------------------------------------------
-# def lpfilt(data,delta_t,cutoff_f):
-#     '''
-#     low pass filter for 1D (data[time]) or 2D (data[time,array]) array;
-#     '''
-#     #import gc #discard
-
-
-#     ds=data.shape
-#     mn=data.mean(axis=0)
-#     data=data-mn
-#     P=fft(data,axis=0)
-
-#     #desgin filter
-#     N=ds[0];
-#     filt=ones(N)
-#     k=int(floor(cutoff_f*N*delta_t))
-#     filt[k]=0.715
-#     filt[k+1]=0.24
-#     filt[k+2]=0.024
-#     filt[k+3:N-(k+4)]=0.0
-#     filt[N-(k+4)]=0.024
-#     filt[N-(k+3)]=0.24
-#     filt[N-(k+2)]=0.715
-
-#     #expand filter dimensions
-#     fstr=',None'*(len(ds)-1); s=zdata()
-#     exec('s.filt=filt[:{}]'.format(fstr))
-
-#     #remove high freqs
-#     P=P*s.filt
-
-#     #lp results
-#     fdata=real(ifft(P,axis=0))+mn
-
-#     return fdata
-
-# def wipe(n=50):
-#     print('\n'*n)
-#     return
-
-#def clear_globals():
-#    allvar = [var for var in globals() if var[0] != "_"]
-#    for var in allvar:
-#       #global var
-#       #del var;
-#       #del globals()[var]
-#       #exec('del global()['+var+']')
-#       exec('global '+var)
-#       exec('del '+var)
-
-#def reload(gfunc):
-#    #reload modules,mainly used for coding debug
-#    #usage: reload(globals())
-#    import inspect,imp
-#    mods=['mylib','schism_file','mpas_file']
-#    for modi in mods:
-#        imp.reload(sys.modules[modi])
-#        #get all module functions
-#        fs=[];afs=inspect.getmembers(sys.modules[modi],inspect.isfunction);
-#        for fsi in afs:
-#            if inspect.getmodule(fsi[1]).__name__!=modi: continue
-#            if fsi[0] not in gfunc.keys(): continue
-#            fs.append(fsi)
-#        #refresh module functions
-#        for fsi in fs:
-#            if gfunc[fsi[0]]!=fsi[1]: gfunc[fsi[0]]=fsi[1]
-#    return
-
-#def near_pts(pts,pts0):
-#    #pts[n,2]: xy of points
-#    #pts0[n,2]: xy of points
-#    #return index of pts0(x0,y0) that pts(x,y) is nearest
-#    x=pts[:,0]; y=pts[:,1]
-#    x0=pts0[:,0]; y0=pts0[:,1]
-#    dist=(x[None,:]-x0[:,None])**2+(y[None,:]-y0[:,None])**2
-#
-#    ind=[];
-#    for i in arange(x.shape[0]):
-#        disti=dist[:,i];
-#        ind.append(nonzero(disti==min(disti))[0][0])
-#    ind=array(ind);
-#
-#    return ind
-
-#def compute_cofficient(myi,oyi):
-#    #compute different evaluation coefficients
-#    N=len(myi)
-#    mmyi=myi.mean(); moyi=oyi.mean();
-#    emyi=myi-mmyi; eoyi=oyi-moyi; e=myi-oyi
-#    stdm=std(emyi); stdo=std(eoyi)
-#
-#    SS_tot=sum((oyi-moyi)**2)
-#    SS_reg=sum((myi-moyi)**2);
-#    SS_res=sum(e**2);
-#
-#    #evaluation coefficient
-#    ms=1-SS_res/sum((abs(myi-moyi)+abs(oyi-moyi))**2) #model skill
-#    r=mean((myi-mmyi)*(oyi-moyi))/stdm/stdo #correlation coefficient
-#    r2=1-SS_res/SS_tot  #R2
-#    rmse=sqrt(sum(e**2)/N) #RMSE
-#    mae=mean(abs(e))         #MAE
-#    me=mean(e)               #ME
-#
-#    return [ms,r,r2,rmse,mae,me]
-
-#-------str2num----------------------------------------------------------------
-#def str2num(line,*args):
-#    num=str2num_process(line,*args)
-#    if isinstance(num[0],float):
-#        num=num.astype('float64')
-#    else:
-#        num=[s.astype('float64') for s in num]
-#        num=array(num)
-#    return num
-#
-#@np.vectorize
-#def str2num_process(line,*args):
-#    if len(args)>0:
-#        if len(args)>1:
-#            for i in range(len(args)-1):
-#                line=line.replace(arg)
-#        line=line.replace(args[0],',')
-#    else:
-#        line=line.replace(';',',').replace(' ',',')
-#    linei=[s for s in line.split(',') if s]
-#    fc=np.vectorize(lambda x: np.float64(x))
-#    return fc(linei).astype('object')
-#
-#@np.vectorize
-#def remove_tail(line):
-#    li=line.rstrip();
-#    ind=li.find('!');
-#    if ind!=-1:
-#        li=li[:ind]
-#    ind=li.find('=');
-#    if ind!=-1:
-#        li=li[:ind]
-#    return li
-
-#-------date_proc--------------------------------------------------------------
-#def datenum_0(*args):
-#    if len(args)==1:
-#        args=args[0];
-#
-#    args=array(args)
-#    args=args.astype('int')
-#    return datetime.datetime(*args)
-#
-#def datenum(*args,doy=0):
-#    #usage: datenum(2001,1,1)
-#    args=array(args)
-#    e1=args[0]
-#
-#    if hasattr(e1, "__len__"):
-#        if not hasattr(e1[0],"__len__"):
-#            f=datenum_0(*e1)
-#        else:
-#            f=apply_along_axis(datenum_0,1,e1)
-#    else:
-#        f=datenum_0(*args)
-#    if doy==0:
-#        return date2num(f)
-#    else:
-#        return f
-#------------------------------------------------------------------------------
-
-#-------smooth-----------------------------------------------------------------
-# def smooth(xi,N):
-#     '''
-#     smooth average:
-#        xi: time series
-#        N: window size (if N is even, then N=N+1)
-#     '''
-
-#     if mod(N,2)==0: N=N+1
-#     nz=int((N-1)/2)
-
-#     X=xi; SN=ones(len(xi))*N
-#     for i in arange(nz):
-#         nmove=i+1; ii=-i-1;
-#         xext=zeros(nmove)
-#         X=X+r_[xext,xi[:ii]]
-#         for j in range(nmove):
-#             SN[j]=SN[j]-1
-
-#     for i in arange(nz):
-#         nmove=i+1; ii=i+1
-#         xext=zeros(nmove)
-#         X=X+r_[xi[ii:],xext]
-#         for j in arange(nmove):
-#             jj=-j-1
-#             SN[jj]=SN[jj]-1
-#     SX=np.divide(X,SN)
-#     return SX
-#------------------------------------------------------------------------------
