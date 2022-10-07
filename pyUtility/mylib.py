@@ -760,6 +760,7 @@ def find_cs(xi,dx):
            sx=[xi[sind[m]+1],xi[sind[m+1]]]; sections.append(sx) 
            gx=[xi[sind[m]],xi[sind[m]+1]]; gaps.append(gx)
        sx=[xi[sind[-1]+1],xi[-1]]; sections.append(sx)
+       gx=[xi[sind[-1]],xi[sind[-1]+1]]; gaps.append(gx)
     sections=array(sections); gaps=array(gaps)
     slen=diff(sections,axis=1); msection=sections[nonzero(slen==slen.max())[0][0]]
     if len(gaps)!=0: glen=diff(gaps,axis=1); mgap=gaps[nonzero(glen==glen.max())[0][0]]
@@ -1799,23 +1800,24 @@ def read_shapefile_data(fname):
 
     return S
 
-def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
+def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8):
     '''
-    write shapefile
-        fname: file name
-        S: data to be outputed
+    write shapefiles
+      fname: file name
+      data: data in zdata() format
+      prj: projection
 
-    example of S:
-       S.type=='POINT'
+    example: 
+       S=zdata(); S.type=='POINT'; S.prj='epsg:4326'
        S.xy=c_[slon[:],slat[:]]
-       S.prj=get_prj_file('epsg:4326')
-       S.attname=['station']
-       S.attvalue=station[:]
+       S.attname=['station']; S.attvalue=station[:]
+       write_shp('test.shp',S)
 
     note: only works for geometry: POINT, POLYLINE, POLYGON
     '''
 
     import shapefile as shp
+    S=data
     #---get nrec-----
     if S.type=='POINT':
         if S.xy.dtype==dtype('O'):
@@ -1829,18 +1831,15 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
             nrec=1;
     else:
         sys.exit('unknow type')
-
-    #---check nrec
     if hasattr(S,'nrec'):
-        if nrec!=S.nrec:
-            print('nrec inconsistent')
-            sys.exit()
+        if nrec!=S.nrec: sys.exit('nrec inconsistent')
 
     #---write shapefile---------
     with shp.Writer(fname) as W:
         W.autoBalance=1;
         #define attributes
         if hasattr(S,'attname'):
+            if not hasattr(S.attvalue,'dtype'): S.attvalue=array(S.attvalue)
             if S.attvalue.dtype==dtype('O'):
                 stype=[type(S.attvalue[m][0]) for m in arange(len(S.attname))]
             else:
@@ -1899,10 +1898,10 @@ def write_shapefile_data(fname,S,float_len=18,float_decimal=8):
 
         #----write projection------------
         bname=os.path.basename(fname).split('.')[0]
-        bdir=os.path.dirname(os.path.abspath(fname));
-        if hasattr(S,'prj'):
-            with open('{}/{}.prj'.format(bdir,bname),'w+') as fid:
-                fid.write(S.prj)
+        bdir=os.path.dirname(os.path.abspath(fname))
+        prjs=S.prj if hasattr(S,'prj') else prj
+        if len(prjs)<20: prjs=get_prj_file(prjs)
+        fid=open('{}/{}.prj'.format(bdir,bname),'w+'); fid.write(prjs); fid.close()
 
 def delete_shapefile_nan(xi,iloop=0):
     '''
