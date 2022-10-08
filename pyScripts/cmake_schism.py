@@ -19,7 +19,7 @@ modules=['OLDIO', 'ICM', 'PREC_EVAP']
 #directory of schism/fabm code
 schism='~/schism'; fabm='~/fabm'
 
-target=sys.argv[1] if len(sys.argv)>1 else 'pschism' #combine target
+target=sys.argv[1] if len(sys.argv)>1 else 'pschism' #compile target
 cnames=sys.argv[2:] if len(sys.argv)>2 else [target] #executables to be copied to current directory
 #-----------------------------------------------------------------------------------------------
 #compile the code
@@ -58,7 +58,7 @@ try:
 
    #write original file
    fid=open(fname,'w+'); fid.writelines(lines); fid.close() 
-   print('target {}: combine sucessfully'.format(target))
+   print('target {}: compile sucessfully'.format(target))
 except: 
    #write original file
    fid=open(fname,'w+'); fid.writelines(lines); fid.close()
