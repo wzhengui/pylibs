@@ -827,10 +827,10 @@ class schism_grid:
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_min=60,angle_max=120,fname='new.gr3'):
+    def split_quads(self,angle_min=60,angle_max=120,fname=None):
         '''
         1). split the quads that have angle (<angle_min or >angle_max), add append the connectivity in the end
-        2). output a new grid "fname"
+        2). fname: output a new grid "fname" if fname!=None
         '''
         if not hasattr(self,'index_bad_quad'): self.check_quads(angle_min,angle_max)
 
@@ -877,8 +877,7 @@ class schism_grid:
         self.elnode=self.elnode.astype('int')
 
         #write new grids
-        self.write_hgrid(fname)
-
+        if fname is not None: self.write_hgrid(fname)
 
     def check_quads(self,angle_min=60,angle_max=120,fname='bad_quad.bp'):
         '''
