@@ -899,6 +899,24 @@ class zdata:
     def __init__(self):
         pass
 
+    def _VINFO(self):
+        fs=[]
+        for i in self.__dict__.keys():
+            vi=self.__dict__[i]; f0='{}: '.format(i)
+            if isinstance(vi,list):
+               f1='{}{}'.format(str(type(vi)),len(vi))
+            elif isinstance(vi,np.ndarray):
+               f1='ndarray{}'.format(vi.shape)
+            else:
+               f1='{}'.format(type(vi))
+            f2=' ,dtype={}'.format(str(vi.dtype)) if hasattr(vi,'dtype') else ''
+            fs.append(f0+f1+f2)
+        return fs #array(fs)
+
+    @property
+    def VINFO(self):
+        return self._VINFO()
+
 def savez(fname,data,fmt=0):
     '''
     save data as self-defined python format
@@ -952,7 +970,8 @@ def loadz(fname,svars=None):
        #extract data, and VINFO is used to store data info
        vdata=zdata();  VINFO=[]
        for keyi in keys0:
-           datai=data0[keyi];
+           datai=data0[keyi]
+
            #if value is a object
            if datai.dtype==dtype('O'): datai=datai[()]
 
@@ -963,17 +982,7 @@ def loadz(fname,svars=None):
                  datai=pickle.loads(datai)
               except:
                  continue
-
-           #output format
-           exec('vdata.'+keyi+'=datai')
-           ##gather information about datai
-           #vinfo=keyi+": "+type(datai).__name__
-           #if isinstance(datai,list):
-           #    vinfo=vinfo+'('+str(len(datai))+'), '
-           #elif isinstance(datai,np.ndarray):
-           #    vinfo=vinfo+str(datai.shape)+', dtype='+str(datai.dtype)
-           #VINFO.append(vinfo)
-       #vdata.VINFO=array(VINFO)
+           vdata.__dict__[keyi]=datai
     elif fname.endswith('.pkl'):
        import pickle
        vdata=zdata(); fid=open(fname,'rb')
@@ -982,21 +991,6 @@ def loadz(fname,svars=None):
        fid.close()
     else:
        sys.exit('unknown format: {}'.format(fname))
-
-    #gather vdata information
-    fs=[]
-    for i in vdata.__dict__.keys():
-        vi=vdata.__dict__[i]; f0='{}: '.format(i)
-        if isinstance(vi,list):
-           f1='{}{}'.format(str(type(vi)),len(vi))
-        elif isinstance(vi,np.ndarray):
-           f1='ndarray{}'.format(vi.shape)
-        else:
-           f1='{}'.format(type(vi))
-        f2=' ,dtype={}'.format(str(vi.dtype)) if hasattr(vi,'dtype') else ''
-        fs.append(f0+f1+f2)
-    vdata.VINFO=array(fs)
-
     return vdata
 
 def least_square_fit(X,Y):
@@ -2360,8 +2354,6 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             exec('S.{}=data2i'.format(varnamei[1]))
 
     return S
-
-
 
 if __name__=="__main__":
     pass

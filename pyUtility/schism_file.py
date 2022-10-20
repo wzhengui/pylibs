@@ -2314,5 +2314,3 @@ def get_schism_output_info(svar=None,modules=None,fmt=0):
 
 if __name__=="__main__":
     pass
-
-
