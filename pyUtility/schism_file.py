@@ -450,6 +450,7 @@ class schism_grid:
 
         #sort bnd
         nbn=array(nbn); ibn=array(ibn,dtype='O'); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
+        if ibn.shape[0]==1: ibn=ibn.astype('int')
 
         #find the outline
         island=ones(nb).astype('int')
