@@ -1,173 +1,210 @@
 #!/usr/bin/env python3
-#create boundary condition based on hycom data
+#generate SCHISM 3D and 2D boundary condition based on Hycom data
 from pylib import *
-close("all")
 
-#------------------------------------------------------------------------------
-#input
-#------------------------------------------------------------------------------
-StartT=datenum(2012,1,1); EndT=datenum(2013,1,2); dt=1/8
-grd='../grid.npz'
-dir_hycom='../../../HYCOM/Data'
-iLP=1; fc=0.5  #iLP=1: remove tidal signal with cutoff frequency fc (day)
+#----inputs--------------
+StartT=datenum(2005,1,1)
+EndT=datenum(2005,1,6)
 
-ifix=0  #ifix=0: fix hycom nan 1st, then interp;  ifix=1: interp 1st, then fixed nan
-#------------------------------------------------------------------------------
-#interpolate hycom data to boundary
-#------------------------------------------------------------------------------
-mtime=arange(StartT,EndT+dt,dt); nt=len(mtime)
+Var=['surf_el','water_temp','salinity',['water_u','water_v']];
+VarName=['elev','temp','salt',['Ux','Uy']];
+ncname=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
 
-#variables for each files
-snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc']
-svars=['surf_el','water_temp','salinity',['water_u','water_v']]
-mvars=['elev','temp','salt',['u','v']]
+dir_hycom='HYCOM/Data';
 
-#find all hycom files
-fnames=array([i for i in os.listdir(dir_hycom) if i.endswith('.nc')])
-mti=array([datenum(*array(i.replace('.','_').split('_')[1:5]).astype('int')) for i in fnames])
-fpt=(mti>=(StartT-1))*(mti<(EndT+1)); fnames=fnames[fpt]; mti=mti[fpt]
-sind=argsort(mti); mti=mti[sind]; fnames=fnames[sind]
+#---read grid----
+gd=read_schism_hgrid('../hgrid.ll')
 
-#read hgrid
-gd=loadz(grd).hgrid; vd=loadz(grd).vgrid; gd.x,gd.y=gd.lon,gd.lat; nvrt=vd.nvrt
+#index of pts for interpolation
+node=gd.iobn[0] #open boundary node index
+#node=r_[gd.iobn[0],gd.iobn[1]] #open boundary node index
 
-#get bnd node xyz
-bind=gd.iobn[0]; nobn=gd.nobn[0]
-lxi0=gd.x[bind]%360; lyi0=gd.y[bind]; bxy=c_[lxi0,lyi0] #for 2D
-lxi=tile(lxi0,[nvrt,1]).T.ravel(); lyi=tile(lyi0,[nvrt,1]).T.ravel() #for 3D
-if vd.ivcor==2:
-    lzi=abs(compute_zcor(vd.sigma,gd.dp[bind],ivcor=2,vd=vd)).ravel()
-else:
-    lzi=abs(compute_zcor(vd.sigma[bind],gd.dp[bind])).ravel();
-bxyz=c_[lxi,lyi,lzi]
-sx0,sy0,sz0=None,None,None
+#---get z coordinate------
+zcor=read_schism_vgrid('../vgrid.in',gd,node=node,flag=1);
+zcor=-zcor; fp=zcor<0; zcor[fp]=0; fp=zcor>5000; zcor[fp]=5000;
+nvrt=zcor.shape[1]
 
-#for each variables
-for n,sname in enumerate(snames):
-    svar=svars[n]; mvar=mvars[n]
-    if isinstance(svar,str): svar=[svar]; mvar=[mvar]
+#---interpolation pts----
+dt=1/4; Time=arange(StartT,EndT+dt,dt);
+loni=gd.x[node]; lati=gd.y[node];
+bxy=c_[lati,loni]
 
-    #interp in space
-    S=zdata(); S.time=[]
-    [exec('S.{}=[]'.format(i)) for i in mvar]
-    for m,fname in enumerate(fnames):
-        C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
-        ctime=array(C.variables['time'])/24+datenum(2000,1,1); sx=array(C.variables['lon'][:])%360
-        sy=array(C.variables['lat'][:]); sz=array(C.variables['depth'][:]); nz=len(sz)
-        fpz=lzi>=sz.max(); lzi[fpz]=sz.max()-1e-6
+lon2i=tile(loni,[nvrt,1]).T; lat2i=tile(lati,[nvrt,1]).T;
+bxyz=c_[zcor.reshape(size(zcor)),lat2i.reshape(size(lat2i)),lon2i.reshape(size(lon2i))]
 
-        if not array_equal(sx,sx0)*array_equal(sy,sy0)*array_equal(sz,sz0):
-            #get interp index for HYCOM data
-            if ifix==0:
-                sxi,syi=meshgrid(sx,sy); sxy=c_[sxi.ravel(),syi.ravel()];
-                cvs=array(C.variables['water_temp'][0]); sindns=[]; sindps=[]
-                for ii in arange(nz):
-                    print('computing HYCOM interpation index: level={}/{}'.format(ii,nz))
-                    cv=cvs[ii]; ds=cv.shape; cv=cv.ravel()
-                    fpn=abs(cv)>1e3; sindn=nonzero(fpn)[0]; sindr=nonzero(~fpn)[0]; sindp=sindr[near_pts(sxy[sindn],sxy[sindr])]
-                    sindns.append(sindn); sindps.append(sindp)
-
-            #get interp index for pts
-            sx0=sx[:]; sy0=sy[:]; sz0=sz[:]; print('get new interp indices: {}'.format(fname))
-            idx0=((lxi0[:,None]-sx0[None,:])>=0).sum(axis=1)-1; ratx0=(lxi0-sx0[idx0])/(sx0[idx0+1]-sx0[idx0])
-            idy0=((lyi0[:,None]-sy0[None,:])>=0).sum(axis=1)-1; raty0=(lyi0-sy0[idy0])/(sy0[idy0+1]-sy0[idy0])
-
-            idx=((lxi[:,None]-sx0[None,:])>=0).sum(axis=1)-1; ratx=(lxi-sx0[idx])/(sx0[idx+1]-sx0[idx])
-            idy=((lyi[:,None]-sy0[None,:])>=0).sum(axis=1)-1; raty=(lyi-sy0[idy])/(sy0[idy+1]-sy0[idy])
-            idz=((lzi[:,None]-sz0[None,:])>=0).sum(axis=1)-1; ratz=(lzi-sz0[idz])/(sz0[idz+1]-sz0[idz])
-
-        S.time.extend(ctime)
-        for i, cti in enumerate(ctime):
-            for k,svari in enumerate(svar):
-                exec("cv=array(C.variables['{}'][{}])".format(svari,i)); mvari=mvar[k]
-
-                #interp in space
-                if mvari=='elev':
-                    #remove HYCOM nan pts
-                    if ifix==0:
-                        sindn,sindp=sindns[0],sindps[0]
-                        cv=cv.ravel(); fpn=(abs(cv[sindn])>1e3)*(abs(cv[sindp])<1e3); cv[sindn]=cv[sindp]; fpn=abs(cv)>1e3 #init fix
-                        if sum(fpn)!=0: fni=nonzero(fpn)[0]; fri=nonzero(~fpn)[0]; fpi=fri[near_pts(sxy[fni],sxy[fri])]; cv[fni]=cv[fpi] #final fix
-                        #fpn=abs(cv.ravel())>1e3; cv.ravel()[fpn]=sp.interpolate.griddata(sxy[~fpn,:],cv.ravel()[~fpn],sxy[fpn,:],'nearest') #old method
-                        cv=cv.reshape(ds)
-
-                    #find parent pts
-                    v0=array([cv[idy0,idx0],cv[idy0,idx0+1],cv[idy0+1,idx0],cv[idy0+1,idx0+1]])
-
-                    #remove nan in parent pts
-                    if ifix==1:
-                        for ii in arange(4):fpn=abs(v0[ii])>1e3; v0[ii,fpn]=sp.interpolate.griddata(bxy[~fpn,:],v0[ii,~fpn],bxy[fpn,:],'nearest')
-
-                    #interp
-                    v1=v0[0]*(1-ratx0)+v0[1]*ratx0;  v2=v0[2]*(1-ratx0)+v0[3]*ratx0
-                    vi=v1*(1-raty0)+v2*raty0
-
-                else:
-                    #remove HYCOM nan pts
-                    if ifix==0:
-                        for ii in arange(nz):
-                            sindn,sindp=sindns[ii],sindps[ii]
-                            cvi=cv[ii].ravel(); fpn=(abs(cvi[sindn])>1e3)*(abs(cvi[sindp])<1e3); cvi[sindn]=cvi[sindp]; fpn=abs(cvi)>1e3 #init fix
-                            if sum(fpn)!=0: fni=nonzero(fpn)[0]; fri=nonzero(~fpn)[0]; fpi=fri[near_pts(sxy[fni],sxy[fri])]; cvi[fni]=cvi[fpi] #final fix
-                            #fpn=abs(cv[ii].ravel())>1e3; cv[ii].ravel()[fpn]=sp.interpolate.griddata(sxy[~fpn,:],cv[ii].ravel()[~fpn],sxy[fpn,:],'nearest') #old method
-
-                    v0=array([cv[idz,idy,idx],cv[idz,idy,idx+1],cv[idz,idy+1,idx],cv[idz,idy+1,idx+1],
-                              cv[idz+1,idy,idx],cv[idz+1,idy,idx+1],cv[idz+1,idy+1,idx],cv[idz+1,idy+1,idx+1]])
-
-                    #remove nan in parent pts
-                    if ifix==1:
-                        for ii in arange(8): fpn=abs(v0[ii])>1e3; v0[ii,fpn]=sp.interpolate.griddata(bxyz[~fpn,:],v0[ii,~fpn],bxyz[fpn,:],'nearest',rescale=True)
-
-                    v11=v0[0]*(1-ratx)+v0[1]*ratx;  v12=v0[2]*(1-ratx)+v0[3]*ratx; v1=v11*(1-raty)+v12*raty
-                    v21=v0[4]*(1-ratx)+v0[5]*ratx;  v22=v0[6]*(1-ratx)+v0[7]*ratx; v2=v21*(1-raty)+v22*raty
-                    vi=v1*(1-ratz)+v2*ratz
-
-                #save data
-                exec('S.{}.append(vi)'.format(mvari))
-        C.close();
-    S.time=array(S.time); [exec('S.{}=array(S.{})'.format(i,i)) for i in mvar]
-
-    #interp in time
-    for mvari in mvar:
-        exec('vi=S.{}'.format(mvari))
-        svi=interpolate.interp1d(S.time,vi,axis=0)(mtime)
-        if iLP==1: svi=lpfilt(svi,dt,fc) #low-pass
-        exec('S.{}=svi'.format(mvari))
-    S.time=mtime
-
-    #reshape the data, and save
-    [exec('S.{}=S.{}.reshape([{},{},{}])'.format(i,i,nt,nobn,nvrt)) for i in mvar if i!='elev']
-
-    #--------------------------------------------------------------------------
-    #create netcdf
-    #--------------------------------------------------------------------------
-    nd=zdata(); nd.file_format='NETCDF4'
-
-    #define dimensions
+#---read Hycom data and interpolate onto boundary nodes------------------
+Dt=[];
+for i in arange(len(Var)):
+    vari=Var[i]; varnamei=VarName[i]; ncnamei=ncname[i]
+    #----build npz file for 3Dth or 2Dth----------
+    nd=npz_data()
     nd.dimname=['nOpenBndNodes', 'nLevels', 'nComponents', 'one', 'time']
-    if sname=='elev2D.th.nc':
-        snvrt=1; ivs=1; vi=S.elev[...,None,None]
-    elif sname=='uv3D.th.nc':
-        snvrt=nvrt; ivs=2; vi=c_[S.u[...,None],S.v[...,None]]
-    elif sname in ['TEM_3D.th.nc','SAL_3D.th.nc']:
-        snvrt=nvrt; ivs=1; exec('vi=S.{}[...,None]'.format(mvar[0]))
-    nd.dims=[nobn,snvrt,ivs,1,nt]
-
-    # print(mvar,nd.dims,vi.shape)
+    if varnamei=='elev':
+        nd.dims=[len(node),1,1,1,len(Time)]
+    elif varnamei=='salt' or varnamei=='temp':
+        nd.dims=[len(node),nvrt,1,1,len(Time)]
+    elif isinstance(varnamei,list):
+        nd.dims=[len(node),nvrt,2,1,len(Time)]
+    nd.file_format='NETCDF4'
 
     #--time step, time, and time series----
-    nd.vars=['time_step', 'time', 'time_series']
-    nd.time_step=zdata()
-    nd.time_step.attrs=['long_name'];nd.time_step.long_name='time step in seconds'
-    nd.time_step.dimname=('one',); nd.time_step.val=array(dt*86400)
+    nd.vars=['time_step', 'time', 'time_series'];
+    nd.time_step=npz_data()
+    nd.time_step.attrs=['long_name'];nd.time_step.long_name='time step in seconds';
+    nd.time_step.dimname=('one',); nd.time_step.val=array(dt*86400).astype('float32');
+    nd.time=npz_data()
+    nd.time.attrs=['long_name'];nd.time.long_name='simulation time in seconds';
+    nd.time.dimname=('time',); nd.time.val=(Time-Time[0])*86400;
+    nd.time_series=npz_data()
+    nd.time_series.attrs=[];
+    nd.time_series.dimname=('nComponents','nLevels','nOpenBndNodes','time');
 
-    nd.time=zdata()
-    nd.time.attrs=['long_name'];nd.time.long_name='simulation time in seconds'
-    nd.time.dimname=('time',); nd.time.val=(S.time-S.time[0])*86400
+    t0=time.time();
+    T0=[]; Data0=[];
+    for ti in arange(StartT,EndT+1):
+        t1=num2date(ti); t2=num2date(ti+1-1/24/60);
 
-    nd.time_series=zdata()
-    nd.time_series.attrs=[]
-    nd.time_series.dimname=('time','nOpenBndNodes','nLevels','nComponents')
-    nd.time_series.val=vi.astype('float32')
+        if isinstance(vari,list):
+            fname='Hycom_{}_{}_{}.nc'.format(varnamei[0],t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
+            fname2='Hycom_{}_{}_{}.nc'.format(varnamei[1],t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
+            if not os.path.exists(r'{}/{}'.format(dir_hycom,fname)): continue
+            if not os.path.exists(r'{}/{}'.format(dir_hycom,fname2)): continue
+            print(fname+'; '+fname2)
+            C=ReadNC('{}/{}'.format(dir_hycom,fname),2); C2=ReadNC('{}/{}'.format(dir_hycom,fname2),2)
 
-    WriteNC(sname,nd)
+            #get value
+            exec('val=C.{}.val'.format(vari[0]))
+            exec('val2=C2.{}.val'.format(vari[1]))
+            val=array(val); fp=val<-29999; val2=array(val2); fp2=val2<-29999;
+            val[fp]=nan; val2[fp2]=nan;
+        else:
+            fname='Hycom_{}_{}_{}.nc'.format(varnamei,t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
+            if not os.path.exists(r'{}/{}'.format(dir_hycom,fname)): continue
+            print(fname)
+            C=ReadNC('{}/{}'.format(dir_hycom,fname),2)
+
+            #get value
+            exec('val=C.{}.val'.format(vari))
+            val=array(val); fp=val<-29999;
+            val[fp]=nan
+
+
+        ti=datestr2num(C.time.time_origin)+array(C.time.val)/24
+        cloni=array(C.lon.val); cloni=mod(cloni,360)-360
+        clati=array(C.lat.val);
+
+        #------define data region extracted
+        ind_lon=nonzero((cloni<=max(loni)+0.1)*(cloni>=min(loni)-0.1))[0];
+        ind_lat=nonzero((clati<=max(lati)+0.1)*(clati>=min(lati)-0.1))[0];
+        i1_lon=ind_lon.min(); i2_lon=i1_lon+len(ind_lon)
+        i1_lat=ind_lat.min(); i2_lat=i1_lat+len(ind_lat)
+
+        cloni=cloni[i1_lon:i2_lon]; clati=clati[i1_lat:i2_lat]
+
+        if varnamei=='elev':
+            for m in arange(len(ti)):
+                valii=squeeze(val[m,i1_lat:i2_lat,i1_lon:i2_lon])
+
+                #interpolation
+                fd=sp.interpolate.RegularGridInterpolator((clati,cloni),valii,fill_value=nan)
+                vi=fd(bxy)
+
+                #remove nan pts
+                fp=isnan(vi);
+                if sum(fp)!=0:
+                    vi[fp]=sp.interpolate.griddata(bxy[~fp,:],vi[~fp],bxy[fp,:],'nearest')
+
+                T0.append(ti[m]); Data0.append(vi);
+        else:
+            #------define data region extracted for depth
+            cdepi=array(C.depth.val)
+            ind_dep=nonzero((cdepi<=zcor.max()+1000)*(cdepi>=zcor.min()-100))[0];
+            i1_dep=ind_dep.min(); i2_dep=i1_dep+len(ind_dep)
+            cdepi=cdepi[i1_dep:i2_dep];
+
+            for m in arange(len(ti)):
+                T0.append(ti[m]);
+                valii=squeeze(val[m,i1_dep:i2_dep,i1_lat:i2_lat,i1_lon:i2_lon])
+
+                #interpolation
+                fd=sp.interpolate.RegularGridInterpolator((cdepi,clati,cloni),valii,fill_value=nan)
+                vi=fd(bxyz)
+
+                #remove nan pts
+                fp=isnan(vi);
+                if sum(fp)!=0:
+                    vi[fp]=sp.interpolate.griddata(bxyz[~fp,:],vi[~fp],bxyz[fp,:],'nearest')
+
+                vi=vi.reshape(zcor.shape)
+
+                #----if variable is velocity
+                if isinstance(varnamei,list):
+                    val2ii=squeeze(val2[m,i1_dep:i2_dep,i1_lat:i2_lat,i1_lon:i2_lon])
+
+                    #interpolation
+                    fd=sp.interpolate.RegularGridInterpolator((cdepi,clati,cloni),val2ii,fill_value=nan)
+                    v2i=fd(bxyz)
+
+                    #remove nan pts
+                    fp=isnan(v2i);
+                    if sum(fp)!=0:
+                        v2i[fp]=sp.interpolate.griddata(bxyz[~fp,:],v2i[~fp],bxyz[fp,:],'nearest')
+
+                    v2i=v2i.reshape(zcor.shape)
+                    Data0.append(r_[expand_dims(vi,0),expand_dims(v2i,0)])
+
+                else:
+                    Data0.append(vi)
+
+    T0=array(T0); Data0=array(Data0)
+
+    #---check whether there is nan
+    y0=Data0.reshape([size(Data0)]); fp=isnan(y0)
+    if sum(fp)!=0:
+        print('{} has NaN: check'.format(varnamei))
+        sys.exit()
+
+    #interpolation in time
+    ds=Data0.shape; y0=Data0.reshape([ds[0],prod(ds[1:])]);
+    #lpfilter
+    if varnamei=='elev' or isinstance(varnamei,list):
+        y0=lpfilt(y0,dt,0.9)
+    fd=interpolate.interp1d(T0,y0,axis=0,fill_value='extrapolate');
+    Data=reshape(fd(Time),[len(Time),*ds[1:]]);
+
+    #----put data into ncfile
+    if varnamei=='elev':
+        Data=Data[:,:,None,None].transpose([3,2,1,0])
+    elif varnamei=='salt' or varnamei=='temp':
+        Data=Data[:,:,:,None].transpose([3,2,1,0])
+    elif isinstance(varnamei,list):
+        Data=Data.transpose([1,3,2,0])
+    nd.time_series.val=Data.astype('float32');
+
+    #--write ncfile----
+    if os.path.exists(ncnamei): os.remove(ncnamei)
+    WriteNC(nd,ncnamei,med=2,order=1)
+
+    Dt.append(time.time()-t0);
+
+#----print time consumed--------------------
+for i in arange(len(Dt)):
+    varnamei=VarName[i]
+    print('reading {}: {}'.format(varnamei,Dt[i]))
+
+#---dist---------------------------------
+#bP=gd.x[gd.iobn[0]]+1j*gd.y[gd.iobn[0]];
+#L=zeros(bP.shape);
+#for i in arange(gd.nobn[0]-1):
+#    L[i+1]=L[i]+abs(bP[i+1]-bP[i])
+
+##----plot boundary grid---------------
+#for i in arange(zcor.shape[0]):
+#    xi=ones(zcor.shape[1])*L[i]
+#    zi=zcor[i,:]
+#    plot(xi,zi,'k-')
+#
+#for i in arange(zcor.shape[1]):
+#    xi=L
+#    zi=zcor[:,i]
+#    plot(xi,zi,'k-')
