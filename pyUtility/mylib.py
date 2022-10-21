@@ -896,8 +896,8 @@ def get_VINFO(data):
     '''
     collect information about object's attributes
     '''
-    stypes=[int,int8,int16,int32,int64, float,float16,float32,float64,float128]
-    snames=['int','int8','int16','int32','int64','float','float16','float32','float64','float128']
+    stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
+    snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
     atts=[]
     for i in data.__dict__.keys():
         vi=data.__dict__[i]; dt=type(vi); dta=''
