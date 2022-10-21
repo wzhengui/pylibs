@@ -896,27 +896,33 @@ def get_VINFO(data):
     '''
     collect information about object's attributes
     '''
+    atts=[]; sdict=data.__dict__; skeys=sdict.keys(); fnc=0
+    if ('dimname' in skeys) and ('dims' in skeys) and ('file_format' in skeys): fnc=1 #netcdf
     stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
     snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
-    atts=[]
-    for i in data.__dict__.keys():
-        vi=data.__dict__[i]; dt=type(vi); dta=''
+    for i in skeys:
+        vi=sdict[i]; dt=type(vi); dta=''
+        if (fnc==1) and (dt is zdata): vi=vi.val; dt=np.ndarray #netcdf file
         #get data information
         if dt is list:
            nd=': list({},)'.format(len(vi))
+           if (fnc==1) and (i in ['dimname','dims']): nd=': list{}'.format(vi) #netcdf file
         elif dt is dict:
            nd=': dict({},)'.format(len(vi))
         elif dt is str:
            nd=': "{}", string'.format(vi[:30])
         elif dt is np.ndarray:
            nd=': array{}'.format(vi.shape); dta=str(vi.dtype)
+           if (fnc==1) and (i in ['dimname','dims']): nd=': array{}'.format(vi) #netcdf file
+           if vi.size==1 and (vi.dtype in stypes): nd=': {}, array{}'.format(vi[0],vi.shape)
         elif dt in stypes:
            nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
         else:
            nd=': {}'.format(type(vi))
 
         #output
-        fstr='{:6s} {}, {}'.format(i,nd,dta) if dta!='' else '{:6s} {}'.format(i,nd)
+        ms=min(6,max([len(k) for k in skeys])); fs1='{:'+str(ms)+'s}{}'; fs2=fs1+', {}'
+        fstr=fs2.format(i,nd,dta) if dta!='' else fs1.format(i,nd)
         atts.append(fstr.strip())
     return atts
 
@@ -1991,7 +1997,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     if fmt==1:
         return C
     elif fmt in [0,2]:
-        F=zdata(); F.file_format=C.file_format; F.VINFO=[]
+        F=zdata(); F.file_format=C.file_format
 
         #read dims
         ncdims=[i for i in C.dimensions];
@@ -1999,8 +2005,6 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
         for i in ncdims:
             F.dims.append(C.dimensions[i].size)
             F.dim_unlimited.append(C.dimensions[i].isunlimited())
-        F.VINFO.append('dimname: {}'.format(F.dimname))
-        F.VINFO.append('dim: {}'.format(F.dims))
 
         #read attrbutes
         ncattrs=C.ncattrs(); F.attrs=ncattrs
@@ -2011,29 +2015,27 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
         #read variables
         for i in ncvars:
             if fmt==0:
-               fi=zdata()
+               vi=zdata()
                dimi=C.variables[i].dimensions
-               fi.dimname=dimi
-               fi.dims=[C.dimensions[j].size for j in dimi]
-               fi.val=C.variables[i][:]
-               fi.attrs=C.variables[i].ncattrs()
+               vi.dimname=dimi
+               vi.dims=[C.dimensions[j].size for j in dimi]
+               vi.val=C.variables[i][:]
+               vi.attrs=C.variables[i].ncattrs()
                for j in C.variables[i].ncattrs():
                    ncattri=C.variables[i].getncattr(j)
-                   exec('fi.{}=ncattri'.format(j))
+                   vi.__dict__[j]=ncattri
 
                if order==1:
-                   fi.dimname=list(flipud(fi.dimname))
-                   fi.dims=list(flipud(fi.dims))
-                   nm=flipud(arange(ndim(fi.val)))
-                   fi.val=fi.val.transpose(nm)
-               vinfo='{}:{}'.format(i,fi.val.shape)
+                   vi.dimname=list(flipud(vi.dimname))
+                   vi.dims=list(flipud(vi.dims))
+                   nm=flipud(arange(ndim(vi.val)))
+                   vi.val=vi.val.transpose(nm)
             elif fmt==2:
-               fi=array(C.variables[i][:])
-               if order==1: fi=fi.transpose(flip(arange(fi.ndim)))
-               vinfo='{}:{}'.format(i,fi.shape)
-            F.VINFO.append(vinfo);  exec('F.{}=fi'.format(i));
+               vi=array(C.variables[i][:])
+               if order==1: vi=vi.transpose(flip(arange(vi.ndim)))
+            F.__dict__[i]=vi
 
-        C.close(); #F.VINFO=array(F.VINFO)
+        C.close()
         return F
     else:
         sys.exit('wrong fmt')
