@@ -17,6 +17,10 @@ class schism_grid:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
 
+    @property
+    def VINFO(self):
+        return get_VINFO(self)
+
     def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
              lw=0.1,levels=None,ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
         '''
@@ -1211,6 +1215,10 @@ class schism_bpfile:
         self.station=[]; self.hp=[]; self.ht=[]
         self.edit()
 
+    @property
+    def VINFO(self):
+        return get_VINFO(self)
+
     def read_reg(self,fname):
         self.read_bpfile(fname,fmt=1)
 
@@ -1482,6 +1490,10 @@ def save_schism_grid(fname='grid',path='.',fmt=0):
 class schism_vgrid:
     def __init__(self):
         pass
+
+    @property
+    def VINFO(self):
+        return get_VINFO(self)
 
     def read_vgrid(self,fname):
         #read schism vgrid

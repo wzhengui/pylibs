@@ -892,6 +892,34 @@ def get_xtick(fmt=0,xts=None,str=None):
     return [xts,xls]
 
 #-------loadz------------------------------------------------------------------
+def get_VINFO(data):
+    '''
+    collect information about object's attributes
+    '''
+    stypes=[int,int8,int16,int32,int64, float,float16,float32,float64,float128]
+    snames=['int','int8','int16','int32','int64','float','float16','float32','float64','float128']
+    atts=[]
+    for i in data.__dict__.keys():
+        vi=data.__dict__[i]; dt=type(vi); dta=''
+        #get data information
+        if dt is list:
+           nd=': list({},)'.format(len(vi))
+        elif dt is dict:
+           nd=': dict({},)'.format(len(vi))
+        elif dt is str:
+           nd=': "{}", string'.format(vi[:30])
+        elif dt is np.ndarray:
+           nd=': array{}'.format(vi.shape); dta=str(vi.dtype)
+        elif dt in stypes:
+           nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
+        else:
+           nd=': {}'.format(type(vi))
+
+        #output
+        fstr='{:6s} {}, {}'.format(i,nd,dta) if dta!='' else '{:6s} {}'.format(i,nd)
+        atts.append(fstr.strip())
+    return atts
+
 class zdata:
     '''
     self-defined data structure by Zhengui Wang.  Attributes are used to store data
@@ -899,23 +927,9 @@ class zdata:
     def __init__(self):
         pass
 
-    def _VINFO(self):
-        fs=[]
-        for i in self.__dict__.keys():
-            vi=self.__dict__[i]; f0='{}: '.format(i)
-            if isinstance(vi,list):
-               f1='{}{}'.format(str(type(vi)),len(vi))
-            elif isinstance(vi,np.ndarray):
-               f1='ndarray{}'.format(vi.shape)
-            else:
-               f1='{}'.format(type(vi))
-            f2=' ,dtype={}'.format(str(vi.dtype)) if hasattr(vi,'dtype') else ''
-            fs.append(f0+f1+f2)
-        return fs #array(fs)
-
     @property
     def VINFO(self):
-        return self._VINFO()
+        return get_VINFO(self)
 
 def savez(fname,data,fmt=0):
     '''
@@ -938,20 +952,31 @@ def savez(fname,data,fmt=0):
 
        #check whether there are functions. If yes, change function to string
        rvars=[]
-       for vari in svars:
-           if hasattr(data.__dict__[vari], '__call__'):
+       for svar in svars:
+           if hasattr(data.__dict__[svar], '__call__'):
               import cloudpickle
               try:
-                 data.__dict__[vari]=cloudpickle.dumps(data.__dict__[vari])
+                 data.__dict__[svar]=cloudpickle.dumps(data.__dict__[svar])
               except:
-                 print('function {} not saved'.format(vari))
-                 rvars.append(vari)
+                 print('function {} not saved'.format(svar))
+                 rvars.append(svar)
        svars=setdiff1d(svars,rvars)
+
+       #check variable types for list,string,int and float
+       lvars=[]; tvars=[]; ivars=[]; fvars=[]
+       for svar in svars:
+           if isinstance(data.__dict__[svar],int): ivars.append(svar)
+           if isinstance(data.__dict__[svar],float): fvars.append(svar)
+           if isinstance(data.__dict__[svar],str): tvars.append(svar)
+           if isinstance(data.__dict__[svar],list):
+              lvars.append(svar)
+              data.__dict__[svar]=array(data.__dict__[svar],dtype='O')
 
        #constrcut save_string
        save_str='savez_compressed("{}" '.format(fname)
-       for vari in svars: save_str=save_str+',{}=data.{}'.format(vari,vari)
-       save_str=save_str+')';  exec(save_str)
+       for svar in svars: save_str=save_str+',{}=data.{}'.format(svar,svar)
+       save_str=save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars)'
+       exec(save_str)
     elif fmt==1:
        if hasattr(data,'VINFO'): del data.VINFO
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
@@ -966,14 +991,23 @@ def loadz(fname,svars=None):
        #get data info
        data0=load(fname,allow_pickle=True)
        keys0=data0.keys() if svars is None else svars
+       ivars=list(data0['_int_variables']) if ('_int_variables' in keys0) else []
+       fvars=list(data0['_float_variables']) if ('_float_variables' in keys0) else []
+       tvars=list(data0['_str_variables']) if ('_str_variables' in keys0) else []
+       lvars=list(data0['_list_variables']) if ('_list_variables' in keys0) else []
 
-       #extract data, and VINFO is used to store data info
-       vdata=zdata();  VINFO=[]
+       #extract data
+       vdata=zdata()
        for keyi in keys0:
-           datai=data0[keyi]
+           if keyi in ['_list_variables','_str_variables','_int_variables','_float_variables']: continue
 
-           #if value is a object
-           if datai.dtype==dtype('O'): datai=datai[()]
+           #get variable
+           datai=data0[keyi]
+           if datai.dtype==dtype('O'): datai=datai[()] #restore object
+           if keyi in ivars: datai=int(datai)          #restore int variable
+           if keyi in fvars: datai=float(datai)        #restore int variable
+           if keyi in tvars: datai=str(datai)          #restore str variable
+           if keyi in lvars: datai=datai.tolist()      #restore list variable
 
            #if value is a function
            if 'cloudpickle.cloudpickle' in str(datai):
