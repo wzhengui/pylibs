@@ -929,6 +929,15 @@ class schism_grid:
         #show(block=False)
         pass
 
+    def split_quads_wwm(self,fname='hgrid_WWM.gr3'):
+        '''
+        split quads for WWM model, and output "hgrid_WWM.gr3"
+        '''
+        sid=nonzero(self.i34==4)[0]; ne,nea=self.ne,len(sid); self.elnode=resize(self.elnode,[ne+nea,4])
+        self.elnode[ne:,:3]=self.elnode[sid][:,array([0,2,3])] #add new elements
+        self.ne=ne+nea; self.elnode[sid,-1]=-2; self.i34=tile(3,ne+nea)
+        self.save(fname)
+
     def proj(self,prj0,prj1='epsg:4326',fmt=0,x=None,y=None,lon0=None,lat0=None):
         '''
         transform the projection of schism grid's coordinates
