@@ -1929,7 +1929,7 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
        ns1=len(line)-len(line.lstrip())
        ns2=len(line[:eid])-len(line[:eid].rstrip())
        ns3=len(line[:nid])-len(line[:nid].rstrip())
-       sline=' '*ns1+param+' '*ns2+'= '+value
+       sline=' '*ns1+param+' '*ns2+'= '+str(value)
        sline=sline+' '*ns3+note_delimiter+line[(nid+1):] if nid!=-1 else sline+'\n'
        return sline
   
@@ -1952,7 +1952,7 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
     if param is not None: 
        lines=slines[:]; slines=[]
        for line in lines:
-          if line.strip().startswith(param):
+          if line[:max(line.find('='),0)].strip()==param:
              slines.append(_newline(line,param,value))
           else:
              slines.append(line)
