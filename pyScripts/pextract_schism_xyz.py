@@ -36,8 +36,8 @@ qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 qname='flex'                        #partition name
 account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028 
 
-jname='Rd_{}'.format(os.path.basename(run)) #job name
-ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
+brun=os.path.basename(run); jname='Rd_'+brun #job name
+ibatch=1; scrout='screen_{}.out'.format(brun); bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
@@ -52,10 +52,10 @@ if os.getenv('job_on_node')==None:
 #on computation node
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
+odir=os.path.dirname(os.path.abspath(sname))
 comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
-if myrank==0: 
-   t0=time.time(); odir=os.path.dirname(os.path.abspath(sname))
-   if not fexist(odir): os.system('mkdir -p {}'.format(odir))
+if myrank==0: t0=time.time()
+if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 
 #-----------------------------------------------------------------------------
 #do MPI work on each core
@@ -90,7 +90,7 @@ else:
 gd.compute_bnd(); sys.stdout.flush()
 
 for itype in [1,2]: 
-    irec=0; oname=os.path.dirname(os.path.abspath(sname))+'/.schout'
+    irec=0; oname=odir+'/.schout'
     for svar in svars: 
        ovars=get_schism_output_info(svar,modules) 
        if itype==1 and (ovars[0][1] not in svars_2d): continue #read 2D outputs 
@@ -98,7 +98,7 @@ for itype in [1,2]:
        for istack in stacks:
            fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
            if irec%nproc==myrank: 
-              read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd)
+              read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,module=modules)
               dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results

@@ -2101,7 +2101,14 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
 
 def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,module=None,fname=None,grid=None):
     '''
+    see instruction in "read_schism_output"
+    '''
+    return read_schism_output(run,varname,xyz,stacks,ifs,nspool,sname,module,fname,grid,fmt=0)
+
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,module=None,fname=None,grid=None,fmt=0):
+    '''
     extract time series of SCHISM results @xyz based on output format of scribe-IO
+       fmt=0: read time series @xyz;   fmt=1: read transect @xy
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
        varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
        xyz:     c_[x,y,z] or station file(bpfile: x,y,z)
@@ -2151,7 +2158,7 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
                        if nd==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
                    else: #3D
                        #read zcoor,and extend zcoor downward
-                       if zii is None:
+                       if (zii is None) and fmt==0:
                           if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
                           for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[z1>1e8]=z2[z1>1e8]
                           if ifs==0: zii=zii-zii[-1][None,...]
@@ -2163,20 +2170,23 @@ def read_schism_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None
                        vii=vii.transpose([1,0,2]); C1.close()
 
                        #interp in the vertical
-                       vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
-                       ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
-                       ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
-                       for k in arange(nvrt-1):
-                           z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
-                           if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-                   vs.append(vi)
-               mdata[m].extend(array(vs).transpose([1,2,0]))
+                       if fmt==0: 
+                          vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
+                          ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
+                          ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
+                          for k in arange(nvrt-1):
+                              z1=zii[k]; z2=zii[k+1]; v1=vii[k]; v2=vii[k+1]; fpz=(zm>z1)*(zm<=z2)
+                              if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
+                   vs.append(vi) if (fmt==0 or (svar in cvars)) else vs.append(vii)
+               mdata[m].extend(array(vs).transpose([1,2,0])) if (fmt==0 or (svar in cvars)) else mdata[m].extend(array(vs).transpose([2,3,1,0]))
            C0.close(); Z0.close()
 
        #save data
        if sname is None: sname=varname
+       for m,k in enumerate(sname): 
+           if array(mdata[m]).ndim==3: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2]))
+           if array(mdata[m]).ndim==4: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2,3]))
        S.time=array(mtime)
-       for m,snamei in enumerate(sname): exec('S.{}=squeeze(array(mdata[{}]).transpose([1,0,2]))'.format(snamei,m))
        if fname is not None: savez(fname,S)
     return S
 
@@ -2257,6 +2267,44 @@ def read_schism_OLDIO_output_xyz(run,varname,xyz,stacks=None,ifs=0,nspool=1,snam
     if fname is not None: savez(fname,S)
     return S
 
+def get_schism_run_info(run):
+    '''
+    get info. about SCHISM 1)modules, 2)output variables, 3)output format, and 4)stacks 
+    Inputs:
+        run:  SCHISM outputs directory 
+    Outputs:
+        [modules,outfmt,stacks,svars]
+    '''
+
+    #default variables to be excluded
+    dvars=('out2d','schout','time','minimum_depth','SCHISM_hgrid','crs','SCHISM_hgrid_node_x','SCHISM_hgrid_node_y',
+           'depth','bottom_index_node','SCHISM_hgrid_face_x','SCHISM_hgrid_face_y','SCHISM_hgrid_edge_x',
+           'SCHISM_hgrid_edge_y','SCHISM_hgrid_face_nodes','SCHISM_hgrid_edge_nodes','dryFlagNode','Cs',
+           'coordinate_system_flag','dry_value_flag','edge_bottom_index','ele_bottom_index','node_bottom_index',
+           'sigma','sigma_h_c','sigma_maxdepth','sigma_theta_b','sigma_theta_f','wetdry_elem','wetdry_node','wetdry_side')
+    
+    #get SCHISM variables
+    ovars=unique([i[:i.rfind('_')] for i in os.listdir(run) if (i.endswith('.nc') \
+          and (not i.startswith('hotstart_')) and i.rfind('_')!=-1)])
+    outfmt=0 if ('out2d' in ovars) else 1 #output format: newIO or oldIO
+    
+    #get additional SCHISM variables
+    if outfmt==0:
+       stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('out2d_') and i.endswith('.nc'))])
+       C=ReadNC(run+'/out2d_{}.nc'.format(stacks[0]),1); cvars=array([*C.variables]); C.close()
+       svars=setdiff1d(r_[ovars,cvars],dvars)
+    else:
+       stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('.nc'))])
+       fname=[i for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('_{}.nc'.format(stacks[0])))][0]
+       C=ReadNC(run+'/{}'.format(fname),1); cvars=array([*C.variables]); C.close()
+       svars=setdiff1d(cvars,dvars)
+    
+    #get SCHISM modules
+    M=get_schism_output_info(fmt=outfmt).__dict__
+    modules=array([k for k in M if len(intersect1d([*M[k].values()],svars))!=0])
+
+    return [modules,outfmt,stacks,svars]
+
 def get_schism_output_info(svar=None,modules=None,fmt=0):
     '''
       usage:
@@ -2316,9 +2364,15 @@ def get_schism_output_info(svar=None,modules=None,fmt=0):
 
     COS={'NO3':'COS_NO3','SiO4':'COS_SiO4','NH4':'COS_NH4','S1':'COS_S1','S2':'COS_S2','Z1':'COS_Z1',
          'Z2':'COS_Z2','DN':'COS_DN','DSi':'COS_DSi','PO4':'COS_PO4','DO':'COS_DOX','CO2':'COS_CO2'}
+    
+    SED={'sed_dp':'sedBedThickness','sed_str':'sedBedStress','sed_rough':'sedBedRoughness',
+         'sed_por':'sedPorocity','sed_eflux':'sedErosionalFlux','sed_dflux':'sedDepositionalFlux',
+         'sed_frac1':'sedBedFraction_1','sed_frac2':'sedBedFraction_2','sed_frac3':'sedBedFraction_3','sed_frac4':'sedBedFraction_4',
+         'sed_conc1':'sedConcentration_1','sed_conc2':'sedConcentration_2','sed_conc3':'sedConcentration_3','sed_conc4':'sedConcentration_4',
+         'sed_tconc':'totalSuspendedLoad'}
 
     if fmt==1: Hydro=oHydro
-    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS}; S=zdata(); C=[]
+    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS,'SED':SED}; S=zdata(); C=[]
     if (modules is not None) and isinstance(modules,str): modules=[modules,]
     if svar is None: #get all module info
        for n,m in mdict.items(): exec('S.{}=m'.format(n))

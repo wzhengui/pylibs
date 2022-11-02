@@ -16,11 +16,11 @@ walltime='00:30:00'
 #qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
+qnode='femto'; nnode=2; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-qnode='levante'; nnode=4; ppn=80   #levante, ppn=128
+#qnode='levante'; nnode=4; ppn=80   #levante, ppn=128
 #qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
 
 #additional information:  frontera,levante,stampede2
