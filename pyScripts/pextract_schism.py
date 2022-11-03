@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-  extract time series for SCHISM outputs
+  extract time series of points@xyz or transects@xy from SCHISM outputs
 '''
 from pylib import *
 import time
@@ -8,24 +8,24 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-run='/sciclone/data10/wangzg/BGC_Tests/Test_ICM_SAV_ChesBay_v1'
-svars=('elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4') #variables to be extracted
-bpfile='./database/station.bp'  #station file
-sname='./outputs/icm'
+run='/sciclone/data10/wangzg/CBP/RUN04a'
+svars=('elev','salt','hvel','NO3') #variables to be extracted
+bpfile='./station.bp'  #station file
+sname='./icm'
 
 #optional
-#stacks=[1,10] #outputs stacks to be extracted
-#ifs=0        #=0: refer to free surface; =1: fixed depth
-#nspool=6     #sub-sampling frequency within each stack (1 means all)
-#modules=['Hydro','ICM'] #SCHISM modules that output variables belong to 
-#rvars=['elev','salt','temp','PB1','PB2','PB3','DO','DOC','NH4','NO3','PO4'] #rname the varibles 
+#itype=1         #0: time series of points @xyz;  1: time series of trasects @xy
+#ifs=0           #0: refer to free surface; 1: fixed depth
+#stacks=[1,3]    #outputs stacks to be extracted
+#nspool=12       #sub-sampling frequency within each stack (1 means all)
+#rvars=['elev','salt','hvel','NO3'] #rname the varibles 
 
 #resource requst 
 walltime='00:10:00' 
-qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
+#qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
 #qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=1; ppn=32     #femto,ppn=32
+qnode='femto'; nnode=1; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
@@ -61,58 +61,42 @@ if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 #do MPI work on each core
 #-----------------------------------------------------------------------------
 sdir=run+'/outputs'                                              #output directory
-n2d=len([i for i in os.listdir(sdir) if i.startswith('out2d_')]) #scribe IO or OLDIO 
+if 'itype' not in locals(): itype=0                              #time series or transect
 if 'ifs' not in locals(): ifs=0                                  #refer to free surface
 if 'nspool' not in locals(): nspool=1                            #subsample
-if 'modules' not in locals(): modules=None                       #module (Hydro,ICM, etc.)
 if 'rvars' not in locals(): rvars=svars                          #rename variables
-
-#check available stacks
-if 'stacks' in locals(): 
-    stacks=arange(stacks[0],stacks[1]+1)
-else:
-    if n2d==0:
-       stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(sdir) if (i.startswith('schout_') and len(i.split('_'))==2)]) 
-    else:
-       stacks=sort([int(i.split('.')[0].split('_')[-1]) for i in os.listdir(sdir) if i.startswith('out2d_')])
-
-#get 2D variables list
-if n2d==0:
-   C=ReadNC('{}/schout_{}.nc'.format(sdir,stacks[0]),1); svars_2d=[i for i in C.variables if C.variables[i].ndim==2]; C.close()
-else:
-   C=ReadNC('{}/out2d_{}.nc'.format(sdir,stacks[0]),1); svars_2d=[*C.variables]; C.close()
+modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)     #schism outputs information
+stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
 #read model grid
-if os.path.exists(run+'/grid.npz'):
-    gd=loadz('{}/grid.npz'.format(run)).hgrid
-else:
-    gd=read_schism_hgrid(run+'/hgrid.gr3')
+gd=loadz(run+'/grid.npz').hgrid if fexist(run+'/grid.npz') else read_schism_hgrid(run+'/hgrid.gr3')
 gd.compute_bnd(); sys.stdout.flush()
 
-for itype in [1,2]: 
-    irec=0; oname=odir+'/.schout'
-    for svar in svars: 
-       ovars=get_schism_output_info(svar,modules) 
-       if itype==1 and (ovars[0][1] not in svars_2d): continue #read 2D outputs 
-       if itype==2 and (ovars[0][1] in svars_2d): continue #read 3D outputs 
-       for istack in stacks:
-           fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
-           if irec%nproc==myrank: 
-              read_schism_output_xyz(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,module=modules)
-              dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
+#extract results
+irec=0; oname=odir+'/.schout'
+for svar in svars: 
+   ovars=get_schism_var_info(svar,modules,fmt=outfmt)
+   if ovars[0][1] not in dvars: continue 
+   for istack in stacks:
+       fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
+       if irec%nproc==myrank: 
+          read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype)
+          dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results
 comm.Barrier()
 if myrank==0:
-   S=zdata(); S.time=[]
-   for m,[svar,rvar] in enumerate(zip(svars,rvars)): 
-       exec('S.{}=[]'.format(rvar)) 
+   S=zdata(); Sd=S.__dict__; S.time=[]
+   for m in rvars: Sd[m]=[]
+   for i,[k,m] in enumerate(zip(svars,rvars)): 
        for istack in stacks:
-           fname='{}_{}_{}.npz'.format(oname,svar,istack); C=loadz(fname); os.remove(fname) 
-           exec('S.{}.extend(C.{}.transpose([1,0,*arange(2,C.{}.ndim)]))'.format(rvar,svar,svar))
-           if m==0: S.time.extend(C.time)
-       exec('S.{}=array(S.{}); S.{}=S.{}.transpose([1,0,*arange(2,S.{}.ndim)])'.format(rvar,rvar,rvar,rvar,rvar))
-       S.time=array(S.time); S.bp=read_schism_bpfile(bpfile)
+           fname='{}_{}_{}.npz'.format(oname,k,istack); C=loadz(fname); Cd=C.__dict__; os.remove(fname) 
+           Sd[m].extend(Cd[k].transpose([1,0,*arange(2,Cd[k].ndim)]))
+           if i==0: S.time.extend(C.time)
+       Sd[m]=array(Sd[m]); Sd[m]=Sd[m].transpose([1,0,*arange(2,Sd[m].ndim)]) 
+   S.time=array(S.time); S.bp=read_schism_bpfile(bpfile)
+   for pn in ['param','icm','sediment','cosine','wwminput']:
+       if fexist('{}/{}.nml'.format(run,pn)): Sd[pn]=read_schism_param('{}/{}.nml'.format(run,pn),3)
    savez(sname,S)
 
 #-----------------------------------------------------------------------------
