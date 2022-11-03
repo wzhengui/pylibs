@@ -2087,35 +2087,20 @@ def WriteNC(fname,data,fmt=0,order=0):
         else:
            attrs=data.attrs
 
-        #--------------------------------------------------------------------
-        # write zdata as netcdf file
-        #--------------------------------------------------------------------
-        #open netcdf file handle
-        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
-
-        #set attrs
-        fid.setncattr('file_format',data.file_format)
-        for i in attrs: fid.setncattr(i,S[i])
-
-        #set dimension
-        for dimi,dimnamei,dim_unlimitedi in zip(dims,dimname,dim_unlimited):
-            if dim_unlimitedi is True:
-               fid.createDimension(dimnamei,None)
-            else:
-               fid.createDimension(dimnamei,dimi)
-
-        #set variable
-        for svar in svars:
-            vi=S[svar]; nm=vi.val.ndim
-            if order==0: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname)
-            if order==1: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname[::-1])
+        #write zdata as netcdf file
+        fid=Dataset(fname,'w',format=data.file_format)   #open file
+        fid.setncattr('file_format',data.file_format)    #set file_format
+        for i in attrs: fid.setncattr(i,S[i])            #set attrs
+        for ds,dn,dF in zip(dims,dimname,dim_unlimited): #set dimension
+            fid.createDimension(dn,None) if (dF is True) else fid.createDimension(dn,ds)
+        for svar in svars:  #set variable
+            vi=S[svar]; nm=vi.val.ndim; vdm=vi.dimname
+            vid=fid.createVariable(svar,vi.val.dtype,vdm) if order==0 else fid.createVariable(svar,vi.val.dtype,vdm[::-1])
             if hasattr(vi,'attrs'):
                for i in vi.attrs: vid.setncattr(i,vi.__dict__[i])
-            if order==0: fid.variables[svar][:]=vi.val
-            if order==1: fid.variables[svar][:]=transpose(vi.val,arange(nm)[::-1])
+            fid.variables[svar][:]=vi.val if order==0 else vi.val.T
         fid.close()
-
-    elif fmt==1:
+    elif fmt==1: #write netcdf.Dateset as netcdf file
         C=data; cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
         fid=Dataset(fname,'w',format=C.file_format)     #open file
         fid.setncattr('file_format',C.file_format)      #set file_format
