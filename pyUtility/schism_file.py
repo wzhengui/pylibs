@@ -1448,16 +1448,14 @@ class schism_bpfile:
             gcf().canvas.draw()
 
 def read_schism_hgrid(fname):
-    gd=schism_grid()
-    gd.read_hgrid(fname)
+    gd=schism_grid(); gd.read_hgrid(fname)
     return gd
 
 def read_schism_bpfile(fname,fmt=0):
     '''
     read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
     '''
-    bp=schism_bpfile();
-    bp.read_bpfile(fname,fmt=fmt)
+    bp=schism_bpfile(); bp.read_bpfile(fname,fmt=fmt)
     return bp
 
 def read_schism_prop(fname):
@@ -1484,15 +1482,14 @@ def save_schism_grid(fname='grid',path='.',fmt=0):
        path:  directory whether grids exist
        fmt=0: not save grid's full geometry; fmt=1: save
     '''
-    gname='{}/hgrid.gr3'.format(path); gname_ll='{}/hgrid.ll'.format(path)
-    vname='{}/vgrid.in'.format(path); S=zdata();
-    if os.path.exists(gname):
-       gd=read_schism_hgrid(gname)
-       if os.path.exists(gname_ll): gdl=read_schism_hgrid(gname_ll); gd.lon,gd.lat=gdl.x,gdl.y
+    grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path); S=zdata()
+    if fexist(grd):
+       gd=read_schism_hgrid(grd)
+       if fexist(grd0): gd0=read_schism_hgrid(grd0); gd.lon,gd.lat=gd0.x,gd0.y
        if fmt==1: gd.compute_all(); gd.compute_bnd()
        S.hgrid=gd
-    if os.path.exists(vname): S.vgrid=read_schism_vgrid(vname)
-    if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(gname,vname))
+    if fexist(vrd): S.vgrid=read_schism_vgrid(vrd)
+    if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(grd,vrd))
     savez(fname,S)
     return S
 
@@ -1844,12 +1841,12 @@ def srank(rank=0,dirpath='.',fmt=0):
     bdir=None;str_rank=''
 
     #old format with 4 digits
-    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
-    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
+    if fexist('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
+    if fexist('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
 
     #new format with 6 digits
-    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
-    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
+    if fexist('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
+    if fexist('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
 
     if fmt==0:
        return str_rank
