@@ -724,23 +724,6 @@ def close_data_loop(xi):
         vi=r_[xi,xi[0,...][None,...]]
     return vi
 
-# def close_data_loop(xi):
-#     '''
-#     constructe data loop along the last dimension.
-#     if xi[...,:,0]!=xi[...,:,-1], then,add xi[...,:,0] in the end
-#     '''
-#     if xi.ndim==1:
-#        if xi[0]!=xi[-1]:
-#           vi=r_[xi,xi[0]];
-#        else:
-#           vi=xi
-#     else:
-#        if array_equal(xi[...,:,0].ravel(),xi[...,:,-1].ravel()):
-#           vi=xi
-#        else:
-#           vi=c_[xi,xi[...,:,0][...,None]]
-#     return vi
-
 def find_cs(xi,dx):
     '''
     analyze time series to find the locations where differences are larger than dx: (xi[i+1]-xi[i]>dx)
