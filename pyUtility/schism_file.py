@@ -2317,7 +2317,7 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
     mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS,'SED':SED}; S=zdata(); C=[]
     if (modules is not None) and isinstance(modules,str): modules=[modules,]
     if svar is None: #get all module info
-       for n,m in mdict.items(): exec('S.{}=m'.format(n))
+       for n,m in mdict.items(): S.__dict__[n]=m
        return S
     else: #get variable info
        for n,m in mdict.items():

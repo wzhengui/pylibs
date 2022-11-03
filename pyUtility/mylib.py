@@ -2008,8 +2008,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
 
         #read attrbutes
         ncattrs=C.ncattrs(); F.attrs=ncattrs
-        for i in ncattrs:
-            exec('F.{}=C.getncattr("{}")'.format(i,i))
+        for i in ncattrs: F.__dict__[i]=C.getncattr(i)
 
         ncvars=[*C.variables]; F.vars=array(ncvars)
         #read variables
@@ -2111,46 +2110,22 @@ def WriteNC(fname,data,fmt=0,order=0):
             if order==0: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname)
             if order==1: vid=fid.createVariable(svar,vi.val.dtype,vi.dimname[::-1])
             if hasattr(vi,'attrs'):
-               #for j in vi.attrs: attri=eval('vi.{}'.format(j)); vid.setncattr(j,attri)
                for i in vi.attrs: vid.setncattr(i,vi.__dict__[i])
             if order==0: fid.variables[svar][:]=vi.val
             if order==1: fid.variables[svar][:]=transpose(vi.val,arange(nm)[::-1])
         fid.close()
 
     elif fmt==1:
-        #----write NC files-------------
-        #fid=Dataset('{}.nc'.format(fname),'w',format=data.file_format); #C.file_format
-        fid=Dataset(fname,'w',format=data.file_format); #C.file_format
-        fid.setncattr('file_format',data.file_format)
-
-        #set attrs
-        ncattrs=data.ncattrs()
-        for i in ncattrs:
-            exec("fid.setncattr('{}',data.{})".format(i,i))
-
-        #set dim
-        ncdims=[i for i in data.dimensions]
-        for i in ncdims:
-            if data.dimensions[i].isunlimited() is True:
-               fid.createDimension(i,None)
-            else:
-               fid.createDimension(i,data.dimensions[i].size)
-
-        #set variable
-        ncvars=[i for i in data.variables]
-        if order==0:
-            for vari in ncvars:
-                vid=fid.createVariable(vari,data.variables[vari].dtype,data.variables[vari].dimensions)
-                for attri in data.variables[vari].ncattrs():
-                    vid.setncattr(attri,data.variables[vari].getncattr(attri))
-                fid.variables[vari][:]=data.variables[vari][:]
-        elif order==1:
-            for vari in ncvars:
-                vid=fid.createVariable(vari,data.variables[vari].dtype,flipud(data.variables[vari].dimensions))
-                for attri in data.variables[vari].ncattrs():
-                    vid.setncattr(attri,data.variables[vari].getncattr(attri))
-                nm=flipud(arange(ndim(data.variables[vari][:])));
-                fid.variables[vari][:]=data.variables[vari][:].transpose(nm)
+        C=data; cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
+        fid=Dataset(fname,'w',format=C.file_format)     #open file
+        fid.setncattr('file_format',C.file_format)      #set file_format
+        for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
+        for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else fid.createDimension(i,cdim[i].size) #set dims
+        for i in cvar: #set vars
+            vdim=cvar[i].dimensions
+            vid=fid.createVariable(i,cvar[i].dtype,vdim) if order==0 else fid.createVariable(i,cvar[i].dtype,vdim[::-1])
+            for k in cvar[i].ncattrs(): vid.setncattr(k,cvar[i].getncattr(k))
+            fid.variables[i][:]=cvar[i][:] if order==0 else cvar[i][:].T
         fid.close()
 
 def harmonic_fit(oti,oyi,dt,mti,tidal_names=0, **args):
