@@ -2096,6 +2096,81 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
+def get_schism_grid_subdomain(grd,xy):
+   '''
+   compute indice for sub-domian
+     grd: SCHISM grid ("grid.npz", "hgrid.gr3", or schism_grid object)
+     xy:  subdomin region (c_[x,y], or reg file)
+   '''
+   #read grid, and region
+   gd=(loadz(grd).hgrid if grd.endswith('npz') else read_schism_hgrid(grd)) if isinstance(grd,str) else grd
+   gd.compute_ctr(); gd.compute_side(1)
+   if isinstance(xy,str): bp=read_schism_reg(xy); xy=c_[bp.x,bp.y]
+
+   #get subdomin information for node,elem. and elnode
+   ie=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],xy[:,0],xy[:,1])==1)[0]
+   el0=gd.elnode[ie]; ip=unique(el0.ravel())[1:]; ne,np=len(ie),len(ip)
+   pid=zeros(gd.np); pid[ip]=arange(np); el=pid[el0].astype('int'); el[el0==-2]=-2
+
+   #create new grid for sub-domain, and compute index for side
+   gn=schism_grid(); gn.ne,gn.np,gn.x,gn.y,gn.dp,gn.elnode,gn.i34=ne,np,gd.x[ip],gd.y[ip],gd.dp[ip],el,gd.i34[ie]
+   gn.compute_ctr(); gn.compute_side(1); sn=sort(ip[gn.isidenode],axis=1); s0=sort(gd.isidenode,axis=1)
+   iA,iB=intersect1d(sn[:,0]+1j*sn[:,1],s0[:,0]+1j*s0[:,1],return_indices=True)[1:]; isd=iB[argsort(iA)]
+   gn.sindp,gn.sinde,gn.sinds=ip,ie,isd #save indices of node,elem. and side for subset
+   return gn
+
+def get_schism_output_subset(fname,sname,xy=None,grd=None):
+   '''
+   compute subset of SCHIMS outputs
+     fname: original schism outputs (*.nc)
+     sname: subset of schism outputs (*.nc)
+     xy:    subdomin region (c_[x,y], or reg file)
+     grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
+   '''
+   #get subset index
+   if (grd is None) and (xy is None): sys.exit('both grd and xy are None')
+   if grd is None:
+      C=ReadNC(fname,1); cvar=C.variables; gd=schism_grid()
+      gd.x=array(cvar['SCHISM_hgrid_node_x'][:]); gd.y=array(cvar['SCHISM_hgrid_node_y'][:])
+      gd.dp=array(cvar['depth'][:]); gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'][:])-1; C.close()
+      gd.np,gd.ne=len(gd.dp),len(gd.elnode); gd.i34=4*ones(gd.ne).astype('int'); gd.i34[gd.elnode[:,-1]<0]=3
+   else:
+      gd=(loadz(grd).hgrid if grd.endswith('npz') else read_schism_hgrid(grd)) if isinstance(grd,str) else grd
+   if (not hasattr(gd,'sindp')) or (not hasattr(gd,'sinde')) or (not hasattr(gd,'sinds')): gd=get_schism_grid_subdomain(gd,xy)
+
+   #get subset data
+   sd={'nSCHISM_hgrid_node':gd.np,'nSCHISM_hgrid_face':gd.ne,'nSCHISM_hgrid_edge':gd.ns}
+   sv={'nSCHISM_hgrid_node':gd.sindp,'nSCHISM_hgrid_face':gd.sinde,'nSCHISM_hgrid_edge':gd.sinds}
+   def _subset(dname,ds,fmt=0):
+       #fmt=0: change dim;  fmt=1: get output subset
+       if dname in sd: ds=sd[dname] if fmt==0 else ds[sv[dname]]
+       return ds
+
+   #create subset file
+   C=ReadNC(fname,1); cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
+   fid=Dataset(sname,'w',format=C.file_format)     #open file
+   fid.setncattr('file_format',C.file_format)      #set file_format
+   for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
+   for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else \
+                  fid.createDimension(i,_subset(i,cdim[i].size)) #set dims
+   for i in cvar: #set vars
+       vd=cvar[i].dimensions #;  print(i,vd)
+       vid=fid.createVariable(i,cvar[i].dtype,vd,fill_value=True)
+       [vid.setncattr(k,cvar[i].getncattr(k)) for k in cvar[i].ncattrs() if (k not in ['_FillValue'])]
+       if i=='SCHISM_hgrid_face_nodes':
+          fid.variables[i][:]=gd.elnode+1
+       elif i=='SCHISM_hgrid_edge_nodes':
+          fid.variables[i][:]=gd.isidenode+1
+       elif i=='time':
+          fid.variables[i][:]=cvar[i][:]
+       else:
+          if vd[0]=='time':
+             for n,k in enumerate(cvar[i][:]): fid.variables[i][n]=_subset(vd[1],k,1)
+          else:
+             fid.variables[i][:]=_subset(vd[0],cvar[i][:],1)
+   fid.close(); C.close()
+   return gd
+
 def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,grid=None,fmt=0,extend=0):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
