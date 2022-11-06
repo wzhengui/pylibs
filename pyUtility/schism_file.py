@@ -2164,7 +2164,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
        elif i=='time':
           fid.variables[i][:]=cvar[i][:]
        else:
-          if vd[0]=='time':
+          if vd[0]=='time' and len(vd)>1:
              for n,k in enumerate(cvar[i][:]): fid.variables[i][n]=_subset(vd[1],k,1)
           else:
              fid.variables[i][:]=_subset(vd[0],cvar[i][:],1)
