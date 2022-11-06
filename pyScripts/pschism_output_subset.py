@@ -59,7 +59,7 @@ if not fexist(sdir): os.mkdir(sdir)
 #determine default variables,stacks
 odir=run+'/outputs'; dmodules,outfmt,dstacks,dvars,dvars_2D=get_schism_output_info(odir)
 if outfmt==1: sys.exit('OLDIO is not support yet')
-dvars=r_[setdiff1d(dvars,dvars_2D),array(['out2d'])]
+dvars=r_[array(['out2d']),setdiff1d(dvars,dvars_2D)]
 if 'svars' not in locals(): svars=dvars
 if 'grd' not in locals(): grd=run+'/hgrid.gr3'
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks
