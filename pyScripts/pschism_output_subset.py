@@ -65,7 +65,8 @@ if 'grd' not in locals(): grd=run+'/hgrid.gr3'
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks
 
 #get output subset
-fn=0; gd=read_schism_hgrid(grd); gdn=None
+gd=loadz(grd).hgrid if grd.endswith('.npz') else read_schism_hgrid(grd)
+fn=0; gdn=None
 for m,svar in enumerate(svars):
     for n,stack in enumerate(stacks):
         bname='{}_{}.nc'.format(svar,stack); fname='{}/{}'.format(odir,bname); sname='{}/{}'.format(sdir,bname)
