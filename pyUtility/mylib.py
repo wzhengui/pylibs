@@ -2080,7 +2080,7 @@ def WriteNC(fname,data,fmt=0,order=0):
             vi=S[svar]; nm=vi.val.ndim; vdm=vi.dimname
             vid=fid.createVariable(svar,vi.val.dtype,vdm) if order==0 else fid.createVariable(svar,vi.val.dtype,vdm[::-1])
             if hasattr(vi,'attrs'):
-               for i in vi.attrs: vid.setncattr(i,vi.__dict__[i])
+               [vid.setncattr(i,vi.__dict__[i]) if i!='_FillValue' else vid.setncattr('_fillvalue',vi.__dict__[i]) for i in vi.attrs]
             fid.variables[svar][:]=vi.val if order==0 else vi.val.T
         fid.close()
     elif fmt==1: #write netcdf.Dateset as netcdf file
