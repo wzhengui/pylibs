@@ -130,7 +130,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import pyUtility.mylib as mylib
    sys.modules['mylib'] = mylib
    from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
-        get_VINFO,loadz,zdata,savez,find_cs,npz2mat,mat2npz,convert_matfile,
+        get_VINFO,loadz,zdata,savez,find_cs,npz2mat,convert_matfile,
         smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
         inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
@@ -167,6 +167,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
    from pyUtility.mylib import move_figure as mvfig
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
+   from pyUtility.mylib import convert_matfile as mat2npz
    from pyUtility.mylib import convert_dem_format as read_dem
    from pyUtility.mylib import read_shapefile_data as read_shp
    from pyUtility.mylib import write_shapefile_data as write_shp

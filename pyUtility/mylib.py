@@ -1694,30 +1694,23 @@ def npz2mat(npz_data,fname):
     if isinstance(npz_data,str): npz_data=loadz(npz_data)
     sp.io.savemat(fname,npz_data.__dict__)
 
-def mat2npz(matfile,fname):
+def convert_matfile(matfile,fname=None):
     '''
-      convert Matlab *mat file to Python *.npz file
-      Exmaples
-        1. mat2npz('test.mat','test.npz')
-    '''
-    convert_matfile(matfile,fname)    
+    Convert Matlab *.mat file to Python *.npz file (alias: mat2npz)
+    Inputs:
+      matfile: name of matlab file ('name.mat' or 'name')
+      fname: name of *.npz file to be saved  ('name.npz' or 'name')
 
-def convert_matfile(name_matfile,name_save=None):
-    '''
-    convert MATLAB file to zdata
-      examples:
-           1. convert_matfile('wqdata.mat')
-           2. convert_matfile('wqdata')
-           3. convert_matfile('wqdata','sfdata')
+    Examples: (mat2npz is alias to convert_matfile)
+      1. mat2npz('A.mat','A.npz')
     '''
     from scipy import io
 
     #check name
-    if name_matfile.endswith('.mat'): name_matfile=name_matfile[:-4]
-    if name_save is None: name_save=name_matfile
+    if matfile.endswith('.mat'): matfile=matfile[:-4]
 
     #read matfile and convert
-    C=sp.io.loadmat(name_matfile+'.mat',simplify_cells=True); S=zdata()
+    C=sp.io.loadmat(matfile+'.mat',simplify_cells=True); S=zdata()
     for x in C.keys():
        if x.startswith('__') or x=='VINFO':continue
 
@@ -1725,9 +1718,9 @@ def convert_matfile(name_matfile,name_save=None):
        if isinstance(C[x],np.ndarray):
           if C[x].size!=1 and ('<U' in str(C[x].dtype)):
              C[x]=array([i.strip() for i in C[x]])
-
        S.__dict__[x]=C[x]
-    savez(name_save,S)
+    if fname is not None: savez(fname,S)
+    return S
 
 def cindex(index,shape):
     '''
