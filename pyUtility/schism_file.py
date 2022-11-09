@@ -1483,12 +1483,12 @@ def save_schism_grid(fname='grid',path='.',fmt=0):
        fmt=0: not save grid's full geometry; fmt=1: save
     '''
     grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path); S=zdata()
-    if fexist(grd):
+    if os.path.exists(grd):
        gd=read_schism_hgrid(grd)
-       if fexist(grd0): gd0=read_schism_hgrid(grd0); gd.lon,gd.lat=gd0.x,gd0.y
+       if os.path.exists(grd0): gd0=read_schism_hgrid(grd0); gd.lon,gd.lat=gd0.x,gd0.y
        if fmt==1: gd.compute_all(); gd.compute_bnd()
        S.hgrid=gd
-    if fexist(vrd): S.vgrid=read_schism_vgrid(vrd)
+    if os.path.exists(vrd): S.vgrid=read_schism_vgrid(vrd)
     if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(grd,vrd))
     savez(fname,S)
     return S
@@ -1841,12 +1841,12 @@ def srank(rank=0,dirpath='.',fmt=0):
     bdir=None;str_rank=''
 
     #old format with 4 digits
-    if fexist('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
-    if fexist('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
+    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
+    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
 
     #new format with 6 digits
-    if fexist('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
-    if fexist('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
+    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
+    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
 
     if fmt==0:
        return str_rank
