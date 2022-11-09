@@ -99,7 +99,7 @@ def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
-    if fexist(fname) and (fmt==0 or fmt==2):
+    if os.path.exists(fname) and (fmt==0 or fmt==2):
         fid=pd.ExcelWriter(fname,mode='a',engine='openpyxl',if_sheet_exists='replace')
     else:
         fid=pd.ExcelWriter(fname,mode='w+',engine='openpyxl')
@@ -468,7 +468,7 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
     if isinstance(endswith,str): endswith=[endswith]
 
     #read fname
-    if fexist(fname):
+    if os.path.exists(fname):
        fid=open(fname,'r'); lines=fid.readlines(); fid.close()
     else:
        return
@@ -1804,7 +1804,7 @@ def read_shapefile_data(fname):
         bdir=os.path.dirname(os.path.abspath(fname));
         bname=os.path.basename(fname).split('.')[0]
         prjname='{}/{}.prj'.format(bdir,bname)
-        if fexist(prjname):
+        if os.path.exists(prjname):
             with open(prjname,'r') as fid:
                 S.prj=fid.readline().strip()
 
@@ -2138,9 +2138,9 @@ def harmonic_analysis(data,dt,t0=0,tidal_names=None,code=None,tname=None,fname=N
         #directories where exectuable may exist
         bdirs=[sdir, r'D:\Work\Harmonic_Analysis',r'~/bin/Harmonic_Analysis']
         if platform.system().lower()=='windows':
-           code=['{}/tidal_analyze.exe'.format(i) for i in bdirs if fexist('{}/tidal_analyze.exe'.format(i))][0]
+           code=['{}/tidal_analyze.exe'.format(i) for i in bdirs if os.path.exists('{}/tidal_analyze.exe'.format(i))][0]
         elif platform.system().lower()=='linux':
-           code=['{}/tidal_analyze'.format(i) for i in bdirs if fexist('{}/tidal_analyze'.format(i))][0]
+           code=['{}/tidal_analyze'.format(i) for i in bdirs if os.path.exists('{}/tidal_analyze'.format(i))][0]
         else:
             print('Operating System unknow: {}'.format(platform.system()))
         if code is None: sys.exit('exectuable "tidal_analyze" was not found')
@@ -2167,7 +2167,7 @@ def harmonic_analysis(data,dt,t0=0,tidal_names=None,code=None,tname=None,fname=N
 
     #clean temporaray files--------
     os.remove(fname); os.remove(sname)
-    if fexist(tname): os.remove(tname)
+    if os.path.exists(tname): os.remove(tname)
     return S
 
 def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
@@ -2213,8 +2213,8 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             if isinstance(vari,list):
                 fname='Hycom_{}_{}_{}.nc'.format(varnamei[0],t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
                 fname2='Hycom_{}_{}_{}.nc'.format(varnamei[1],t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
-                if not fexist(r'{}/{}'.format(hdir,fname)): continue
-                if not fexist(r'{}/{}'.format(hdir,fname2)): continue
+                if not os.path.exists(r'{}/{}'.format(hdir,fname)): continue
+                if not os.path.exists(r'{}/{}'.format(hdir,fname2)): continue
                 print(fname+'; '+fname2)
                 C=ReadNC('{}/{}'.format(hdir,fname)); C2=ReadNC('{}/{}'.format(hdir,fname2),2)
 
@@ -2225,7 +2225,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
                 p.val[fp]=nan; p.val2[fp2]=nan;
             else:
                 fname='Hycom_{}_{}_{}.nc'.format(varnamei,t1.strftime('%Y%m%dZ%H%M00'),t2.strftime('%Y%m%dZ%H%M00'))
-                if not fexist(r'{}/{}'.format(hdir,fname)): continue
+                if not os.path.exists(r'{}/{}'.format(hdir,fname)): continue
                 print(fname)
                 C=ReadNC('{}/{}'.format(hdir,fname))
 

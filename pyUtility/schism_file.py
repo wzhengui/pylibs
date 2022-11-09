@@ -2196,8 +2196,8 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
 
     #read grid
     if grid is not None: gd=grid
-    if (grid is None) and fexist(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
-    if (grid is None) and (not fexist(run+'/grid.npz')): gd=read_schism_hgrid(run+'/hgrid.gr3')
+    if (grid is None) and os.path.exists(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
+    if (grid is None) and (not os.path.exists(run+'/grid.npz')): gd=read_schism_hgrid(run+'/hgrid.gr3')
 
     #read station coordinates (xyz)
     if isinstance(xyz,str): bp=read_schism_bpfile(xyz); xyz=c_[bp.x,bp.y,bp.z]
