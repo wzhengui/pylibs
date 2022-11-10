@@ -2096,39 +2096,52 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
-def combine_schism_hotstart(outdir='.',fmt=0):
+def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
     '''
     combine schism hotstart
        outdir: schism output directory
        fmt=0: combine the last hotstart; fmt=1: combine all hotstart
+       irec: step number of hotstrat (fmt is disabled when irec is set)
     '''
 
     #get all hotstart records
     irecs=sort([int(i[:-3].split('_')[-1]) for i in os.listdir(outdir) if i.startswith('hotstart_000000_')])
     if fmt==0: irecs=irecs[-1:]
+    if irec is not None: irecs=[irec]
 
     #get subdomain information
-    S=get_schism_output_info(outdir,fmt=2)
-    dname=['nResident_node','nResident_elem','nResident_side']; dnn=['node','elem','side']; dsn=[S.npg,S.neg,S.nsg]
+    S=get_schism_output_info(outdir,fmt=2); dname=['nResident_node','nResident_elem','nResident_side']
+    dnn=['node','elem','side']; dsn=[S.npg,S.neg,S.nsg] #global dim
 
-    #assemble subdomain information
+    fnames=[]
     for m,irec in enumerate(irecs):
-        C0=ReadNC('{}/hotstart_000000_{}.nc'.format(outdir,irec),1); cvar=C0.variables; cdim=C0.dimensions
-        svars=[*cvar]; dn=[*cdim]; ds=[cdim[i].size for i in dn]
-        for i in arange(3): k=dn.index(dname[i]); dn[k]=dnn[i]; ds[k]=dsn[k]
+        fname='hotstart.nc_{}'.format(irec); fnames.append(fname)
+        fid=Dataset(outdir+'/'+fname,'w',format='NETCDF4');  #open file
+        for n in arange(S.nproc):  #assemble subdomain information
+            C=ReadNC('{}/hotstart_{:06}_{}.nc'.format(outdir,n,irec),1)
+            cvar=C.variables; cdim=C.dimensions
 
-        fid=Dataset('{}/hotstart.nc_{}'.format(outdir,irec),'w',format='NETCDF4') #open file
-        for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)         #set dims
-        for svar in svars: #each variables
-            cvar=C0.variables[svar]; ctype=cvar.dtype; #print('writing {}'.format(svar))
-            cdn=[*cvar.dimensions]; cds=[cdim[i].size for i in cdn]; data=array(cvar[:])
-            if cdn[0] in dname: #cobmine variable values
-               k=dname.index(cdn[0]); cdn[0]=dnn[k]; cds[0]=dsn[k]; data=zeros(cds).astype(ctype)
-               for n in arange(S.nproc):
-                   sind=S.ips[n] if k==0 else (S.ies[n] if k==1 else S.iss[n])
-                   C=ReadNC('{}/hotstart_{:06}_{}.nc'.format(outdir,n,irec),1); data[sind]=C.variables[svar][:]; C.close()
-            vid=fid.createVariable(('iths' if svar=='it' else svar),ctype,cdn,fill_value=False); vid[:]=data
-        fid.close(); C0.close()
+            #def dimension and variables
+            if n==0:
+               dn=[*cdim]; ds=[cdim[i].size for i in dn]                    #dim. name and size
+               for dni in dname: k=dn.index(dni); dn[k],ds[k]=dnn[k],dsn[k] #change dimension
+               for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)      #def dims
+               sids=tile(-1,len(cvar)) #save index for node/elem/side
+               for i,cn in enumerate(cvar): #def variables
+                   cdn=[*cvar[cn].dimensions]
+                   if cdn[0] in dname: k=dname.index(cdn[0]); cdn[0]=dnn[k]; sids[i]=k
+                   fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
+
+            #set variables
+            for i,cn in enumerate(cvar):
+               if sids[i]==-1:
+                  if n==0: fid.variables[cn][:]=array(cvar[cn][:])
+               else:
+                  sind=S.ips[n] if sids[i]==0 else (S.ies[n] if sids[i]==1 else S.iss[n])
+                  fid.variables[cn][sind]=cvar[cn][:]
+            C.close()
+        fid.renameVariable('it','iths'); fid.close()
+    return fnames
 
 def get_schism_grid_subdomain(grd,xy):
    '''
