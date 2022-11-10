@@ -2117,7 +2117,7 @@ def combine_schism_hotstart(outdir='.',fmt=0):
         svars=[*cvar]; dn=[*cdim]; ds=[cdim[i].size for i in dn]
         for i in arange(3): k=dn.index(dname[i]); dn[k]=dnn[i]; ds[k]=dsn[k]
 
-        fid=Dataset('{}/hotstart_{}.nc'.format(outdir,irec),'w',format='NETCDF4') #open file
+        fid=Dataset('{}/hotstart.nc_{}'.format(outdir,irec),'w',format='NETCDF4') #open file
         for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)         #set dims
         for svar in svars: #each variables
             cvar=C0.variables[svar]; ctype=cvar.dtype; #print('writing {}'.format(svar))
