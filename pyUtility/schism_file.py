@@ -2096,7 +2096,7 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
-def combine_schism_hotstart(outdir,fmt=0):
+def combine_schism_hotstart(outdir='.',fmt=0):
     '''
     combine schism hotstart
        outdir: schism output directory
@@ -2108,7 +2108,7 @@ def combine_schism_hotstart(outdir,fmt=0):
     if fmt==0: irecs=irecs[-1:]
 
     #get subdomain information
-    S=get_schism_output_info('outputs',fmt=2)
+    S=get_schism_output_info(outdir,fmt=2)
     dname=['nResident_node','nResident_elem','nResident_side']; dnn=['node','elem','side']; dsn=[S.npg,S.neg,S.nsg]
 
     #assemble subdomain information
@@ -2117,7 +2117,7 @@ def combine_schism_hotstart(outdir,fmt=0):
         svars=[*cvar]; dn=[*cdim]; ds=[cdim[i].size for i in dn]
         for i in arange(3): k=dn.index(dname[i]); dn[k]=dnn[i]; ds[k]=dsn[k]
 
-        fid=Dataset('{}/hotstart.nc_{}'.format(outdir,irec),'w',format='NETCDF4') #open file
+        fid=Dataset('{}/hotstart_{}.nc'.format(outdir,irec),'w',format='NETCDF4') #open file
         for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)         #set dims
         for svar in svars: #each variables
             cvar=C0.variables[svar]; ctype=cvar.dtype; #print('writing {}'.format(svar))
