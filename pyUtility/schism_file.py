@@ -2096,6 +2096,40 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
+def combine_schism_hotstart(outdir,fmt=0):
+    '''
+    combine schism hotstart
+       outdir: schism output directory
+       fmt=0: combine the last hotstart; fmt=1: combine all hotstart
+    '''
+
+    #get all hotstart records
+    irecs=sort([int(i[:-3].split('_')[-1]) for i in os.listdir(outdir) if i.startswith('hotstart_000000_')])
+    if fmt==0: irecs=irecs[-1:]
+
+    #get subdomain information
+    S=get_schism_output_info('outputs',fmt=2)
+    dname=['nResident_node','nResident_elem','nResident_side']; dnn=['node','elem','side']; dsn=[S.npg,S.neg,S.nsg]
+
+    #assemble subdomain information
+    for m,irec in enumerate(irecs):
+        C0=ReadNC('{}/hotstart_000000_{}.nc'.format(outdir,irec),1); cvar=C0.variables; cdim=C0.dimensions
+        svars=[*cvar]; dn=[*cdim]; ds=[cdim[i].size for i in dn]
+        for i in arange(3): k=dn.index(dname[i]); dn[k]=dnn[i]; ds[k]=dsn[k]
+
+        fid=Dataset('{}/hotstart.nc_{}'.format(outdir,irec),'w',format='NETCDF4') #open file
+        for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)         #set dims
+        for svar in svars: #each variables
+            cvar=C0.variables[svar]; ctype=cvar.dtype; #print('writing {}'.format(svar))
+            cdn=[*cvar.dimensions]; cds=[cdim[i].size for i in cdn]; data=array(cvar[:])
+            if cdn[0] in dname: #cobmine variable values
+               k=dname.index(cdn[0]); cdn[0]=dnn[k]; cds[0]=dsn[k]; data=zeros(cds).astype(ctype)
+               for n in arange(S.nproc):
+                   sind=S.ips[n] if k==0 else (S.ies[n] if k==1 else S.iss[n])
+                   C=ReadNC('{}/hotstart_{:06}_{}.nc'.format(outdir,n,irec),1); data[sind]=C.variables[svar][:]; C.close()
+            vid=fid.createVariable(('iths' if svar=='it' else svar),ctype,cdn,fill_value=False); vid[:]=data
+        fid.close(); C0.close()
+
 def get_schism_grid_subdomain(grd,xy):
    '''
    compute indice for sub-domian
@@ -2285,42 +2319,56 @@ def get_schism_output_info(run,fmt=0):
     '''
     get info. about SCHISM ["modules", "output format", "stacks", "output variables", "output 2D variables"]
     Inputs:
-        run:  SCHISM outputs directory 
+        run:  SCHISM outputs directory
         fmt=0: remove schsim default variables related to grid; fmt=1: not remove
     Outputs:
-        [modules,outfmt,stacks,svars]
+        fmt=0/1: [modules,outfmt,stacks,svars]
+        fmt=2: information about domain-decomposition
     '''
 
-    #default variables to be excluded
-    dvars=('out2d','schout','time','minimum_depth','SCHISM_hgrid','crs','SCHISM_hgrid_node_x','SCHISM_hgrid_node_y',
-           'depth','bottom_index_node','SCHISM_hgrid_face_x','SCHISM_hgrid_face_y','SCHISM_hgrid_edge_x',
-           'SCHISM_hgrid_edge_y','SCHISM_hgrid_face_nodes','SCHISM_hgrid_edge_nodes','dryFlagNode','Cs',
-           'coordinate_system_flag','dry_value_flag','edge_bottom_index','ele_bottom_index','node_bottom_index',
-           'sigma','sigma_h_c','sigma_maxdepth','sigma_theta_b','sigma_theta_f','wetdry_elem','wetdry_node',
-           'wetdry_side','dryFlagElement', 'dryFlagSide')
-    if fmt==1: dvars=('out2d','schout','time')
-    
-    #get SCHISM variables
-    ovars=unique([i[:i.rfind('_')] for i in os.listdir(run) if (i.endswith('.nc') \
-          and (not i.startswith('hotstart_')) and i.rfind('_')!=-1)])
-    outfmt=0 if ('out2d' in ovars) else 1 #output format: newIO or oldIO
-    
-    #get additional SCHISM variables
-    if outfmt==0:
-       stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('out2d_') and i.endswith('.nc'))])
-       C=ReadNC(run+'/out2d_{}.nc'.format(stacks[0]),1); svars_2d=setdiff1d(array([*C.variables]),dvars); C.close()
-       svars=setdiff1d(r_[ovars,svars_2d],dvars)
-    else:
-       stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('.nc'))])
-       fname=[i for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('_{}.nc'.format(stacks[0])))][0]
-       C=ReadNC(run+'/{}'.format(fname),1); svars=setdiff1d(array([*C.variables]),dvars)
-       svars_2d=array([i for i in svars if C.variables[i].ndim==2]); C.close()
-    
-    #get SCHISM modules
-    M=get_schism_var_info(fmt=outfmt).__dict__
-    modules=array([k for k in M if len(intersect1d([*M[k].values()],svars))!=0])
+    if fmt in [0,1]:
+       #default variables to be excluded
+       dvars=('out2d','schout','time','minimum_depth','SCHISM_hgrid','crs','SCHISM_hgrid_node_x','SCHISM_hgrid_node_y',
+              'depth','bottom_index_node','SCHISM_hgrid_face_x','SCHISM_hgrid_face_y','SCHISM_hgrid_edge_x',
+              'SCHISM_hgrid_edge_y','SCHISM_hgrid_face_nodes','SCHISM_hgrid_edge_nodes','dryFlagNode','Cs',
+              'coordinate_system_flag','dry_value_flag','edge_bottom_index','ele_bottom_index','node_bottom_index',
+              'sigma','sigma_h_c','sigma_maxdepth','sigma_theta_b','sigma_theta_f','wetdry_elem','wetdry_node',
+              'wetdry_side','dryFlagElement', 'dryFlagSide')
+       if fmt==1: dvars=('out2d','schout','time')
 
-    return [modules,outfmt,stacks,svars,svars_2d]
+       #get SCHISM variables
+       ovars=unique([i[:i.rfind('_')] for i in os.listdir(run) if (i.endswith('.nc') \
+             and (not i.startswith('hotstart_')) and i.rfind('_')!=-1)])
+       outfmt=0 if ('out2d' in ovars) else 1 #output format: newIO or oldIO
+
+       #get additional SCHISM variables
+       if outfmt==0:
+          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('out2d_') and i.endswith('.nc'))])
+          C=ReadNC(run+'/out2d_{}.nc'.format(stacks[0]),1); svars_2d=setdiff1d(array([*C.variables]),dvars); C.close()
+          svars=setdiff1d(r_[ovars,svars_2d],dvars)
+       else:
+          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('.nc'))])
+          fname=[i for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('_{}.nc'.format(stacks[0])))][0]
+          C=ReadNC(run+'/{}'.format(fname),1); svars=setdiff1d(array([*C.variables]),dvars)
+          svars_2d=array([i for i in svars if C.variables[i].ndim==2]); C.close()
+
+       #get SCHISM modules
+       M=get_schism_var_info(fmt=outfmt).__dict__
+       modules=array([k for k in M if len(intersect1d([*M[k].values()],svars))!=0])
+       return [modules,outfmt,stacks,svars,svars_2d]
+    else:
+       nes=[]; nps=[]; nss=[]; ies=[]; ips=[]; iss=[]
+       nsg,neg,npg,nvrt,nproc,ntr=[int(i) for i in open(run+'/local_to_global_000000','r').readline().split()[:6]]
+       for n in arange(nproc):
+           lines=open('{}/local_to_global_{:06}'.format(run,n),'r').readlines()[2:]
+           ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
+           iei=array([i.split()[1] for i in lines[1:(ne+1)]]).astype('int')-1
+           ipi=array([i.split()[1] for i in lines[(ne+2):(ne+np+2)]]).astype('int')-1
+           isi=array([i.split()[1] for i in lines[(ne+np+3):(ne+np+ns+3)]]).astype('int')-1
+           nes.append(ne); nps.append(np); nss.append(ns); ies.append(iei); ips.append(ipi); iss.append(isi)
+       S=zdata(); S.nsg,S.neg,S.npg,S.nvrt,S.nproc,S.ntr=nsg,neg,npg,nvrt,nproc,ntr
+       S.nes,S.nps,S.nss,S.ies,S.ips,S.iss=array(nes),array(nps),array(nss),ies,ips,iss
+       return S
 
 def get_schism_var_info(svar=None,modules=None,fmt=0):
     '''
