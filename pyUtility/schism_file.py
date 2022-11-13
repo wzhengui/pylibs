@@ -967,43 +967,26 @@ class schism_grid:
         if not hasattr(self,'dpe'): self.compute_ctr()
 
         #for triangles
-        fp=self.i34==3; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; xctr=self.xctr[fp]; yctr=self.yctr[fp]; zctr=self.dpe[fp]
-        sind=[]
+        fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
         for i in arange(3):
-            id1=i; id2=(i+1)%3; id3=(i+2)%3
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
+            x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
             ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sindi=nonzero(ai<=angle_min)[0]
-            if len(sindi)!=0: sind.extend(sindi)
-        sind=unique(sind)
-        if len(sind)!=0:
-            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]; sind3=nonzero(fp)[0][sind]
-        else:
-            XS3=array([]); YS3=array([]); ZS3=array([]); sind3=array([])
+            sind.extend(nonzero(ai<=angle_min)[0])
+        sind3=fp[unique(sind).astype('int')]
 
         #for quads
-        fp=self.i34==4; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; xctr=self.xctr[fp]; yctr=self.yctr[fp]; zctr=self.dpe[fp]
-        sind=[]
+        fp=nonzero(self.i34==4)[0]; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; sind=[]
         for i in arange(4):
-            id1=i; id2=(i+1)%4; id3=(i+2)%4
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
+            x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
             ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sindi=nonzero(ai<=angle_min)[0]
-            if len(sindi)!=0: sind.extend(sindi)
-        sind=unique(sind)
-        if len(sind)!=0:
-            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]; sind4=nonzero(fp)[0][sind]
-        else:
-            XS4=array([]); YS4=array([]); ZS4=array([]); sind4=array([])
+            sind.extend(nonzero(ai<=angle_min)[0])
+        sind4=fp[unique(sind).astype('int')]; sindw=r_[sind3,sind4]
 
         #combine and save
         if fname is not None:
-            self.xskew=r_[XS3,XS4]; self.yskew=r_[YS3,YS4]; zskew=r_[ZS3,ZS4]
-            sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x=self.xskew; sbp.y=self.yskew; sbp.z=zskew; sbp.write_bpfile(fname)
-        if fmt==1:
-            return array([*sind3,*sind4]).astype('int')
+            self.xskew,self.yskew,self.zskew=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]
+            sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x,sbp.y,sbp.z=self.xskew,self.yskew,self.zskew; sbp.write_bpfile(fname)
+        if fmt==1: return sindw
 
     def inside_elem(self,pxy,ie):
         '''
