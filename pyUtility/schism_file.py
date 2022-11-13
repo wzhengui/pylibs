@@ -976,9 +976,9 @@ class schism_grid:
             ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
             sindi=nonzero(ai<=angle_min)[0]
             if len(sindi)!=0: sind.extend(sindi)
-        sind=array(sind)
+        sind=unique(sind)
         if len(sind)!=0:
-            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]; sind3=sind.copy()
+            XS3=xctr[sind]; YS3=yctr[sind]; ZS3=zctr[sind]; sind3=nonzero(fp)[0][sind]
         else:
             XS3=array([]); YS3=array([]); ZS3=array([]); sind3=array([])
 
@@ -992,9 +992,9 @@ class schism_grid:
             ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
             sindi=nonzero(ai<=angle_min)[0]
             if len(sindi)!=0: sind.extend(sindi)
-        sind=array(sind)
+        sind=unique(sind)
         if len(sind)!=0:
-            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]; sind4=sind
+            XS4=xctr[sind]; YS4=yctr[sind]; ZS4=zctr[sind]; sind4=nonzero(fp)[0][sind]
         else:
             XS4=array([]); YS4=array([]); ZS4=array([]); sind4=array([])
 
