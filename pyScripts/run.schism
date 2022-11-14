@@ -4,28 +4,31 @@
   note: environmental variables "run_schism" is used to load correct modules 
 '''
 from pylib import *
+import time,signal
+import subprocess as sbp
 
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-code='pschism_LEVANTE_INTEL_COSINE_OLDIO_TVD-VL.e1fd55b1'
+code='pschism_LEVANTE_INTEL_ICM_TVD-VL.13b36381 24'
 runs=[]  #used to submit multiple jobs
 
 #resource requst 
-walltime='00:30:00'
+walltime='72:00:00'
 #qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
-#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
+#qnode='bora'; nnode=15; ppn=20      #bora, ppn=20
 #qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
 qnode='femto'; nnode=2; ppn=32     #femto,ppn=32
 #qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
 #qnode='james'; nnode=5; ppn=20     #james, ppn=20
 #qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-#qnode='levante'; nnode=4; ppn=80   #levante, ppn=128
+#qnode='levante'; nnode=6; ppn=80   #levante, ppn=128
 #qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
 
 #additional information:  frontera,levante,stampede2
-qname='compute'                        #partition name
-account='gg0028'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
+qname='compute'    #partition name
+account='gg0028'   #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
+ihot=0             #submit hotstart run
 
 scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
 #-----------------------------------------------------------------------------
@@ -43,7 +46,23 @@ if os.getenv('run_schism')!=None:
    scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'run_schism')
 
    if len(runs)==0: #single jobs 
-      print(scode); sys.stdout.flush(); os.system(scode)
+      if ihot==0:
+         print(scode); sys.stdout.flush(); os.system(scode)
+      else:
+         #current run
+         print(scode); sys.stdout.flush(); sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
+         t0=time.time(); wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
+         while((time.time()-t0)<(wt-dt)): time.sleep(60) #wait
+
+         #submit hotstart
+         p=read_schism_param('param.nml',3); irec=int(ceil(p.rnday*86400/p.dt/p.ihfskip)); time.sleep(10)
+         if not fexist('outputs/out2d_{}.nc'.format(irec)):
+            fname=combine_schism_hotstart('outputs')[-1]
+            hid=max([*[int(i.split('.')[2]) for i in os.listdir(bdir) if i.startswith('hotstart.nc.')],0])
+            if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
+            os.symlink('outputs/'+fname,'hotstart.nc'); change_schism_param('param.nml','ihot','2')
+            os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
+            os.environ.pop('run_schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)
