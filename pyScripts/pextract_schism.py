@@ -86,18 +86,21 @@ for svar in svars:
 #combine results
 comm.Barrier()
 if myrank==0:
-   S=zdata(); Sd=S.__dict__; S.time=[]
-   for m in rvars: Sd[m]=[]
-   for i,[k,m] in enumerate(zip(svars,rvars)): 
+   S=zdata(); S.time=[]; fnames=[]
+   for i,[k,m] in enumerate(zip(svars,rvars)):
+       data=[]; mtime=[]
        for istack in stacks:
-           fname='{}_{}_{}.npz'.format(oname,k,istack); C=loadz(fname); Cd=C.__dict__; os.remove(fname) 
-           Sd[m].extend(Cd[k].transpose([1,0,*arange(2,Cd[k].ndim)]))
-           if i==0: S.time.extend(C.time)
-       Sd[m]=array(Sd[m]); Sd[m]=Sd[m].transpose([1,0,*arange(2,Sd[m].ndim)]) 
-   S.time=array(S.time); S.bp=read_schism_bpfile(bpfile)
+           fname='{}_{}_{}.npz'.format(oname,k,istack)
+           if not fexist(fname): continue
+           C=loadz(fname); datai=C.__dict__[k]; fnames.append(fname)
+           data.extend(datai.transpose([1,0,*arange(2,datai.ndim)])); mtime.extend(C.time)
+       if len(data)>0: S.__dict__[m]=array(data).transpose([1,0,*arange(2,array(data).ndim)])
+       if len(mtime)>len(S.time): S.time=array(mtime)
+   S.bp=read_schism_bpfile(bpfile)
    for pn in ['param','icm','sediment','cosine','wwminput']:
-       if fexist('{}/{}.nml'.format(run,pn)): Sd[pn]=read_schism_param('{}/{}.nml'.format(run,pn),3)
+       if fexist('{}/{}.nml'.format(run,pn)): S.__dict__[pn]=read_schism_param('{}/{}.nml'.format(run,pn),3)
    savez(sname,S)
+   for i in fnames: os.remove(i)
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs
