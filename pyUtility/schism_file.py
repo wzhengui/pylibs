@@ -2079,10 +2079,12 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
-def combine_icm_output(rundir='.',sname='icm.nc'):
+def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
     '''
     combine schism-icm station outputs
       rundir: run directory
+      sname: save name for combined output
+      fmt=1: copy subdomain output file, and then read
     '''
 
     outdir=rundir+'/outputs/'
@@ -2090,12 +2092,13 @@ def combine_icm_output(rundir='.',sname='icm.nc'):
     fid=Dataset(outdir+sname,'w',format='NETCDF4'); fvar=fid.variables; fdim=fid.dimensions
 
     #get fnames information
-    fnames=[i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; nts=[]
-    for i in fnames: C=ReadNC(outdir+i,1); nts.append(C.variables['time'].size); C.close() #time length
+    fnames=[outdir+i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; nts=[]
+    if fmt==1: [copyfile(i,i+'.copy') for i in fnames]; fnames=[i+'.copy' for i in fnames] #copy output files
+    for i in fnames: C=ReadNC(i,1); nts.append(C.variables['time'].size); C.close() #time length
     
     #combine station output
     for n,fname in enumerate(fnames):
-        C=ReadNC(outdir+fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1
+        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1
         if n==0:
            #def dim
            nt=min(nts)
@@ -2113,7 +2116,7 @@ def combine_icm_output(rundir='.',sname='icm.nc'):
                cdn=(cdn[1:] if cdn[0]=='dim_01' else [cdn[1],cdn[0],cdn[2]]) if len(cdn)==3 else cdn
                fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
            fid.createVariable('station',str,['nstation'],fill_value=False)
-           fvar['time']=array(cvar['time'][:nt]) #set time
+           fvar['time'][:]=array(cvar['time'][:nt]) #set time
     
         #set variables
         for i,cn in enumerate(cvar):
@@ -2123,6 +2126,7 @@ def combine_icm_output(rundir='.',sname='icm.nc'):
             if len(cds)==3 and cds[0]!=1: fvar[cn][sind]=array(cvar[cn][...,:nt]).transpose([1,0,2])
         fvar['station'][:]=bp.station
         C.close()
+        if fmt==1: os.remove(fname)
     fid.close()
 
 def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
