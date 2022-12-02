@@ -485,7 +485,7 @@ class schism_grid:
         #define open/land/island boundaries
         if bxy is not None:
            if isinstance(bxy,str): #bxy is a bpfile
-              bp=read_schism_bpfile(bxy); bxy=[] 
+              bp=read_schism_bpfile(bxy); bxy=[]
               if bp.nsta%2!=0: sys.exit('even number of points are required')
               for i in arange(int(bp.nsta/2)): bxy.append([bp.x[2*i],bp.x[2*i+1],bp.y[2*i],bp.y[2*i+1]])
 
@@ -691,12 +691,12 @@ class schism_grid:
             #print(sindp.size,self.ne,sindp.size/self.ne)
             fpc=abs(pxy-pxy[0])<=dist; pid=sindp[fpc] #node inside circle of dc
             eid=sinde[nonzero(abs(exy-pxy[0])<=(2*dist))[0]]; #elem. inside circle of 2*dc
-            if eid.size==1: pv[pid]=value[eid] 
+            if eid.size==1: pv[pid]=value[eid]
 
             #find dist maxtrix, get weight and value, and assign average value at node
             ds=pid.size*eid.size; nloop=int(ceil(ds/ms)); dsb=int(ceil(pid.size/nloop))
             for n in arange(nloop):
-                pidi=pid[arange((dsb*n),min(dsb*(n+1),pid.size)).astype('int')] 
+                pidi=pid[arange((dsb*n),min(dsb*(n+1),pid.size)).astype('int')]
                 pdist=cdist(c_[x[pidi],y[pidi]],c_[x[eid],y[eid]]); fpd=pdist>dist
                 ew=tile(w[eid],[pidi.size,1]); ev=tile(v[eid],[pidi.size,1]); ew[fpd]=0; ev[fpd]=0
                 pv[pidi]=ev.sum(axis=1)/ew.sum(axis=1)
@@ -1864,7 +1864,7 @@ def read_schism_local_to_global(fname):
 def read_schism_param(fname,fmt=0):
     '''
     read schism parameters from param.nml/param.in/cosine.in
-      fmt=0: return dictionary with all field as string 
+      fmt=0: return dictionary with all field as string
       fmt=1: return dictionary with all field as float if possible
       fmt=2: return zdata with all field as string attributes
       fmt=3: return zdata with all field as float attributes if possible
@@ -1880,7 +1880,7 @@ def read_schism_param(fname,fmt=0):
       if '!' in line: line=line[:line.find('!')]
       keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
       if fmt in [1,3]:  #convert string to float
-         try: 
+         try:
             vali=[float(i) if (('.' in i) or ('e' in i) or ('E' in i)) else int(i) for i in vali.replace(',',' ').replace(';',' ').split()]
             if len(vali)==1: vali=vali[0]
          except:
@@ -1899,9 +1899,9 @@ def read_schism_param(fname,fmt=0):
 def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='!'):
     '''
     change parameter values
-      fname: the name of parameter file (param.nml,param.in, ...) 
-      param: parameter name to be changed 
-      value: new parameter value are to be assigned 
+      fname: the name of parameter file (param.nml,param.in, ...)
+      param: parameter name to be changed
+      value: new parameter value are to be assigned
       source: either a reference parameter file, or and object of "read_schism_param"
     '''
     def _newline(line,param,value):
@@ -1912,24 +1912,24 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
        sline=' '*ns1+param+' '*ns2+'= '+str(value)
        sline=sline+' '*ns3+note_delimiter+line[(nid+1):] if nid!=-1 else sline+'\n'
        return sline
-  
+
     #read fname information
     fid=open(fname,'r'); slines=fid.readlines(); fid.close()
 
-    #change parameter value based on refernece parameter file 
-    if source is not None: 
+    #change parameter value based on refernece parameter file
+    if source is not None:
        P=read_schism_param(fname,1); lines=slines[:]; slines=[]
        S=read_schism_param(source,1) if isinstance(fname,str) else source
        for line in lines:
-           eid=line.find('='); pname=line[:eid].strip(); sline=line 
+           eid=line.find('='); pname=line[:eid].strip(); sline=line
            if (eid!=-1) and (pname in S):
-              if P[pname]!=S[pname]: 
+              if P[pname]!=S[pname]:
                  svalue=' '.join([str(i) for i in S[pname]]) if isinstance(S[pname],list) else str(S[pname])
                  sline=_newline(line,pname,svalue)
            slines.append(sline)
 
     #change parameter value based on arguments
-    if param is not None: 
+    if param is not None:
        lines=slines[:]; slines=[]
        for line in lines:
           if line[:max(line.find('='),0)].strip()==param:
@@ -2095,7 +2095,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
     fnames=[outdir+i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; nts=[]
     if fmt==1: [copyfile(i,i+'.copy') for i in fnames]; fnames=[i+'.copy' for i in fnames] #copy output files
     for i in fnames: C=ReadNC(i,1); nts.append(C.variables['time'].size); C.close() #time length
-    
+
     #combine station output
     for n,fname in enumerate(fnames):
         C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1
@@ -2109,7 +2109,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
                   fid.createDimension(dn,nt)
                else:
                   fid.createDimension(dn,cdim[dn].size)
-    
+
            #def variables
            for i,cn in enumerate(cvar):
                cdn=[*cvar[cn].dimensions]
@@ -2117,7 +2117,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
                fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
            fid.createVariable('station',str,['nstation'],fill_value=False)
            fvar['time'][:]=array(cvar['time'][:nt]) #set time
-    
+
         #set variables
         for i,cn in enumerate(cvar):
             cdn=[*cvar[cn].dimensions]; cds=[cdim[k].size for k in cdn]
@@ -2272,7 +2272,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
 
     #variables
     if isinstance(varname,str): varname=[varname]
-    if isinstance(sname,str): sname=[sname] 
+    if isinstance(sname,str): sname=[sname]
 
     #read grid
     if grid is not None: gd=grid
@@ -2286,7 +2286,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
 
     #stacks
-    if stacks is None: 
+    if stacks is None:
        stacks=dstacks
     else:
        if not hasattr(stacks,'__len__'): stacks=squeeze(array([stacks,stacks]))
@@ -2335,7 +2335,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
 
                     #interp in the vertical
                     if fmt==0: #time series
-                       for ivs in arange(2): 
+                       for ivs in arange(2):
                            if ivs==1 and nd==3: continue
                            viii=vii if nd==3 else vii[:,:,:,ivs]
                            vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
@@ -2344,7 +2344,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                            for k in arange(nvrt-1):
                                z1=zii[k]; z2=zii[k+1]; v1=viii[k]; v2=viii[k+1]; fpz=(zm>z1)*(zm<=z2)
                                if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-                           vs.append(vi) 
+                           vs.append(vi)
                     else: #transect
                        if nd==3: vs.append(vii)
                        if nd==4: vs.append(vii[...,0]); vs.append(vii[...,1])
@@ -2475,7 +2475,7 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
 
     COS={'NO3':'COS_NO3','SiO4':'COS_SiO4','NH4':'COS_NH4','S1':'COS_S1','S2':'COS_S2','Z1':'COS_Z1',
          'Z2':'COS_Z2','DN':'COS_DN','DSi':'COS_DSi','PO4':'COS_PO4','DO':'COS_DOX','CO2':'COS_CO2'}
-    
+
     SED={'sed_dp':'sedBedThickness','sed_str':'sedBedStress','sed_rough':'sedBedRoughness',
          'sed_por':'sedPorocity','sed_eflux':'sedErosionalFlux','sed_dflux':'sedDepositionalFlux',
          'sed_frac1':'sedBedFraction_1','sed_frac2':'sedBedFraction_2','sed_frac3':'sedBedFraction_3','sed_frac4':'sedBedFraction_4',
