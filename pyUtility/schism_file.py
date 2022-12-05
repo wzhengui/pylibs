@@ -2116,7 +2116,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
                cdn=(cdn[1:] if cdn[0]=='dim_01' else [cdn[1],cdn[0],cdn[2]]) if len(cdn)==3 else cdn
                fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
            fid.createVariable('station',str,['nstation'],fill_value=False)
-           fvar['time'][:]=array(cvar['time'][:nt]) #set time
+           fvar['time'][:]=array(cvar['time'][:nt])/86400 #set time
 
         #set variables
         for i,cn in enumerate(cvar):
