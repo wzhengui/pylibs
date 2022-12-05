@@ -2079,12 +2079,13 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
-def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
+def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
     '''
     combine schism-icm station outputs
       rundir: run directory
       sname: save name for combined output
       fmt=1: copy subdomain output file, and then read
+      outfmt=0: float32;  outfmt=1: float64
     '''
 
     outdir=rundir+'/outputs/'
@@ -2114,7 +2115,10 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0):
            for i,cn in enumerate(cvar):
                cdn=[*cvar[cn].dimensions]
                cdn=(cdn[1:] if cdn[0]=='dim_01' else [cdn[1],cdn[0],cdn[2]]) if len(cdn)==3 else cdn
-               fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
+               if len(cdn)>=2 and outfmt==0:
+                  fid.createVariable(cn,np.float32,cdn,fill_value=False)
+               else:
+                  fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
            fid.createVariable('station',str,['nstation'],fill_value=False)
            fvar['time'][:]=array(cvar['time'][:nt])/86400 #set time
 
