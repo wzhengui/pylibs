@@ -21,7 +21,7 @@ class schism_grid:
     def VINFO(self):
         return get_VINFO(self)
 
-    def plot_grid(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
+    def plot(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
              lw=0.1,levels=None,ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
         '''
         plot grid with default color value (grid depth)
@@ -160,7 +160,7 @@ class schism_grid:
            if xlim is not None: setp(ax,xlim=xlim)
            if ylim is not None: setp(ax,ylim=ylim)
            return hg
-    def plot(self,**args):
+    def plot_grid(self,**args):
         '''
         alias for plot_grid()
         '''
