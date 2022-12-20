@@ -1612,10 +1612,10 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
     bdir=os.path.dirname(__file__)
 
     if fmt==0:
-        S=loadz('{}/prj.npz'.format(bdir))
+        S=loadz('{}/../pyScripts/prj.npz'.format(bdir))
         return S.prj[prjname]
     elif fmt==1:
-        S=loadz('{}/prj.npz'.format(bdir))
+        S=loadz('{}/../pyScripts/prj.npz'.format(bdir))
         return S.prj
     elif fmt==-1:
         #dir of *.prj files
