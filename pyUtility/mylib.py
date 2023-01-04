@@ -887,29 +887,32 @@ def get_VINFO(data):
     stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
     snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
     for i in skeys:
-        vi=sdict[i]; dt=type(vi); dta=''
-        if (fnc==1) and (dt is zdata): vi=vi.val; dt=np.ndarray #netcdf file
-        #get data information
-        if dt is list:
-           nd=': list({},)'.format(len(vi))
-           if (fnc==1) and (i in ['dimname','dims']): nd=': list{}'.format(vi) #netcdf file
-        elif dt is dict:
-           nd=': dict({},)'.format(len(vi))
-        elif dt is str:
-           nd=': "{}", string'.format(vi[:30])
-        elif dt is np.ndarray:
-           nd=': array{}'.format(vi.shape); dta=str(vi.dtype)
-           if (fnc==1) and (i in ['dimname','dims']): nd=': array{}'.format(vi) #netcdf file
-           if vi.size==1 and (vi.dtype in stypes): nd=': {}, array{}'.format(vi[0],vi.shape)
-        elif dt in stypes:
-           nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
-        else:
-           nd=': {}'.format(type(vi))
+        try:
+            vi=sdict[i]; dt=type(vi); dta=''
+            if (fnc==1) and (dt is zdata): vi=vi.val; dt=np.ndarray #netcdf file
+            #get data information
+            if dt is list:
+               nd=': list({},)'.format(len(vi))
+               if (fnc==1) and (i in ['dimname','dims']): nd=': list{}'.format(vi) #netcdf file
+            elif dt is dict:
+               nd=': dict({},)'.format(len(vi))
+            elif dt is str:
+               nd=': "{}", string'.format(vi[:30])
+            elif dt is np.ndarray:
+               nd=': array{}'.format(vi.shape); dta=str(vi.dtype)
+               if (fnc==1) and (i in ['dimname','dims']): nd=': array({})'.format(vi) #netcdf file
+               if vi.size==1 and (vi.dtype in stypes): nd=': {}, array({})'.format(squeeze(vi),1)
+            elif dt in stypes:
+               nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
+            else:
+               nd=': {}'.format(type(vi))
 
-        #output
-        ms=min(6,max([len(k) for k in skeys])); fs1='{:'+str(ms)+'s}{}'; fs2=fs1+', {}'
-        fstr=fs2.format(i,nd,dta) if dta!='' else fs1.format(i,nd)
-        atts.append(fstr.strip())
+            #output
+            ms=min(6,max([len(k) for k in skeys])); fs1='{:'+str(ms)+'s}{}'; fs2=fs1+', {}'
+            fstr=fs2.format(i,nd,dta) if dta!='' else fs1.format(i,nd)
+            atts.append(fstr.strip())
+        except:
+            pass
     return atts
 
 class zdata:
