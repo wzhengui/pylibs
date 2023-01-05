@@ -5,9 +5,11 @@ close("all")
 #inputs
 argv=sys.argv
 if len(argv)==1:
-   note='usage: gp hgrid.gr3 "fmt=0; ec=None; fc=None; lw=0.1; levels=None; ticks=None;\n' +\
+   note='usage: \n' +\
+        '   1). gp hgrid.gr3 "fmt=0; ec=None; fc=None; lw=0.1; levels=None; ticks=None;\n' +\
         '                     xlim=None; ylim=None; clim=None; extend=\'both\'; cb=True;\n' +\
-        '                     xticks=None; yticks=None; figsize=[8,6]"\n'
+        '                     xticks=None; yticks=None; figsize=[8,6]"\n' +\
+        '   2). gp grid.npz "gd.x,gd.y=gd.lon,gd.lat; ec=\'r\'"\n'
    sys.exit(note+'Note: plot settings are optional')
 
 #open ipython
