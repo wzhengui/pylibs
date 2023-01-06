@@ -202,7 +202,10 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        #for run parallel jobs
        if qnode in ['femto','cyclops']:
           scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
-       elif qnode in ['frontera','grace']:
+       elif qnode in ['grace',]:
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout) 
+          if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
+       elif qnode in ['frontera']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['stampede2',]:
