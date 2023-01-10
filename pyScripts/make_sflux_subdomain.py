@@ -26,7 +26,7 @@ for irec,ti in enumerate(mtime):
     for m,svar in enumerate(svars):
         #NARR database
         fname='{}/{}_{:02}/narr_{}.{}_{:02d}_{:02d}.nc'.format(sdir,year,month,svar,year,month,day)
-        bname='{}/sflux_{}_{}.{:04d}.nc'.format(tdir,svar,itag,irec)
+        bname='{}/sflux_{}_{}.{:04d}.nc'.format(tdir,svar,itag,irec+1)
         if day==1 and m==0: print('reading: {}'.format(fname))
 
         #compute indices of subdomaine
