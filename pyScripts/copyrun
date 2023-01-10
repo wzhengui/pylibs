@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+import os,sys
+
+#inputs
+runs=['RUN08aa']  #new runs
+brun='RUN08a' #run to be copied
+
+#copy files
+fnames=['*.out',] #files to be cleaned
+for run in runs:
+    if os.path.exists(run): continue
+    print('copying {} to {}'.format(brun,run))
+    os.mkdir(run)
+    os.system('cd {}; cp -a ../{}/* ./ '.format(run,brun))
+    for fname in fnames: os.system('cd {}; rm {}'.format(run,fname))
+
+    #creat outputs
+    outdir=os.readlink('{}/outputs'.format(brun)).replace(brun,run)
+    if not os.path.exists(outdir): os.system('mkdir -p {}'.format(outdir))
+    os.system('cd {}; rm outputs; ln -sf {} outputs'.format(run,outdir))
+    
+    
