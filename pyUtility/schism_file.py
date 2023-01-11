@@ -2262,7 +2262,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
        xyz:     c_[x,y,z], or bpfile, or c_[x,y]
        fmt:     (optional) 0: read time series @xyz;     1: read transect @xy
-       stacks:  (optional) outpus stack to be extract; all avaiable stacks will be extracted if not specified
+       stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
        ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
        sname:   (optional) variable name for save
@@ -2289,15 +2289,9 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     lx,ly=xyz.T[:2]; npt=len(lx); lz=xyz.T[2] if xyz.shape[1]==3 else zeros(npt)
     pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
 
-    #stacks
-    if stacks is None:
-       stacks=dstacks
-    else:
-       if not hasattr(stacks,'__len__'): stacks=squeeze(array([stacks,stacks]))
-       stacks=arange(stacks[0],stacks[1]+1)
-
     #extract time series@xyz
     S=zdata(); mtime=[]; mdata=[[] for i in varname]
+    stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
     for istack in stacks:
         print('reading stack: {}'.format(istack))
         if outfmt==0:
@@ -2371,8 +2365,9 @@ def get_schism_output_info(run,fmt=0):
     Inputs:
         run:  SCHISM outputs directory
         fmt=0: remove schsim default variables related to grid; fmt=1: not remove
+
     Outputs:
-        fmt=0/1: [modules,outfmt,stacks,svars]
+        fmt=0/1: [modules,outfmt,stacks,svars,svars_2d]
         fmt=2: information about domain-decomposition
     '''
 
