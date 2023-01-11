@@ -3,9 +3,8 @@ import os,time
 
 #inputs
 sdir='/home/g/g260135/work/wangzg/DSP/RUN08a/outputs' #source dir.
-tdir='/sciclone/pscr/wangzg/DSP/RUN08a/outputs' #target dir. in sciclone
+tdir=os.getenv('Hurricane')+'/sciclone/pscr/wangzg/DSP/RUN08a/outputs' #target dir. on sciclone
 
-cluster=os.getenv('Hurricane')  #target server
 walltime=48 #hours, program exits when runtime exceeds walltime
 stime=60    #sleep interval for each loop checking the outputs
 
@@ -21,7 +20,7 @@ while True:
        #check file mtime, and transfer file if it is new
        print(sdir+"/"+fname)
        if (fname in snames) and stimes[snames.index(fname)]>=mtime: continue
-       os.system('rsync -raP {}/{} {}{}/'.format(sdir,fname,cluster,tdir)); iflag=0
+       os.system('rsync -raP {}/{} {}/'.format(sdir,fname,tdir)); iflag=0
 
        #save files transfered
        if fname in snames:
