@@ -2359,6 +2359,71 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if fname is not None: savez(fname,S)
     return S
 
+def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None):
+    '''
+    extract slabs of SCHISM results (works for scribe IO and combined oldIO)
+       run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
+       varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
+       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level) 
+       stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
+       nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
+       mdt:     (optional) time window (day) for averaging output
+       sname:   (optional) variable name for save
+       fname:   (optional) save the results as fname.npz
+    '''
+    #proc
+    bdir=run+'/outputs'; modules,outfmt,dstacks,dvars,dvars_2d =get_schism_output_info(bdir,1)
+    if isinstance(varname,str): varname=[varname]
+    if sname is None: sname=varname
+    if stacks is None: stacks=dstacks
+    if outfmt==1: sys.exit('OLDIO not supported yet')
+    
+    #read output
+    S=zdata(); sdict=S.__dict__; sdict['time']=[]; S.levels=array(levels)
+    for i in sname: sdict[i]=[]
+    for istack in [*unique(stacks).ravel()]:
+        if outfmt==0:
+           C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
+           #np=C0.dimensions['nSCHISM_hgrid_node'].size; ne=C0.dimensions['nSCHISM_hgrid_face'].size
+           mt=array(C0.variables['time'][:])/86400; nt=len(mt); sdict['time'].extend(mt[::nspool])
+    
+        for snamei,varnamei in zip(sname,varname):
+            svars=get_schism_var_info(varnamei,modules,fmt=outfmt); nvar=len(svars)
+            for m,[vari,svar] in enumerate(svars):
+                if svar in dvars_2d:  #2D
+                   A=array([array(C0.variables[svar][i]).astype('float32') for i in arange(nt) if i%nspool==0])
+                else:   #3D
+                   C=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1); A=[]
+                   for n,k in enumerate(levels):
+                       if ('kbp' not in locals()) and (k>nvrt): #get bottom index
+                          grd=run+'grid.npz'; vd=loadz(grd,['vgrid']).vgrid if os.path.exists(grd) else read_schism_vgrid(run+'/vgrid.in')
+                          sindp=arange(vd.np); kbp=vd.kbp
+                       if k>nvrt:
+                          a=array([array(C.variables[svar][i][sindp,kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
+                       else:
+                          a=array([array(C.variables[svar][i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
+                       A.append(a)
+                   A=A[0] if len(levels)==1 else array(A).transpose([1,0,2]); C.close()
+                datai=A if m==0 else c_[datai[...,None],A[...,None]]
+            S.__dict__[snamei].extend(datai)
+        C0.close()
+    sind=argsort(array(S.time))
+    for i in ['time',*sname]: sdict[i]=array(sdict[i])[sind]
+
+    #average data
+    if mdt is not None:
+       M=zdata(); mdict=M.__dict__
+       for i in ['time',*sname]: mdict[i]=[]
+       for ti in arange(S.time[0],S.time[-1],mdt):
+           fpt=(S.time>=ti)*(S.time<(ti+mdt))
+           for i in ['time',*sname]: mdict[i].append(sdict[i][fpt].mean(axis=0))
+       for i in ['time',*sname]: mdict[i]=array(mdict[i])
+       S=M
+
+    #save data
+    if fname is not None: savez(fname,S)
+    return S
+
 def get_schism_output_info(run,fmt=0):
     '''
     get info. about SCHISM ["modules", "output format", "stacks", "output variables", "output 2D variables"]
