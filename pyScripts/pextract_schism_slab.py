@@ -36,7 +36,7 @@ qname='compute'    #partition name
 account='gg0028'   #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
 
 brun=os.path.basename(run); jname='Rd_'+brun #job name
-ibatch=0; scrout='screen_{}.out'.format(brun); bdir=os.path.abspath(os.path.curdir)
+ibatch=1; scrout='screen_{}.out'.format(brun); bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
