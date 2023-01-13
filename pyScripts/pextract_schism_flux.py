@@ -87,7 +87,7 @@ for m,[x0,y0] in enumerate(txy):
        xi,yi=x0,y0;
     npt=len(xi); ds=abs(diff(xi+1j*yi))
     if sum(gd.inside_grid(c_[xi,yi])==0)!=0: sys.exit('pts outside of domain: {}'.format(m))
-    if 'prj' in locals(): pxi,pyi=proj_pts(xi,yi,'epsg:4326',prj); ds=abs(diff(pxi,pyi))
+    if 'prj' in locals(): pxi,pyi=proj_pts(xi,yi,'epsg:4326',prj); ds=abs(diff(pxi+1j*pyi))
 
     #transect property
     angle=array([arctan2(yi[i+1]-yi[i],xi[i+1]-xi[i]) for i in arange(npt-1)])   #angle for each subsection
