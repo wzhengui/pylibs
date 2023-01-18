@@ -6,14 +6,14 @@ close("all")
 #------------------------------------------------------------------------------
 #input
 #------------------------------------------------------------------------------
-StartT=datenum(2004,7,1); EndT=datenum(2005,1,1)
+StartT=datenum(2018,1,1); EndT=datenum(2021,1,1)
 grd='../grid.npz'
 dir_hycom='../../../HYCOM/Data'
 
 #parameters to each files
-iflags=[1,1,1,1,1,1]                    #if iflag=0: skip generating file 
+iflags=[1,0,0,1,1,1]                    #if iflag=0: skip generating file 
 dts=[1/24, 1.0, 1.0, 1/24, 1.0, 1.0]    #time steps for each file (day)
-iLP=[1,0,0,1,0,0];   fc=0.5             #iLP=1: remove tidal signal with cutoff frequency fc (day)
+iLP=[1,0,0,1,0,0];   fc=0.25            #iLP=1: remove tidal signal with cutoff frequency fc (day)
 snames=['elev2D.th.nc','TEM_3D.th.nc','SAL_3D.th.nc','uv3D.th.nc','TEM_nu.nc','SAL_nu.nc']
 svars=['surf_el','water_temp','salinity',['water_u','water_v'],'water_temp','salinity']
 mvars=['elev','temp','salt',['u','v'],'temp','salt']
@@ -53,7 +53,8 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
     bxyz=c_[lxi,lyi,lzi]
 
     #interp in space
-    S=zdata(); S.time=[]; [exec('S.{}=[]'.format(i)) for i in mvar]
+    S=zdata(); sdict=S.__dict__
+    for i in ['time',*mvar]: sdict[i]=[]
     sx0,sy0,sz0=None,None,None #used for check whether HYCOM files have the same dimensions
     for m,fname in enumerate(fnames):
         C=ReadNC('{}/{}'.format(dir_hycom,fname),1); print(fname)
@@ -88,7 +89,8 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
         S.time.extend(ctime)
         for i, cti in enumerate(ctime):
             for k,[svari,mvari] in enumerate(zip(svar,mvar)):
-                exec("cv=array(C.variables['{}'][{}])".format(svari,i))
+                cv=array(C.variables[svari][i])
+                if sum(abs(cv)<1e3)==0: sdict[mvari].append(sdict[mvari][-1]); continue #fix nan data at this time
                 #interp in space
                 if mvari=='elev':
                     #remove HYCOM nan pts
@@ -106,6 +108,7 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
                     #remove HYCOM nan pts
                     if ifix==0:
                         for ii in arange(nz):
+                            if sum(abs(cv[ii])<1e3)==0: cv[ii]=cv[ii-1] #fix nan data for whole level
                             sindn,sindp=sindns[ii],sindps[ii]
                             if len(sindp)!=0:
                                cvi=cv[ii].ravel(); fpn=(abs(cvi[sindn])>1e3)*(abs(cvi[sindp])<1e3); cvi[sindn]=cvi[sindp]; fpn=abs(cvi)>1e3 #init fix
@@ -118,19 +121,18 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
                     v11=v0[0]*(1-ratx)+v0[1]*ratx;  v12=v0[2]*(1-ratx)+v0[3]*ratx; v1=v11*(1-raty)+v12*raty
                     v21=v0[4]*(1-ratx)+v0[5]*ratx;  v22=v0[6]*(1-ratx)+v0[7]*ratx; v2=v21*(1-raty)+v22*raty
                     vi=v1*(1-ratz)+v2*ratz  #interp in space
-                exec('S.{}.append(vi)'.format(mvari)) #save data
+                sdict[mvari].append(vi) #save data
         C.close();
-    S.time=array(S.time); [exec('S.{}=array(S.{})'.format(i,i)) for i in mvar]
+    for i in ['time',*mvar]: sdict[i]=array(sdict[i])
 
     #interp in time
     mtime=arange(StartT,EndT+dt,dt); nt=len(mtime)
     for mvari in mvar:
-        exec('vi=S.{}'.format(mvari))
-        svi=interpolate.interp1d(S.time,vi,axis=0)(mtime)
+        svi=interpolate.interp1d(S.time,sdict[mvari],axis=0)(mtime)
         if iLP[n]==1: svi=lpfilt(svi,dt,fc) #low-pass
-        exec('S.{}=svi'.format(mvari))
+        sdict[mvari]=svi
     S.time=mtime
-    [exec('S.{}=S.{}.reshape([{},{},{}])'.format(i,i,nt,nobn,nvrt)) for i in mvar if i!='elev'] #reshape the data, and save
+    for i in setdiff1d(mvar,'elev'): sdict[i]=sdict[i].reshape([nt,nobn,nvrt]) #reshape the data 
 
     #--------------------------------------------------------------------------
     #create netcdf
@@ -143,7 +145,7 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
        elif sname=='uv3D.th.nc':
            dims=[nobn,nvrt,2,1,nt]; vi=c_[S.u[...,None],S.v[...,None]]
        elif sname in ['TEM_3D.th.nc','SAL_3D.th.nc']:
-           dims=[nobn,nvrt,1,1,nt]; exec('vi=S.{}[...,None]'.format(mvar[0]))
+           dims=[nobn,nvrt,1,1,nt]; vi=sdict[mvar[0]][...,None]
        nd=zdata(); nd.dimname=dimname; nd.dims=dims
 
        #define variables
@@ -153,7 +155,7 @@ for n,[sname,svar,mvar,dt,iflag] in enumerate(zip(snames,svars,mvars,dts,iflags)
     else:
        #define dimensions
        dimname=['time','node','nLevels','one']
-       dims=[nt,nobn,nvrt,1]; exec('vi=S.{}[...,None]'.format(mvar[0]))
+       dims=[nt,nobn,nvrt,1]; vi=sdict[mvar[0]][...,None]
        nd=zdata(); nd.dimname=dimname; nd.dims=dims
 
        #nd.vars=['time', 'map_to_global_node', 'tracer_concentration']
