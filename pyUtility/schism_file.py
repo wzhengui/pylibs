@@ -532,6 +532,7 @@ class schism_grid:
              mnei:  maximum number of elements in nodal ball
              indel: indices for each nodal ball
              ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
+             inp:   node indices for each nodal ball
         '''
 
         #get index of all node and elements
@@ -544,6 +545,7 @@ class schism_grid:
         self.ine=-ones([self.np,self.mnei]).astype('int')
         for i in arange(self.mnei): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
         self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)],dtype='O')
+        self.inp=array([setdiff1d(gd.elnode[gd.indel[i]].ravel(),[i,-2]) for i in arange(gd.np)],dtype='O')
         return self.nne
 
     def compute_ic3(self):
