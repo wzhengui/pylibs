@@ -545,7 +545,7 @@ class schism_grid:
         self.ine=-ones([self.np,self.mnei]).astype('int')
         for i in arange(self.mnei): fpe=self.nne>i; sinde=sind[fpe]+i; self.ine[fpe,i]=elem[sinde]
         self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)],dtype='O')
-        self.inp=array([setdiff1d(gd.elnode[gd.indel[i]].ravel(),[i,-2]) for i in arange(gd.np)],dtype='O')
+        self.inp=array([setdiff1d(self.elnode[self.indel[i]].ravel(),[i,-2]) for i in arange(self.np)],dtype='O')
         return self.nne
 
     def compute_ic3(self):
