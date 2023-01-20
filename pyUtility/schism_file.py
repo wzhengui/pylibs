@@ -524,15 +524,17 @@ class schism_grid:
         '''
         return self.compute_node_ball(**args)
 
-    def compute_node_ball(self):
+    def compute_node_ball(self,fmt=0):
         '''
-        compute nodal ball information: nne,mnei,indel,ine
+        compute nodal ball information: nne,mnei,indel,ine,inp
         where:
              nne:   number of elements in nodal ball
              mnei:  maximum number of elements in nodal ball
              indel: indices for each nodal ball
              ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
              inp:   node indices for each nodal ball
+
+        fmt=0: not compute inp; fmt=1: compute inp
         '''
 
         #get index of all node and elements
@@ -547,11 +549,13 @@ class schism_grid:
         self.indel=array([array(i[:k]) for i,k in zip(self.ine,self.nne)],dtype='O')
 
         #compute inp
-        #self.inp=array([setdiff1d(self.elnode[self.indel[i]].ravel(),[i,-2]) for i in arange(self.np)],dtype='O')
-        inp=self.elnode[self.ine].reshape([self.np,4*self.mnei])
-        inp=[set(i[:4*k]) for m,[k,i] in enumerate(zip(self.nne,inp))]
-        [i.remove(-2) for i in inp if (-2 in i)]; [i.remove(k) for k,i in enumerate(inp)]
-        self.inp=array([array([*i]) for i in inp],dtype='O')
+        if fmt==1:
+           #self.inp=array([setdiff1d(self.elnode[self.indel[i]].ravel(),[i,-2]) for i in arange(self.np)],dtype='O')
+           inp=self.elnode[self.ine].reshape([self.np,4*self.mnei])
+           inp=[set(i[:4*k]) for m,[k,i] in enumerate(zip(self.nne,inp))]
+           [i.remove(-2) for i in inp if (-2 in i)]; [i.remove(k) for k,i in enumerate(inp)]
+           self.inp=array([array([*i]) for i in inp],dtype='O')
+
         return self.nne
 
     def compute_ic3(self):
