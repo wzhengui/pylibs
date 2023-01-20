@@ -2267,7 +2267,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,grid=None,fmt=0,extend=0):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,grid=None,fmt=0,extend=0,prj=None):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -2281,6 +2281,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        fname:   (optional) save the results as fname.npz
        grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
        extend:  (optional) 0: extend bottom value beyond;  1: assign nan for value beyond bottom
+       prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
     '''
 
     #get schism outputs information
@@ -2299,6 +2300,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if isinstance(xyz,str): bp=read_schism_bpfile(xyz); xyz=c_[bp.x,bp.y,bp.z]
     if array(xyz).ndim==1: xyz=array(xyz)[None,:]
     lx,ly=xyz.T[:2]; npt=len(lx); lz=xyz.T[2] if xyz.shape[1]==3 else zeros(npt)
+    if prj is not None: lx,ly=proj_pts(lx,ly,prj[0],prj[1])
     pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
 
     #extract time series@xyz

@@ -19,6 +19,7 @@ sname='./icm'
 #stacks=[1,3]    #outputs stacks to be extracted
 #nspool=12       #sub-sampling frequency within each stack (1 means all)
 #rvars=['elev','salt','hvel','NO3'] #rname the varibles 
+#prj=['epsg:26918','epsg:4326']  #projections used to transform coord. in station.bp
 
 #resource requst 
 walltime='00:10:00' 
@@ -65,6 +66,7 @@ if 'itype' not in locals(): itype=0                              #time series or
 if 'ifs' not in locals(): ifs=0                                  #refer to free surface
 if 'nspool' not in locals(): nspool=1                            #subsample
 if 'rvars' not in locals(): rvars=svars                          #rename variables
+if 'prj' not in locals(): prj=None                               #projections
 modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)     #schism outputs information
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
@@ -80,7 +82,7 @@ for svar in svars:
    for istack in stacks:
        fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
-          read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype)
+          read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype,prj=prj)
           dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results
