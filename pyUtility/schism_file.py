@@ -307,7 +307,7 @@ class schism_grid:
         if (not hasattr(self,'dpe'))  or fmt==1: self.compute_ctr()
         if (not hasattr(self,'area')) or fmt==1: self.compute_area()
         if (not hasattr(self,'dps'))  or fmt==1: self.compute_side(fmt=2)
-        if (not hasattr(self,'ine'))  or fmt==1: self.compute_nne()
+        if (not hasattr(self,'ine'))  or fmt==1: self.compute_nne(fmt=1)
         if (not hasattr(self,'ic3'))  or fmt==1: self.compute_ic3()
 
     def compute_ctr(self):
