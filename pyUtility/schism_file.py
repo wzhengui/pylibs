@@ -1273,19 +1273,21 @@ class schism_bpfile:
         fmt=1: write ACE/gredit *.reg file
         '''
 
+        #check data
+        if (not hasattr(self,'nsta')) or (self.nsta==0 and len(self.x)!=0): self.nsta=len(self.x)
+        if (not hasattr(self,'z')) or (len(self.z)==0 and self.nsta!=0): self.z=zeros(self.nsta)
+        if (not hasattr(self,'station')) or (len(self.station)==0 and self.nsta!=0): self.station=array([str(i+1) for i in arange(self.nsta)])
+        self.np=self.nsta
+
         fid=open(fname,'w+')
         #write header
         if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
         if fmt==0: fid.write('bpfile in ACE/gredit format\n{}\n'.format(self.nsta))
         if fmt==1: fid.write('Region in ACE/gredit format\n1\n{} 1\n'.format(self.nsta))
 
-        #get station names
-        stations=[i+1 for i in arange(self.nsta)]
-        if hasattr(self,'station') and len(self.station)==self.nsta: stations=self.station
-
         #write pts
         for i in arange(self.nsta):
-            if fmt==0: fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],stations[i]))
+            if fmt==0: fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],self.station[i]))
             if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
         fid.close()
 
