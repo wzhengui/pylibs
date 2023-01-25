@@ -2,6 +2,21 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def savefig(fname,**args):
+    '''
+    rewrite python savefig function with new options
+    fname: figure name
+           if fname.endswith('.plt'):
+              save fig in binary format
+           else:
+              plt.savefig(fname)
+    '''
+    if fname.endswith('.plt'):
+       import pickle
+       pickle.dump(gcf(),open(fname, "wb"))
+    else:
+       plt.savefig(fname,**args)
+
 def resize(data,shape):
     '''
     re-define resize function with zeros for the new data
