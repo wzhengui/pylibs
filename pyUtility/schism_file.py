@@ -2101,6 +2101,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
       fmt=1: copy subdomain output file, and then read
       outfmt=0: float32;  outfmt=1: float64
     '''
+    from time import time as gettime
 
     outdir=rundir+'/outputs/'
     bp=read_schism_bpfile(rundir+'/istation.in')
@@ -2113,7 +2114,7 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
 
     #combine station output
     for n,fname in enumerate(fnames):
-        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1
+        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1; t0=gettime()
         if n==0:
            #def dim
            nt=min(nts)
@@ -2143,7 +2144,8 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
             if len(cds)==3 and cds[0]==1: fvar[cn][sind]=array(cvar[cn][0,:,:nt])
             if len(cds)==3 and cds[0]!=1: fvar[cn][sind]=array(cvar[cn][...,:nt]).transpose([1,0,2])
         fvar['station'][:]=bp.station
-        C.close()
+        C.close(); dt=gettime()-t0
+        if dt>1: print('finish combining {}/{}: {}, {:0.1f}'.format(n+1,len(fnames),fname,dt))
         if fmt==1: os.remove(fname)
     fid.close()
 
