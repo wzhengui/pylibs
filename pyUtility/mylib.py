@@ -599,8 +599,8 @@ def convert_dem_format(fname,sname=None,fmt=None):
         elev=tiff.imread(fname).astype('float32'); nrows,ncols=elev.shape
         ginfo=tiff.TiffFile(fname).geotiff_metadata
         dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
-        lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
-        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev
+        lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows); elev[abs(elev)>=9999]=-9999.0
+        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev; S.nodata=-9999.0
 
     #save data
     if sname is not None: savez(sname,S)
