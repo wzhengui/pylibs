@@ -2,6 +2,13 @@
 from pylib import *
 
 #-------misc-------------------------------------------------------------------
+def pplot(fnames):
+    '''
+    function to display figures in python format (*.plt)
+    '''
+    hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
+    return hfs
+
 def savefig(fname,**args):
     '''
     rewrite python savefig function with new options
