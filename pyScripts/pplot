@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+import sys,pickle,time
+from matplotlib.pyplot import show
+
+if len(sys.argv)==1:
+   sys.exit('Usage: pplot *.plt\n')
+hfs=[pickle.load(open(i,'rb')) for i in sys.argv[1:]]; show()
