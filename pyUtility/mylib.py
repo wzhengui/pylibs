@@ -6,6 +6,7 @@ def pplot(fnames):
     '''
     function to display figures in python format (*.pp)
     '''
+    if isinstance(fnames,str): fnames=[fnames]
     hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
     return hfs
 
