@@ -4,7 +4,7 @@ from pylib import *
 #-------misc-------------------------------------------------------------------
 def pplot(fnames):
     '''
-    function to display figures in python format (*.plt)
+    function to display figures in python format (*.pp)
     '''
     hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
     return hfs
@@ -13,12 +13,12 @@ def savefig(fname,**args):
     '''
     rewrite python savefig function with new options
     fname: figure name
-           if fname.endswith('.plt'):
+           if fname.endswith('.pp'):
               save fig in binary format
            else:
               plt.savefig(fname)
     '''
-    if fname.endswith('.plt'):
+    if fname.endswith('.pp'):
        import pickle
        pickle.dump(gcf(),open(fname, "wb"))
     else:

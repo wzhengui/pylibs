@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 import sys,pickle,time
 from matplotlib.pyplot import show
+from PIL import Image
 
 if len(sys.argv)==1:
-   sys.exit('Usage: pplot *.plt\n')
-hfs=[pickle.load(open(i,'rb')) for i in sys.argv[1:]]; show()
+   sys.exit('Usage: pplot *.pp\n')
+#hfs=[pickle.load(open(i,'rb')) for i in sys.argv[1:]]; show()
+
+for fname in sys.argv[1:]:
+    if fname.endswith('.pp'):
+       hf=pickle.load(open(fname,'rb'))
+    else:
+       hf=Image.open(fname); hf.show()
+show()
