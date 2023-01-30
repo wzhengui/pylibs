@@ -339,7 +339,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
     load bathymetry data onto points(xy)
     Input:
-        fname: name of DEM file (format can be *.asc or *.npz)
+        fname: name of DEM file (format can be *.asc, *.npz, or schism grid "grid.npz" )
 
     Outpt:
         fmt=0: return dp; depth interpolated for all points
@@ -347,12 +347,15 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
 
     #input
-    xi0=x; yi0=y
+    xi0=x; yi0=y; igrd=0
 
     #read DEM
     if fname.endswith('npz'):
-        S=loadz(fname,svars=['lon','lat'])
-        dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
+        try:
+          S=loadz(fname,svars=['ne','np']); igrd=1 #unstructured schism grid
+        except:
+          S=loadz(fname,svars=['lon','lat'])
+          dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     elif fname.endswith('asc'):
         S=zdata();
         #read *.asc data
@@ -375,9 +378,13 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
         sys.exit('wrong format of DEM')
 
     #check domain of DEM
-    if xi0.min()>=(S.lon.max()+dx/2) or xi0.max()<=(S.lon.min()-dx/2) or \
-       yi0.min()>=(S.lat.max()+dy/2) or yi0.max()<=(S.lat.min()-dy/2):
-       #return depth
+    if igrd==0:
+       xm=[S.lon.min()-dx/2, S.lon.max()+dx/2]; ym=[S.lat.min()-dy/2, S.lat.max()+dy/2]
+    else:
+       from .schism_file import schism_grid
+       gd=schism_grid(); gd.__dict__=loadz(fname).__dict__
+       xm=[gd.x.min(),gd.x.max()]; ym=[gd.y.min(),gd.y.max()]
+    if xi0.min()>=xm[1] or xi0.max()<=xm[0] or yi0.min()>=ym[1] or yi0.max()<=ym[0]: #return depth
        if fmt==0:
           if z is None: z=zeros(len(x))*nan
           return z
@@ -386,70 +393,79 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
        else:
           sys.exit('wrong fmt')
 
-    #load DEMs
-    if fname.endswith('npz'):
-        S=loadz(fname)
-        if not hasattr(S,'nodata'): S.nodata=None
-    elif fname.endswith('asc'):
-        S.elev=loadtxt(fname,skiprows=6)
+    if igrd==0: #raster file
+       #load DEMs
+       if fname.endswith('npz'):
+           S=loadz(fname)
+           if not hasattr(S,'nodata'): S.nodata=None
+       elif fname.endswith('asc'):
+           S.elev=loadtxt(fname,skiprows=6)
 
-    #change y direction
-    if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
-    lon=S.lon; dx=diff(lon).mean()
-    lat=S.lat; dy=diff(lat).mean()
-    lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
+       #change y direction
+       if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
+       lon=S.lon; dx=diff(lon).mean()
+       lat=S.lat; dy=diff(lat).mean()
+       lon1=lon.min(); lon2=lon.max(); lat1=lat.min(); lat2=lat.max()
 
-    #move (x,y) by half cell
-    fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1
-    fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1
-    fpn=(xi0>=lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2-dx*1e-6
-    fpn=(yi0>=lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2-dy*1e-6
+       #move (x,y) by half cell
+       fpn=(xi0>=(lon1-dx/2))*(xi0<lon1); xi0[fpn]=lon1
+       fpn=(yi0>=(lat1-dy/2))*(yi0<lat1); yi0[fpn]=lat1
+       fpn=(xi0>=lon2)*(xi0<=(lon2+dx/2)); xi0[fpn]=lon2-dx*1e-6
+       fpn=(yi0>=lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2-dy*1e-6
 
-    #get (x,y) inside dem domain
-    sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
-    xi=xi0[sindp]; yi=yi0[sindp]
+       #get (x,y) inside dem domain
+       sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
+       xi=xi0[sindp]; yi=yi0[sindp]
 
-    #compute index of (x,y)
-    idx=floor((xi-lon[0])/dx).astype('int')
-    idy=floor((yi-lat[0])/dy).astype('int')
+       #compute index of (x,y)
+       idx=floor((xi-lon[0])/dx).astype('int')
+       idy=floor((yi-lat[0])/dy).astype('int')
 
-    #make sure lon[idx]<=xi
-    sind=nonzero((lon[idx]-xi)>0)[0]
-    while len(sind)!=0:
-        idx[sind]=idx[sind]-1
-        fps=nonzero((lon[idx[sind]]-xi[sind])>0)[0]
-        sind=sind[fps]
+       #make sure lon[idx]<=xi
+       sind=nonzero((lon[idx]-xi)>0)[0]
+       while len(sind)!=0:
+           idx[sind]=idx[sind]-1
+           fps=nonzero((lon[idx[sind]]-xi[sind])>0)[0]
+           sind=sind[fps]
 
-    #make sure lat[idy]<=yi
-    sind=nonzero((lat[idy]-yi)>0)[0]
-    while len(sind)!=0:
-        idy[sind]=idy[sind]-1
-        fps=nonzero((lat[idy[sind]]-yi[sind])>0)[0]
-        sind=sind[fps]
+       #make sure lat[idy]<=yi
+       sind=nonzero((lat[idy]-yi)>0)[0]
+       while len(sind)!=0:
+           idy[sind]=idy[sind]-1
+           fps=nonzero((lat[idy[sind]]-yi[sind])>0)[0]
+           sind=sind[fps]
 
-    #compute xrat and yrat
-    xrat=(xi-lon[idx])/(lon[idx+1]-S.lon[idx])
-    yrat=(yi-lat[idy])/(lat[idy+1]-S.lat[idy])
-    if sum((xrat<0)*(xrat>1))!=0: sys.exit('xrat<0 or xrat>1')
-    if sum((yrat<0)*(yrat>1))!=0: sys.exit('yrat<0 or yrat>1')
+       #compute xrat and yrat
+       xrat=(xi-lon[idx])/(lon[idx+1]-S.lon[idx])
+       yrat=(yi-lat[idy])/(lat[idy+1]-S.lat[idy])
+       if sum((xrat<0)*(xrat>1))!=0: sys.exit('xrat<0 or xrat>1')
+       if sum((yrat<0)*(yrat>1))!=0: sys.exit('yrat<0 or yrat>1')
 
-    #make sure elevation is within right range
-    if S.nodata is not None:
-        if isnan(S.nodata):
-           fpz=isnan(S.elev)
-        else:
-           #fpz=(abs(S.elev)>1.5e4)|(S.elev==S.nodata)|(abs(S.elev-S.nodata)<1)
-           fpz=S.elev==S.nodata
-        S.elev[fpz]=nan
+       #make sure elevation is within right range
+       if S.nodata is not None:
+           if isnan(S.nodata):
+              fpz=isnan(S.elev)
+           else:
+              #fpz=(abs(S.elev)>1.5e4)|(S.elev==S.nodata)|(abs(S.elev-S.nodata)<1)
+              fpz=S.elev==S.nodata
+           S.elev[fpz]=nan
 
-    #compute depth
-    dp1=S.elev[idy,idx]*(1-xrat)+S.elev[idy,idx+1]*xrat
-    dp2=S.elev[idy+1,idx]*(1-xrat)+S.elev[idy+1,idx+1]*xrat
-    dp=dp1*(1-yrat)+dp2*yrat
+       #compute depth
+       dp1=S.elev[idy,idx]*(1-xrat)+S.elev[idy,idx+1]*xrat
+       dp2=S.elev[idy+1,idx]*(1-xrat)+S.elev[idy+1,idx+1]*xrat
+       dp=dp1*(1-yrat)+dp2*yrat
 
-    #make sure elevation is within right range
-    if S.nodata is not None:
-        fpz=~isnan(dp); sindp=sindp[fpz]; dp=dp[fpz]
+       #make sure elevation is within right range
+       if S.nodata is not None:
+           fpz=~isnan(dp); sindp=sindp[fpz]; dp=dp[fpz]
+
+    elif igrd==1: #schism grid (unstrucured data)
+       sind=nonzero((xi0>=xm[0])*(xi0<=xm[1])*(yi0>=ym[0])*(yi0<=ym[1]))[0]
+       pie,pip,pacor=gd.compute_acor(c_[xi0[sind],yi0[sind]]); fp=pie!=-1
+       if sum(fp)!=0:
+          sindp=sind[fp]; dp=-(gd.dp[pip[fp]]*pacor[fp]).sum(axis=1)
+       else:
+          sindp=array([]).astype('int'); dp=array([])
 
     #return depth
     if fmt==0:
