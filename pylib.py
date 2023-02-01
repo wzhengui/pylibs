@@ -169,6 +169,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import move_figure as mvfig
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
    from pyUtility.mylib import convert_matfile as mat2npz
+   from pyUtility.mylib import convert_matfile as loadm
    from pyUtility.mylib import convert_dem_format as read_dem
    from pyUtility.mylib import read_shapefile_data as read_shp
    from pyUtility.mylib import write_shapefile_data as write_shp
