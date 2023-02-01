@@ -51,16 +51,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from scipy.fftpack import fft, ifft
    #from scipy import (optimize,interpolate,io,signal)
 
-   #pandas
-   import pandas as pd
-
-   #misc
-   import re
-   import datetime
-   #from io import StringIO
-   #import imp
-   #import importlib as imp
-
    #proj
    from pyproj import Transformer
    #from pyproj import Proj, transform
@@ -112,6 +102,15 @@ if not set(Libs).issubset(set(sys.modules.keys())):
           ssl._create_default_https_context = _create_unverified_https_context
    except:
       pass
+
+   #misc
+   import datetime
+
+   #import pandas as pd
+   #import re
+   #from io import StringIO
+   #import imp
+   #import importlib as imp
 
    #reload
    #try:

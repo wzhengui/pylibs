@@ -92,6 +92,8 @@ def read_excel(fname,sht=0,fmt=0):
       sht:   name of sheet_name, or number of sheet (default is 0)
       fmt=0: not treat 1st line as header, return data only; fmt=1: treat 1st line as header, return header and data
     '''
+    import pandas as pd
+
     if fmt==0:
        fd=pd.read_excel(fname,sheet_name=sht,header=None)
     else:
@@ -119,6 +121,7 @@ def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        fmt=2: only replace sheet, but keep other sheets of excel file
     '''
     import openpyxl
+    import pandas as pd
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
@@ -1671,6 +1674,7 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
 
         prj=dict()
         for fname in fnames:
+            import re
             R=re.match('epsg.(\d+).prj',fname);
             if not R: continue
             prj_num=int(R.groups()[0])
