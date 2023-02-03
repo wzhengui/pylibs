@@ -10,8 +10,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     	    'pyScripts',
         ],
         py_modules=['pylib'],
-        version='0.1.11',  # Ideally should be same as your GitHub release tag varsion
-        package_data={'pyUtility': ['prj.npz']},
+        version='0.1.12',  # Ideally should be same as your GitHub release tag varsion
+        package_data={'pyScripts': ['prj.npz','sflux_template.npz','Harmonic_Analysis']},
         description='python libraries and utilities for pre/post-processing SCHISM models',
         long_description='python libraries and utilities for pre/post-processing SCHISM models',
         author='Zhengui Wang',
