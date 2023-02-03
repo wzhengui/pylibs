@@ -175,7 +175,6 @@ class schism_grid:
 
         '''
         if ax!=None: sca(ax)
-        if len(c)==1: c=c*2
         if not hasattr(self,'nob'): self.compute_bnd()
 
         #get indices for bnds
@@ -196,10 +195,10 @@ class schism_grid:
         bx2=self.x[sindl]; by2=self.y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
 
-        hb1=plot(bx1,by1,c[0],lw=lw,**args)
-        hb2=plot(bx2,by2,c[-1],lw=lw,**args)
-        #show(block=False)
-        self.hb=[hb1,hb2]
+        if len(c)==1:
+           hb=plot(r_[bx1,nan,bx2],r_[by1,nan,by2],c,lw=lw,**args); self.hb=hb
+        else:
+          hb1=plot(bx1,by1,c[0],lw=lw,**args); hb2=plot(bx2,by2,c[-1],lw=lw,**args); self.hb=[hb1,hb2]
         if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
