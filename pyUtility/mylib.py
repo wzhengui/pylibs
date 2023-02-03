@@ -1018,7 +1018,6 @@ def savez(fname,data,fmt=0):
        save_str=save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars)'
        exec(save_str)
     elif fmt==1:
-       if hasattr(data,'VINFO'): del data.VINFO
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
 
 def loadz(fname,svars=None):
