@@ -164,7 +164,7 @@ class schism_grid:
         '''
         alias for plot_grid()
         '''
-        return self.plot_grid(**args)
+        return self.plot(**args)
 
     def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
         '''
@@ -935,7 +935,7 @@ class schism_grid:
         if not hasattr(self,'xctr'): self.compute_ctr()
 
         qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
-        self.plot_grid()
+        self.plot()
         plot(qxi,qyi,'.',color=color,ms=ms,*args)
         #show(block=False)
         pass
@@ -1173,7 +1173,7 @@ class schism_grid:
             gcf().canvas.draw()
 
         #add bnd icon
-        if mpl._pylab_helpers.Gcf.get_active() is None: self.plot_grid()
+        if mpl._pylab_helpers.Gcf.get_active() is None: self.plot()
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else gcf().canvas.toolbar.addAction('bnd')
 
