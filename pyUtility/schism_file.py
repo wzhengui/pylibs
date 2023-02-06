@@ -388,7 +388,7 @@ class schism_grid:
         compute side information of schism's hgrid
         fmt=0: compute ns (# of sides) only
         fmt=1: compute (ns,isidenode,isdel)
-        fmt=2: compute (ns,isidenode,isdel), and (xcj,ycj,dps,distj)
+        fmt=2: compute (ns,isidenode,isdel), (xcj,ycj,dps,distj), and (nns,ins)
         '''
 
         #collect sides
@@ -417,6 +417,12 @@ class schism_grid:
            if fmt==2:
               self.xcj,self.ycj,self.dps=c_[self.x,self.y,self.dp][self.isidenode].mean(axis=1).T
               self.distj=abs(diff(self.x[self.isidenode],axis=1)+1j*diff(self.y[self.isidenode],axis=1))[:,0]
+
+              inode=self.isidenode.ravel(); iside=tile(arange(self.ns),2) #node-side table
+              sind=argsort(inode); inode=inode[sind]; iside=iside[sind]
+              self.nns=unique(inode,return_counts=True)[1]; self.ins=-ones([self.np,self.nns.max()]).astype('int'); n=0
+              for i in arange(self.np): self.ins[i,:self.nns[i]]=iside[n:(n+self.nns[i])]; n=n+self.nns[i]
+
            return self.ns,self.isidenode,self.isdel
 
     def compute_bnd(self,bxy=None):
@@ -523,13 +529,13 @@ class schism_grid:
            self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
            self.nlbn=array(self.nlbn); self.ilbn=array(self.ilbn,dtype='O'); self.island=array(self.island)
 
-    def compute_nne(self,**args):
+    def compute_node_ball(self,**args):
         '''
-        alias for compute_node_ball()
+        alias for compute_nne()
         '''
-        return self.compute_node_ball(**args)
+        return self.compute_nne(**args)
 
-    def compute_node_ball(self,fmt=0):
+    def compute_nne(self,fmt=0):
         '''
         compute nodal ball information: nne,mnei,indel,ine,inp
         where:
@@ -560,6 +566,8 @@ class schism_grid:
            inp=[set(i[:4*k]) for m,[k,i] in enumerate(zip(self.nne,inp))]
            [i.remove(-2) for i in inp if (-2 in i)]; [i.remove(k) for k,i in enumerate(inp)]
            self.inp=array([array([*i]) for i in inp],dtype='O')
+           self.nnp=array([len(i) for i in self.inp]); self.mnpi=self.nnp.max(); self.indnd=-ones([self.np,self.mnpi]).astype('int')
+           for i,[k,n] in enumerate(zip(self.nnp,self.inp)): self.indnd[i,:k]=n
 
         return self.nne
 
