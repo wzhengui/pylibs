@@ -21,8 +21,8 @@ class schism_grid:
     def VINFO(self):
         return get_VINFO(self)
 
-    def plot(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,
-             lw=0.1,levels=None,ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
+    def plot(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,lw=0.1,levels=None,
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,grid_line=0,**args):
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
@@ -34,6 +34,7 @@ class schism_grid:
         ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
         clim=[vmin,vmax]: value range for plot/colorbar
         cb=False: not add colorbar
+        grid_line: compute grid line based on each side (=0) or each element(=1)
         '''
 
         if ec is None: ec='None'
@@ -44,16 +45,21 @@ class schism_grid:
            fp3=self.i34==3; fp4=self.i34==4
            # if mask is not None: fp3=fp3*mask; fp4=fp4*mask
            if (fmt==0)|(ec!='None'): #compute lines of grid
-              #tri
-              tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
-              x3=self.x[tri]; y3=self.y[tri]
-              x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
-              y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
-              #quad
-              quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]]
-              x4=self.x[quad]; y4=self.y[quad]
-              x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
-              y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
+              if grid_line==0:
+                 if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+                 x3=c_[self.x[self.isidenode],nan*zeros(self.ns)].ravel(); x4=[]
+                 y3=c_[self.y[self.isidenode],nan*zeros(self.ns)].ravel(); y4=[]
+              else:
+                 #tri
+                 tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
+                 x3=self.x[tri]; y3=self.y[tri]
+                 x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
+                 y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
+                 #quad
+                 quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]]
+                 x4=self.x[quad]; y4=self.y[quad]
+                 x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
+                 y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
 
            if fmt==0:
               if ec=='None': ec='k'
