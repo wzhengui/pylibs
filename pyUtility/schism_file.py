@@ -2318,7 +2318,10 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if array(xyz).ndim==1: xyz=array(xyz)[None,:]
     lx,ly=xyz.T[:2]; npt=len(lx); lz=xyz.T[2] if xyz.shape[1]==3 else zeros(npt)
     if prj is not None: lx,ly=proj_pts(lx,ly,prj[0],prj[1])
-    pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T
+    pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T; P=zdata()
+    def _sindex(): #for output@side
+        if not hasattr(gd,'nns'): gd.compute_side(fmt=2)
+        if not hasattr(P,'nns'): P.nns,P.ins=gd.nns[pip],gd.ins[pip]; P.ds=P.ins.shape; P.fp=P.ins!=0
 
     #extract time series@xyz
     S=zdata(); mtime=[]; mdata=[[] for i in varname]
@@ -2341,6 +2344,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     C=C0.variables[svar]; np=C.shape[1]
                     if np==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
                     if np==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
+                    if np==gd.ns: _sindex(); vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in arange(0,nt,nspool)])
                     vs.append(vi)
                 else: #3D
                     #read zcoor,and extend zcoor downward
@@ -2355,6 +2359,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     if np==gd.np and nd==3: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
                     if np==gd.np and nd==4: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...,None]).sum(axis=2)
                     if np==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
+                    if np==gd.ns: _sindex(); vii=array([[(sum(array(C[i,P.ins.ravel(),k]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for k in arange(nvrt)] for i in arange(0,nt,nspool)])
                     vii=vii.transpose([1,0,2]) if nd==3 else vii.transpose([1,0,2,3])
                     if extend==0:
                        for k in arange(nvrt-1): z1=vii[nvrt-k-2]; z2=vii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8] #extend value at bottom
