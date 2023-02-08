@@ -350,7 +350,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     '''
 
     #input
-    xi0=x[:]; yi0=y[:]; igrd=0
+    xi0=x.copy(); yi0=y.copy(); igrd=0
 
     #read DEM
     if fname.endswith('npz'):
