@@ -2081,13 +2081,14 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
 
     #filter elements inside region
     if (reg_in is not None) and len(sindp)!=0:
-        bp=read_schism_bpfile(reg_in,fmt=1)
-        fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],bp.x,bp.y)==1; sindp=sindp[fpr]
+        if isinstance(reg_in,str): bp=read_schism_bpfile(reg_in,fmt=1); reg_in=c_[bp.x,bp.y]
+        print(reg_in.shape); sys.exit()
+        fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],reg_in[:,0],reg_in[:,1])==1; sindp=sindp[fpr]
 
     #filter elements outside region
     if reg_out is not None:
-        bp=read_schism_bpfile(reg_out,fmt=1)
-        sindo=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],bp.x,bp.y)==0)[0]; sindp=r_[sindp,sindo]
+        if isinstance(reg_out,str): bp=read_schism_bpfile(reg_out,fmt=1); reg_out=c_[bp.x,bp.y]
+        sindo=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],reg_out[:,0],reg_out[:,1])==0)[0]; sindp=r_[sindp,sindo]
 
     sind=setdiff1d(arange(gd.ne),sindp)
 
