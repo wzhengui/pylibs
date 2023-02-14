@@ -21,62 +21,50 @@ class schism_grid:
     def VINFO(self):
         return get_VINFO(self)
 
-    def plot(self,ax=None,fmt=0,value=None,mask=None,ec=None,fc=None,lw=0.1,levels=None,
-             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
+    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,method=0,**args):
         '''
         plot grid with default color value (grid depth)
-        method=0: using tricontourf; method=1: using PolyCollection (old method)
         fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
         value: color value size(np,or ne)
-        mask: size(ne); only plot elements (mask=True))
         ec: color of grid line;  fc: element color; lw: grid line width
         levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
         ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
         clim=[vmin,vmax]: value range for plot/colorbar
         cb=False: not add colorbar
+        method=0: using tricontourf/tricontouf; method=1: using tripcolor
         '''
 
         if ec is None: ec='None'
         if fc is None: fc='None'
+        if levels is None: levels=51
         if ax is None: ax=gca()
+        fp3=self.i34==3; fp4=~fp3; vm=clim
 
-        fp3=self.i34==3; fp4=~fp3
-        if fmt in [1,2]: #plot contourf or contour
-           tri=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
-
-           #check value
+        if fmt in [1,2]: #plot contours
+           trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
-           if value.size==self.ne: value=self.interp_elem_to_node(value=value) 
-           if value.size!=self.np: sys.exit('value has wrong size: {}'.format(value.shape))
+           if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
+           if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max((vm[1]-vm[0])*1e-10,1e-10)
 
-           #detemine clim
-           if clim is None:
-              fpn=~isnan(value); vmin,vmax=min(value[fpn]),max(value[fpn])
-              if vmin==vmax: vmax=vmax+1e-6
-           else:
-              vmin,vmax=clim
-
-           #detemine levels
-           if levels is None: levels=51
-           if not hasattr(levels,'__len__'): levels=linspace(vmin,vmax,int(levels))
-
-           #set mask
-           if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
-
-           if (vmax-vmin)/(abs(vmax)+abs(vmin))<1e-10:
-              if fmt==1: hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
-              if fmt==2: hg=tricontour(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
-           else:
-              if fmt==1: hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
-              if fmt==2: hg=tricontour(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+           #plot
+           if fmt==1 and method==1:  #tripcolor
+              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
+           else:  #contourf or contour
+              if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
+              if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
+              if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
+              if fmt==1: hg=tricontourf(self.x,self.y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==2: hg=tricontour(self.x,self.y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
 
            #add colobar
-           cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
-           if cb and fmt==1:
+           cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
+           if cb==True:
               hc=colorbar(hg); self.hc=hc
               if ticks is not None:
                  if not hasattr(ticks,'__len__'):
-                    hc.set_ticks(linspace(vmin,vmax,int(ticks)))
+                    hc.set_ticks(linspace(*vm,int(ticks)))
                  else:
                     hc.set_ticks(ticks)
 
