@@ -21,8 +21,8 @@ class schism_grid:
     def VINFO(self):
         return get_VINFO(self)
 
-    def plot(self,ax=None,method=0,fmt=0,value=None,mask=None,ec=None,fc=None,lw=0.1,levels=None,
-             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,grid_line=0,**args):
+    def plot(self,ax=None,fmt=0,value=None,mask=None,ec=None,fc=None,lw=0.1,levels=None,
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,**args):
         '''
         plot grid with default color value (grid depth)
         method=0: using tricontourf; method=1: using PolyCollection (old method)
@@ -34,138 +34,133 @@ class schism_grid:
         ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
         clim=[vmin,vmax]: value range for plot/colorbar
         cb=False: not add colorbar
-        grid_line: compute grid line based on each side (=0) or each element(=1)
         '''
 
         if ec is None: ec='None'
         if fc is None: fc='None'
         if ax is None: ax=gca()
 
-        if method==0:
-           fp3=self.i34==3; fp4=self.i34==4
-           # if mask is not None: fp3=fp3*mask; fp4=fp4*mask
-           if (fmt==0)|(ec!='None'): #compute lines of grid
-              if grid_line==0:
-                 if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
-                 x3=c_[self.x[self.isidenode],nan*zeros(self.ns)].ravel(); x4=[]
-                 y3=c_[self.y[self.isidenode],nan*zeros(self.ns)].ravel(); y4=[]
-              else:
-                 #tri
-                 tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
-                 x3=self.x[tri]; y3=self.y[tri]
-                 x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
-                 y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
-                 #quad
-                 quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]]
-                 x4=self.x[quad]; y4=self.y[quad]
-                 x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
-                 y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
+        fp3=self.i34==3; fp4=~fp3
+        if fmt in [1,2]: #plot contourf or contour
+           tri=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
 
-           if fmt==0:
-              if ec=='None': ec='k'
-              hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
-           elif fmt in [1,2]:
-              tri=r_[self.elnode[(fp3|fp4),:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
-              #determine value
-              if value is None:
-                 value=self.dp
-              else:
-                 if len(value)==self.ne:
-                    value=self.interp_elem_to_node(value=value)
-                 elif len(value)!=self.np:
-                    sys.exit('value has wrong size: {}'.format(value.shape))
+           #check value
+           if value is None: value=self.dp
+           if value.size==self.ne: value=self.interp_elem_to_node(value=value) 
+           if value.size!=self.np: sys.exit('value has wrong size: {}'.format(value.shape))
 
-              #detemine clim
-              if clim is None:
-                 fpn=~isnan(value); vmin,vmax=min(value[fpn]),max(value[fpn])
-                 if vmin==vmax: vmax=vmax+1e-6
-              else:
-                 vmin,vmax=clim
-
-              #detemine levels
-              if levels is None: levels=51
-              if not hasattr(levels,'__len__'): levels=linspace(vmin,vmax,int(levels))
-
-              #set mask
-              if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
-
-              if (vmax-vmin)/(abs(vmax)+abs(vmin))<1e-10:
-                 if fmt==1: hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
-                 if fmt==2: hg=tricontour(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
-              else:
-                 if fmt==1: hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
-                 if fmt==2: hg=tricontour(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
-
-              #add colobar
-              cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
-              if cb and fmt==1:
-                 #----new method
-                 hc=colorbar(hg); self.hc=hc
-                 if ticks is not None:
-                    if not hasattr(ticks,'__len__'):
-                       hc.set_ticks(linspace(vmin,vmax,int(ticks)))
-                    else:
-                       hc.set_ticks(ticks)
-                 #----old method
-                 #hc=colorbar(hg); self.hc=hc;
-                 #if ticks is not None: hc.set_ticks(ticks)
-                 #hc.set_clim([vmin,vmax]);
-
-              #plot grid
-              if ec!='None': hg=plot(r_[x3,x4],r_[y3,y4],lw=lw,color=ec);
-
-           self.hg=hg; #show(block=False
-           if xlim is not None: setp(ax,xlim=xlim)
-           if ylim is not None: setp(ax,ylim=ylim)
-           if mpl.get_backend().lower() in ['qt5agg','qtagg']:
-              acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-              if 'bp' not in ats: self.bp=schism_bpfile()
-              if 'query' not in ats: self.query_pt()
-              if 'bnd' not in ats: self.create_bnd()
-           return hg
-        elif method==1:
-           #creat polygon
-           xy4=c_[self.x,self.y][self.elnode];
-           xy4=array([s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)])
-
-           #elem value
-           if value is None:
-              if not hasattr(self,'dpe'): self.compute_ctr()
-              value=self.dpe
+           #detemine clim
+           if clim is None:
+              fpn=~isnan(value); vmin,vmax=min(value[fpn]),max(value[fpn])
+              if vmin==vmax: vmax=vmax+1e-6
            else:
-              if len(value)==self.np:
-                 value=self.interp_node_to_elem(value=value)
-              elif len(value)!=self.ne:
-                 sys.exit('value has wrong size: {}'.format(value.shape))
+              vmin,vmax=clim
 
-           # apply mask
-           if mask is not None: xy4=xy4[mask]; value=value[mask]
-              #ind=nonzero(mask)[0]
-              #xy4=xy4[ind];
-              #value=value[ind]
+           #detemine levels
+           if levels is None: levels=51
+           if not hasattr(levels,'__len__'): levels=linspace(vmin,vmax,int(levels))
 
-           #get clim
-           if clim is None: clim=[min(value),max(value)]
+           #set mask
+           if sum(isnan(value))!=0: tri=tri[~isnan(value[tri].sum(axis=1))]
 
-           #plot
-           if fmt==0:
-              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
+           if (vmax-vmin)/(abs(vmax)+abs(vmin))<1e-10:
+              if fmt==1: hg=tricontourf(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
+              if fmt==2: hg=tricontour(self.x,self.y,tri,value,vmin=vmin,vmax=vmax,extend=extend,**args)
            else:
-              hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
+              if fmt==1: hg=tricontourf(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
+              if fmt==2: hg=tricontour(self.x,self.y,tri,value,levels=levels,vmin=vmin,vmax=vmax,extend=extend,**args)
 
-              #add colorbar
-              if cb:
-                 hc=colorbar(hg); self.hc=hc;
-                 if ticks is not None: hc.set_ticks(ticks)
-                 hc.set_clim(clim);
+           #add colobar
+           cm.ScalarMappable.set_clim(hg,vmin=vmin,vmax=vmax)
+           if cb and fmt==1:
+              hc=colorbar(hg); self.hc=hc
+              if ticks is not None:
+                 if not hasattr(ticks,'__len__'):
+                    hc.set_ticks(linspace(vmin,vmax,int(ticks)))
+                 else:
+                    hc.set_ticks(ticks)
 
-           #add to figure
-           ax.add_collection(hg)
-           ax.autoscale_view()
-           self.hg=hg; #show(block=False)
-           if xlim is not None: setp(ax,xlim=xlim)
-           if ylim is not None: setp(ax,ylim=ylim)
-           return hg
+        if (fmt==0)|(ec!='None'): #plot grid
+           if ec=='None': ec='k'
+           iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
+           x3,y3=self.x[iqd],self.y[iqd]; x3[5::6]=nan; y3[5::6]=nan
+           hg0=[plot(x3,y3,lw=lw,color=ec),triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw,color=ec)]
+
+        hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
+        if xlim is not None: setp(ax,xlim=xlim)
+        if ylim is not None: setp(ax,ylim=ylim)
+        if mpl.get_backend().lower() in ['qt5agg','qtagg']:
+           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'query' not in ats: self.query_pt()
+           if 'bnd' not in ats: self.create_bnd()
+        return hg
+
+        #-------------------------------------------------
+        #for reference: old grid plot method
+        #-------------------------------------------------
+        #elif gridplot==1:
+        #   if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+        #   x3=c_[self.x[self.isidenode],nan*zeros(self.ns)].ravel(); x4=[]
+        #   y3=c_[self.y[self.isidenode],nan*zeros(self.ns)].ravel(); y4=[]
+        #else:
+        #   #tri
+        #   tri=self.elnode[fp3,:3]; tri=c_[tri,tri[:,0]]
+        #   x3=self.x[tri]; y3=self.y[tri]
+        #   x3=c_[x3,ones([sum(fp3),1])*nan]; x3=reshape(x3,x3.size)
+        #   y3=c_[y3,ones([sum(fp3),1])*nan]; y3=reshape(y3,y3.size)
+        #   #quad
+        #   quad=self.elnode[fp4,:]; quad=c_[quad,quad[:,0]]
+        #   x4=self.x[quad]; y4=self.y[quad]
+        #   x4=c_[x4,ones([sum(fp4),1])*nan]; x4=reshape(x4,x4.size)
+        #   y4=c_[y4,ones([sum(fp4),1])*nan]; y4=reshape(y4,y4.size)
+
+        #-------------------------------------------------
+        #for reference: old method in plot contourf using PolyCollection
+        #-------------------------------------------------
+        #elif method==1:
+        #   #creat polygon
+        #   xy4=c_[self.x,self.y][self.elnode];
+        #   xy4=array([s[0:-1,:] if (i34==3 and len(s)==4) else s for s,i34 in zip(xy4,self.i34)])
+
+        #   #elem value
+        #   if value is None:
+        #      if not hasattr(self,'dpe'): self.compute_ctr()
+        #      value=self.dpe
+        #   else:
+        #      if len(value)==self.np:
+        #         value=self.interp_node_to_elem(value=value)
+        #      elif len(value)!=self.ne:
+        #         sys.exit('value has wrong size: {}'.format(value.shape))
+
+        #   # apply mask
+        #   if mask is not None: xy4=xy4[mask]; value=value[mask]
+        #      #ind=nonzero(mask)[0]
+        #      #xy4=xy4[ind];
+        #      #value=value[ind]
+
+        #   #get clim
+        #   if clim is None: clim=[min(value),max(value)]
+
+        #   #plot
+        #   if fmt==0:
+        #      hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,facecolor=fc,antialiased=False,**args)
+        #   else:
+        #      hg=mpl.collections.PolyCollection(xy4,lw=lw,edgecolor=ec,array=value,clim=clim,antialiased=False,**args)
+
+        #      #add colorbar
+        #      if cb:
+        #         hc=colorbar(hg); self.hc=hc;
+        #         if ticks is not None: hc.set_ticks(ticks)
+        #         hc.set_clim(clim);
+
+        #   #add to figure
+        #   ax.add_collection(hg)
+        #   ax.autoscale_view()
+        #   self.hg=hg; #show(block=False)
+        #   if xlim is not None: setp(ax,xlim=xlim)
+        #   if ylim is not None: setp(ax,ylim=ylim)
+        #   return hg
     def plot_grid(self,**args):
         '''
         alias for plot_grid()
