@@ -51,6 +51,7 @@ class schism_grid:
            if fmt==1 and method==1:  #tripcolor
               if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],**args)
               if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.ne+sum(fp4): hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
