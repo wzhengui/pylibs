@@ -25,6 +25,34 @@ def savefig(fname,**args):
     else:
        plt.savefig(fname,**args)
 
+class blit_manager:
+    def __init__(self,hf,hgs):
+        '''
+        animation manager using blit function in matplotlib
+        hf: figure handle
+        hgs: list of plot artists
+
+        Example:
+            xi=arange(0,5*pi,0.1); yi=sin(xi)
+            [hg]=plot(xi,yi,animated=True); bm=blit_manager(gcf(),[hg])
+            for i in arange(100): hg.set_ydata(sin(xi-i)); bm.update()
+        '''
+        pause(0.001); [i.set_animated(True) for i in hgs]
+        self.hf=hf
+        self.hgs=hgs
+        self.update_bg(0)
+        self.cid=self.hf.canvas.mpl_connect("draw_event", self.update_bg)
+
+    def update_bg(self,event):
+        self.bg=self.hf.canvas.copy_from_bbox(self.hf.bbox)
+        for hg in self.hgs: self.hf.draw_artist(hg)
+
+    def update(self):
+        self.hf.canvas.restore_region(self.bg)
+        for hg in self.hgs: self.hf.draw_artist(hg)
+        self.hf.canvas.blit(self.hf.bbox)
+        self.hf.canvas.flush_events()
+
 def resize(data,shape):
     '''
     re-define resize function with zeros for the new data
