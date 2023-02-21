@@ -2830,6 +2830,7 @@ class schism_view:
         for ik in iks:
             try:
                 C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
+                if nt1==0: continue
                 self.julian.extend(t0++(ik-ik0)*nt*dt+arange(nt)*dt); self.irec.extend(arange(nt))
                 self.stacks.append(ik); self.istack.extend(tile(ik,nt))
             except:
