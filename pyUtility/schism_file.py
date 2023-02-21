@@ -2651,33 +2651,24 @@ class schism_view:
                 if self.play=='off': break
             w.player['text']='play'; self.window.update()
 
-    def timeseries(self):
+    def plotts(self):
+        #plot time series
         p=self.fig
-        if p.var=='depth': return
-        self.get_tsdata()
-        figure()
-        for i in p.ts: plot(i,'-')
+        if p.var=='depth' or len(p.px)==0: return
+        self.get_tsdata(); S=p.ts; mt=S.mt; ns=max(1,int(len(mt)/10))
+        xts=mt[::ns]; t0=num2date(xts[0]); y0=t0.year; xls=[t0.strftime('%Y/%m/%d')]
+        for xti in xts[1:]:
+            t=num2date(xti); y=t.year; s=t.strftime('%m/%d')
+            if y!=y0: s=t.strftime('%Y/%m/%d'); y0=y
+            xls.append(s)
 
-    def get_tsdata(self):
-        p=self.fig; svar,layer=p.var,p.layer; gd=self.hgrid
-        x=array(p.px); y=array(p.py); p.ts=[]
-        if not hasattr(p,'px0'): p.px0=array([]); p.py0=array([])
-        if not array_equal(x,p.px0)*array_equal(y,p.py0):
-            p.px0=x; p.py0=y; pie,pacor,pip=gd.compute_acor(c_[x,y])
-            for istack in arange(self.istack[p.it],self.istack[p.it2-1]+1):
-                if svar in self.vars_2d:
-                    C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); npt=C.variables[svar].shape[1]
-                    if npt==gd.np: data=sum(array(C.variables[svar][:,pip])*pacor[None,:],axis=2)
-                    if npt==gd.ne: data=array(C.variables[svar][:,pie])
-                else:
-                    if layer=='bottom':
-                        npt=C.variables[svar].shape[1]
-                        if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
-                        if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
-                    else:
-                        layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
-                p.ts.extend(data)
-            p.ts=array(p.ts).T
+        figure(figsize=[8,5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
+        for n,my in enumerate(S.mys):
+            plot(mt,my,color=cs[n%7],ls=ss[int(n/7)]); lstr.append('pt_{}'.format(n+1))
+        plot(mt,zeros(mt.size),'k:')
+        setp(gca(),xlim=[mt.min(),mt.max()],xticks=xts,xticklabels=xls)
+        title('{}, layer={}, ({}, {})'.format(S.var,S.layer,S.mls[0][:10],S.mls[-1][:10])); legend(lstr)
+        gcf().tight_layout(); show(block=False)
 
     def onclick(self,sp):
         dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
@@ -2723,6 +2714,33 @@ class schism_view:
             else:
                 layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer]),array(C[1].variables[svar+'Y'][irec,:,-layer])
         return u,v
+
+    def get_tsdata(self):
+        #collect info about time series (work only for node-based, and elem-based data)
+        p=self.fig; gd=self.hgrid; gd.compute_ctr(); svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
+        ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
+        if hasattr(p,'ts'):
+           ts=p.ts
+           if array_equal(x,ts.x) and array_equal(y,ts.y) and svar==ts.var and layer==ts.layer and ik1==ts.ik1 and ik2==ts.ik2: return
+        else:
+           ts=zdata()
+
+        #extracting time series
+        ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]
+        for ik in arange(ik1,ik2+1):
+            fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
+            C=self.fid(fname); npt=C.variables[svar].shape[1]; t00=time.time()
+            if ik==ik1: sindp=near_pts(c_[x,y],c_[gd.x,gd.y]) if npt==gd.np else near_pts(c_[x,y],c_[gd.xctr,gd.yctr]) #compute index
+            if svar in self.vars_2d:
+                data=array(C.variables[svar][:,sindp])
+            else:
+                if layer=='bottom':
+                    kb=self.kbp if npt==gd.np else self.kbe
+                    data=array([array(C.variables[svar][:,i,kb[i]]) for i in sindp]).T
+                else:
+                    layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][:,sindp,-layer])
+            ts.mys.extend(data); print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
+        ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:it2]); ts.mls=array(self.mls[it1:it2]); p.ts=ts
 
     def update_panel(self,event,p=None):  #update control panel
         w=self.wp
@@ -2877,7 +2895,7 @@ class schism_view:
         vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
 
         #time series
-        ttk.Button(master=fm,text='curve',command=self.timeseries,width=12).grid(row=0,column=1)
+        ttk.Button(master=fm,text='curve',command=self.plotts,width=12).grid(row=0,column=1)
 
         #xlim, ylim
         w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
