@@ -2619,17 +2619,22 @@ class schism_view:
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
-        p.hp=[]; p.hg=[]; p.hv=[]
+        p.hp=[]; p.hg=[]; p.hv=[]; p.hpt=[]
         if p.var!='none': v=self.get_data(p); p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet')]
         if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=True)]
         if p.grid==1: hg=gd.plot(animated=True); p.hg=[*hg[0],*hg[1]]
+        if len(p.px)!=0: #add pts
+            x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
+            if len(fp)!=0:
+                [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=True); p.hpt.append(hp)
+            for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=True); p.hpt.append(hp)
         p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=True)
         setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
         #associcate with actions
         p.hf.canvas.mpl_connect("draw_event", self.update_panel)
         p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-        p.bm=blit_manager(p.hf,[p.ht,*p.hp,*p.hg,*p.hv]); p.bm.update(); self.update_panel('it',p)
+        p.bm=blit_manager(p.hf,[p.ht,*p.hp,*p.hg,*p.hv,*p.hpt]); p.bm.update(); self.update_panel('it',p)
 
         #animation
         if fmt==1 and (p.var!='depth'):
@@ -2646,16 +2651,48 @@ class schism_view:
                 if self.play=='off': break
             w.player['text']='play'; self.window.update()
 
+    def timeseries(self):
+        p=self.fig
+        if p.var=='depth': return
+        self.get_tsdata()
+        figure()
+        for i in p.ts: plot(i,'-')
+
+    def get_tsdata(self):
+        p=self.fig; svar,layer=p.var,p.layer; gd=self.hgrid
+        x=array(p.px); y=array(p.py); p.ts=[]
+        if not hasattr(p,'px0'): p.px0=array([]); p.py0=array([])
+        if not array_equal(x,p.px0)*array_equal(y,p.py0):
+            p.px0=x; p.py0=y; pie,pacor,pip=gd.compute_acor(c_[x,y])
+            for istack in arange(self.istack[p.it],self.istack[p.it2-1]+1):
+                if svar in self.vars_2d:
+                    C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); npt=C.variables[svar].shape[1]
+                    if npt==gd.np: data=sum(array(C.variables[svar][:,pip])*pacor[None,:],axis=2)
+                    if npt==gd.ne: data=array(C.variables[svar][:,pie])
+                else:
+                    if layer=='bottom':
+                        npt=C.variables[svar].shape[1]
+                        if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
+                        if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
+                    else:
+                        layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
+                p.ts.extend(data)
+            p.ts=array(p.ts).T
+
     def onclick(self,sp):
-        dlk=int(sp.dblclick); btn=int(sp.button)
+        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
         if dlk==1 and btn==1:
             if self.play=='on':
                 self.play='off'
             else:
                 self.schism_plot(1)
+        elif dlk==1 and btn==3:
+            p=self.fig; p.px.append(bx); p.py.append(by); self.schism_plot(0)
+        elif dlk==1 and btn==2:
+            p=self.fig; p.px.pop(); p.py.pop(); self.schism_plot(0)
         return
 
-    def get_data(self,p):
+    def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
         if p.var=='depth': return gd.dp
         C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,istack))
@@ -2670,7 +2707,7 @@ class schism_view:
                 layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
         return data
 
-    def get_vdata(self,p):
+    def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; fmt=1
         if svar+'X' in self.vars_2d:
             C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); fmt=0
@@ -2716,6 +2753,7 @@ class schism_view:
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.vvar=w.vvar.get()
+        if not hasattr(p,'px'): p.px=[]; p.py=[]
 
         #get time index
         if p.time=='time':
@@ -2828,26 +2866,28 @@ class schism_view:
         ttk.Entry(fm,textvariable=w.vmin,width=10).grid(row=3,column=1,sticky='W',padx=2)
         ttk.Entry(fm,textvariable=w.vmax,width=10).grid(row=3,column=2,sticky='W')
 
-        #frame2: xlim, ylim
-        w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
-        w.ymin=tk.DoubleVar(wd); w.ymax=tk.DoubleVar(wd); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
-
+        #frame2: vector, time_series
         fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW'); fms.append(fm)
-        fm1=ttk.Frame(master=fm); fm1.grid(row=0,column=0); fm2=ttk.Frame(master=fm); fm2.grid(row=0,column=1,padx=10)
-
-        ttk.Label(fm1,text='  xlim',width=5).grid(row=0,column=0,sticky='E')
-        ttk.Entry(fm1,textvariable=w.xmin,width=11).grid(row=0,column=1,sticky='W')
-        ttk.Entry(fm1,textvariable=w.xmax,width=11).grid(row=0,column=2,sticky='W',padx=2)
-
-        ttk.Label(fm2,text='ylim',width=4).grid(row=0,column=0,sticky='E')
-        ttk.Entry(fm2,textvariable=w.ymin,width=11).grid(row=0,column=1,sticky='W')
-        ttk.Entry(fm2,textvariable=w.ymax,width=11).grid(row=0,column=2,sticky='W',padx=2)
 
         #vector
         w.vvar=tk.StringVar(wd); w.vvar.set('none')
-        fm3=ttk.Frame(master=fm); fm3.grid(row=1,column=0,sticky='W')
+        fm3=ttk.Frame(master=fm); fm3.grid(row=0,column=0,sticky='W')
         ttk.Label(master=fm3,text='  vector ').grid(row=1,column=0,sticky='W',pady=4)
         vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
+
+        #time series
+        ttk.Button(master=fm,text='curve',command=self.timeseries,width=12).grid(row=0,column=1)
+
+        #xlim, ylim
+        w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
+        w.ymin=tk.DoubleVar(wd); w.ymax=tk.DoubleVar(wd); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
+        fm1=ttk.Frame(master=fm); fm1.grid(row=2,column=0); fm2=ttk.Frame(master=fm); fm2.grid(row=2,column=1,padx=10)
+        ttk.Label(fm1,text='  xlim',width=5).grid(row=0,column=0,sticky='E')
+        ttk.Entry(fm1,textvariable=w.xmin,width=11).grid(row=0,column=1,sticky='W')
+        ttk.Entry(fm1,textvariable=w.xmax,width=11).grid(row=0,column=2,sticky='W',padx=2)
+        ttk.Label(fm2,text='ylim',width=4).grid(row=0,column=0,sticky='E')
+        ttk.Entry(fm2,textvariable=w.ymin,width=11).grid(row=0,column=1,sticky='W')
+        ttk.Entry(fm2,textvariable=w.ymax,width=11).grid(row=0,column=2,sticky='W',padx=2)
 
         #frame 3: control
         fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='W',pady=2); fms.append(fm)
