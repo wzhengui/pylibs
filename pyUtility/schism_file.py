@@ -2727,8 +2727,9 @@ class schism_view:
     def update_panel(self,event,p=None):  #update control panel
         w=self.wp
         if event in ['time','stack','julian','it','it2']: #set time variables
-            mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.istack
+            mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.stacks
             if event=='it':
+                if w.time.get()=='stack': mls=self.istack
                 w.StartT.set(mls[p.it])
             elif event=='it2':
                 w.EndT.set(mls[-1])
