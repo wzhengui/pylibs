@@ -2612,6 +2612,7 @@ class schism_view:
 
     #functions
     def schism_plot(self,fmt=0):
+        if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; p=self.set_figure(0); gd=self.hgrid
         if fmt==2: p.it=max(p.it-1,0)
         if fmt==3: p.it=min(p.it+1,len(self.irec)-1)
@@ -2656,7 +2657,7 @@ class schism_view:
 
         #function to extract data
         def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
-            ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]
+            ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
             for ik in arange(ik1,ik2+1):
                 fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
                 C=self.fid(fname); npt=C.variables[svar].shape[1]; t00=time.time()
@@ -2669,8 +2670,8 @@ class schism_view:
                         data=array([array(C.variables[svar][:,i,kb[i]]) for i in sindp]).T
                     else:
                         layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][:,sindp,-layer])
-                ts.mys.extend(data); print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
-            ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:it2]); ts.mls=array(self.mls[it1:it2]); p.ts=ts
+                ts.mys.extend(data); nt=nt+len(data); print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
+            ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
             print('done in extracting')
 
         #prepare info. about time sereis
