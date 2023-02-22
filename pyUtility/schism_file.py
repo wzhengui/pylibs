@@ -2598,7 +2598,7 @@ class schism_view:
         w=self.wp; fn=w.fn.get()
         if fn=='add': #new figure
             if fmt==1: return
-            p=zdata(); p.hf=figure(figsize=[10,8]); self.get_param(p); p.xm,p.ym=self.xm,self.ym
+            p=zdata(); p.hf=figure(figsize=[7.2,5.5]); self.get_param(p); p.xm,p.ym=self.xm,self.ym
             cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
         else:
             cid=self.fns.index(fn); p=self.figs[cid]
@@ -2692,7 +2692,7 @@ class schism_view:
             if y!=y0: s=t.strftime('%Y/%m/%d'); y0=y
             xls.append(s)
 
-        figure(figsize=[8,5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
+        figure(figsize=[6.5,3.5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
         for n,my in enumerate(S.mys):
             plot(mt,my,color=cs[n%7],ls=ss[int(n/7)]); lstr.append('pt_{}'.format(n+1))
         ym=ylim(); plot(mt,zeros(mt.size),'k:')
