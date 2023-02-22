@@ -196,6 +196,7 @@ class schism_grid:
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
+        return self.hb
 
     def read_hgrid(self,fname,*args):
         #attribute tracking the file originally read, mainly used for savez and save_pkl
@@ -2620,10 +2621,11 @@ class schism_view:
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
-        p.hp=[]; p.hg=[]; p.hv=[]; p.hpt=[]
+        p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]
         if p.var!='none': v=self.get_data(p); p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet')]
         if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=True)]
         if p.grid==1: hg=gd.plot(animated=True); p.hg=[*hg[0],*hg[1]]
+        if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=True)
         if len(p.px)!=0: #add pts
             x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
             if len(fp)!=0:
@@ -2636,10 +2638,10 @@ class schism_view:
         p.hf.canvas.mpl_connect("draw_event", self.update_panel)
         p.hf.canvas.mpl_connect("button_press_event", self.onclick)
         p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
-        p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
+        p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
 
         #animation
-        if fmt==1 and (p.var!='depth'):
+        if fmt==1 and (p.var not in ['depth','none']):
             w.player['text']='stop'; self.window.update(); self.play='on'
             for p.it in arange(p.it+1,p.it2,p.ns):
                 if p.var!='none':
@@ -2736,6 +2738,7 @@ class schism_view:
                 if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
             else:
                 layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
+        data[abs(data)>1e20]=nan
         return data
 
     def get_vdata(self,p): #get vector data
@@ -2774,7 +2777,7 @@ class schism_view:
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
-            w.ns.set(p.ns); w.grid.set(p.grid); w.vvar.set(p.vvar)
+            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar)
         elif type(event)==mpl.backend_bases.DrawEvent:
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
             w=self.wp; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
@@ -2784,7 +2787,7 @@ class schism_view:
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]
-        p.ns=w.ns.get(); p.grid=w.grid.get(); p.vvar=w.vvar.get()
+        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
         if not hasattr(p,'px'): p.px=[]; p.py=[]
 
         #get time index
@@ -2883,9 +2886,11 @@ class schism_view:
         ttk.Label(master=fm,text='  layer').grid(row=1,column=0,sticky='W',pady=4)
         ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15).grid(row=1,column=1)
 
-        #grid
-        w.grid=tk.IntVar(wd); w.grid.set(0)
-        tk.Checkbutton(master=fm,text='grid',variable=w.grid,onvalue=1,offvalue=0).grid(row=1,column=2)
+        #grid, and bnd
+        sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
+        w.grid=tk.IntVar(wd); w.grid.set(0); w.bnd=tk.IntVar(wd); w.bnd.set(0)
+        tk.Checkbutton(master=sfm2,text='grid',variable=w.grid,onvalue=1,offvalue=0).grid(row=0,column=0)
+        tk.Checkbutton(master=sfm2,text='bnd',variable=w.bnd,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
 
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
