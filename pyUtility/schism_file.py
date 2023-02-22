@@ -2614,8 +2614,8 @@ class schism_view:
     def schism_plot(self,fmt=0):
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; p=self.set_figure(0); gd=self.hgrid
-        if fmt==2: p.it=max(p.it-1,0)
-        if fmt==3: p.it=min(p.it+1,len(self.irec)-1)
+        if fmt==2: p.it=max(p.it-p.ns,0)
+        if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
