@@ -2826,19 +2826,21 @@ class schism_view:
         #check hgrid, vgrid, param
         grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
         gd=loadz(grd).hgrid if os.path.exists(grd) else read_schism_hgrid(gr3) if os.path.exists(gr3) else None
-        vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vgd) else None
+        vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
         if os.path.exists(par): p=read_schism_param(par,3); self.param=p; self.StartT=datenum(p.start_year,p.start_month,p.start_day,p.start_hour)
 
-        if gd!=None: #create hgrid
+        if gd==None: #create hgrid
             gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
             gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
         self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
         self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]
-        kbe=vd.kbp[gd.elnode]; kbe[self.fp3,-1]=-1; self.kbe=kbe.max(axis=1)
+        kbe=self.kbp[gd.elnode]; kbe[self.fp3,-1]=-1; self.kbe=kbe.max(axis=1)
 
         #read available time
         self.stacks=[]; self.julian=[]; self.istack=[]; self.irec=[]
         ti=array(cvar['time'])/86400; nt=len(ti); t0=ti[0]  #assume all stacks have the same number of records
+        if (not hasattr(self,'StartT')) and hasattr(C.variables['time'],'base_date'):
+           self.StartT=datenum(*[int(float(i)) for i in C.variables['time'].base_date.split()])
         if len(iks)>1 and nt==1:
             C1=self.fid('{}/out2d_{}.nc'.format(self.outputs,iks[1])); ti1=array(C1.variables['time'])/86400; dt=ti1-ti[0]
         else:
