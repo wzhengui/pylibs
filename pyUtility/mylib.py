@@ -26,17 +26,20 @@ def savefig(fname,**args):
        plt.savefig(fname,**args)
 
 class blit_manager:
-    def __init__(self,hf,hgs):
+    def __init__(self,hgs,hf=None):
         '''
         animation manager using blit function in matplotlib
-        hf: figure handle
         hgs: list of plot artists
+        hf: figure handle
 
         Example:
             xi=arange(0,5*pi,0.1); yi=sin(xi)
             [hg]=plot(xi,yi,animated=True); bm=blit_manager(gcf(),[hg])
             for i in arange(100): hg.set_ydata(sin(xi-i)); bm.update()
         '''
+        if hf is None: hf=gcf()
+        if not isinstance(hgs,list): hgs=[hgs]
+
         pause(0.001); [i.set_animated(True) for i in hgs]
         self.hf=hf
         self.hgs=hgs

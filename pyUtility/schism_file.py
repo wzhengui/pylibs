@@ -2635,7 +2635,8 @@ class schism_view:
         #associcate with actions
         p.hf.canvas.mpl_connect("draw_event", self.update_panel)
         p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-        p.bm=blit_manager(p.hf,[p.ht,*p.hp,*p.hg,*p.hv,*p.hpt]); p.bm.update(); self.update_panel('it',p)
+        p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
+        p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
 
         #animation
         if fmt==1 and (p.var!='depth'):
@@ -2711,6 +2712,16 @@ class schism_view:
         elif dlk==1 and btn==2:
             p=self.fig; p.px.pop(); p.py.pop(); self.schism_plot(0)
         return
+
+    def onmove(self,sp):
+        if sp.button is None: return
+        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+        if dlk==0 and btn==2:
+           p=self.fig; x=array(p.px); y=array(p.py)
+           if len(x)==0: return
+           distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
+           p.px[sid]=bx; p.py[sid]=by; p.hpt[0].set_xdata(p.px); p.hpt[0].set_ydata(p.py)
+           p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by); p.bm.update()
 
     def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
