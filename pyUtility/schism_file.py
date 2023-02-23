@@ -2616,10 +2616,10 @@ class schism_view:
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; gd=self.hgrid
         p=self.set_figure(0) if fmt==0 else self.set_figure(1)
-        if fmt==2: p.it=min(max(p.it-p.ns,0),len(self.irec)-1)
-        if fmt==3: p.it=max(min(p.it+p.ns,len(self.irec)-1),0)
+        if fmt==2: p.it=max(p.it-p.ns,0)
+        if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
-        if fmt==5: it0=p.it; it=len(self.irec); p.it=it-1; p.it2=it; self.update_panel('it2',p)
+        if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
         if fmt==0:
@@ -2640,13 +2640,11 @@ class schism_view:
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
            p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
-           p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
-           self.update_panel('it',p); self.window.update()
+           p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
 
         #animation
         if fmt!=0 and (p.var not in ['depth','none']):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
-            if fmt==1 and p.ns<0: its=arange(p.it2-1,max(p.it-1,0),p.ns)
             if fmt in [2,3,4,5]: its=[p.it]
             for p.it in its:
                 if p.var!='none':
@@ -2655,13 +2653,10 @@ class schism_view:
                     p.hp[0].set_array(r_[v,v[self.fp4]])
                 if p.vvar!='none': u,v=self.get_vdata(p); p.hv[0].set_UVC(u,v)
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
-                if p.ns>0: self.update_panel('it',p); self.window.update()
-                if p.ns<0: self.update_panel('it2',p); self.window.update()
+                self.update_panel('it',p); self.window.update()
                 p.bm.update()
                 if self.play=='off': break
-            if fmt==1: w.player['text']='play'
-            if fmt==5: p.it=it0; self.update_panel('it',p) #restore StartT
-            self.window.update()
+            if fmt==1: w.player['text']='play'; self.window.update()
 
     def plotts(self):
         import threading
@@ -2774,8 +2769,7 @@ class schism_view:
                 if w.time.get()=='stack': mls=self.istack
                 w.StartT.set(mls[p.it])
             elif event=='it2':
-                if w.time.get()=='stack': mls=self.istack
-                w.EndT.set(mls[p.it])
+                w.EndT.set(mls[-1])
             else:
                 w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; w._StartT['width']=6; w._EndT['width']=6
                 if event=='time': w._StartT['width']=18; w._EndT['width']=18
