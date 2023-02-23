@@ -2603,9 +2603,9 @@ class schism_view:
             cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
         else:
             cid=self.fns.index(fn); p=self.figs[cid]
-            if fmt==0:
+            if fmt==0: #modify current figure
                 self.get_param(p); self.fns[cid]=self.fns[cid][:3]+p.var; p.hf.clear(); p.bm=None
-            elif fmt==1:
+            elif fmt==1: #restore old figure
                 self.update_panel('old',p)
         w._fn['values']=['add',*self.fns]; w.fn.set(self.fns[cid])
         self.fig=p; figure(p.hf) #bring figure to front
@@ -2614,36 +2614,39 @@ class schism_view:
     #functions
     def schism_plot(self,fmt=0):
         if self.play=='on' and fmt==1: self.play='off'; return
-        w=self.wp; p=self.set_figure(0); gd=self.hgrid
+        w=self.wp; gd=self.hgrid
+        p=self.set_figure(0) if fmt==0 else self.set_figure(1)
         if fmt==2: p.it=max(p.it-p.ns,0)
         if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
-        p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]
-        if p.var!='none': v=self.get_data(p); p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet')]
-        if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=True)]
-        if p.grid==1: hg=gd.plot(animated=True); p.hg=[*hg[0],*hg[1]]
-        if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=True)
-        if len(p.px)!=0: #add pts
-            x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
-            if len(fp)!=0:
-                [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=True); p.hpt.append(hp)
-            for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=True); p.hpt.append(hp)
-        p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=True)
-        setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
+        if fmt==0:
+           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]
+           if p.var!='none': v=self.get_data(p); p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet')]
+           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=True)]
+           if p.grid==1: hg=gd.plot(animated=True); p.hg=[*hg[0],*hg[1]]
+           if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=True)
+           if len(p.px)!=0: #add pts
+               x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
+               if len(fp)!=0:
+                   [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=True); p.hpt.append(hp)
+               for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=True); p.hpt.append(hp)
+           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=True)
+           setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
-        #associcate with actions
-        p.hf.canvas.mpl_connect("draw_event", self.update_panel)
-        p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-        p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
-        p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
+           #associcate with actions
+           p.hf.canvas.mpl_connect("draw_event", self.update_panel)
+           p.hf.canvas.mpl_connect("button_press_event", self.onclick)
+           p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
+           p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
 
         #animation
-        if fmt==1 and (p.var not in ['depth','none']):
-            w.player['text']='stop'; self.window.update(); self.play='on'
-            for p.it in arange(p.it+1,p.it2,p.ns):
+        if fmt!=0 and (p.var not in ['depth','none']):
+            if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
+            if fmt in [2,3,4,5]: its=[p.it]
+            for p.it in its:
                 if p.var!='none':
                     v=self.get_data(p)
                     if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
@@ -2653,7 +2656,7 @@ class schism_view:
                 self.update_panel('it',p); self.window.update()
                 p.bm.update()
                 if self.play=='off': break
-            w.player['text']='play'; self.window.update()
+            if fmt==1: w.player['text']='play'; self.window.update()
 
     def plotts(self):
         import threading
