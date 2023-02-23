@@ -2767,9 +2767,9 @@ class schism_view:
             mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.stacks
             if event=='it':
                 if w.time.get()=='stack': mls=self.istack
-                w.StartT.set(mls[p.it])
+                w.StartT.set(mls[p.it]); p.StartT=mls[p.it]
             elif event=='it2':
-                w.EndT.set(mls[-1])
+                w.EndT.set(mls[-1]); p.EndT=mls[-1]
             else:
                 w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; w._StartT['width']=6; w._EndT['width']=6
                 if event=='time': w._StartT['width']=18; w._EndT['width']=18
@@ -2784,6 +2784,7 @@ class schism_view:
         elif type(event)==mpl.backend_bases.DrawEvent:
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
             w=self.wp; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
+        self.window.update()
 
     def get_param(self,p=None):
         if p is None: p=zdata()
