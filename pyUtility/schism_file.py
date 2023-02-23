@@ -75,7 +75,7 @@ class schism_grid:
            if not hasattr(lw,'__len__'): lw=[lw,lw/2]
            iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
            x3,y3=self.x[iqd],self.y[iqd]; x3[5::6]=nan; y3[5::6]=nan
-           hg0=[triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw[0],color=ec[0]), plot(x3,y3,lw=lw[1],color=ec[1])]
+           hg0=[triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
 
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -2623,24 +2623,28 @@ class schism_view:
 
         #plot figure and save the backgroud
         if fmt==0:
-           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]
-           if p.var!='none': v=self.get_data(p); p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet')]
-           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=True)]
-           if p.grid==1: hg=gd.plot(animated=True); p.hg=[*hg[0],*hg[1]]
-           if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=True)
+           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]; anim=True if p.med==0 else False
+           if p.var!='none':
+               v=self.get_data(p)
+               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
+               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1)]
+           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=anim)]
+           if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
+           if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            if len(p.px)!=0: #add pts
                x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
                if len(fp)!=0:
-                   [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=True); p.hpt.append(hp)
-               for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=True); p.hpt.append(hp)
-           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=True)
+                   [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim); p.hpt.append(hp)
+               for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=anim); p.hpt.append(hp)
+           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
            setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
            #associcate with actions
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
            p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
-           p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update(); self.update_panel('it',p)
+           if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
+           self.update_panel('it',p)
 
         #animation
         if fmt!=0 and (p.var not in ['depth','none']):
@@ -2649,13 +2653,18 @@ class schism_view:
             for p.it in its:
                 if p.var!='none':
                     v=self.get_data(p)
-                    if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
-                    p.hp[0].set_array(r_[v,v[self.fp4]])
+                    if p.med==0:
+                        if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
+                        p.hp[0].set_array(r_[v,v[self.fp4]])
+                    else:
+                        for i in arange(len(p.ax.collections)): p.ax.collections.pop()
+                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,ticks=11,cmap='jet',cb=False,zorder=1)
                 if p.vvar!='none': u,v=self.get_vdata(p); p.hv[0].set_UVC(u,v)
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
                 self.update_panel('it',p); self.window.update()
-                p.bm.update()
+                if p.med==0: p.bm.update()
                 if self.play=='off': break
+                if p.med==1: pause(0.1)
             if fmt==1: w.player['text']='play'; self.window.update()
 
     def plotts(self):
@@ -2780,7 +2789,7 @@ class schism_view:
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
-            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar)
+            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
             w=self.wp; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
@@ -2790,7 +2799,7 @@ class schism_view:
         if p is None: p=zdata()
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
-        p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]
+        p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
         if not hasattr(p,'px'): p.px=[]; p.py=[]
 
@@ -2892,11 +2901,12 @@ class schism_view:
         ttk.Label(master=fm,text='  layer').grid(row=1,column=0,sticky='W',pady=4)
         ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15).grid(row=1,column=1)
 
-        #grid, and bnd
+        #grid, bnd, method
         sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
-        w.grid=tk.IntVar(wd); w.grid.set(0); w.bnd=tk.IntVar(wd); w.bnd.set(0)
+        w.grid=tk.IntVar(wd); w.grid.set(0); w.bnd=tk.IntVar(wd); w.bnd.set(0); w.med=tk.IntVar(wd); w.med.set(0)
         tk.Checkbutton(master=sfm2,text='grid',variable=w.grid,onvalue=1,offvalue=0).grid(row=0,column=0)
         tk.Checkbutton(master=sfm2,text='bnd',variable=w.bnd,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
+        tk.Checkbutton(master=sfm2,text='ctr',variable=w.med,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
 
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
@@ -2952,7 +2962,7 @@ class schism_view:
 
         #resize window
         wd.geometry('600x180'); wd.update(); xm=max([i.winfo_width() for i in fms])
-        for i in arange(0,100,5):
+        for i in arange(0,100,3):
             L1['text']=' '*i; L2['text']=' '*i; wd.update(); xs=fms[-1].winfo_width()
             if xs>xm: wd.geometry('{}x210'.format(xs)); wd.update(); break
         return wd,w
