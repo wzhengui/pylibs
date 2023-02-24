@@ -2633,8 +2633,11 @@ class schism_view:
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
-           m=20; n=p.npt; x=[*p.px,*tile(0.0,m-n)]; y=[*p.py,*tile(nan,m-n)]; p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim) #add pts
-           for i in arange(m): [xi,yi,k]=[x[i],y[i],str(i+1)] if i<n else [0,0,'']; p.hpt.append(text(xi,yi,k,color='r',animated=anim))
+           #add pts
+           m=20; n=p.npt; x=array([*p.px,*tile(0.0,m-n)]); y=array([*p.py,*tile(nan,m-n)])
+           fpn=nonzero(~((x[:n]>p.xm[0])*(x[:n]<p.xm[1])*(y[:n]>p.ym[0])*(y[:n]<p.ym[1])))[0]; x[fpn]=0.0; y[fpn]=nan
+           p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim)
+           for i in arange(m): [xi,yi,k]=[x[i],y[i],str(i+1)] if (i<n and (i not in fpn)) else [0,0,'']; p.hpt.append(text(xi,yi,k,color='r',animated=anim))
            setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
            #associcate with actions
