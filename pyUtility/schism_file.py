@@ -2724,6 +2724,7 @@ class schism_view:
         elif dlk==1 and btn==3:
             p=self.fig; p.px.append(bx); p.py.append(by); self.schism_plot(0)
         elif dlk==1 and btn==2:
+            if len(self.fig.px)==0: return
             p=self.fig; p.px.pop(); p.py.pop(); self.schism_plot(0)
         return
 
@@ -2735,7 +2736,8 @@ class schism_view:
            if len(x)==0: return
            distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
            p.px[sid]=bx; p.py[sid]=by; p.hpt[0].set_xdata(p.px); p.hpt[0].set_ydata(p.py)
-           p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by); p.bm.update()
+           p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by)
+           if self.fig.med==0: p.bm.update()
 
     def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
