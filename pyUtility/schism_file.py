@@ -2612,6 +2612,7 @@ class schism_view:
         return p
 
     def schism_plot(self,fmt=0):
+        if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; gd=self.hgrid
         p=self.plot_init(0) if fmt==0 else self.plot_init(1)
@@ -2821,9 +2822,9 @@ class schism_view:
         return self._fid[fname]
 
     def window_exit(self):
-        close('all'); self.window.destroy()
         if hasattr(self,'_fid'):
             for i in self._fid: self._fid[i].close()
+        close('all'); self.window.destroy()
 
     @property
     def VINFO(self):
@@ -2841,18 +2842,23 @@ class schism_view:
         iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
         self.vvars=[i[:-1] for i in self.vars if (i[-1]=='X') and (i[:-1]+'Y' in self.vars)]
 
-        #check hgrid, vgrid, param
+        #read grid and param
         grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
-        gd=loadz(grd).hgrid if os.path.exists(grd) else read_schism_hgrid(gr3) if os.path.exists(gr3) else None
-        vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
         if os.path.exists(par): p=read_schism_param(par,3); self.param=p; self.StartT=datenum(p.start_year,p.start_month,p.start_day,p.start_hour)
-
-        if gd==None: #create hgrid
-            gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
-            gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
-        self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
-        self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]
-        kbe=self.kbp[gd.elnode]; kbe[self.fp3,-1]=-1; self.kbe=kbe.max(axis=1)
+        def _read_grid():
+           gd=loadz(grd).hgrid if os.path.exists(grd) else read_schism_hgrid(gr3) if os.path.exists(gr3) else None
+           vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
+           if gd==None: #create hgrid
+               gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
+               gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
+           self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
+           self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]
+           kbe=self.kbp[gd.elnode]; kbe[self.fp3,-1]=-1; self.kbe=kbe.max(axis=1)
+           while not hasattr(self,'wp'): time.sleep(0.01)
+           w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('done in reading grid; schismview ready')
+           w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
+        self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1] 
+        threading.Thread(target=_read_grid).start()
 
         #read available time
         self.stacks=[]; self.julian=[]; self.istack=[]; self.irec=[]
@@ -2875,15 +2881,15 @@ class schism_view:
             except:
                 pass
         self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
-        if hasattr(self,'StartT'):
-           def set_mls():
+        if hasattr(self,'StartT'): #get time_string
+           def _set_time():
                self.mls=[i.strftime('%Y-%m-%d, %H:%M') for i in num2date(self.mts)]
                while not hasattr(self,'wp'): time.sleep(0.01)
                self.wp._StartT['values']=self.mls; self.wp._EndT['values']=self.mls
            self.mts=[*(array(self.mts)+self.StartT)]
            self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d, %H:%M')
            self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d, %H:%M')
-           threading.Thread(target=set_mls).start()
+           threading.Thread(target=_set_time).start()
 
     def init_window(self):
         #open an window
@@ -2915,7 +2921,7 @@ class schism_view:
         #layer
         w.layer=tk.StringVar(wd); w.layer.set('surface')
         ttk.Label(master=fm,text='  layer').grid(row=1,column=0,sticky='W',pady=4)
-        ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15).grid(row=1,column=1)
+        w._layer=ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15); w._layer.grid(row=1,column=1)
 
         #grid, bnd, method
         sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
