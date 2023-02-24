@@ -2623,7 +2623,7 @@ class schism_view:
 
         #plot figure and save the backgroud
         if fmt==0:
-           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; p.hpt=[]; anim=True if p.med==0 else False
+           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                v=self.get_data(p)
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
@@ -2631,18 +2631,15 @@ class schism_view:
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=anim)]
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
-           if len(p.px)!=0: #add pts
-               x=array(p.px); y=array(p.py); fp=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; x,y=x[fp],y[fp]
-               if len(fp)!=0:
-                   [hp]=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim); p.hpt.append(hp)
-               for n,xi,yi in zip(fp,x,y): hp=text(xi,yi,'{}'.format(n+1),color='r',animated=anim); p.hpt.append(hp)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
+           m=20; n=p.npt; x=[*p.px,*tile(0,m-n)]; y=[*p.py,*tile(nan,m-n)]; p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim) #add pts
+           for i in arange(m): [xi,yi,k]=[x[i],y[i],str(i+1)] if i<n else [0,0,'']; p.hpt.append(text(xi,yi,k,color='r',animated=anim))
            setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
            #associcate with actions
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-           p.hf.canvas.mpl_connect('motion_notify_event', self.onclick)
+           #p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
            if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
            self.update_panel('it',p)
 
@@ -2716,24 +2713,32 @@ class schism_view:
 
     def onclick(self,sp):
         if sp.button is None: return
-        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+        p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
         if dlk==1 and btn==1:
             if self.play=='on':
                 self.play='off'
             else:
                 self.schism_plot(1)
-        elif dlk==1 and btn==3:
-            p=self.fig; p.px.append(bx); p.py.append(by); self.schism_plot(0)
-        elif dlk==1 and btn==2:
-            if len(self.fig.px)==0: return
-            p=self.fig; p.px.pop(); p.py.pop(); self.schism_plot(0)
-        elif dlk==0 and btn==2:
-           p=self.fig; x=array(p.px); y=array(p.py)
-           if len(x)==0: return
-           distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
-           p.px[sid]=bx; p.py[sid]=by; p.hpt[0].set_xdata(p.px); p.hpt[0].set_ydata(p.py)
-           p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by)
-           if self.fig.med==0: p.bm.update()
+        elif dlk==1 and btn==3: #add pts
+            hp=p.hpt[0]; x,y=hp.get_xdata(),hp.get_ydata(); x[p.npt]=bx; y[p.npt]=by; hp.set_xdata(x); hp.set_ydata(y)
+            ht=p.hpt[p.npt+1]; ht.set_x(bx); ht.set_y(by); ht.set_text(str(p.npt+1))
+            p.px.append(bx); p.py.append(by); p.npt=p.npt+1
+        elif dlk==1 and btn==2: #remove pts
+            if p.npt==0: return
+            p.npt=p.npt-1; p.px.pop(); p.py.pop()
+            hp=p.hpt[0]; y=hp.get_ydata(); y[p.npt]=nan; hp.set_ydata(y); p.hpt[p.npt+1].set_text('')
+        if p.med==0: p.bm.update()
+        if p.med==1: p.hf.canvas.draw()
+
+    def onmove(self,sp): #move pts
+        if sp.button is None: return
+        p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+        if dlk==0 and btn==2 and p.npt!=0:
+            x=array(p.px); y=array(p.py); distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
+            hp=p.hpt[0]; x,y=hp.get_xdata(),hp.get_ydata(); x[sid]=bx; y[sid]=by; hp.set_xdata(x); hp.set_ydata(y)
+            p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by); p.px[sid]=bx; p.py[sid]=by
+        if p.med==0: p.bm.update(); pause(0.001)
+        if p.med==1: p.hf.canvas.draw()
 
     def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -2799,7 +2804,7 @@ class schism_view:
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
-        if not hasattr(p,'px'): p.px=[]; p.py=[]
+        if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
 
         #get time index
         if p.time=='time':
