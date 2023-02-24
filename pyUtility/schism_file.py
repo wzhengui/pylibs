@@ -2595,7 +2595,7 @@ class schism_view:
         self.play='off'  #animation
         self.window.mainloop()
 
-    def set_figure(self,fmt=0):
+    def plot_init(self,fmt=0):
         w=self.wp; fn=w.fn.get()
         if fn=='add': #new figure
             if fmt==1: return
@@ -2611,11 +2611,10 @@ class schism_view:
         self.fig=p; figure(p.hf) #bring figure to front
         return p
 
-    #functions
     def schism_plot(self,fmt=0):
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; gd=self.hgrid
-        p=self.set_figure(0) if fmt==0 else self.set_figure(1)
+        p=self.plot_init(0) if fmt==0 else self.plot_init(1)
         if fmt==2: p.it=max(p.it-p.ns,0)
         if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
@@ -2639,7 +2638,7 @@ class schism_view:
            #associcate with actions
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-           #p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
+           #p.hf.canvas.mpl_connect('motion_notify_event', self.onmove) #todo: this fun is not ready yet, as it cause screen freeze
            if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
            self.update_panel('it',p)
 
@@ -2648,6 +2647,7 @@ class schism_view:
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]
             for p.it in its:
+                if self.play=='off': break
                 if p.var!='none':
                     v=self.get_data(p)
                     if p.med==0:
@@ -2714,7 +2714,7 @@ class schism_view:
     def onclick(self,sp):
         if sp.button is None: return
         p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==1 and btn==1:
+        if dlk==1 and btn==1: #animation on and off
             if self.play=='on':
                 self.play='off'
             else:
@@ -2897,7 +2897,7 @@ class schism_view:
         ttk.Label(master=sfm,text='        figure').grid(row=0,column=0,sticky='E',padx=2)
         w.fn=tk.StringVar(wd); w.fn.set('add')
         w._fn=ttk.Combobox(sfm,textvariable=w.fn,values=['add'],width=10); w._fn.grid(row=0,column=1)
-        w._fn.bind("<<ComboboxSelected>>",lambda x: self.set_figure(1))
+        w._fn.bind("<<ComboboxSelected>>",lambda x: self.plot_init(1))
 
         #layer
         w.layer=tk.StringVar(wd); w.layer.set('surface')
