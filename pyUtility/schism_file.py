@@ -2590,7 +2590,7 @@ class schism_view:
     def __init__(self, run='.'):
         #note: p is a capsule including all information about a figure
         self.figs=[]; self.fns=[] #list of figure objects
-        self.check_run_info(run)
+        self.run_info(run)
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
         self.window.mainloop()
@@ -2829,8 +2829,10 @@ class schism_view:
     def VINFO(self):
         return get_VINFO(self)
 
-    def check_run_info(self,run):
+    def run_info(self,run):
         from glob import glob
+        import threading,time
+
         #check output (todo: for cases that out2d*.nc not exist)
         fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc')
         self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]
@@ -2863,14 +2865,25 @@ class schism_view:
             dt=0 if nt==0 else ti[1]-ti[0]
         for ik in iks:
             try:
-                C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
-                if nt1==0: continue
+                fn='{}/out2d_{}.nc'.format(self.outputs,ik)
+                if not os.path.exists(fn): continue
+                if ik==iks[-1]:
+                   C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
+                   if nt1==0: continue
                 self.julian.extend(t0++(ik-ik0)*nt*dt+arange(nt)*dt); self.irec.extend(arange(nt))
                 self.stacks.append(ik); self.istack.extend(tile(ik,nt))
             except:
                 pass
         self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
-        if hasattr(self,'StartT'): self.mts=[*(array(self.mts)+self.StartT)]; self.mls=[num2date(i).strftime('%Y-%m-%d, %H:%M') for i in self.mts]
+        if hasattr(self,'StartT'):
+           def set_mls():
+               self.mls=[i.strftime('%Y-%m-%d, %H:%M') for i in num2date(self.mts)]
+               while not hasattr(self,'wp'): time.sleep(0.01)
+               self.wp._StartT['values']=self.mls; self.wp._EndT['values']=self.mls
+           self.mts=[*(array(self.mts)+self.StartT)]
+           self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d, %H:%M')
+           self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d, %H:%M')
+           threading.Thread(target=set_mls).start()
 
     def init_window(self):
         #open an window
