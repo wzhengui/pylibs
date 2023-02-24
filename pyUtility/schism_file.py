@@ -2642,7 +2642,7 @@ class schism_view:
            #associcate with actions
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-           p.hf.canvas.mpl_connect('motion_notify_event', self.onmove)
+           p.hf.canvas.mpl_connect('motion_notify_event', self.onclick)
            if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
            self.update_panel('it',p)
 
@@ -2715,6 +2715,7 @@ class schism_view:
         gcf().tight_layout(); show(block=False)
 
     def onclick(self,sp):
+        if sp.button is None: return
         dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
         if dlk==1 and btn==1:
             if self.play=='on':
@@ -2726,12 +2727,7 @@ class schism_view:
         elif dlk==1 and btn==2:
             if len(self.fig.px)==0: return
             p=self.fig; p.px.pop(); p.py.pop(); self.schism_plot(0)
-        return
-
-    def onmove(self,sp):
-        if sp.button is None: return
-        dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==0 and btn==2:
+        elif dlk==0 and btn==2:
            p=self.fig; x=array(p.px); y=array(p.py)
            if len(x)==0: return
            distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
