@@ -2594,6 +2594,7 @@ class schism_view:
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
         self.window.mainloop()
+        #todo: 1). for cases that out2d*.nc not exist; 2).extract vection only inside regions. 3). add command input interface
 
     def plot_init(self,fmt=0):
         w=self.wp; fn=w.fn.get()
@@ -2787,6 +2788,7 @@ class schism_view:
                 w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; w._StartT['width']=6; w._EndT['width']=6
                 if event=='time': w._StartT['width']=18; w._EndT['width']=18
         elif event=='vm': #reset data limit
+            if not hasattr(self,'hgrid'): return
             p=self.get_param()
             if p.var!='none': data=self.get_data(p); w.vmin.set(data.min()); w.vmax.set(data.max())
         elif event=='old': #reset all panel variables from a previous figure
@@ -2834,7 +2836,8 @@ class schism_view:
         from glob import glob
         import threading,time
 
-        #check output (todo: for cases that out2d*.nc not exist)
+        print('reading grid and output info.')
+        #check output
         fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc')
         self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]
         if len(fnames)==0: sys.exit('schism outputs dir. not found')
@@ -2855,7 +2858,7 @@ class schism_view:
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]
            kbe=self.kbp[gd.elnode]; kbe[self.fp3,-1]=-1; self.kbe=kbe.max(axis=1)
            while not hasattr(self,'wp'): time.sleep(0.01)
-           w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('done in reading grid; schismview ready')
+           w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
         self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1] 
         threading.Thread(target=_read_grid).start()
@@ -2897,7 +2900,7 @@ class schism_view:
         from tkinter import ttk
 
         wd=tk.Tk(); fms=[]
-        wd.title("SCHSIM Virtualization")
+        wd.title("SCHSIM Visualization")
         wd.rowconfigure([0,1,2], minsize=5, weight=1)
         wd.columnconfigure(0, minsize=20, weight=1)
         w=zdata() #capsule used to store parameters
