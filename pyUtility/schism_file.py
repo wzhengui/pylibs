@@ -2632,7 +2632,7 @@ class schism_view:
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
-           m=20; n=p.npt; x=[*p.px,*tile(0,m-n)]; y=[*p.py,*tile(nan,m-n)]; p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim) #add pts
+           m=20; n=p.npt; x=[*p.px,*tile(0.0,m-n)]; y=[*p.py,*tile(nan,m-n)]; p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim) #add pts
            for i in arange(m): [xi,yi,k]=[x[i],y[i],str(i+1)] if i<n else [0,0,'']; p.hpt.append(text(xi,yi,k,color='r',animated=anim))
            setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
@@ -2691,7 +2691,7 @@ class schism_view:
         svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
         if svar=='depth' or len(x)==0: return
         ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
-        fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1==p.ts.ik1 and ik2==p.ts.ik2) if hasattr(p,'ts') else False
+        fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
         if not fpc: #new time series requested
             ts=zdata(); pth=threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)); pth.start()
             return
