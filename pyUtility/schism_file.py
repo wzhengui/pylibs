@@ -2897,6 +2897,26 @@ class schism_view:
            self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d, %H:%M')
            threading.Thread(target=_set_time).start()
 
+    def cmd_window(self):
+        import tkinter as tk
+        from tkinter import ttk
+        cw=tk.Toplevel(self.window); cw.geometry("200x200"); cw.title('command input')
+        txt=tk.Text(master=cw,width=60,height=14); txt.grid(row=0,column=0,pady=2,sticky='ew')
+        rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
+        cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
+        cw.geometry('{}x{}'.format(xm,ym)); cw.update()
+
+    def cmd_exec(self,cmd):
+        window=self
+        if hasattr(self,'fig'): fig=self.fig; hf=fig.hf; ax=fig.ax
+        for i in cmd.strip().split('\n'):
+            try:
+               print('run: '+i); exec(i)
+            except:
+               print('fail: '+i)
+        if hasattr(self,'fig'): self.fig.hf.canvas.draw()
+        self.window.update()
+
     def init_window(self):
         #open an window
         import tkinter as tk
@@ -2973,7 +2993,9 @@ class schism_view:
 
         #frame 3: control
         fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='W',pady=2); fms.append(fm)
-        ttk.Button(master=fm,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
+        sfm0=ttk.Frame(master=fm); sfm0.pack(side=tk.LEFT)
+        ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
+        ttk.Button(master=sfm0,text='cmd',command=self.cmd_window,width=4).pack(side=tk.LEFT)
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
         L1=ttk.Label(master=sfm,text=''); L1.grid(row=0,column=0,sticky='W')
