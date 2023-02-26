@@ -2648,12 +2648,12 @@ class schism_view:
            self.update_panel('it',p)
 
         #animation
-        if fmt!=0 and (p.var not in ['depth','none']):
+        if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]
             for p.it in its:
                 if self.play=='off': break
-                if p.var!='none':
+                if p.var not in ['depth','none']:
                     v=self.get_data(p)
                     if p.med==0:
                         if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
