@@ -2650,7 +2650,7 @@ class schism_view:
         #animation
         if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
-            if fmt in [2,3,4,5]: its=[p.it]
+            if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
             for p.it in its:
                 if self.play=='off': break
                 if p.var not in ['depth','none']:
@@ -2665,9 +2665,9 @@ class schism_view:
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
                 self.update_panel('it',p); self.window.update()
                 if p.med==0: p.bm.update()
-                if self.play=='off': break
                 if p.med==1: pause(0.1)
-                if hasattr(p,'pause'): pause(p.pause)
+                if hasattr(p,'pause'): pause(max(p.pause,0.0001))
+                if self.play=='off': break
             if fmt==1: w.player['text']='play'; self.window.update()
 
     def plotts(self):
