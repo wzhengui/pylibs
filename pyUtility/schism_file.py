@@ -2667,6 +2667,7 @@ class schism_view:
                 if p.med==0: p.bm.update()
                 if self.play=='off': break
                 if p.med==1: pause(0.1)
+                if hasattr(p,'pause'): pause(p.pause)
             if fmt==1: w.player['text']='play'; self.window.update()
 
     def plotts(self):
@@ -2692,6 +2693,7 @@ class schism_view:
             print('done in extracting')
 
         #prepare info. about time sereis
+        if not hasattr(self,'fig'): return
         p=self.fig; gd=self.hgrid; gd.compute_ctr()
         svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
         if svar=='depth' or len(x)==0: return
@@ -2715,6 +2717,9 @@ class schism_view:
         setp(gca(),xticks=xts,xticklabels=xls,xlim=[mt.min(),mt.max()],ylim=ym)
         title('{}, layer={}, ({}, {})'.format(S.var,S.layer,S.mls[0][:10],S.mls[-1][:10])); legend(lstr)
         gcf().tight_layout(); show(block=False)
+
+    def plotsc(self):
+        print('profile not available yet'); return
 
     def onclick(self,sp):
         if sp.button is None: return
@@ -2910,6 +2915,7 @@ class schism_view:
         window=self
         if hasattr(self,'fig'): fig=self.fig; hf=fig.hf; ax=fig.ax
         for i in cmd.strip().split('\n'):
+            if i=='': continue
             try:
                print('run: '+i); exec(i)
             except:
@@ -2978,13 +2984,15 @@ class schism_view:
         vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
 
         #time series
-        ttk.Button(master=fm,text='curve',command=self.plotts,width=12).grid(row=0,column=1)
+        fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
+        ttk.Button(master=fm0,text='curve',command=self.plotts,width=5).grid(row=0,column=1)
+        ttk.Button(master=fm0,text='profile',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
 
         #xlim, ylim
         w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
         w.ymin=tk.DoubleVar(wd); w.ymax=tk.DoubleVar(wd); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
         fm1=ttk.Frame(master=fm); fm1.grid(row=2,column=0); fm2=ttk.Frame(master=fm); fm2.grid(row=2,column=1,padx=10)
-        ttk.Label(fm1,text='  xlim',width=5).grid(row=0,column=0,sticky='E')
+        ttk.Label(fm1,text='  xlim',width=6).grid(row=0,column=0,sticky='E')
         ttk.Entry(fm1,textvariable=w.xmin,width=11).grid(row=0,column=1,sticky='W')
         ttk.Entry(fm1,textvariable=w.xmax,width=11).grid(row=0,column=2,sticky='W',padx=2)
         ttk.Label(fm2,text='ylim',width=4).grid(row=0,column=0,sticky='E')
@@ -2995,7 +3003,11 @@ class schism_view:
         fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='W',pady=2); fms.append(fm)
         sfm0=ttk.Frame(master=fm); sfm0.pack(side=tk.LEFT)
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
-        ttk.Button(master=sfm0,text='cmd',command=self.cmd_window,width=4).pack(side=tk.LEFT)
+        mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
+        menu=tk.Menu(mbar,tearoff=0)
+        menu.add_command(label="command", command=self.cmd_window)
+        menu.add_command(label="save animation") #, command=self.cmd_window)
+        mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
         L1=ttk.Label(master=sfm,text=''); L1.grid(row=0,column=0,sticky='W')
@@ -3007,8 +3019,7 @@ class schism_view:
         ttk.Label(master=sfm,text='  skip:',width=6).grid(row=0,column=6,sticky='E')
         ttk.Entry(sfm,textvariable=w.ns,width=3).grid(row=0,column=7,sticky='W')
         L2=ttk.Label(master=sfm,text=''); L2.grid(row=0,column=8,sticky='W')
-
-        ttk.Button(master=fm,text='draw',width=5,command=lambda: self.schism_plot(0)).pack(side=tk.RIGHT)
+        ttk.Button(master=fm,text='draw',width=4,command=lambda: self.schism_plot(0)).pack(side=tk.RIGHT,padx=1)
 
         #resize window
         wd.geometry('600x180'); wd.update(); xm=max([i.winfo_width() for i in fms])
