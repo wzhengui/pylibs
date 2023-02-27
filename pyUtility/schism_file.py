@@ -2649,7 +2649,7 @@ class schism_view:
 
         #animation
         if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
-            if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
+            if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; it0=p.it; its=arange(it0+p.ns,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
             if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #savefig for animation
             for p.it in its:
@@ -2673,8 +2673,7 @@ class schism_view:
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
                from PIL import Image
-               from glob import glob
-               ims=glob('.'+p.anim+'*.png'); fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
+               ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
                fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
                [os.remove(i) for i in ims]
 
