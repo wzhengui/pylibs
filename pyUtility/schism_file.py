@@ -2679,7 +2679,6 @@ class schism_view:
 
     def plotts(self):
         import threading
-
         #function to extract data
         def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
             ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
@@ -2699,6 +2698,13 @@ class schism_view:
             ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
             print('done in extracting')
 
+        def update_xts(event):
+            if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
+            t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=nonzero(dt1==dt1.min())[0][0]; i2=nonzero(dt2==dt2.min())[0][0]
+            ns=max(int(floor((i2-i1+1)/5)),1); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
+            if hasattr(self,'StartT'): mlsi=[i[:10]+'\n'+i[11:] for i in mlsi]
+            s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi)
+
         #prepare info. about time sereis
         if not hasattr(self,'fig'): return
         p=self.fig; gd=self.hgrid; gd.compute_ctr()
@@ -2706,24 +2712,17 @@ class schism_view:
         if svar=='depth' or len(x)==0: return
         ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
         fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
-        if not fpc: #new time series requested
-            ts=zdata(); pth=threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)); pth.start()
-            return
+        if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)).start(); return
 
         #plot time series
-        S=p.ts; mt=S.mt; ns=max(1,int(len(mt)/10)); xts=mt[::ns]; t0=num2date(xts[0]); y0=t0.year; xls=[t0.strftime('%Y/%m/%d')]
-        for xti in xts[1:]:
-            t=num2date(xti); y=t.year; s=t.strftime('%m/%d')
-            if y!=y0: s=t.strftime('%Y/%m/%d'); y0=y
-            xls.append(s)
-
-        figure(figsize=[6.5,3.5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
-        for n,my in enumerate(S.mys):
+        s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
+        for n,my in enumerate(s.mys):
             plot(mt,my,color=cs[n%7],ls=ss[int(n/7)]); lstr.append('pt_{}'.format(n+1))
-        ym=ylim(); plot(mt,zeros(mt.size),'k:')
-        setp(gca(),xticks=xts,xticklabels=xls,xlim=[mt.min(),mt.max()],ylim=ym)
-        title('{}, layer={}, ({}, {})'.format(S.var,S.layer,S.mls[0][:10],S.mls[-1][:10])); legend(lstr)
-        gcf().tight_layout(); show(block=False)
+        s.ax=gca(); ym=ylim(); plot(mt,zeros(mt.size),'k:',lw=0.3,alpha=0.5)
+        setp(s.ax,xticks=mt[:2],xticklabels=mls[:2],xlim=[mt.min(),mt.max()],ylim=ym); s.ax.xaxis.grid('on')
+        title('{}, layer={}, ({}, {})'.format(s.var,s.layer,mls[0][:10],mls[-1][:10]))
+        legend(lstr); s.hf.tight_layout(); show(block=False)
+        update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
 
     def plotsc(self):
         print('profile not available yet'); return
