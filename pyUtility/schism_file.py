@@ -2594,7 +2594,7 @@ class schism_view:
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
         self.window.mainloop()
-        #todo: 1). for cases that out2d*.nc not exist; 2).extract vection only inside regions. 3). add command input interface
+        #todo: 1). for cases that out2d*.nc not exist; 2).extract vector only inside regions.
 
     def plot_init(self,fmt=0):
         w=self.wp; fn=w.fn.get()
@@ -2666,9 +2666,9 @@ class schism_view:
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
                 self.update_panel('it',p); self.window.update()
                 if p.med==0: p.bm.update()
+                if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
                 if p.med==1: pause(0.1)
                 if hasattr(p,'pause'): pause(max(p.pause,0.0001))
-                if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
                 if self.play=='off': break
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
@@ -2889,13 +2889,13 @@ class schism_view:
             dt=0 if nt==0 else ti[1]-ti[0]
         for ik in iks:
             try:
-                fn='{}/out2d_{}.nc'.format(self.outputs,ik)
+                fn='{}/out2d_{}.nc'.format(self.outputs,ik); nt1=nt
                 if not os.path.exists(fn): continue
                 if ik==iks[-1]:
                    C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
                    if nt1==0: continue
-                self.julian.extend(t0++(ik-ik0)*nt*dt+arange(nt)*dt); self.irec.extend(arange(nt))
-                self.stacks.append(ik); self.istack.extend(tile(ik,nt))
+                self.julian.extend(t0+(ik-ik0)*nt*dt+arange(nt1)*dt); self.irec.extend(arange(nt1))
+                self.stacks.append(ik); self.istack.extend(tile(ik,nt1))
             except:
                 pass
         self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
