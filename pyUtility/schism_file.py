@@ -2651,6 +2651,7 @@ class schism_view:
         if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
+            if p.anim!=None: savefig('{}_{:06}'.format(p.anim,p.it)) #savefig for animation
             for p.it in its:
                 if self.play=='off': break
                 if p.var not in ['depth','none']:
@@ -2667,8 +2668,15 @@ class schism_view:
                 if p.med==0: p.bm.update()
                 if p.med==1: pause(0.1)
                 if hasattr(p,'pause'): pause(max(p.pause,0.0001))
+                if p.anim!=None: savefig('{}_{:06}'.format(p.anim,p.it)) #save fig for animation
                 if self.play=='off': break
             if fmt==1: w.player['text']='play'; self.window.update()
+            if p.anim!=None:
+               from PIL import Image
+               from glob import glob
+               ims=glob(p.anim+'*.png'); fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
+               fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
+               [os.remove(i) for i in ims]
 
     def plotts(self):
         import threading
@@ -2814,7 +2822,7 @@ class schism_view:
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
-        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
+        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.anim=None
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
 
         #get time index
@@ -2923,6 +2931,23 @@ class schism_view:
         if hasattr(self,'fig'): self.fig.hf.canvas.draw()
         self.window.update()
 
+    def anim_window(self):
+        import tkinter as tk
+        from tkinter import ttk
+        if not hasattr(self,'fig'): return
+        p=self.fig; p._anim=tk.StringVar(self.window)
+        cw=tk.Toplevel(self.window); cw.geometry("300x30"); cw.title('animation')
+        fm=tk.Frame(master=cw); fm.grid(row=0,column=0)
+        ttk.Label(master=fm,text='name').grid(row=0,column=0)
+        ttk.Entry(master=fm,textvariable=p._anim,width=20).grid(row=0,column=1,pady=5,padx=3)
+        rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
+        cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
+
+    def anim_exec(self):
+        p=self.fig; anim=self.fig._anim.get()
+        p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
+        self.play='off'; self.schism_plot(1)
+
     def init_window(self):
         #open an window
         import tkinter as tk
@@ -3006,7 +3031,7 @@ class schism_view:
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
         menu=tk.Menu(mbar,tearoff=0)
         menu.add_command(label="command", command=self.cmd_window)
-        menu.add_command(label="save animation") #, command=self.cmd_window)
+        menu.add_command(label="save animation", command=self.anim_window)
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
