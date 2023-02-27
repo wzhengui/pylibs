@@ -2829,7 +2829,7 @@ class schism_view:
         if p.time=='time':
             p.it=self.mls.index(p.StartT); p.it2=self.mls.index(p.EndT)+1
         elif p.time=='julian':
-            p.it=self.julain.index(float(p.StartT)); p.it2=self.julian.index(float(p.EndT))+1
+            p.it=self.julian.index(float(p.StartT)); p.it2=self.julian.index(float(p.EndT))+1
         else: #stacks
             p.it=self.istack.index(int(p.StartT)); p.it2=len(self.istack)-self.istack[::-1].index(int(p.EndT))
         return p
