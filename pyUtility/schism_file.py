@@ -2944,7 +2944,7 @@ class schism_view:
     def anim_exec(self):
         p=self.fig; anim=self.fig._anim.get()
         p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
-        self.play='off'; self.schism_plot(1)
+        self.play='off'; self.schism_plot(1); p.anim=None
 
     def init_window(self):
         #open an window
