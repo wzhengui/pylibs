@@ -2651,7 +2651,7 @@ class schism_view:
         if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; its=arange(p.it+1,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
-            if p.anim!=None: savefig('{}_{:06}'.format(p.anim,p.it)) #savefig for animation
+            if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #savefig for animation
             for p.it in its:
                 if self.play=='off': break
                 if p.var not in ['depth','none']:
@@ -2668,13 +2668,13 @@ class schism_view:
                 if p.med==0: p.bm.update()
                 if p.med==1: pause(0.1)
                 if hasattr(p,'pause'): pause(max(p.pause,0.0001))
-                if p.anim!=None: savefig('{}_{:06}'.format(p.anim,p.it)) #save fig for animation
+                if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
                 if self.play=='off': break
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
                from PIL import Image
                from glob import glob
-               ims=glob(p.anim+'*.png'); fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
+               ims=glob('.'+p.anim+'*.png'); fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
                fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
                [os.remove(i) for i in ims]
 
