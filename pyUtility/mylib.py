@@ -34,7 +34,7 @@ class blit_manager:
 
         Example:
             xi=arange(0,5*pi,0.1); yi=sin(xi)
-            [hg]=plot(xi,yi,animated=True); bm=blit_manager(gcf(),[hg])
+            [hg]=plot(xi,yi,animated=True); bm=blit_manager(hg)
             for i in arange(100): hg.set_ydata(sin(xi-i)); bm.update()
         '''
         if hf is None: hf=gcf()
