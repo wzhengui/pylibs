@@ -2850,14 +2850,17 @@ class schism_view:
         from glob import glob
         import threading,time
 
-        print('reading grid and output info.')
         #check output
-        fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc')
+        print('reading grid and output info.')
+        fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); iout=1
         self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]
-        if len(fnames)==0: sys.exit('schism outputs dir. not found')
-        [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
-        iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
-        self.vvars=[i[:-1] for i in self.vars if (i[-1]=='X') and (i[:-1]+'Y' in self.vars)]
+        if len(fnames)!=0:
+           [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
+           iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
+           self.vvars=[i[:-1] for i in self.vars if (i[-1]=='X') and (i[:-1]+'Y' in self.vars)]
+        else:
+           self.vars=[]; self.svars_2d=[]; self.vvars=[]; iout=0
+           print('schism outputs dir. not found')
 
         #read grid and param
         grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
@@ -2878,6 +2881,7 @@ class schism_view:
         threading.Thread(target=_read_grid).start()
 
         #read available time
+        if iout==0: self.stacks=[0]; self.julian=[0]; self.istack=[0]; self.irec=[0]; self.mls=['0']; return
         self.stacks=[]; self.julian=[]; self.istack=[]; self.irec=[]
         ti=array(cvar['time'])/86400; nt=len(ti); t0=ti[0]  #assume all stacks have the same number of records
         if (not hasattr(self,'StartT')) and hasattr(C.variables['time'],'base_date'):
