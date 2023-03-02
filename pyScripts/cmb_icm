@@ -16,5 +16,5 @@ sname=args[0] if nv==1 else 'icm.nc'
 try:
   combine_icm_output(fmt=0,sname=sname) 
 except:
-  combine_icm_output(fmt=1,sname=sname) 
+  os.remove('outputs/'+sname); combine_icm_output(fmt=1,sname=sname)
 
