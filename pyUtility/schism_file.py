@@ -1329,7 +1329,10 @@ class schism_bpfile:
             self.shp_bp.attvalue=self.station
         write_shapefile_data(fname,self.shp_bp)
 
-    def plot_station(self,ax=None,color='r',marker='.',ls=None,label=True,fmt=0,**args):
+    def plot_station(self,**args):
+        return self.plot(**args)
+
+    def plot(self,ax=None,color='r',marker='.',ls=None,label=True,fmt=0,**args):
         '''
         plot points on current figure
           fmt=0: plot all points
