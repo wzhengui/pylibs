@@ -2112,16 +2112,18 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
     fid=Dataset(outdir+sname,'w',format='NETCDF4'); fvar=fid.variables; fdim=fid.dimensions
 
     #get fnames information
-    fnames=[outdir+i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; nts=[]
+    fnames=[outdir+i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; mts=[]
     if fmt==1: [copyfile(i,i+'.copy') for i in fnames]; fnames=[i+'.copy' for i in fnames] #copy output files
-    for i in fnames: C=ReadNC(i,1); nts.append(C.variables['time'].size); C.close() #time length
+    for i in fnames: C=ReadNC(i,1); mts.append(array(C.variables['time'])); C.close() #time length
+    t1=min([i.min() for i in mts]); t2=max([i.max() for i in mts]); dt=min([i[1]-i[0] for i in mts])
+    mti=arange(t1,t2+dt,dt); nt=mti.size #; sindt=[intersect1d(i,mti,return_indices=True)[1:] for i in mts]
 
     #combine station output
     for n,fname in enumerate(fnames):
-        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; sind=array(cvar['istation'][:])-1; t0=gettime()
+        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; t0=gettime()
+        sind=array(cvar['istation'][:])-1; itc,itf=intersect1d(mts[n],mti,return_indices=True)[1:]
         if n==0:
            #def dim
-           nt=min(nts)
            for dn in cdim:
                if dn=='nstation':
                   fid.createDimension(dn,bp.nsta)
@@ -2135,18 +2137,19 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
                cdn=[*cvar[cn].dimensions]
                cdn=(cdn[1:] if cdn[0]=='dim_01' else [cdn[1],cdn[0],cdn[2]]) if len(cdn)==3 else cdn
                if len(cdn)>=2 and outfmt==0:
-                  fid.createVariable(cn,np.float32,cdn,fill_value=False)
+                  fid.createVariable(cn,np.float32,cdn,fill_value=-99999)
                else:
-                  fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
+                  fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=-99999)
            fid.createVariable('station',str,['nstation'],fill_value=False)
-           fvar['time'][:]=array(cvar['time'][:nt])/86400 #set time
+           fvar['time'][:]=array(mti)/86400 #set time
 
         #set variables
         for i,cn in enumerate(cvar):
             cdn=[*cvar[cn].dimensions]; cds=[cdim[k].size for k in cdn]
             if cdn[0]=='nstation': fvar[cn][sind]=array(cvar[cn][:])
-            if len(cds)==3 and cds[0]==1: fvar[cn][sind]=array(cvar[cn][0,:,:nt])
-            if len(cds)==3 and cds[0]!=1: fvar[cn][sind]=array(cvar[cn][...,:nt]).transpose([1,0,2])
+            if len(cds)==3 and cds[0]==1: fvar[cn][sind,itf]=array(cvar[cn][0])[:,itc]
+            if len(cds)==3 and cds[0]!=1: fvar[cn][sind,:,itf]=array(cvar[cn])[...,itc].transpose([1,0,2])
+
         fvar['station'][:]=bp.station
         C.close(); dt=gettime()-t0
         if dt>1: print('finish combining {}/{}: {}, {:0.1f}'.format(n+1,len(fnames),fname,dt))
