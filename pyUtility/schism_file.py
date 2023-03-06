@@ -72,7 +72,7 @@ class schism_grid:
         if (fmt==0)|(ec!='None'): #plot grid
            if ec=='None': ec=['k','k']
            if isinstance(ec,str): ec=[ec,ec]
-           if not hasattr(lw,'__len__'): lw=[lw,lw/2]
+           if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
            iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
            x3,y3=self.x[iqd],self.y[iqd]; x3[5::6]=nan; y3[5::6]=nan
            hg0=[triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
@@ -85,6 +85,7 @@ class schism_grid:
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
+           if 'node' not in ats: self.show_node()
         return hg
 
         #-------------------------------------------------
@@ -196,6 +197,7 @@ class schism_grid:
            if 'bp' not in ats: self.bp=schism_bpfile()
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
+           if 'node' not in ats: self.show_node()
         return self.hb
 
     def read_hgrid(self,fname,*args):
@@ -1219,6 +1221,25 @@ class schism_grid:
         abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
         #if not abp.isCheckable(): abp.setCheckable(True)
         abp.triggered.connect(connect_actions)
+
+    def show_node(self):
+        '''
+        show node/element number
+        '''
+        def _show_node():
+            if not hasattr(self,'dpe'): self.compute_ctr()
+            if len(self.hts)==0:
+               xm=xlim(); ym=ylim()
+               sind=nonzero((self.x>=xm[0])*(self.x<=xm[1])*(self.y>=ym[0])*(self.y<=ym[1]))[0]
+               for i in sind: ht=text(self.x[i],self.y[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
+               sind=nonzero((self.xctr>=xm[0])*(self.xctr<=xm[1])*(self.yctr>=ym[0])*(self.yctr<=ym[1]))[0]
+               for i in sind: ht=text(self.xctr[i],self.yctr[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
+            else:
+               for i in arange(len(self.hts)): self.hts.pop().remove()
+            gcf().canvas.draw()
+        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
+        abp=acs[nonzero(ats=='node')[0][0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
+        abp.triggered.connect(_show_node)
 
 class schism_bpfile:
     def __init__(self):
