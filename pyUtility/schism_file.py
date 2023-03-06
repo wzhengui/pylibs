@@ -2738,7 +2738,10 @@ class schism_view:
         update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
 
     def plotsc(self):
-        print('profile not available yet'); return
+        print('profile function not available yet'); return
+
+    def query(self):
+        print('query function not available yet'); return
 
     def onclick(self,sp):
         if sp.button is None: return
@@ -3025,7 +3028,8 @@ class schism_view:
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
         ttk.Button(master=fm0,text='curve',command=self.plotts,width=5).grid(row=0,column=1)
-        ttk.Button(master=fm0,text='profile',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
+        tk.Button(master=fm0,text='profile',bg='darkgry',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
+        tk.Button(master=fm0,text='query',bg='darkgray',command=self.query,width=5).grid(row=0,column=3,padx=1,pady=2)
 
         #xlim, ylim
         w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
