@@ -3028,7 +3028,7 @@ class schism_view:
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
         ttk.Button(master=fm0,text='curve',command=self.plotts,width=5).grid(row=0,column=1)
-        tk.Button(master=fm0,text='profile',bg='darkgry',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
+        tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
         tk.Button(master=fm0,text='query',bg='darkgray',command=self.query,width=5).grid(row=0,column=3,padx=1,pady=2)
 
         #xlim, ylim
