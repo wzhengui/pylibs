@@ -665,12 +665,16 @@ class schism_grid:
 
         return pie,pip,pacor
 
-    def compute_kbe(self,kbp):
+    def compute_kb(self,kbp,fmt=0):
         '''
-        compute bottom element indices
+        fmt=0: compute bottom element indices
+        fmt=1: compute bottom side indices
         '''
-        kbe=kbp[self.elnode]; kbe[self.i34==3,-1]=-1; kbe=kbe.max(axis=1)
-        return kbe
+        if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=-1; kb=kb.max(axis=1)
+        if fmt==1:
+           if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+           kb=kbp[self.isidenode].max(axis=1)
+        return kb
 
     def interp(self,pxy,value=None,fmt=0):
         '''
@@ -2628,12 +2632,12 @@ class schism_view:
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
         self.window.mainloop()
-        #todo: 1). for cases that out2d*.nc not exist; 2).extract vector only inside regions.
+        #todo: 1). for cases that out2d*.nc not exist
 
     def plot_init(self,fmt=0):
         w=self.wp; fn=w.fn.get()
         if fn=='add': #new figure
-            if fmt==1: return
+            if fmt==1: return #return if entry from control window
             p=zdata(); p.hf=figure(figsize=[7.2,5.5]); self.get_param(p); p.xm,p.ym=self.xm,self.ym
             cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
         else:
@@ -2663,7 +2667,7 @@ class schism_view:
                v=self.get_data(p)
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1)]
-           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(gd.x,gd.y,u,v,animated=anim)]
+           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim)]
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
@@ -2810,21 +2814,28 @@ class schism_view:
         return data
 
     def get_vdata(self,p): #get vector data
-        svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; fmt=1
+        svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
         if svar+'X' in self.vars_2d:
-            C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); fmt=0
+            C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); npt=C.variables[svar+'X'].shape[1]; fmt=0
         else:
-            C=[self.fid('{}/{}X_{}.nc'.format(self.outputs,svar,istack)),self.fid('{}/{}Y_{}.nc'.format(self.outputs,svar,istack))]
+            C=[self.fid('{}/{}X_{}.nc'.format(self.outputs,svar,istack)),self.fid('{}/{}Y_{}.nc'.format(self.outputs,svar,istack))]; npt=C[0].variables[svar+'X'].shape[1]; fmt=1
+        if npt==gd.ne and (not hasattr(gd,'xctr')): gd.compute_ctr()
+        if npt==gd.ns and (not hasattr(gd,'xcj')):  gd.compute_side(fmt=2)
+        if npt==gd.ns and (not hasattr(self,'kbs')): self.kbs=gd.compute_kb(self.kbp,fmt=1)
+        if p.sindv is None: #get xy coordinate and indices
+           x,y=[gd.x,gd.y] if npt==gd.np else [gd.xctr,gd.yctr] if npt==gd.ne else [gd.xcj,gd.ycj]
+           p.sindv=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; p.vx=x[p.sindv]; p.vy=y[p.sindv]
+
+        sind=p.sindv #read record of vector variables
         if fmt==0:
-            u=array(C.variables[svar+'X'][irec]); v=array(C.variables[svar+'Y'][irec])
+            u=array(C.variables[svar+'X'][irec][sind]); v=array(C.variables[svar+'Y'][irec][sind])
         else:
             if layer=='bottom':
-                npt=C[0].variables[svar+'X'].shape[1]
-                if npt==gd.np: u,v=array(C[0].variables[svar+'X'][irec][arange(gd.np),self.kbp]),array(C[1].variables[svar+'Y'][irec][arange(gd.np),self.kbp])
-                if npt==gd.ne: u,v=array(C[0].variables[svar+'X'][irec][arange(gd.ne),self.kbe]),array(C[1].variables[svar+'Y'][irec][arange(gd.ne),self.kbe])
+                kb=(self.kbp if npt==gd.np else self.kbe if npt==gd.ne else self.kbs)[sind]
+                u=array(C[0].variables[svar+'X'][irec][sind,kb]); v=array(C[1].variables[svar+'Y'][irec][sind,kb])
             else:
-                layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer]),array(C[1].variables[svar+'Y'][irec,:,-layer])
-        return u,v
+                layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer][sind]),array(C[1].variables[svar+'Y'][irec,:,-layer][sind])
+        return [u,v]
 
     def update_panel(self,event,p=None):  #update control panel
         w=self.wp
@@ -2855,7 +2866,7 @@ class schism_view:
     def get_param(self,p=None):
         if p is None: p=zdata()
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
-        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
+        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]; p.sindv=None
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.anim=None
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
@@ -2909,7 +2920,7 @@ class schism_view:
                gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
                gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
            self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
-           self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kbe(self.kbp)
+           self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
