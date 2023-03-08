@@ -2968,16 +2968,19 @@ class schism_view:
     def cmd_window(self):
         import tkinter as tk
         from tkinter import ttk
-        cw=tk.Toplevel(self.window); cw.geometry("200x200"); cw.title('command input')
-        txt=tk.Text(master=cw,width=60,height=14); txt.grid(row=0,column=0,pady=2,sticky='ew')
+        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
+        cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
+        txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='ew')
         rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
         cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
     def cmd_exec(self,cmd):
         window=self
-        if hasattr(self,'fig'): fig=self.fig; hf=fig.hf; ax=fig.ax
-        for i in cmd.strip().split('\n'):
+        if hasattr(self,'fig'): #get figure handles
+           p=self.fig; fig, hf, ax, hp, hv, hg, hb, hpt = p, p.hf, p.ax, p.hp, p.hv, p.hg, p.hb, p.hpt
+           hp=None if len(hp)==0 else hp[0]; hv=None if len(hv)==0 else hv[0]; hb=None if len(hb)==0 else hb[0]
+        for i in cmd.strip().split('\n'): #run command
             if i=='': continue
             try:
                print('run: '+i); exec(i)
