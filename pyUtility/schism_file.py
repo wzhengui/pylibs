@@ -3010,6 +3010,21 @@ class schism_view:
         rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
         cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
 
+    def show_node(self):
+        p=self.fig; gd=self.hgrid
+        if hasattr(p,'hns'):
+           for i in arange(len(p.hns)): p.hns.pop().remove()
+           delattr(p,'hns'); p.hf.canvas.draw()
+        else:
+           xm=xlim(); ym=ylim(); p.hns=[]
+           if not hasattr(gd,'xctr'): gd.compute_ctr()
+           sind=nonzero((gd.x>=xm[0])*(gd.x<=xm[1])*(gd.y>=ym[0])*(gd.y<=ym[1]))[0]
+           for i in sind: ht=text(gd.x[i],gd.y[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
+           sind=nonzero((gd.xctr>=xm[0])*(gd.xctr<=xm[1])*(gd.yctr>=ym[0])*(gd.yctr<=ym[1]))[0]
+           for i in sind: ht=text(gd.xctr[i],gd.yctr[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
+           p.hf.canvas.draw()
+        return
+
     def anim_exec(self):
         p=self.fig; anim=self.fig._anim.get()
         p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
@@ -3100,6 +3115,7 @@ class schism_view:
         menu=tk.Menu(mbar,tearoff=0)
         menu.add_command(label="command", command=self.cmd_window)
         menu.add_command(label="save animation", command=self.anim_window)
+        menu.add_command(label="show node/element", command=self.show_node)
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
