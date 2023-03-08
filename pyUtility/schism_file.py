@@ -2667,15 +2667,18 @@ class schism_view:
                v=self.get_data(p)
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1)]
-           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim)]
+           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
-           #add pts
+
+           #add pts for time series
            m=20; n=p.npt; x=array([*p.px,*tile(0.0,m-n)]); y=array([*p.py,*tile(nan,m-n)])
            fpn=nonzero(~((x[:n]>p.xm[0])*(x[:n]<p.xm[1])*(y[:n]>p.ym[0])*(y[:n]<p.ym[1])))[0]; x[fpn]=0.0; y[fpn]=nan
            p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim)
-           for i in arange(m): [xi,yi,k]=[x[i],y[i],str(i+1)] if (i<n and (i not in fpn)) else [0,0,'']; p.hpt.append(text(xi,yi,k,color='r',animated=anim))
+           for i in arange(m):
+               [xi,yi,k]=[x[i],y[i],str(i+1)] if (i<n and (i not in fpn)) else [0,0,'']
+               p.hpt.append(text(xi,yi,k,color='r',animated=anim))
            setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
 
            #associcate with actions
@@ -2692,7 +2695,7 @@ class schism_view:
             if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #savefig for animation
             for p.it in its:
                 if self.play=='off': break
-                if p.var not in ['depth','none']:
+                if p.var not in ['depth','none']: # contourf
                     v=self.get_data(p)
                     if p.med==0:
                         if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
@@ -2700,7 +2703,10 @@ class schism_view:
                     else:
                         for i in arange(len(p.ax.collections)): p.ax.collections.pop()
                         gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,ticks=11,cmap='jet',cb=False,zorder=1)
-                if p.vvar!='none': u,v=self.get_vdata(p); p.hv[0].set_UVC(u,v)
+                if p.vvar!='none':  #vector
+                   u,v=self.get_vdata(p)
+                   if p.med==0: p.hv[0].set_UVC(u,v)
+                   if p.med==1: p.hv=[quiver(p.vx,p.vy,u,v,scale=2,scale_units='inches',width=0.001,zorder=3)]
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
                 self.update_panel('it',p); self.window.update()
                 if p.med==0: p.bm.update()
