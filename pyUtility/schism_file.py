@@ -2726,7 +2726,7 @@ class schism_view:
         import threading
         #function to extract data
         def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
-            ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
+            w.curve['text']='wait'; ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
             for ik in arange(ik1,ik2+1):
                 fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
                 C=self.fid(fname); npt=C.variables[svar].shape[1]; t00=time.time()
@@ -2741,7 +2741,7 @@ class schism_view:
                         layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][:,sindp,-layer])
                 ts.mys.extend(data); nt=nt+len(data); print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
             ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
-            print('done in extracting')
+            print('done in extracting'); w.curve['text']='curve'
 
         def update_xts(event):
             if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
@@ -2752,7 +2752,7 @@ class schism_view:
 
         #prepare info. about time sereis
         if not hasattr(self,'fig'): return
-        p=self.fig; gd=self.hgrid; gd.compute_ctr()
+        p=self.fig; w=self.wp; gd=self.hgrid; gd.compute_ctr()
         svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
         if svar=='depth' or len(x)==0: return
         ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
@@ -3077,7 +3077,7 @@ class schism_view:
 
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
-        ttk.Button(master=fm0,text='curve',command=self.plotts,width=5).grid(row=0,column=1)
+        w.curve=ttk.Button(master=fm0,text='curve',command=self.plotts,width=5); w.curve.grid(row=0,column=1)
         tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
         tk.Button(master=fm0,text='query',bg='darkgray',command=self.query,width=5).grid(row=0,column=3,padx=1,pady=2)
 
