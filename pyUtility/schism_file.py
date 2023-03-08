@@ -2627,24 +2627,25 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
 class schism_view:
     def __init__(self, run='.'):
         #note: p is a capsule including all information about a figure
-        self.figs=[]; self.fns=[] #list of figure objects
+        self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
         self.run_info(run)
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
         self.window.mainloop()
         #todo: 1). for cases that out2d*.nc not exist
 
-    def plot_init(self,fmt=0):
+    def init_plot(self,fmt=0):
         w=self.wp; fn=w.fn.get()
         if fn=='add': #new figure
             if fmt==1: return #return if entry from control window
-            p=zdata(); p.hf=figure(figsize=[7.2,5.5]); self.get_param(p); p.xm,p.ym=self.xm,self.ym
+            p=zdata(); self.get_param(p); p.xm,p.ym=self.xm,self.ym; p.hf=figure(figsize=p.figsize,num=self.nf())
             cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
-        else:
+        else: #old figure
             cid=self.fns.index(fn); p=self.figs[cid]
+            if not fignum_exists(p.hf.number): p.hf=figure(figsize=p.figsize,num=p.hf.number) #restore closed figure
             if fmt==0: #modify current figure
                 self.get_param(p); self.fns[cid]=self.fns[cid][:3]+p.var; p.hf.clear(); p.bm=None
-            elif fmt==1: #restore old figure
+            elif fmt==1: #restore old figure setting
                 self.update_panel('old',p)
         w._fn['values']=['add',*self.fns]; w.fn.set(self.fns[cid])
         self.fig=p; figure(p.hf) #bring figure to front
@@ -2654,7 +2655,7 @@ class schism_view:
         if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; gd=self.hgrid
-        p=self.plot_init(0) if fmt==0 else self.plot_init(1)
+        p=self.init_plot(0) if fmt==0 else self.init_plot(1)
         if fmt==2: p.it=max(p.it-p.ns,0)
         if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
@@ -2759,7 +2760,7 @@ class schism_view:
         if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)).start(); return
 
         #plot time series
-        s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5]); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
+        s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5],num=self.nf()); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
         for n,my in enumerate(s.mys):
             plot(mt,my,color=cs[n%7],ls=ss[int(n/7)]); lstr.append('pt_{}'.format(n+1))
         s.ax=gca(); ym=ylim(); plot(mt,zeros(mt.size),'k:',lw=0.3,alpha=0.5)
@@ -2776,6 +2777,7 @@ class schism_view:
 
     def onclick(self,sp):
         if sp.button is None: return
+        if not fignum_exists(self.fig.hf.number): return
         p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
         if dlk==1 and btn==1: #animation on and off
             if self.play=='on':
@@ -2865,16 +2867,19 @@ class schism_view:
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
+            if not fignum_exists(self.fig.hf.number): return
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
             w=self.wp; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
+            p.figsize=[p.hf.get_figwidth(),p.hf.get_figheight()]
         self.window.update()
 
     def get_param(self,p=None):
         if p is None: p=zdata()
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
-        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]; p.sindv=None
+        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
-        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.anim=None
+        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
+        p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
 
         #get time index
@@ -2890,6 +2895,10 @@ class schism_view:
         if not hasattr(self,'_fid'): self._fid={}
         if fname not in self._fid: self._fid[fname]=ReadNC(fname,1)
         return self._fid[fname]
+
+    def nf(self): #get a new figure number
+        self._nf=self._nf+1
+        return self._nf
 
     def window_exit(self):
         if hasattr(self,'_fid'):
@@ -3031,7 +3040,7 @@ class schism_view:
         ttk.Label(master=sfm,text='        figure').grid(row=0,column=0,sticky='E',padx=2)
         w.fn=tk.StringVar(wd); w.fn.set('add')
         w._fn=ttk.Combobox(sfm,textvariable=w.fn,values=['add'],width=10); w._fn.grid(row=0,column=1)
-        w._fn.bind("<<ComboboxSelected>>",lambda x: self.plot_init(1))
+        w._fn.bind("<<ComboboxSelected>>",lambda x: self.init_plot(1))
 
         #layer
         w.layer=tk.StringVar(wd); w.layer.set('surface')
