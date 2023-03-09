@@ -2669,7 +2669,7 @@ class schism_view:
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
-           if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[*hg[0],*hg[1]]
+           if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
 
@@ -2982,10 +2982,11 @@ class schism_view:
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='ew')
         rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
         cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
+        if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
     def cmd_exec(self,cmd):
-        window=self
+        self.cmd=cmd
         if hasattr(self,'fig'): #get figure handles
            p=self.fig; fig, hf, ax, hp, hv, hg, hb, hpt = p, p.hf, p.ax, p.hp, p.hv, p.hg, p.hb, p.hpt
            hp=None if len(hp)==0 else hp[0]; hv=None if len(hv)==0 else hv[0]; hb=None if len(hb)==0 else hb[0]
