@@ -2933,7 +2933,7 @@ class schism_view:
            vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
            if gd==None: #create hgrid
                gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
-               gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
+               gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1); gd.ns=cvar['SCHISM_hgrid_edge_x'].size
            self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
