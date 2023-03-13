@@ -2631,6 +2631,7 @@ class schism_view:
         self.run_info(run)
         self.window, self.wp=self.init_window()
         self.play='off'  #animation
+        self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
         self.window.mainloop()
         #todo: 1). for cases that out2d*.nc not exist
 
@@ -2729,17 +2730,16 @@ class schism_view:
             w.curve['text']='wait'; ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
             for ik in arange(ik1,ik2+1):
                 fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
-                C=self.fid(fname); npt=C.variables[svar].shape[1]; t00=time.time()
-                if ik==ik1: sindp=near_pts(c_[x,y],c_[gd.x,gd.y]) if npt==gd.np else near_pts(c_[x,y],c_[gd.xctr,gd.yctr]) #compute index
+                C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]; t00=time.time()
+                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],c_[gd.x,gd.y]) if npt==gd.np else near_pts(c_[x,y],c_[gd.xctr,gd.yctr]) #compute index
+                if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
                 if svar in self.vars_2d:
                     data=array(C.variables[svar][:,sindp])
                 else:
-                    if layer=='bottom':
-                        kb=self.kbp if npt==gd.np else self.kbe
-                        data=array([array(C.variables[svar][:,i,kb[i]]) for i in sindp]).T
-                    else:
-                        layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][:,sindp,-layer])
-                ts.mys.extend(data); nt=nt+len(data); print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
+                    ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size))
+                    data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
+                if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
+                ts.mys.extend(data); nt=nt+nt0; print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
             ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
             print('done in extracting'); w.curve['text']='curve'
 
