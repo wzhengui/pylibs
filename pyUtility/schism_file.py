@@ -2657,6 +2657,7 @@ class schism_view:
         if self.play=='on' and fmt==1: self.play='off'; return
         w=self.wp; gd=self.hgrid
         p=self.init_plot(0) if fmt==0 else self.init_plot(1)
+        if p is None: return
         if fmt==2: p.it=max(p.it-p.ns,0)
         if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
         if fmt==4: p.it=0
