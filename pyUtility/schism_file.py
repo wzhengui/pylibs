@@ -2980,7 +2980,7 @@ class schism_view:
         from tkinter import ttk
         cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
-        txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='ew')
+        txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
         rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
         cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
         if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
