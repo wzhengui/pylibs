@@ -22,7 +22,7 @@ class schism_grid:
         return get_VINFO(self)
 
     def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
-             ticks=None,xlim=None,ylim=None,clim=None,extend='both',cb=True,method=0,**args):
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
@@ -31,8 +31,9 @@ class schism_grid:
         levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
         ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
         clim=[vmin,vmax]: value range for plot/colorbar
-        cb=False: not add colorbar
         method=0: using tricontourf/tricontouf; method=1: using tripcolor
+        cb=False: not add colorbar
+        cb_aspect: adjust colorbar width
         '''
 
         if ec is None: ec='None'
@@ -62,7 +63,7 @@ class schism_grid:
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
            if cb==True:
-              hc=colorbar(hg); self.hc=hc
+              hc=colorbar(hg,aspect=cb_aspect); self.hc=hc
               if ticks is not None:
                  if not hasattr(ticks,'__len__'):
                     hc.set_ticks(linspace(*vm,int(ticks)))
@@ -2668,8 +2669,8 @@ class schism_view:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                v=self.get_data(p)
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1)]
+               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
+               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
