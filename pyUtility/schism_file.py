@@ -2956,16 +2956,17 @@ class schism_view:
         else:
             dt=0 if nt==0 else ti[1]-ti[0]
         for ik in iks:
-            try:
-                fn='{}/out2d_{}.nc'.format(self.outputs,ik); nt1=nt
-                if not os.path.exists(fn): continue
-                if ik==iks[-1]:
+            fn='{}/out2d_{}.nc'.format(self.outputs,ik); nt1=nt
+            if fn not in fnames: continue
+            if ik==iks[-1]:
+               try:
                    C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
                    if nt1==0: continue
-                self.julian.extend(t0+(ik-ik0)*nt*dt+arange(nt1)*dt); self.irec.extend(arange(nt1))
-                self.stacks.append(ik); self.istack.extend(tile(ik,nt1))
-            except:
-                pass
+               except:
+                   pass
+            self.julian.extend(t0+(ik-ik0)*nt*dt+arange(nt1)*dt); self.irec.extend(arange(nt1))
+            self.stacks.append(ik); self.istack.extend(tile(ik,nt1))
+
         self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
         if hasattr(self,'StartT'): #get time_string
            def _set_time():
