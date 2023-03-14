@@ -2631,6 +2631,7 @@ class schism_view:
         self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
         self.run_info(run)
         self.window, self.wp=self.init_window()
+        self.hold='off'  #animation
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
         self.window.mainloop()
@@ -2655,7 +2656,8 @@ class schism_view:
 
     def schism_plot(self,fmt=0):
         if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
-        if self.play=='on' and fmt==1: self.play='off'; return
+        if self.play=='on' and fmt==1: self.play='off'; self.hold='off'; return
+        if self.hold=='on': return #add hold to avoid freeze when user press too frequently
         w=self.wp; gd=self.hgrid
         p=self.init_plot(0) if fmt==0 else self.init_plot(1)
         if p is None: return
@@ -2665,6 +2667,7 @@ class schism_view:
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
+        self.hold='on'
         if fmt==0:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
@@ -2718,12 +2721,14 @@ class schism_view:
                 if p.med==1: pause(0.1)
                 if hasattr(p,'pause'): pause(max(p.pause,0.0001))
                 if self.play=='off': break
+                if fmt in [2,3,4,5]: self.play='off'
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
                from PIL import Image
                ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
                fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
                [os.remove(i) for i in ims]
+        self.hold='off'
 
     def plotts(self):
         import threading
