@@ -2960,7 +2960,7 @@ class schism_view:
             if fn not in fnames: continue
             if ik==iks[-1]:
                try:
-                   C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik)); nt1=C.dimensions['time'].size
+                   C=self.fid(fn); nt1=C.dimensions['time'].size
                    if nt1==0: continue
                except:
                    pass
