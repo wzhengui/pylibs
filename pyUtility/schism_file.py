@@ -2630,7 +2630,7 @@ class schism_view:
         #note: p is a capsule including all information about a figure
         self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
         self.run_info(run)
-        self.window, self.wp=self.init_window()
+        self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization: '+self.run)
         self.hold='off'  #animation
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
@@ -2923,7 +2923,7 @@ class schism_view:
         #check output
         print('reading grid and output info.')
         fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); iout=1
-        self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]
+        self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]; self.run=os.path.basename(os.path.abspath(run))
         if len(fnames)!=0:
            [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
            iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
