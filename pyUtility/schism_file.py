@@ -2961,7 +2961,7 @@ class schism_view:
         else:
             dt=0 if nt==0 else ti[1]-ti[0]
         for ik in iks:
-            fn='{}/out2d_{}.nc'.format(self.outputs,ik); nt1=nt
+            fn='{}{}out2d_{}.nc'.format(self.outputs,os.path.sep,ik); nt1=nt
             if fn not in fnames: continue
             if ik==iks[-1]:
                try:
