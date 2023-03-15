@@ -5,15 +5,10 @@ import os,sys
 
 Libs=['pylib','mylib','schism_file']
 if not set(Libs).issubset(set(sys.modules.keys())):
-   #---------------------------------------------------------------------
-   #spyder pylab library
-   #C:/Program Files/Python/Python3[57]/Lib/site-packages/matplotlib/pylab.py
-   #---------------------------------------------------------------------
-   pversion=sys.version.split(' ')[0]
-   #print(pversion)
+   pversion=sys.version.split(' ')[0] #print(pversion)
 
    #---------------------------------------------------------------------
-   #libraries of packages
+   #load pylib libraries of packages
    #---------------------------------------------------------------------
    #matplotlib
    import matplotlib as mpl
@@ -43,17 +38,14 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from numpy.random import *
    from numpy.linalg import *
    import numpy.ma as ma
-   #from numpy.fft import *
 
    #scipy
    import scipy as sp
    from scipy import interpolate
    from scipy.fftpack import fft, ifft
-   #from scipy import (optimize,interpolate,io,signal)
 
    #proj
    from pyproj import Transformer
-   #from pyproj import Proj, transform
 
    #netcdf
    from netCDF4 import Dataset
@@ -107,16 +99,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import datetime
 
    #import pandas as pd
-   #import re
-   #from io import StringIO
-   #import imp
-   #import importlib as imp
-
-   #reload
-   #try:
-   #  from importlib import reload
-   #except:
-   #  pass
 
    #sympy
    #try:
