@@ -2139,16 +2139,17 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
       outfmt=0: float32;  outfmt=1: float64
     '''
     from time import time as gettime
+    from glob import glob
 
     outdir=rundir+'/outputs/'
     bp=read_schism_bpfile(rundir+'/istation.in')
     fid=Dataset(outdir+sname,'w',format='NETCDF4'); fvar=fid.variables; fdim=fid.dimensions
 
     #get fnames information
-    fnames=[outdir+i for i in os.listdir(outdir) if (i.startswith('icm_') and i.endswith('.nc'))]; mts=[]
+    fnames=glob(outdir+'icm_*.nc'); mts=[]
     if fmt==1: [copyfile(i,i+'.copy') for i in fnames]; fnames=[i+'.copy' for i in fnames] #copy output files
     for i in fnames: C=ReadNC(i,1); mts.append(array(C.variables['time'])); C.close() #time length
-    t1=min([i.min() for i in mts]); t2=max([i.max() for i in mts]); dt=min([i[1]-i[0] for i in mts])
+    t1=min([i.min() for i in mts]); t2=max([i[abs(i)<1e15].max() for i in mts]); dt=min([i[1]-i[0] for i in mts])
     mti=arange(t1,t2+dt,dt); nt=mti.size #; sindt=[intersect1d(i,mti,return_indices=True)[1:] for i in mts]
 
     #combine station output
