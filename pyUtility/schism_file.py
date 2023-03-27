@@ -2632,9 +2632,10 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
          'sed_frac1':'sedBedFraction_1','sed_frac2':'sedBedFraction_2','sed_frac3':'sedBedFraction_3','sed_frac4':'sedBedFraction_4',
          'sed_conc1':'sedConcentration_1','sed_conc2':'sedConcentration_2','sed_conc3':'sedConcentration_3','sed_conc4':'sedConcentration_4',
          'sed_tconc':'totalSuspendedLoad'}
+    WWM={'wwm_WVHT':'sigWaveHeight','wwm_DPD':'dominantDirection','wwm_Tp':'peakPeriod'}
 
     if fmt==1: Hydro=oHydro
-    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS,'SED':SED}; S=zdata(); C=[]
+    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS,'SED':SED,'WWM':WWM}; S=zdata(); C=[]
     if (modules is not None) and isinstance(modules,str): modules=[modules,]
     if svar is None: #get all module info
        for n,m in mdict.items(): S.__dict__[n]=m
