@@ -56,11 +56,11 @@ class blit_manager:
         self.hf.canvas.blit(self.hf.bbox)
         self.hf.canvas.flush_events()
 
-def resize(data,shape):
+def resize(data,shape,fill=0):
     '''
-    re-define resize function with zeros for the new data
+    re-define the shape of an data array; The added data are filled with value='fill argument'
     '''
-    ds=data.shape; fdata=zeros(shape).astype(data.dtype)
+    ds=data.shape; fdata=zeros(shape).astype(data.dtype); fdata[:]=fill
     exec('fdata[{}]=data'.format(':'+',:'.join([str(i) for i in ds])+',0'*(len(shape)-len(ds))))
     return fdata
 
