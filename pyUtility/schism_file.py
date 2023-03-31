@@ -1319,7 +1319,7 @@ class schism_bpfile:
         F=None
         if fname.endswith('.reg'): F=self.write_reg
         if fname.endswith('.shp'): F=self.write_shapefile; fname=fname[:-4]
-        if fname.endswith('.bp') of (F is None):  F=self.write_bpfile
+        if fname.endswith('.bp') or (F is None):  F=self.write_bpfile
         if F is not None: F(fname,**args)
 
     def save(self,fname,**args):
