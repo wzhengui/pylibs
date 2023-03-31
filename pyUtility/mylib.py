@@ -134,12 +134,12 @@ def read_excel(fname,sht=0,fmt=0):
     if fmt==0: return fdata
     if fmt==1: return header, fdata
 
-def write_excel(data,fname,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
+def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
                 color=None,fontsize=None,fontweight=None,**args):
     '''
     use xlsxwriter to write Excel file
-       data: can be a single data, 1D array or 2D array
        fname: name of Excel file
+       data: can be a single data, 1D array or 2D array
        sht:  name of sheet_name
        indy: starting Row index of cell for data to be written
        indx: starting Column index of cell for data to be written
