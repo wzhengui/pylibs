@@ -732,19 +732,33 @@ class schism_grid:
         else:
            return self.interp_elem_to_node(pv)
 
+    def write(self, fname=None,**args):
+        '''
+        generic function to save grid as different format (default is *.gr3 format)
+        format: (*.npz, *.pkl, *.gr3, *.ll, *.ic, *.prop, *.shp, *.bnd)
+        examples:
+           1). gd.write('grid.npz')  or gd.write('grid')
+           2). gd.write('grid.pkl')
+           3). gd.write('hgrid.gr3') or gd.write('hgrid.ll') or gd.write('temp.ic',value=5)
+        '''
+        #check fname, and output as *.npz or *.pkl format
+        if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0]) #check fname
+        if fname.endswith('.npz') or fname.endswith('.pkl'):
+           s=zdata(); s.hgrid=self; savez(fname,s,**args); return
+
+        #outputs grid as other format
+        F=None
+        if fname.endswith('.prop'): F=self.write_prop
+        if fname.endswith('.bnd'):  F=self.write_bnd
+        if fname.endswith('.shp'):  F=self.write_shp
+        if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic') or (F is None): F=self.write_hgrid
+        F(fname,**args)
+
     def save(self, fname=None,**args):
         '''
-        save hgrid as (*.npz, *.pkl, *.gr3, *.ll or *.ic)
-          examples:
-                 1). gd.save('grid.npz') or gd.save('grid')
-                 2). gd.save('grid.pkl')
-                 3). gd.save('hgrid.gr3') or gd.save('hgrid.ll') or gd.save('temp.ic',value=5)
+        alias to self.write
         '''
-        if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0])
-        if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic'):
-           self.write_hgrid(fname,**args)
-        else:
-           s=zdata(); s.hgrid=self; savez(fname,s,**args)
+        self.write(fname,**args)
 
     def write_hgrid(self,fname,value=None,fmt=0,outfmt='{:<.8f}',elnode=1,bndfile=None,Info=None):
         '''
@@ -1056,6 +1070,15 @@ class schism_grid:
             if len(sindp)==0: break
         sind=zeros(npt).astype('int'); sind[sindp]=1
         return sind
+
+    def write_shp(self,fname,fmt=0,prj='epsg:4326'):
+        '''
+        generic function to write grid elem/node/bnd as shapefile
+        fmt=0: elem (default);   fmt=1: node;    fmt=2: bnd
+        '''
+        if fmt==0: self.write_shapefile_element(fname,prj)
+        if fmt==1: self.write_shapefile_node(fname,prj)
+        if fmt==2: self.write_shapefile_bnd(fname,prj)
 
     def write_shapefile_bnd(self,fname,prj='epsg:4326'):
         self.shp_bnd=zdata()
