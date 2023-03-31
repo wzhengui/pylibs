@@ -734,8 +734,8 @@ class schism_grid:
 
     def write(self, fname=None,**args):
         '''
-        generic function to save grid as different format (default is *.gr3 format)
-        format: (*.npz, *.pkl, *.gr3, *.ll, *.ic, *.prop, *.shp, *.bnd)
+        generic function to save grid as different format
+        format: (*.gr3, *.ll, *.ic, *.prop, *.npz, *.pkl, *.shp, *.bnd), (exceptions are in *.gr3 format)
         examples:
            1). gd.write('grid.npz')  or gd.write('grid')
            2). gd.write('grid.pkl')
@@ -1314,11 +1314,12 @@ class schism_bpfile:
     def write(self,fname,**args):
         '''
         generic fun in saving file in different format (*.bp, *.reg, *.shp)
+        when other format is provided, output as *.bp
         '''
         F=None
-        if fname.endswith('.bp'):  F=self.write_bpfile
         if fname.endswith('.reg'): F=self.write_reg
         if fname.endswith('.shp'): F=self.write_shapefile; fname=fname[:-4]
+        if fname.endswith('.bp') of (F is None):  F=self.write_bpfile
         if F is not None: F(fname,**args)
 
     def save(self,fname,**args):
