@@ -2171,6 +2171,31 @@ def WriteNC(fname,data,fmt=0,order=0):
             fid.variables[i][:]=cvar[i][:] if order==0 else cvar[i][:].T
         fid.close()
 
+def read(fname,*args0,**args):
+    '''
+    generic function in read files with standard suffixs
+    suffix supported:  npz, gr3, ll, vgrid.in, bp, reg, prop, xlsx, nc, shp, nml, asc, tif, tiff
+    '''
+    from .schism_file import (read_schism_hgrid, read_schism_vgrid, read_schism_bpfile, read_schism_reg,
+                              read_schism_prop, read_schism_param)
+
+    #determine read function
+    F=None
+    if fname.endswith('.asc') or fname.endswith('.tif') or fname.endswith('.tiff'): F=read_dem
+    if fname.endswith('.gr3') or fname.endswith('.ll'): F=read_schism_hgrid
+    if fname.endswith('vgrid.in'):  F=read_schism_vgrid
+    if fname.endswith('.npz'):  F=loadz
+    if fname.endswith('.bp'):   F=read_schism_bpfile
+    if fname.endswith('.reg'):  F=read_schism_reg
+    if fname.endswith('.prop'): F=read_schism_prop
+    if fname.endswith('.xlsx'): F=read_excel
+    if fname.endswith('.nc'):   F=ReadNC
+    if fname.endswith('.shp'):  F=read_shapefile_data
+    if fname.endswith('.nml'):  F=read_schism_param
+    if F is None: sys.exit('unknown type of file: '+fname)
+
+    return F(fname,*args0,**args)
+
 def harmonic_fit(oti,oyi,dt,mti,tidal_names=0, **args):
     '''
     construct time series using harmonics: used to fill data gap, or extrapolation

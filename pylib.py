@@ -119,7 +119,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,
         get_stat,get_subplot_position,get_subplot_position2,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml,read_excel,
-        write_excel,rtext,mklink,cindex,resize,savefig,pplot,blit_manager)
+        write_excel,rtext,mklink,cindex,resize,savefig,pplot,blit_manager,read)
 
    import pyUtility.schism_file as schism_file
    sys.modules['schism_file'] = schism_file
@@ -127,7 +127,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
         create_schism_vgrid,srank,grd2sms,scatter_to_schism_grid,delete_schism_grid_element,
-        read_schism_prop,read_schism_reg,interp_schism_3d,get_schism_var_info,read,
+        read_schism_prop,read_schism_reg,interp_schism_3d,get_schism_var_info,
         read_schism_output,change_schism_param,get_schism_output_info,get_schism_grid_subdomain,
         get_schism_output_subset,combine_schism_hotstart,combine_icm_output,read_schism_slab,
         schism_view)
