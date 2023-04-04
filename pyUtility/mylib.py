@@ -1,7 +1,6 @@
 #!/usr/bin/evn python3
 from pylib import *
 
-#-------misc-------------------------------------------------------------------
 def pplot(fnames):
     '''
     function to display figures in python format (*.pp)
@@ -1818,6 +1817,31 @@ def cindex(index,shape):
     else:
        cid=ravel_multi_index(index,shape)
     return cid
+
+def EOF(data,npc=8,scale=0,center=False,**args):
+    '''
+    EOF analysis
+        data(time,...): data with 1st dimension as time, other dimes for space
+        npc: number of principal components (PCs) returned
+        scale=0: normalized by eigenvalue; scale=1: normalized by the value of time series of each PC.
+        Note: the mean value is not removed (center=False) in the analysis at default.
+    Outputs: (PC,CC,VC,solver)
+        PC: principal components
+        CC: coefficients of each PC
+        VC: variation of each PC
+        solver: EOF analysis solver, and all results can be derived from it (e.g., solver.reconstructedField(8))
+    '''
+    from eofs.standard import Eof
+    solver=Eof(data,center=center,**args)
+    PC=solver.eofs(neofs=npc,eofscaling=2)
+    CC=solver.pcs(npcs=npc,pcscaling=1).T
+    VC=solver.varianceFraction(npc)
+
+    #normalize
+    for m,cc in enumerate(CC):
+        if cc.mean()<0: CC[m],PC[m]=-CC[m],-PC[m]
+        if scale==1: rat=abs(cc).mean(); CC[m], PC[m]=CC[m]/rat,PC[m]*rat
+    return PC, CC, VC, solver
 
 def get_stat(xi_model,xi_obs,fmt=0):
     '''
