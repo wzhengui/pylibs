@@ -252,6 +252,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
           if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
+       elif qnode in ['eagle',]:
+          scmd='sbatch --export=ALL -A {} -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(account,jname,qname,nnode,ppn,wtime,code)
        else:
           sys.exit('unknow qnode: {},tag=1'.format(qnode))
     elif fmt==1:
@@ -277,6 +279,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
           if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
           #if qnode=='james' and ename=='run_schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
+       elif qnode in ['eagle']:
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
        else:
           sys.exit('unknow qnode: {},tag=2'.format(qnode))
 

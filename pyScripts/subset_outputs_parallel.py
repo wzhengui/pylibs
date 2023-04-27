@@ -75,8 +75,8 @@ def subset_on_stack(stack, nidxs, eidxs):
 if __name__ == '__main__':
 
     #input 1: stack
-    stack_start = 1
-    stack_end = 20
+    stack_start = 15
+    stack_end = 42
 
     #input 2: bbox
     lon_min = -92.0  #-82.0
