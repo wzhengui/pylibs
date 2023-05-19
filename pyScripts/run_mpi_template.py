@@ -35,7 +35,7 @@ if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locall
 if os.getenv('job_on_node')==None:
    if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]
    if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
-   scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname)
+   scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname,account=account)
    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------
