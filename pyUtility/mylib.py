@@ -495,7 +495,7 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
        dp=dp1*(1-yrat)+dp2*yrat
 
        #make sure elevation is within right range
-       if S.nodata is not None:
+       if sum(isnan(S.elev))>0:
            fpz=~isnan(dp); sindp=sindp[fpz]; dp=dp[fpz]
 
     elif igrd==1: #schism grid (unstrucured data)
