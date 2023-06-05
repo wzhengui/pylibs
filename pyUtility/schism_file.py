@@ -328,16 +328,29 @@ class schism_grid:
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self,fmt=0,value=None,outfmt=0):
+    def compute_gradient(self,fmt=0,value=None,outfmt=0, cpp=None,lon_ori=None,lat_ori=None):
         '''
         Compute gradient on each element first, then convert to node value
           fmt: interploation method (see details in interp_elem_to_node())
               (0: simple avarage; fmt=1: inverse distance; fmt=2: maximum of surrounding nodal values)
           value=None: gd.dp is used;    value: array of [np,] or [ne]
           outfmt=0: return (dpdx,dpdy,dpdxy); outfmt=1: return (dpdx,dpdy,dpdxy,dpedx,dpedy,dpedxy)
+          cpp=1: CPP projection. It project decimal degress (lon/lat) to CPP coordinate (https://www.xmswiki.com/wiki/CPP_Coordinate_System).
+                 If lon_ori and lat_ori are not defined, they will be the center of the grid 
         '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
+
+        if cpp==1:
+            ox=self.x.copy(); oy=self.y.copy()
+            if lon_ori==None or lat_ori==None:
+                lon_ori=(ox.max()-ox.min())/2+ox.min(); lat_ori=(oy.max()-oy.min())/2+oy.min() # the center of the grid
+            R=6378206.4 # (Clarke 1866 major spheroid radius)
+            lon_radian, lat_radian = self.x*(pi/180), self.y*(pi/180)
+            lon_ori_radian, lat_ori_radian = lon_ori*(pi/180), lat_ori*(pi/180)
+
+            self.x = R * (lon_radian - lon_ori_radian) * cos(lat_ori_radian)
+            self.y = R * lat_radian
 
         #get node value
         v0=self.dp if value is None else value
@@ -367,6 +380,8 @@ class schism_grid:
         dpdx=self.interp_elem_to_node(value=dpedx,fmt=fmt)
         dpdy=self.interp_elem_to_node(value=dpedy,fmt=fmt)
         dpdxy=self.interp_elem_to_node(value=dpedxy,fmt=fmt)
+
+        if cpp==1: self.x=ox; self.y=oy # restore lon/lat in decimal degrees.
 
         if outfmt==0:
            return dpdx,dpdy,dpdxy
