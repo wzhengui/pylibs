@@ -1493,6 +1493,8 @@ def mdivide(A,B):
 def lpfilt(data,delta_t,cutoff_f):
     '''
     low pass filter for 1D (data[time]) or nD (data[time,...]) array along the first dimension
+
+    Note: there is no phase shift for this LP-filter
     '''
     #import gc #discard
 
