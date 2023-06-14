@@ -29,5 +29,6 @@ with open("README.md", "r", encoding="utf-8") as fh:
           'mpi': ['mpi4py>=3.0.0'],
           'shapefile': ['pyshp>=2.1.0'],
           'projection': ['pyproj>=3.0.0'],
+          'eof': ['eofs>=1.4.0'],
         }
     )
