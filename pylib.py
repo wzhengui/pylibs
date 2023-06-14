@@ -45,7 +45,10 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from scipy.fftpack import fft, ifft
 
    #proj
-   from pyproj import Transformer
+   try:
+       from pyproj import Transformer
+   except:
+       pass
 
    #netcdf
    from netCDF4 import Dataset

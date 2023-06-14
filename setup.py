@@ -19,13 +19,15 @@ with open("README.md", "r", encoding="utf-8") as fh:
         classifiers=[],
         install_requires=[
     	    'setuptools',
-    	    'mpi4py>=3.0.0',
     	    'pandas',
     	    'numpy',
-    	    'pyproj>=3.0.0',
     	    'netCDF4>=1.5.8',
-    	    'pyshp>=2.1.0',
     	    'matplotlib>=3.0.0',
     	    'scipy'
-        ]
+        ],
+        extras_require={
+          'mpi': ['mpi4py>=3.0.0'],
+          'shapefile': ['pyshp>=2.1.0'],
+          'projection': ['pyproj>=3.0.0'],
+        }
     )
