@@ -1,6 +1,12 @@
 #/usr/bin/env python3
 from numpy import array, array_equal, argsort, arange, c_, r_, diff,\
-  sort, unique, zeros, ones, setdiff1d, fliplr, flipud, tile, nonzero
+  sort, unique, zeros, ones, setdiff1d, fliplr, flipud, tile, nonzero,\
+  nan, isnan, loadtxt, savetxt, load, linspace, meshgrid, concatenate
+from matplotlib.pyplot import figure, show, savefig, tricontour,\
+    tricontourf, tripcolor, colorbar, gca, gcf, plot, axis, xlim, ylim,\
+    triplot, title, xlabel, ylabel, gca, gcf, setp, getp, close
+import matplotlib.cm as cm
+import matplotlib as mpl
 
 class schism_grid:
     def __init__(self, fname=None):
