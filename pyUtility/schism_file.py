@@ -1163,10 +1163,12 @@ class schism_grid:
                if S.npt%2==1: print('open boundary needs to be defined'); return #don't allow finish
 
                #add a new land bnd to the end of the segment
-               if S.nlb<S.nob:
+               bid=S.bid[-1]; ip=S.pt[-1]
+               #if S.nlb<S.nob:
+               if S.ibn[bid][0]!=ip:
                   bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
                   S.nlb=S.nlb+1; ibni=r_[S.ibn[bid][pid:],S.ibn[bid][0]]; S.ilbn.append(ibni)
-                  hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+                  hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hb.append(hlb); S.ihb.append(0)
 
                #save boundary information
                self.nob=S.nob; self.iobn=array(S.iobn,dtype='O'); self.nobn=array([len(i) for i in self.iobn])
@@ -1186,7 +1188,7 @@ class schism_grid:
             if S.npt!=0:
                bid0=S.bid[-1]; pid0=nonzero(S.ibn[bid0]==S.pt[-1])[0][0]
                if S.npt%2==1 and bid!=bid0: return  #two pts are not on the same boundary
-               if S.npt%2==1 and pid0>=pid: return  #the 2nd pt is ahead of the 1st pt
+               if S.npt%2==1 and (pid0>=pid and pid!=0): return  #the 2nd pt is ahead of the 1st pt (except open bnd to 1st node)
             if bid not in S.bid: S.ibn[bid]=r_[S.ibn[bid][pid:],S.ibn[bid][:pid]] #reorder boundary points
 
             #new bnd pt
@@ -1195,33 +1197,38 @@ class schism_grid:
 
             #new open bnd
             if S.npt%2==0:
-               S.nob=S.nob+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.iobn.append(ibni)
-               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hob.append(hob)
+               S.nob=S.nob+1; ibni=r_[S.ibn[bid][pid0:],S.ibn[bid][0]] if pid==0 else S.ibn[bid][pid0:(pid+1)]
+               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hb.append(hob); S.ihb.append(1); S.iobn.append(ibni)
 
             #new land bnd
-            if S.npt>2 and S.npt%2==1 and bid0==bid:
+            if S.npt>2 and S.npt%2==1 and bid0==bid and pid!=pid0:
                S.nlb=S.nlb+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.ilbn.append(ibni)
-               hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+               hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hb.append(hlb); S.ihb.append(0)
 
             #add a new land bnd to the end of the segment
-            if S.npt>=2 and bid0!=bid:
+            if S.npt>=2 and bid0!=bid and pid0!=0:
                S.nlb=S.nlb+1; ibni=r_[S.ibn[bid0][pid0:],S.ibn[bid0][0]]; S.ilbn.append(ibni)
-               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb)
+               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hb.append(hlb); S.ihb.append(0)
             gcf().canvas.draw()
 
         def remove_pt(x,y):
             if S.npt==0: return
             bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
 
+            #remove 1st land bnd
+            if len(S.hb)!=0:
+               if S.ihb[-1]==0 and S.ilbn[-1][-1]!=S.pt[-1]: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
+
             #remove bnd pt
             S.hp[-1][0].remove(); S.hp.pop(); S.pt.pop(); S.bid.pop(); S.npt=S.npt-1
 
             #remove open bnd
-            if S.npt%2==1: S.hob[-1][0].remove(); S.hob.pop(); S.nob=S.nob-1; S.iobn.pop()
+            if len(S.hb)!=0:
+               if S.npt%2==1 and S.ihb[-1]==1: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.nob=S.nob-1; S.iobn.pop()
 
             #remove land bnd
-            if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0):
-               S.hlb[-1][0].remove(); S.hlb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
+            if len(S.hb)!=0:
+               if S.ihb[-1]==0 and S.ilbn[-1][-1]!=S.pt[-1]: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
             gcf().canvas.draw()
 
         #add bnd icon
@@ -1231,7 +1238,7 @@ class schism_grid:
 
         #add bndinfo capsule
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
-        S=self.bndinfo; S.hp=[]; S.hob=[]; S.hlb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
+        S=self.bndinfo; S.hp=[]; S.hb=[]; S.ihb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
 
         #connect to actions
         abn.triggered.connect(connect_actions)
