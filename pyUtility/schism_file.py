@@ -473,17 +473,16 @@ class schism_grid:
         if ibn.shape[0]==1: ibn=ibn.astype('int')
 
         #find the outline
-        island=ones(nb).astype('int')
+        island=ones(nb).astype('int'); bid=[]
         for i in arange(nb):
             px=self.x[ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
             sid=ibn[i][array([(i0-1)%nbn[i],i0,(i0+1)%nbn[i]])].astype('int')
-            if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid=i; break
+            if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid.append(i)
 
         #put outline bnd ahead
-        if bid!=0:
-           island=ones(nb).astype('int'); island[0]=0
-           nbn=array([nbn[bid],*nbn[:bid],*nbn[(bid+1):]])
-           ibn=array([ibn[bid],*ibn[:bid],*ibn[(bid+1):]],dtype='O')
+        if len(bid)!=0:
+           bid=array(bid); nbid=setdiff1d(arange(nb),bid); island=array([*island[bid],*island[nbid]])
+           nbn=array([*nbn[bid],*nbn[nbid]]); ibn=array([*ibn[bid],*ibn[nbid]],dtype='O')
 
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
