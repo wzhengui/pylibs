@@ -1490,6 +1490,35 @@ def mdivide(A,B):
     B2=B@A.T
     return squeeze(B2@A2)
 
+def bpfilt(data,delta_t,band_f):
+    '''
+    band pass filter for 1D (data[time]) or nD (data[time,...]) array along the first dimension
+       delta_t: time interval
+       band_f: frequency band (eg. band_f=[12,48])
+    '''
+
+    #data dimension
+    ds=data.shape; N=ds[0]
+
+    #remove mean, do fft
+    data=data-data.mean(axis=0)[None,...]
+    fdata=fft(data,axis=0)
+
+    #design filter
+    filt=ones(N)
+    k1=int(floor(band_f[0]*N*delta_t))-1; k1=max(min(k1,N//2),1)
+    k2=int(ceil(band_f[1]*N*delta_t))+1;  k2=max(min(k2,N//2),1)
+    filt[:k1]=0; filt[-k1:]=0; filt[k2:N-k2]=0
+    filt=(ones([*ones(data.ndim).astype('int')])*filt).T
+
+    #remove low and high freqs
+    fdata=fdata*filt
+
+    #bp results
+    bpdata=real(ifft(fdata,axis=0))
+
+    return bpdata
+
 def lpfilt(data,delta_t,cutoff_f):
     '''
     low pass filter for 1D (data[time]) or nD (data[time,...]) array along the first dimension

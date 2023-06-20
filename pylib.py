@@ -116,7 +116,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    sys.modules['mylib'] = mylib
    from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
         get_VINFO,loadz,zdata,savez,find_cs,npz2mat,convert_matfile,
-        smooth,daytime_length,move_figure,lpfilt,mdivide,signa,
+        smooth,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,
         inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,
