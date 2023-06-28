@@ -1692,14 +1692,15 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
     else:
        return [x1,y1]
 
-def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918'):
+def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918',**args):
     '''
     convert projection of points from prj1 to prj2
       x,y: coordinate of pts
       prj1: name of original projection
       prj2: name of target projection
+      when 'cpp' projection exists, lon0, and lat0 arguments can be provided
     '''
-    px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y)
+    px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y,**args)
     return [px,py]
 
 def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection\prj_files'):

@@ -328,7 +328,7 @@ class schism_grid:
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self,fmt=0,value=None,outfmt=0, cpp=None,lon_ori=None,lat_ori=None):
+    def compute_gradient(self,fmt=0,value=None,outfmt=0,cpp=None,lon0=None,lat0=None):
         '''
         Compute gradient on each element first, then convert to node value
           fmt: interploation method (see details in interp_elem_to_node())
@@ -336,21 +336,16 @@ class schism_grid:
           value=None: gd.dp is used;    value: array of [np,] or [ne]
           outfmt=0: return (dpdx,dpdy,dpdxy); outfmt=1: return (dpdx,dpdy,dpdxy,dpedx,dpedy,dpedxy)
           cpp=1: CPP projection. It project decimal degress (lon/lat) to CPP coordinate (https://www.xmswiki.com/wiki/CPP_Coordinate_System).
-                 If lon_ori and lat_ori are not defined, they will be the center of the grid 
+                 If lon0 and lat0 are not defined, they will be the center of the grid
         '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
 
         if cpp==1:
-            ox=self.x.copy(); oy=self.y.copy()
-            if lon_ori==None or lat_ori==None:
-                lon_ori=(ox.max()-ox.min())/2+ox.min(); lat_ori=(oy.max()-oy.min())/2+oy.min() # the center of the grid
-            R=6378206.4 # (Clarke 1866 major spheroid radius)
-            lon_radian, lat_radian = self.x*(pi/180), self.y*(pi/180)
-            lon_ori_radian, lat_ori_radian = lon_ori*(pi/180), lat_ori*(pi/180)
-
-            self.x = R * (lon_radian - lon_ori_radian) * cos(lat_ori_radian)
-            self.y = R * lat_radian
+            if lon0==None or lat0==None: lon0=(self.x.min()+self.x.max())/2; lat0=(self.y.min()+self.y.max())/2
+            x,y=proj_pts(self.x,self.y,'epsg:4326','cpp',lon0=lon0,lat0=lat0)
+        else:
+            x=self.x; y=self.y
 
         #get node value
         v0=self.dp if value is None else value
@@ -358,10 +353,10 @@ class schism_grid:
 
         #get pts
         fp=self.elnode[:,-1]<0; fpn=~fp;
-        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]]; v1=v0[self.elnode[:,0]]
-        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]]; v2=v0[self.elnode[:,1]]
-        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]]; v3=v0[self.elnode[:,2]]
-        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; v4=v0[self.elnode[:,3]]
+        x1=x[self.elnode[:,0]]; y1=y[self.elnode[:,0]]; v1=v0[self.elnode[:,0]]
+        x2=x[self.elnode[:,1]]; y2=y[self.elnode[:,1]]; v2=v0[self.elnode[:,1]]
+        x3=x[self.elnode[:,2]]; y3=y[self.elnode[:,2]]; v3=v0[self.elnode[:,2]]
+        x4=x[self.elnode[:,3]]; y4=y[self.elnode[:,3]]; v4=v0[self.elnode[:,3]]
         x4[fp]=x1[fp]; y4[fp]=y1[fp]; v4[fp]=v1[fp]
         a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
         a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
@@ -380,8 +375,6 @@ class schism_grid:
         dpdx=self.interp_elem_to_node(value=dpedx,fmt=fmt)
         dpdy=self.interp_elem_to_node(value=dpedy,fmt=fmt)
         dpdxy=self.interp_elem_to_node(value=dpedxy,fmt=fmt)
-
-        if cpp==1: self.x=ox; self.y=oy # restore lon/lat in decimal degrees.
 
         if outfmt==0:
            return dpdx,dpdy,dpdxy
