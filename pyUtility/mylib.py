@@ -16,7 +16,6 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
     def update_xts(xm=None,xts=None,xls=None):
 
         fstr= '%Y-%m-%d' if fmt==0 else '%d/%m' if fmt==1 else fmt
-        # print(fmt)
         if xm is None: xm=ax.get_xlim()
         if xts is None: xts=linspace(*xm,nts)
         if xls is None: xls=[num2date(i).strftime(fstr) for i in xts]
@@ -25,7 +24,9 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
         fig.canvas.draw()
 
     def onclick(sp):
-        dlk=int(sp.dblclick); btn=int(sp.button)
+        dlk=int(sp.dblclick); btn=int(sp.button); x,y=sp.x,sp.y
+        p=ax.get_window_extent(); x0,x1,y0,y1=p.x0,p.x1,p.y0,p.y1
+        if x<x0 or x>x1 or y<y0 or y>y1: return
         if btn in [1,3]: update_xts()
 
     def init_xts(sp=None):
