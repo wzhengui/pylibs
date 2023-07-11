@@ -1,6 +1,61 @@
 #!/usr/bin/evn python3
 from pylib import *
 
+def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%S',ax=None,fig=None):
+    '''
+    add dynamic xtick labels with x-axis being datenum
+        nts:   number of xticklabel
+        xlim:  x-axis limits
+        xts:   xticks
+        xls:   xticklables
+        grid:  add x-axis grid line if grid='on'
+        fmt:  datenum time string format; (=0:'%Y-%m-%d'; =1: '%d/%m')
+        ax:    figure axes
+        fig:   figure handle
+    '''
+    def update_xts(xm=None,xts=None,xls=None):
+
+        fstr= '%Y-%m-%d' if fmt==0 else '%d/%m' if fmt==1 else fmt
+        # print(fmt)
+        if xm is None: xm=ax.get_xlim()
+        if xts is None: xts=linspace(*xm,nts)
+        if xls is None: xls=[num2date(i).strftime(fstr) for i in xts]
+        ax.xaxis.set_ticks(xts); ax.xaxis.set_ticklabels(xls)
+        ax.set_xlim(xm); ax.xaxis.grid(grid)
+        fig.canvas.draw()
+
+    def onclick(sp):
+        dlk=int(sp.dblclick); btn=int(sp.button)
+        if btn in [1,3]: update_xts()
+
+    def init_xts(sp=None):
+        update_xts(xm=xlim,xts=xts,xls=xls)
+
+    #pre-proc
+    if ax is None: ax=gca()
+    if fig is None: fig=gcf()
+
+    #set home
+    if mpl.get_backend().lower() in ['qt5agg','qtagg']:
+       acs=fig.canvas.toolbar.actions(); ats=[i.iconText().lower() for i in acs]
+       ac=acs[ats.index('home')]; ac.triggered.connect(init_xts) #set home
+    else: #work for tkagg
+       try:
+          ac=fig.canvas.toolbar.children['!button']
+          ac.bind("<Button-1>", init_xts)
+       except:
+         pass
+
+    #set init. xtick
+    if xlim is None:
+        xms=array([[i.get_xdata().min(),i.get_xdata().max()] for i in ax.get_children() if type(i)==mpl.lines.Line2D])
+        xlim=[xms[:,0].min(),xms[:,1].max()] if xms.ndim==2 else ax.get_xlim()
+    if xts is not None: nts=sum((array(xts)>=xlim[0])*(array(xts)<=xlim[1]))
+    init_xts()
+
+    #connect actions
+    fig.canvas.mpl_connect('button_release_event', onclick)
+
 def pplot(fnames):
     '''
     function to display figures in python format (*.pp)
