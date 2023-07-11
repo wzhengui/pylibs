@@ -13,7 +13,7 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
         ax:    figure axes
         fig:   figure handle
     '''
-    def update_xts(xm=None,xts=None,xls=None):
+    def update_xts(xm=None,xts=None,xls=None,tag=None):
 
         fstr= '%Y-%m-%d' if fmt==0 else '%d/%m' if fmt==1 else fmt
         if xm is None: xm=ax.get_xlim()
@@ -21,7 +21,7 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
         if xls is None: xls=[num2date(i).strftime(fstr) for i in xts]
         ax.xaxis.set_ticks(xts); ax.xaxis.set_ticklabels(xls)
         ax.set_xlim(xm); ax.xaxis.grid(grid)
-        fig.canvas.draw()
+        if (tag==0 and fig.np==ax.np) or tag is None: fig.canvas.draw()
 
     def onclick(sp):
         dlk=int(sp.dblclick); btn=int(sp.button); x,y=sp.x,sp.y
@@ -30,11 +30,13 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
         if btn in [1,3]: update_xts()
 
     def init_xts(sp=None):
-        update_xts(xm=xlim,xts=xts,xls=xls)
+        update_xts(xm=xlim,xts=xts,xls=xls,tag=0)
 
     #pre-proc
-    if ax is None: ax=gca()
     if fig is None: fig=gcf()
+    if ax is None: ax=gca()
+    #aviod canvas refresh from all axes
+    fig.np=0 if not hasattr(fig,'np') else fig.np+1; ax.np=fig.np
 
     #set home
     if mpl.get_backend().lower() in ['qt5agg','qtagg']:
