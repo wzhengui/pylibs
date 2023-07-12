@@ -13,7 +13,10 @@ import matplotlib as mpl
 try:
     from pylib_utils.utility_functions import proj
 except:
-    print("projection module not found; install pylib_utils")
+    try:
+        from pylib.utility_functions import proj
+    except:
+        print("projection module not found; install pylib_utils or pylib")
 
 # for experimental features
 import numpy as np

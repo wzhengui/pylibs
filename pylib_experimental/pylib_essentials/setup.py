@@ -5,7 +5,7 @@ with open('requirements.txt', 'r') as f:
 
 setup(
     name='pylib_essentials',
-    version='0.0.1',
+    version='0.0.3',
     description='The essentials of the experimental package of pylibs, which require minimum dependencies',
     license='MIT',
     packages=['pylib_essentials'],
