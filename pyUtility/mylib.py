@@ -1047,7 +1047,7 @@ def get_VINFO(data):
                nd=': {}'.format(type(vi))
 
             #output
-            ms=min(6,max([len(k) for k in skeys])); fs1='{:'+str(ms)+'s}{}'; fs2=fs1+', {}'
+            ms=min([6,max([len(k) for k in skeys])]); fs1='{:'+str(ms)+'s}{}'; fs2=fs1+', {}'
             fstr=fs2.format(i,nd,dta) if dta!='' else fs1.format(i,nd)
             atts.append(fstr.strip())
         except:

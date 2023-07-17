@@ -1396,6 +1396,15 @@ class schism_bpfile:
         if fmt==0: self.x,self.y=px,py
         return [px,py]
 
+    def inside(self,xy,fmt=0):
+        '''
+        check whether pts c_[x,y] are inside the polygon of bp points.
+        fmt=0: return indices of pts inside; fmt=1: return boolean flag
+        '''
+
+        fp=inside_polygon(xy,self.x,self.y)
+        return nonzero(fp)[0] if fmt==0 else fp
+
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
         self.shp_bp.type='POINT'
