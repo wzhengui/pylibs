@@ -1402,7 +1402,7 @@ class schism_bpfile:
         fmt=0: return indices of pts inside; fmt=1: return boolean flag
         '''
 
-        fp=inside_polygon(xy,self.x,self.y)
+        fp=inside_polygon(xy,self.x,self.y)==1
         return nonzero(fp)[0] if fmt==0 else fp
 
     def write_shapefile(self,fname,prj='epsg:4326'):
