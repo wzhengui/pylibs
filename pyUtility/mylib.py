@@ -1065,6 +1065,17 @@ class zdata:
     def VINFO(self):
         return get_VINFO(self)
 
+    def save(self,fname,**args):
+        '''
+        save zdata in differnt format based on filename extension (*.npz,*.nc,*.shp)
+        '''
+        if fname.endswith('.shp'):
+           write_shapefile_data(fname,self,**args)
+        elif fname.endswith('.nc'):
+           WriteNC(fname,self,**args)
+        else:
+           savez(fname,self)
+
 def savez(fname,data,fmt=0):
     '''
     save data as self-defined python format
@@ -2217,7 +2228,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     else:
         sys.exit('wrong fmt')
 
-def WriteNC(fname,data,fmt=0,order=0):
+def WriteNC(fname,data,fmt=0,order=0,**args):
     '''
     write zdata to netcdf file
         fname: file name
@@ -2273,7 +2284,7 @@ def WriteNC(fname,data,fmt=0,order=0):
             fid.createDimension(dn,None) if (dF is True) else fid.createDimension(dn,ds)
         for svar in svars:  #set variable
             vi=S[svar]; nm=vi.val.ndim; vdm=vi.dimname
-            vid=fid.createVariable(svar,vi.val.dtype,vdm) if order==0 else fid.createVariable(svar,vi.val.dtype,vdm[::-1])
+            vid=fid.createVariable(svar,vi.val.dtype,vdm,**args) if order==0 else fid.createVariable(svar,vi.val.dtype,vdm[::-1],**args)
             if hasattr(vi,'attrs'):
                [vid.setncattr(i,vi.__dict__[i]) if i!='_FillValue' else vid.setncattr('_fillvalue',vi.__dict__[i]) for i in vi.attrs]
             fid.variables[svar][:]=vi.val if order==0 else vi.val.T
