@@ -476,6 +476,7 @@ class schism_grid:
         if len(bid)!=0:
            bid=array(bid); nbid=setdiff1d(arange(nb),bid); island=array([*island[bid],*island[nbid]])
            nbn=array([*nbn[bid],*nbn[nbid]]); ibn=array([*ibn[bid],*ibn[nbid]],dtype='O')
+           if ibn.shape[0]==1: ibn=ibn.astype('int')
 
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
