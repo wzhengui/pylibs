@@ -423,7 +423,7 @@ class schism_grid:
 
            return self.ns,self.isidenode,self.isdel
 
-    def compute_bnd(self,bxy=None):
+    def compute_bnd(self,bxy=None,nb_max=500000):
         '''
         compute boundary information. If bxy is provided, define open/land boundries
 
@@ -431,6 +431,8 @@ class schism_grid:
             1). bxy=[x1,x2,y1,y2]  #only one open boundary
             2). bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]  #multiple open boundaries
             3). bxy="bpfile", with paired build points sequentially defining each boundaries
+
+        nb_max: maximum boundary nodes allowed for each bnd segments
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
@@ -449,16 +451,28 @@ class schism_grid:
                 fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
 
         #compute all boundaries
-        sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
         ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
+        sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
+
+        #find the nodes connecting to more than 2 sides
+        ibnx,nbnx=unique(isn[:,0],return_counts=True); idx=[]; nbx=0
+        for i in ibnx[nbnx>1]: k=nonzero(isn[:,0]==i)[0]; idx.extend(k); nbx=nbx+len(k)
+
+        #search boundary from other nodes
         while(sum(ifb)!=0):
             #start points
-            id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ibni=[id0,id]
-            ifb[sinds[id0]]=0; ifb[sinds[id]]=0;
+            if nbx>0:
+                nbx=nbx-1; id0,id=isn[idx[nbx]]; ifb[idx[nbx]]=0
+            else:
+                id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
+            ibni=[id0,id]; ifb[sinds[id]]=0; iloop=0
+
+            #search each segments
             while True:
                 id=isn[sinds[id],1]; ifb[sinds[id]]=0
                 if(id==id0): break
-                ibni.append(id)
+                ibni.append(id); iloop=iloop+1
+                if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
             nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
         #sort bnd
