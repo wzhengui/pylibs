@@ -2305,7 +2305,7 @@ def WriteNC(fname,data,fmt=0,order=0,**args):
 def read(fname,*args0,**args):
     '''
     generic function in read files with standard suffixs
-    suffix supported:  npz, gr3, ll, ic, vgrid.in, bp, reg, prop, xlsx, nc, shp, nml, asc, tif, tiff
+    suffix supported:  npz, gr3, ll, ic, vgrid.in, bp, reg, prop, xlsx, nc, shp, nml, asc, tif, tiff,mat
     '''
     from .schism_file import (read_schism_hgrid, read_schism_vgrid, read_schism_bpfile, read_schism_reg,
                               read_schism_prop, read_schism_param)
@@ -2323,6 +2323,7 @@ def read(fname,*args0,**args):
     if fname.endswith('.nc'):   F=ReadNC
     if fname.endswith('.shp'):  F=read_shapefile_data
     if fname.endswith('.nml'):  F=read_schism_param
+    if fname.endswith('.mat'):  F=convert_matfile
     if F is None: sys.exit('unknown type of file: '+fname)
 
     return F(fname,*args0,**args)
