@@ -1016,63 +1016,51 @@ class schism_grid:
         if fmt==0: self.x,self.y=x1,y2
         return [x1,y2]
 
-    def check_skew_elems_xmgredit(self,skewness_threshold=30):
+    def check_skew_elems(self,threshold=30,fmt=0,fname=None):
         '''
-        check schism grid's skewness with the formulation in xmgredit:
-            ratio between an element's longest side and the its equivalent radius,
-            i.e., the radius of a circle with the same area as the element
+        check schism grid's skewness with the formulation
 
-        Inputs:
-            skewness_threshold: skew if >= skewness_threshold
-        Outputs:
-            a boolean array of size (ne,1) indicating whether an element is skew
-        '''
-        # compute skewness ratio as defined in xmgredit
-        # pad nan as the last index to accomodate the dummy (-1) side index in triangles' elside
-        distj_padded = r_[self.distj, nan]
-        if not hasattr(self,'elside'):
-            self.compute_ic3()
-        if not hasattr(self,'area'):
-            self.compute_area()
-        element_dl = distj_padded[self.elside]
+         Inputs:
+             threshold: xmgredit ratio (fmt=0) or minimum angle (fmt=1)
+             fmt=0: by checking longest_side/quivalent_radius ratio (xmgredit method, default)
+             fmt=1: by checking minimum_angle<threshold
+             fname!=None: output skew_element bpfile
+         Outputs:
+             element indices of skew elements
 
-        skewness = nanmax(element_dl, axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon))
-
-        return skewness >= skewness_threshold
-
-    def check_skew_elems(self,angle_min=5,fname='skew_element.bp',fmt=0):
-        '''
-        1) check schism grid's skewness with angle<=angle_min
-        2) the locations of skew elements are (xskew,yskew), and also save in file "fname"
-        Inputs:
-            angle_min: skew element if one of element's internal angles is smaller than angle_min
-            fname=None: not save skew_element.bp; fname!=None: save skew_element.bp
-            fmt=1: return indices of skew elements
+         Examples:
+              1). gd.check_skew_elems() or gd.check_skew_elems(threshold=30) for fmt=0, check length ratio
+              2). gd.check_skew_elems(5,fmt=1) for fmt=1, check mimimum angle
         '''
 
         if not hasattr(self,'dpe'): self.compute_ctr()
+        if fmt==0: #check length ratio
+           if not hasattr(self,'distj'):  self.compute_side(fmt=2)
+           if not hasattr(self,'elside'): self.compute_ic3()
+           if not hasattr(self,'area'):   self.compute_area()
+           distj=self.distj[self.elside]; distj[self.elside==-1]=0  #side length
+           srat=distj.max(axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon)) #ratio
+           sindw=nonzero(srat>threshold)[0]
+        else: #check minimum angle
+           #for triangles
+           fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
+           for i in arange(3):
+               x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
+               ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
+               sind.extend(nonzero(ai<=threshold)[0])
+           sind3=fp[unique(sind).astype('int')]
 
-        #for triangles
-        fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
-        for i in arange(3):
-            x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
-            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sind.extend(nonzero(ai<=angle_min)[0])
-        sind3=fp[unique(sind).astype('int')]
-
-        #for quads
-        fp=nonzero(self.i34==4)[0]; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; sind=[]
-        for i in arange(4):
-            x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
-            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sind.extend(nonzero(ai<=angle_min)[0])
-        sind4=fp[unique(sind).astype('int')]; sindw=r_[sind3,sind4]
+           #for quads
+           fp=nonzero(self.i34==4)[0]; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; sind=[]
+           for i in arange(4):
+               x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
+               ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
+               sind.extend(nonzero(ai<=threshold)[0])
+           sind4=fp[unique(sind).astype('int')]; sindw=r_[sind3,sind4]
 
         #combine and save
-        if fname is not None:
-            self.xskew,self.yskew,self.zskew=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]
-            sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x,sbp.y,sbp.z=self.xskew,self.yskew,self.zskew; sbp.write_bpfile(fname)
-        if fmt==1: return sindw
+        if fname is not None: C=schism_bpfile(); C.x,C.y,C.z=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]; C.save(fname)
+        return sindw
 
     def inside_elem(self,pxy,ie):
         '''
