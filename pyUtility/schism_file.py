@@ -1016,6 +1016,30 @@ class schism_grid:
         if fmt==0: self.x,self.y=x1,y2
         return [x1,y2]
 
+    def check_skew_elems_xmgredit(self,skewness_threshold=30):
+        '''
+        check schism grid's skewness with the formulation in xmgredit:
+            ratio between an element's longest side and the its equivalent radius,
+            i.e., the radius of a circle with the same area as the element
+
+        Inputs:
+            skewness_threshold: skew if >= skewness_threshold
+        Outputs:
+            a boolean array of size (ne,1) indicating whether an element is skew
+        '''
+        # compute skewness ratio as defined in xmgredit
+        # pad nan as the last index to accomodate the dummy (-1) side index in triangles' elside
+        distj_padded = r_[self.distj, nan]
+        if not hasattr(self,'elside'):
+            self.compute_ic3()
+        if not hasattr(self,'area'):
+            self.compute_area()
+        element_dl = distj_padded[self.elside]
+
+        skewness = nanmax(element_dl, axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon))
+
+        return skewness >= skewness_threshold
+
     def check_skew_elems(self,angle_min=5,fname='skew_element.bp',fmt=0):
         '''
         1) check schism grid's skewness with angle<=angle_min
@@ -2497,7 +2521,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     extract slabs of SCHISM results (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
        varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
-       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level) 
+       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level)
        stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
        mdt:     (optional) time window (day) for averaging output
@@ -2510,7 +2534,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     if sname is None: sname=varname
     if stacks is None: stacks=dstacks
     if outfmt==1: sys.exit('OLDIO not supported yet')
-    
+
     #read output
     S=zdata(); sdict=S.__dict__; sdict['time']=[]; S.levels=array(levels)
     for i in sname: sdict[i]=[]
@@ -2519,7 +2543,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
            C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
            #np=C0.dimensions['nSCHISM_hgrid_node'].size; ne=C0.dimensions['nSCHISM_hgrid_face'].size
            mt=array(C0.variables['time'][:])/86400; nt=len(mt); sdict['time'].extend(mt[::nspool])
-    
+
         for snamei,varnamei in zip(sname,varname):
             svars=get_schism_var_info(varnamei,modules,fmt=outfmt); nvar=len(svars)
             for m,[vari,svar] in enumerate(svars):
@@ -3018,7 +3042,7 @@ class schism_view:
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
-        self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1] 
+        self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1]
         threading.Thread(target=_read_grid).start()
 
         #read available time
