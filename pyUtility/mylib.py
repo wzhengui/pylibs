@@ -63,6 +63,7 @@ def pplot(fnames):
     '''
     function to display figures in python format (*.pp)
     '''
+    import pickle
     if isinstance(fnames,str): fnames=[fnames]
     hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
     return hfs
@@ -210,6 +211,7 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
     '''
     import openpyxl
     import pandas as pd
+    #import xlsxwriter as xw
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
@@ -899,6 +901,7 @@ def datenum(*args,fmt=0):
        datenum('2001-01-01, 10:23:00') or datenum(['2001-01-1','2002-01-05'])
        fmt=0: output num; fmt==1: output date
     '''
+    import datetime
 
     #input only one argument, it should be a time string
     if len(args)==1: args=args[0]
@@ -1123,6 +1126,7 @@ def savez(fname,data,fmt=0):
        save_str=save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars)'
        exec(save_str)
     elif fmt==1:
+       import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
 
 def loadz(fname,svars=None):
@@ -1163,6 +1167,7 @@ def loadz(fname,svars=None):
            vdata.__dict__[keyi]=datai
     elif fname.endswith('.pkl'):
        import pickle
+       from copy import deepcopy as dcopy
        vdata=zdata(); fid=open(fname,'rb')
        data=pickle.load(fid)
        vdata.__dict__=dcopy(data).__dict__.copy()
@@ -1693,7 +1698,7 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
           x,y=Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
-
+    from pyproj import Transformer
     from .schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
 
     #read file
@@ -2181,6 +2186,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
 
     #get file handle
+    from netCDF4 import Dataset
     C=Dataset(fname,mode=mode);
 
     if fmt==1:
@@ -2238,6 +2244,7 @@ def WriteNC(fname,data,fmt=0,order=0,**args):
         order=0: variable dimension order written not changed for python format
         order=1: variable dimension order written reversed follwoing in matlab/fortran format
     '''
+    from netCDF4 import Dataset
 
     if fmt==0: #write NC files for zdata
         #--------------------------------------------------------------------

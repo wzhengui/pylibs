@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pylib import *
+import datetime
 # This script download 
 # Need to install motuclinet (Web Server) to use this script (https://github.com/clstoulouse/motu-client-python.git)
 # Check user manual for detailed information of CMEMS data 

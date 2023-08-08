@@ -2220,7 +2220,9 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
       outfmt=0: float32;  outfmt=1: float64
     '''
     from time import time as gettime
+    from shutil import copyfile
     from glob import glob
+    from netCDF4 import Dataset
 
     outdir=rundir+'/outputs/'
     bp=read_schism_bpfile(rundir+'/istation.in')
@@ -2278,6 +2280,7 @@ def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
        fmt=0: combine the last hotstart; fmt=1: combine all hotstart
        irec: step number of hotstrat (fmt is disabled when irec is set)
     '''
+    from netCDF4 import Dataset
 
     #get all hotstart records
     irecs=sort([int(i[:-3].split('_')[-1]) for i in os.listdir(outdir) if i.startswith('hotstart_000000_')])
@@ -2349,6 +2352,8 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
      xy:    subdomin region (c_[x,y], or reg file)
      grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
    '''
+   from netCDF4 import Dataset
+
    #get subset index
    if (grd is None) and (xy is None): sys.exit('both grd and xy are None')
    if grd is None:

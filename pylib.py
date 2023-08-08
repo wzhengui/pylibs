@@ -16,8 +16,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    if ('frontera' in HNAME) or ('stampede2' in HNAME): mpl.use('tkagg')
    if ('frontera' in TNAME) or ('stampede2' in TNAME): mpl.use('tkagg')
    from matplotlib import pyplot as plt
-   from matplotlib import cbook, mlab
-   from matplotlib.dates import *
+   from matplotlib.dates import date2num, datestr2num,num2date
    if hasattr(mpl.dates,'set_epoch'):
       try:
          mpl.dates.set_epoch('0000-12-31')
@@ -35,46 +34,13 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #numpy
    import numpy as np
    from numpy import *
-   from numpy.random import *
+   from numpy.random import rand,randn
    from numpy.linalg import *
-   import numpy.ma as ma
 
    #scipy
    import scipy as sp
    from scipy import interpolate
    from scipy.fftpack import fft, ifft
-
-   #proj
-   try:
-       from pyproj import Transformer
-   except:
-       pass
-
-   #netcdf
-   from netCDF4 import Dataset
-
-   #shutil
-   try:
-      import shutil
-      from shutil import copyfile,move
-      from time import time as gettime
-   except:
-      pass
-
-   #excel
-   try:
-      import xlsxwriter as xw
-   except:
-      pass
-
-   #pickle
-   try:
-       import pickle
-       import copy
-       from copy import copy as scopy
-       from copy import deepcopy as dcopy
-   except:
-       pass
 
    #mpi4py
    try:
@@ -98,16 +64,28 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    except:
       pass
 
+   #------------------------------------------------
+   #old import
+   #------------------------------------------------
+   #from numpy.random import *
+   #import numpy.ma as ma
+   #from matplotlib import cbook, mlab
+   #from matplotlib.dates import *
+   #netcdf
+   #from netCDF4 import Dataset
    #misc
-   import datetime
-
+   #import datetime
    #import pandas as pd
-
    #sympy
    #try:
    #  from sympy import init_session as sym_init
    #except:
    #  pass
+   #pickle
+   #import pickle
+   #import copy
+   #from copy import copy as scopy
+   #from copy import deepcopy as dcopy
 
    #---------------------------------------------------------------------
    #libraries of self-defined modules
