@@ -3,3 +3,5 @@ __pycache__/
 !.gitignore
 **/pylib.pyc
 *egg-info
+build
+dist
