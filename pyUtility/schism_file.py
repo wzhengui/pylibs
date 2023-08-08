@@ -894,12 +894,16 @@ class schism_grid:
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_min=60,angle_max=120,fname=None):
+    def split_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname=None):
         '''
-        1). split the quads that have angle (<angle_min or >angle_max), add append the connectivity in the end
+        1). check the quality of quads, violations can be:
+            a. angle_min/angle_max <= angle_ratio
+            b. internal angle <= angle_min,
+            c. internal angle >= angle_max,
+            if no parameters are provided, angle_ratio=0.5 will be use
         2). fname: output a new grid "fname" if fname!=None
         '''
-        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_min,angle_max)
+        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,angle_min,angle_max)
 
         #compute (angle_max-angle_min) in splitted triangle
         qind=self.index_bad_quad;
@@ -946,12 +950,17 @@ class schism_grid:
         #write new grids
         if fname is not None: self.write_hgrid(fname)
 
-    def check_quads(self,angle_min=60,angle_max=120,fname='bad_quad.bp'):
+    def check_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp'):
         '''
-        1). check the quality of quads, violation when internal angle < angle_min, or >angle_max
+        1). check the quality of quads, violations can be:
+            a. angle_min/angle_max <= angle_ratio
+            b. internal angle <= angle_min,
+            c. internal angle >= angle_max,
+            if no parameters are provided, angle_ratio=0.5 will be used
         2). the locations of bad quads are saved in file "fname"
         '''
 
+        if angle_ratio is None and angle_min is None and angle_max is None: angle_ratio=0.5
         qind=nonzero(self.i34==4)[0];
         x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
 
@@ -967,18 +976,18 @@ class schism_grid:
         a=array(a).T; a=mod(a+360,360)
 
         #check violation
+        fp=a[:,0]==-999
+        if angle_ratio is not None: fp=fp|((a.min(axis=1)/a.max(axis=1))<angle_ratio)
         for i in arange(4):
-            if i==0:
-                fp=(a[:,i]<=angle_min)|(a[:,i]>=angle_max)
-            else:
-                fp=fp|(a[:,i]<=angle_min)|(a[:,i]>=angle_max)
-
-        self.index_bad_quad=qind[nonzero(fp)[0]];
+            if angle_min is not None: fp=fp|(a[:,i]<=angle_min)
+            if angle_max is not None: fp=fp|(a[:,i]>=angle_max)
+        self.index_bad_quad=qind[nonzero(fp)[0]]
 
         #output bad_quad location as bp file
         if not hasattr(self,'xctr'): self.compute_ctr()
         qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
         sbp=schism_bpfile(); sbp.nsta=len(qxi); sbp.x=qxi; sbp.y=qyi; sbp.z=zeros(sbp.nsta); sbp.write_bpfile(fname)
+        return self.index_bad_quad
 
     def plot_bad_quads(self,color='r',ms=12,*args):
         #plot grid with bad quads
