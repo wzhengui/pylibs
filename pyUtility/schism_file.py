@@ -1021,38 +1021,43 @@ class schism_grid:
         if fmt==0: self.x,self.y=x1,y2
         return [x1,y2]
 
-    def check_skew_elems(self,threshold=30,fmt=0,fname=None):
+    def check_skew_elems(self,threshold=None,angle_min=None,fname=None):
         '''
-        check schism grid's skewness with the formulation
+        check schism grid's skewness based on criteria:
+            a. xmgredit length_ratio > threshold
+            b. internal angle , angle_min
+            Note: if no parameters, threshold=30 is used
 
-         Inputs:
-             threshold: xmgredit ratio (fmt=0) or minimum angle (fmt=1)
-             fmt=0: by checking longest_side/quivalent_radius ratio (xmgredit method, default)
-             fmt=1: by checking minimum_angle<threshold
-             fname!=None: output skew_element bpfile
-         Outputs:
-             element indices of skew elements
+        Inputs:
+            threshold: xmgredit length_ratio of longest_side_length/quivalent_element_radius
+            angle_min: minimum angle
+            fname!=None: output skew_element bpfile
+        Outputs:
+            element indices of skew elements
 
-         Examples:
-              1). gd.check_skew_elems() or gd.check_skew_elems(threshold=30) for fmt=0, check length ratio
-              2). gd.check_skew_elems(5,fmt=1) for fmt=1, check mimimum angle
+        Examples:
+            1). gd.check_skew_elems(), or gd.check_skew_elems(threshold=30)
+            2). gd.check_skew_elems(15,10), or gd.check_skew_elems(threshold=15,angle_min=10)
         '''
-
+        if threshold is None and angle_min is None: threshold=30
         if not hasattr(self,'dpe'): self.compute_ctr()
-        if fmt==0: #check length ratio
+
+        sindw=[]
+        if threshold is not None: #check length ratio
            if not hasattr(self,'distj'):  self.compute_side(fmt=2)
            if not hasattr(self,'elside'): self.compute_ic3()
            if not hasattr(self,'area'):   self.compute_area()
            distj=self.distj[self.elside]; distj[self.elside==-1]=0  #side length
            srat=distj.max(axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon)) #ratio
-           sindw=nonzero(srat>threshold)[0]
-        else: #check minimum angle
+           sindw.extend(nonzero(srat>threshold)[0])
+
+        if angle_min is not None: #check minimum angle
            #for triangles
            fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
            for i in arange(3):
                x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
                ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-               sind.extend(nonzero(ai<=threshold)[0])
+               sind.extend(nonzero(ai<=angle_min)[0])
            sind3=fp[unique(sind).astype('int')]
 
            #for quads
@@ -1060,10 +1065,11 @@ class schism_grid:
            for i in arange(4):
                x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
                ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-               sind.extend(nonzero(ai<=threshold)[0])
-           sind4=fp[unique(sind).astype('int')]; sindw=r_[sind3,sind4]
+               sind.extend(nonzero(ai<=angle_min)[0])
+           sind4=fp[unique(sind).astype('int')]; sindw.extend(r_[sind3,sind4])
 
         #combine and save
+        sindw=array(sindw)
         if fname is not None: C=schism_bpfile(); C.x,C.y,C.z=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]; C.save(fname)
         return sindw
 
