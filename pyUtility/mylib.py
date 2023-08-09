@@ -776,11 +776,11 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
 
     #plot pts
     if (R is not None) and (STD is not None):
-        S.hp_obs=plot(0,1,'k.',ms=12,color='k',label='obs')
+        S.hp_obs=plot(0,1,'k.',ms=12,label='obs')
         S.hp=[];
         for i,ri in enumerate(R):
             xi=ri*STD[i]; yi=sqrt(1-ri**2)*STD[i]
-            hp=plot(xi,yi,'r.',ms=10,color='k',label='{}'.format(i))
+            hp=plot(xi,yi,'r.',ms=10,label='{}'.format(i))
             S.hp.append(hp)
 
     #note
