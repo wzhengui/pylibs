@@ -2,6 +2,7 @@
 #check runtime for each run
 from pylib import *
 import subprocess
+import datetime
 
 #-----input------------------------------------------------------------
 runs=['RUN01d','RUN02p','RUN02q']

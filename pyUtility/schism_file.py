@@ -912,21 +912,17 @@ class schism_grid:
         #compute difference between internal angles
         for i in arange(4):
             id1=mod(i-1+4,4); id2=i; id3=mod(i+1,4)
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3];
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3];
+            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
+            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
 
             a1=angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2))
             a2=angle((x2-x3)+1j*(y2-y3))-angle((x1-x3)+1j*(y1-y3))
             a3=angle((x3-x1)+1j*(y3-y1))-angle((x2-x1)+1j*(y2-y1))
-            a1=mod(a1*180/pi+360,360);a2=mod(a2*180/pi+360,360);a3=mod(a3*180/pi+360,360);
+            a1=mod(a1*180/pi+360,360);a2=mod(a2*180/pi+360,360);a3=mod(a3*180/pi+360,360)
 
             #compute amax-amin
-            a=c_[a1,a2,a3];
-            Ai=a.max(axis=1)-a.min(axis=1)
-            if i==0:
-                A=Ai
-            else:
-                A=c_[A,Ai]
+            a=c_[a1,a2,a3]; Ai=a.max(axis=1)-a.min(axis=1)
+            A=Ai if i==0 else c_[A,Ai]
 
         #split quads
         flag=sign(A[:,0]+A[:,2]-A[:,1]-A[:,3])
