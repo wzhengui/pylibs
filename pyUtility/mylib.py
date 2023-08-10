@@ -1020,7 +1020,7 @@ def get_xtick(fmt=0,xts=None,str=None):
     return [xts,xls]
 
 #-------loadz------------------------------------------------------------------
-def get_VINFO(data):
+def get_INFO(data):
     '''
     collect information about object's attributes
     '''
@@ -1065,8 +1065,8 @@ class zdata:
         pass
 
     @property
-    def VINFO(self):
-        return get_VINFO(self)
+    def INFO(self):
+        return get_INFO(self)
 
     def save(self,fname,**args):
         '''
@@ -1096,7 +1096,7 @@ def savez(fname,data,fmt=0):
     if fmt==0:
        #get all attribute
        svars=list(data.__dict__.keys())
-       if 'VINFO' in svars: svars.remove('VINFO')
+       if 'INFO' in svars: svars.remove('INFO')
 
        #check whether there are functions. If yes, change function to string
        rvars=[]
@@ -1905,7 +1905,7 @@ def convert_matfile(matfile,fname=None):
     #read matfile and convert
     C=sp.io.loadmat(matfile+'.mat',simplify_cells=True); S=zdata()
     for x in C.keys():
-       if x.startswith('__') or x=='VINFO':continue
+       if x.startswith('__') or x=='INFO':continue
 
        #for list of strings
        if isinstance(C[x],np.ndarray):

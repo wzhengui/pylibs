@@ -18,8 +18,8 @@ class schism_grid:
         self.source_file = fname
 
     @property
-    def VINFO(self):
-        return get_VINFO(self)
+    def INFO(self):
+        return get_INFO(self)
 
     @property
     def z(self):
@@ -170,7 +170,7 @@ class schism_grid:
         #   return hg
     def plot_grid(self,**args):
         '''
-        alias for plot_grid()
+        alias for gd.plot()
         '''
         return self.plot(**args)
 
@@ -1345,8 +1345,8 @@ class schism_bpfile:
         self.edit()
 
     @property
-    def VINFO(self):
-        return get_VINFO(self)
+    def INFO(self):
+        return get_INFO(self)
 
     def read_reg(self,fname):
         self.read_bpfile(fname,fmt=1)
@@ -1640,8 +1640,8 @@ class schism_vgrid:
         pass
 
     @property
-    def VINFO(self):
-        return get_VINFO(self)
+    def INFO(self):
+        return get_INFO(self)
 
     def read_vgrid(self,fname):
         #read schism vgrid
@@ -3029,8 +3029,8 @@ class schism_view:
         close('all'); self.window.destroy()
 
     @property
-    def VINFO(self):
-        return get_VINFO(self)
+    def INFO(self):
+        return get_INFO(self)
 
     def run_info(self,run):
         from glob import glob
