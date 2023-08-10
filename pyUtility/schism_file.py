@@ -25,6 +25,11 @@ class schism_grid:
     def z(self):
         return self.dp
 
+    @property
+    def zctr(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return self.dpe
+
     def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
              ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,**args):
         '''
