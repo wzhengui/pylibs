@@ -569,7 +569,10 @@ class schism_grid:
              mnei:  maximum number of elements in nodal ball
              indel: indices for each nodal ball
              ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
+             nnp:   number of nodes in nodal ball (exclude itself)
+             mnpi:  maximum number of nodes in nodal ball
              inp:   node indices for each nodal ball
+             indnd: node indices for each nodal ball
 
         fmt=0: not compute inp; fmt=1: compute inp
         '''
