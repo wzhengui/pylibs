@@ -1133,6 +1133,13 @@ class schism_grid:
         sind=zeros(npt).astype('int'); sind[sindp]=1
         return sind
 
+    def subset(self,xy):
+        '''
+        return a new grid for elements inside a polygon defined by xy
+        xy:  subdomin region (c_[x,y], or reg file)
+        '''
+        return get_schism_grid_subdomain(self,xy)
+
     def write_shp(self,fname,fmt=0,prj='epsg:4326'):
         '''
         generic function to write grid elem/node/bnd as shapefile
