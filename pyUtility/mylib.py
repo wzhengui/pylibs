@@ -1067,6 +1067,9 @@ class zdata:
     @property
     def INFO(self):
         return get_INFO(self)
+    @property
+    def VINFO(self):
+        return self.INFO
 
     def save(self,fname,**args):
         '''
