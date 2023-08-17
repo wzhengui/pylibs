@@ -451,9 +451,9 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     #read DEM
     if fname.endswith('npz'):
         try:
-          S=loadz(fname,svars=['ne','np']); igrd=1 #unstructured schism grid
+          S=loadz(fname,['ne','np']); igrd=1 #unstructured schism grid
         except:
-          S=loadz(fname,svars=['lon','lat'])
+          S=loadz(fname,['lon','lat'])
           dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     elif fname.endswith('asc'):
         S=zdata();
@@ -1097,37 +1097,21 @@ def savez(fname,data,fmt=0):
 
     #save data
     if fmt==0:
-       #get all attribute
-       svars=list(data.__dict__.keys())
-       if 'INFO' in svars: svars.remove('INFO')
-
-       #check whether there are functions. If yes, change function to string
-       rvars=[]
-       for svar in svars:
-           if hasattr(data.__dict__[svar], '__call__'):
-              import cloudpickle
-              try:
-                 data.__dict__[svar]=cloudpickle.dumps(data.__dict__[svar])
-              except:
-                 print('function {} not saved'.format(svar))
-                 rvars.append(svar)
-       svars=setdiff1d(svars,rvars)
-
-       #check variable types for list,string,int and float
-       lvars=[]; tvars=[]; ivars=[]; fvars=[]
-       for svar in svars:
-           if isinstance(data.__dict__[svar],int): ivars.append(svar)
-           if isinstance(data.__dict__[svar],float): fvars.append(svar)
-           if isinstance(data.__dict__[svar],str): tvars.append(svar)
-           if isinstance(data.__dict__[svar],list):
-              lvars.append(svar)
-              data.__dict__[svar]=array(data.__dict__[svar],dtype='O')
-
-       #constrcut save_string
+       #check variable types (list, string, int, float and method), and constrcut save_string
+       zdict=data.__dict__;  svars=list(zdict.keys())
        save_str='savez_compressed("{}" '.format(fname)
-       for svar in svars: save_str=save_str+',{}=data.{}'.format(svar,svar)
-       save_str=save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars)'
-       exec(save_str)
+       lvars=[]; tvars=[]; ivars=[]; fvars=[]; mvars=[]
+       for svar in svars:
+           vi=zdict[svar]
+           if isinstance(vi,int):   ivars.append(svar)
+           if isinstance(vi,float): fvars.append(svar)
+           if isinstance(vi,str):   tvars.append(svar)
+           if isinstance(vi,list):  lvars.append(svar)
+           if callable  (vi):       mvars.append(svar)
+           if svar in lvars: vi=array(vi,dtype='O')  #change list to array
+           if svar in mvars: import cloudpickle; vi=cloudpickle.dumps(vi) #change function to bytes
+           save_str=save_str+',{}=data.{}'.format(svar,svar)
+       exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
     elif fmt==1:
        import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
@@ -1141,33 +1125,30 @@ def loadz(fname,svars=None):
     if fname.endswith('.npz'):
        #get data info
        data0=load(fname,allow_pickle=True)
-       keys0=data0.keys() if svars is None else svars
-       ivars=list(data0['_int_variables']) if ('_int_variables' in keys0) else []
-       fvars=list(data0['_float_variables']) if ('_float_variables' in keys0) else []
-       tvars=list(data0['_str_variables']) if ('_str_variables' in keys0) else []
-       lvars=list(data0['_list_variables']) if ('_list_variables' in keys0) else []
+       svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
+       vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables']
+       ivars=list(data0[vlist[0]]) if (vlist[0] in svars) else []
+       fvars=list(data0[vlist[1]]) if (vlist[1] in svars) else []
+       tvars=list(data0[vlist[2]]) if (vlist[2] in svars) else []
+       lvars=list(data0[vlist[3]]) if (vlist[3] in svars) else []
+       mvars=list(data0[vlist[4]]) if (vlist[4] in svars) else []
 
        #extract data
-       vdata=zdata()
-       for keyi in keys0:
-           if keyi in ['_list_variables','_str_variables','_int_variables','_float_variables']: continue
-
-           #get variable
-           datai=data0[keyi]
-           if datai.dtype==dtype('O'): datai=datai[()] #restore object
-           if keyi in ivars: datai=int(datai)          #restore int variable
-           if keyi in fvars: datai=float(datai)        #restore int variable
-           if keyi in tvars: datai=str(datai)          #restore str variable
-           if keyi in lvars: datai=datai.tolist()      #restore list variable
-
-           #if value is a function
-           if 'cloudpickle.cloudpickle' in str(datai):
+       vdata=zdata(); vdict=vdata.__dict__
+       for svar in setdiff1d(svars,vlist):
+           vi=data0[svar] #get variable
+           if vi.dtype==dtype('O'): vi=vi[()]    #restore object
+           if svar in ivars: vi=int(vi)          #restore int variable
+           if svar in fvars: vi=float(vi)        #restore int variable
+           if svar in tvars: vi=str(vi)          #restore str variable
+           if svar in lvars: vi=vi.tolist()      #restore list variable
+           if svar in mvars: #restore function
               import pickle
               try:
-                 datai=pickle.loads(datai)
+                 vi=pickle.loads(vi)
               except:
                  continue
-           vdata.__dict__[keyi]=datai
+           vdict[svar]=vi
     elif fname.endswith('.pkl'):
        import pickle
        from copy import deepcopy as dcopy
