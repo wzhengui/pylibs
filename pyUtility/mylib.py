@@ -1106,11 +1106,13 @@ def savez(fname,data,fmt=0):
            if isinstance(vi,int):   ivars.append(svar)
            if isinstance(vi,float): fvars.append(svar)
            if isinstance(vi,str):   tvars.append(svar)
-           if isinstance(vi,list):  lvars.append(svar)
-           if callable  (vi):       mvars.append(svar)
-           if svar in lvars: vi=array(vi,dtype='O')  #change list to array
-           if svar in mvars: import cloudpickle; vi=cloudpickle.dumps(vi) #change function to bytes
-           save_str=save_str+',{}=data.{}'.format(svar,svar)
+           if isinstance(vi,list): #change list to array
+                save_str=save_str+',{}=array(data.{},dtype="O")'.format(svar,svar); lvars.append(svar)
+           elif callable(vi): #change function to bytes
+                import cloudpickle
+                save_str=save_str+',{}=cloudpickle.dumps(data.{})'.format(svar,svar); mvars.append(svar)
+           else:
+                save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
     elif fmt==1:
        import pickle
