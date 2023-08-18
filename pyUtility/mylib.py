@@ -1094,7 +1094,7 @@ def savez(fname,data,fmt=0):
     if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
     if fmt==1: fname=fname+'.pkl'
-    if type(data)!=zdata: data._CLASS=type(data)
+    if type(data)!=zdata: import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
     #save data
     if fmt==0:
