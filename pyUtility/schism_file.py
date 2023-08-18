@@ -1630,7 +1630,7 @@ def read_schism_reg(fname):
     '''
     return read_schism_bpfile(fname,fmt=1)
 
-def save_schism_grid(path='.',fmt=0,method=0):
+def save_schism_grid(fmt=0,path='.',method=0):
     '''
     save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
        path:  directory of grids
