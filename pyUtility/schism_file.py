@@ -20,6 +20,9 @@ class schism_grid:
     @property
     def INFO(self):
         return get_INFO(self)
+    @property
+    def VINFO(self):
+        return get_INFO(self)
 
     @property
     def z(self):
@@ -782,8 +785,7 @@ class schism_grid:
         '''
         #check fname, and output as *.npz or *.pkl format
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0]) #check fname
-        if fname.endswith('.npz') or fname.endswith('.pkl'):
-           s=zdata(); s.hgrid=self; savez(fname,s,**args); return
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
 
         #outputs grid as other format
         F=None
@@ -1354,6 +1356,9 @@ class schism_bpfile:
     @property
     def INFO(self):
         return get_INFO(self)
+    @property
+    def VINFO(self):
+        return get_INFO(self)
 
     def read_reg(self,fname):
         self.read_bpfile(fname,fmt=1)
@@ -1393,10 +1398,11 @@ class schism_bpfile:
         when other format is provided, output as *.bp
         '''
         F=None
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
         if fname.endswith('.reg'): F=self.write_reg
         if fname.endswith('.shp'): F=self.write_shapefile; fname=fname[:-4]
         if fname.endswith('.bp') or (F is None):  F=self.write_bpfile
-        if F is not None: F(fname,**args)
+        F(fname,**args)
 
     def save(self,fname,**args):
         '''
@@ -1624,23 +1630,32 @@ def read_schism_reg(fname):
     '''
     return read_schism_bpfile(fname,fmt=1)
 
-def save_schism_grid(fname='grid',path='.',fmt=0):
+def save_schism_grid(path='.',fmt=0,method=0):
     '''
-    read and save path/{hgrid.gr3,hgrid.ll,vgrid.in}
-       fname: save name
-       path:  directory whether grids exist
-       fmt=0: not save grid's full geometry; fmt=1: save
+    save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
+       path:  directory of grids
+       fmt=0: save as hgrid.npz and vgrid.npz;  fmt=1: save as grid.npz (include hgrid and vgrid)
+       method=1: save hgrid full geometry information
     '''
-    grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path); S=zdata()
-    if os.path.exists(grd):
-       gd=read_schism_hgrid(grd)
-       if os.path.exists(grd0): gd0=read_schism_hgrid(grd0); gd.lon,gd.lat=gd0.x,gd0.y
-       if fmt==1: gd.compute_all(); gd.compute_bnd()
-       S.hgrid=gd
-    if os.path.exists(vrd): S.vgrid=read_schism_vgrid(vrd)
-    if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(grd,vrd))
-    savez(fname,S)
-    return S
+    #read grids
+    grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path)
+    gd=None; gd0=None; vd=None
+    if os.path.exists(grd):  gd=read_schism_hgrid(grd)
+    if os.path.exists(grd0): gd0=read_schism_hgrid(grd0)
+    if os.path.exists(vrd):  vd=read_schism_vgrid(vrd)
+    if (gd is None) and (gd0 is not None): gd=gd0
+    if (gd is not None) and (gd0 is not None): gd.lon,gd.lat=gd0.x,gd0.y
+    if (gd is not None) and method==1: gd.compute_all()
+
+    #save grid
+    if fmt==0:
+       if gd is not None: gd.save('hgrid.npz')
+       if vd is not None: vd.save('vgrid.npz')
+    else:
+       S=zdata()
+       if gd is not None: S.hgrid=gd
+       if vd is not None: S.vgrid=gd
+       S.save('grid.npz')
 
 class schism_vgrid:
     def __init__(self):
@@ -1648,6 +1663,9 @@ class schism_vgrid:
 
     @property
     def INFO(self):
+        return get_INFO(self)
+    @property
+    def VINFO(self):
         return get_INFO(self)
 
     def read_vgrid(self,fname):
@@ -1706,12 +1724,19 @@ class schism_vgrid:
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
-    def write_vgrid(self,fname='vgrid.in',fmt=0):
+    def save(self,fname=None,fmt=0,**args):
+        '''
+        alias to write_vgrid
+        '''
+        self.write_vgrid(fname,fmt,**args)
+
+    def write_vgrid(self,fname='vgrid.in',fmt=0,**args):
         '''
         write schism vertical grid
             fmt=0: write vgrid.in in latest format of ivcor=1 (one line per lelvel)
             fmt=1: write vgrid.in in old format of ivcor=1    (one line per node)
         '''
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
         if self.ivcor==1:
            nvrt,np,kbp,sigma=self.nvrt,self.np,self.kbp.copy(),self.sigma.copy()
            fid=open(fname,'w+'); fid.write('1    !average # of layers={}\n{}  \n'.format(mean(nvrt-kbp),nvrt))
@@ -3037,6 +3062,9 @@ class schism_view:
 
     @property
     def INFO(self):
+        return get_INFO(self)
+    @property
+    def VINFO(self):
         return get_INFO(self)
 
     def run_info(self,run):
