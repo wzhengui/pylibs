@@ -1094,6 +1094,7 @@ def savez(fname,data,fmt=0):
     if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
     if fmt==1: fname=fname+'.pkl'
+    if type(data)!=zdata: data._CLASS=type(data)
 
     #save data
     if fmt==0:
@@ -1123,12 +1124,13 @@ def loadz(fname,svars=None):
     load self-defined data "fname.npz" or "fname.pkl"
          svars: list of variables to be read
     '''
+    import pickle
 
     if fname.endswith('.npz'):
        #get data info
        data0=load(fname,allow_pickle=True)
        svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
-       vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables']
+       vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables','_CLASS']
        ivars=list(data0[vlist[0]]) if (vlist[0] in svars) else []
        fvars=list(data0[vlist[1]]) if (vlist[1] in svars) else []
        tvars=list(data0[vlist[2]]) if (vlist[2] in svars) else []
@@ -1136,7 +1138,7 @@ def loadz(fname,svars=None):
        mvars=list(data0[vlist[4]]) if (vlist[4] in svars) else []
 
        #extract data
-       vdata=zdata(); vdict=vdata.__dict__
+       vdata=pickle.loads(data0['_CLASS'])() if '_CLASS' in svars else zdata(); vdict=vdata.__dict__
        for svar in setdiff1d(svars,vlist):
            vi=data0[svar] #get variable
            if vi.dtype==dtype('O'): vi=vi[()]    #restore object
@@ -1145,7 +1147,6 @@ def loadz(fname,svars=None):
            if svar in tvars: vi=str(vi)          #restore str variable
            if svar in lvars: vi=vi.tolist()      #restore list variable
            if svar in mvars: #restore function
-              import pickle
               try:
                  vi=pickle.loads(vi)
               except:
