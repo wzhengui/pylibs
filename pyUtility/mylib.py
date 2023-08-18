@@ -1110,8 +1110,11 @@ def savez(fname,data,fmt=0):
            if isinstance(vi,list): #change list to array
                 save_str=save_str+',{}=array(data.{},dtype="O")'.format(svar,svar); lvars.append(svar)
            elif callable(vi): #change function to bytes
-                import cloudpickle
-                save_str=save_str+',{}=cloudpickle.dumps(data.{})'.format(svar,svar); mvars.append(svar)
+                try:
+                   import cloudpickle
+                   save_str=save_str+',{}=cloudpickle.dumps(data.{})'.format(svar,svar); mvars.append(svar)
+                except:
+                   pass
            else:
                 save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
@@ -1124,8 +1127,6 @@ def loadz(fname,svars=None):
     load self-defined data "fname.npz" or "fname.pkl"
          svars: list of variables to be read
     '''
-    import pickle
-
     if fname.endswith('.npz'):
        #get data info
        data0=load(fname,allow_pickle=True)
@@ -1138,7 +1139,13 @@ def loadz(fname,svars=None):
        mvars=list(data0[vlist[4]]) if (vlist[4] in svars) else []
 
        #extract data
-       vdata=pickle.loads(data0['_CLASS'])() if '_CLASS' in svars else zdata(); vdict=vdata.__dict__
+       vdata=zdata()
+       if '_CLASS' in svars:
+          try:
+              import pickle; vdata=pickle.loads(data0['_CLASS'])()
+          except:
+              pass
+       vdict=vdata.__dict__
        for svar in setdiff1d(svars,vlist):
            vi=data0[svar] #get variable
            if vi.dtype==dtype('O'): vi=vi[()]    #restore object
@@ -1148,7 +1155,7 @@ def loadz(fname,svars=None):
            if svar in lvars: vi=vi.tolist()      #restore list variable
            if svar in mvars: #restore function
               try:
-                 vi=pickle.loads(vi)
+                 import pickle; vi=pickle.loads(vi)
               except:
                  continue
            vdict[svar]=vi
