@@ -3298,5 +3298,201 @@ class schism_view:
             if xs>xm: wd.geometry('{}x210'.format(xs)); wd.update(); break
         return wd,w
 
+class schism_check(zdata):
+   def __init__(self,run='.'):
+       self.param={}; self.figs={}; self.fids={}; self.hgrid=None
+       self.run_info(run) #get run information
+       self.init_window(); self.read_input()
+       self.window.mainloop()
+
+   def plot(self):
+       #plot for each input file
+       wd,fname,fmt=self.window,self.fname,self.fmt; p=self.param[fname]
+       hf=self.init_plot(); hf.clf()
+
+       if fmt==0:  #gr3 files
+          gd=self.hgrid; p=self.param[fname]
+          if p.ctr.get()==1: gd.plot(fmt=1,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet')
+          if p.grid.get()==1: gd.plot()
+          if p.bnd.get()==1: gd.plot_bnd(c='rg',lw=1)
+          title(fname)
+       elif fmt==1: # bnd or nudge files
+          self.read_data(); vm=[p.vmin.get(),p.vmax.get()]
+          if p.value.ndim==1:
+              i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
+              plot(xi,p.value,'k-'); xlabel(xn)
+          else:
+              i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
+              contourf(xi,yi,p.value.T,vmin=vm[0],vmax=vm[1],levels=50); colorbar()
+              xlabel(xn); ylabel(yn)
+          title(fname)
+          self.info.config(text='  {}, C(t0)=[{:f},  {:f}]'.format(p.dims,*p.vm)); self.window.update()
+       hf.tight_layout(); hf.canvas.draw(); hf.show()
+
+   def init_plot(self,fmt=0):
+       fname=self.fname
+       #init figure
+       if fname in self.figs:
+           hf=self.figs[fname]; figure(hf)
+       elif fmt==0 and (fname not in self.figs):
+           hf=figure(); self.figs[fname]=hf
+       if fmt==0: return hf
+
+   def update_panel(self):
+       import tkinter as tk
+       from tkinter import ttk
+       wd,fm,fname=self.window,self.frame,self.fname
+       p=self.param[fname]; self.info.config(text=p.info)
+       for widget in fm.winfo_children(): widget.destroy() #clean plot option frame
+
+       #design plot option frame
+       if self.fmt==0: #update gr3 file parameters and panel
+          if p.init==0:
+             p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.ctr=tk.IntVar(wd); p.grid.set(0); p.bnd.set(0); p.ctr.set(1)
+             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(p.vm[0]); p.vmax.set(p.vm[1])
+
+          #update plot options
+          sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5)
+          ttk.Label(master=sfm1,text='  ').grid(row=0,column=0,sticky='W')
+          tk.Checkbutton(master=sfm1,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=1)
+          tk.Checkbutton(master=sfm1,text='boundary',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
+          tk.Checkbutton(master=sfm1,text='contour',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+
+          #add limit panel
+          sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
+          ttk.Label(master=sfm,text='  limit').grid(row=0,column=0,sticky='W')
+          ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
+          ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
+       elif self.fmt==1: # *D.th.nc or _nu.nc
+          if p.init==0:
+             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(p.vm[0]); p.vmax.set(p.vm[1])
+             p.transpose=tk.IntVar(wd); p.transpose.set(0)
+             p.dvars=[tk.StringVar(wd) for i in p.dims]; p.xs=[[*arange(i)] for i in p.dims]
+
+          #update plot options
+          sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5)
+          for n,[dn,ds,dvar] in enumerate(zip(p.dnames,p.dims,p.dvars)):
+              if p.init==0:
+                  if ds==1 or n==3:
+                      dvar.set(0)
+                  else:
+                      dvar.set('all') if n==0 else dvar.set('mean') if n==1 else dvar.set(p.xs[n][-1])
+              vs=p.xs[n] if ds==1 else ['all','mean','min','max',*p.xs[n]]
+              dw=7 if n==2 else 2 if n==3 else 5
+              sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
+              ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
+              ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
+
+              #add limit panel
+              sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
+              ttk.Label(master=sfm,text='  limit').grid(row=0,column=0,sticky='W')
+              ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
+              ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
+              tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+       p.init=1; wd.update()
+
+   def read_data(self):
+       fname,fmt=self.fname,self.fmt; fid,p=self.fids[fname],self.param[fname]
+
+       if fmt==1: #for bnd and nudge files
+          #get dimension index, read data slice
+          dns=array([i.get() for i in p.dvars])
+          if sum(dns=='all')>=3 or sum(dns=='all')==0 : print("can't plot scalar or 3D data"); return
+          dind=','.join([':' if (i in ['all','mean','min','max']) else str(i) for i in dns])
+          exec('p.value=array(p.var[{}])'.format(dind)); p.vm=[p.value.min(),p.value.max()]
+          # print(dns,p.value.shape)
+
+          #perform operation, and get axis
+          p.ax=[]; isht=0
+          for n, dn in enumerate(dns):
+              if dn=='all': p.ax.append(n)
+              if dn in ['mean','min','max']: exec('p.value=p.value.{}(axis={})'.format(dn,n-isht))
+              if dn!='all': isht=isht+1
+          if p.value.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.value=p.value.T
+
+   def run_info(self,run):
+       #self.fnames=['hgrid.gr3','drag.gr3','shapiro.gr3','source.nc','elev2D.th.nc','ICM_nu.nc','SAL_3D.th.nc']
+       self.run=os.path.abspath(run)+os.path.sep
+       self.fnames=[i for i in os.listdir(self.run) if (i.split('.')[-1] in ['nc','gr3','ll','ic'])]
+       self.StartT=0 #update this later
+
+   def read_input(self):
+       '''
+       read input information
+       '''
+       #get input fname and type
+       fname=self.input.get(); self.fname=fname
+       if fname.split('.')[-1] in ['gr3','ll','ic']: fmt=0
+       if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmt=1
+       fids,run,param=self.fids,self.run,self.param;   self.fmt=fmt
+
+       #input parameters
+       if fname in param:
+           p=param[fname]
+       else:
+           p=zdata(); p.init=0; param[fname]=p
+
+       #read input information
+       if self.fmt==0: #gr3 files
+           if self.hgrid is None: self.read_hgrid()
+           if fname not in fids: fids[fname]=read(run+fname).z
+           gd=self.hgrid; gd.dp=fids[fname]
+           p.vm=[gd.z.min(),gd.z.max()]
+           p.info='  np={}, ne={}, Z=[{:f},  {:f}]'.format(gd.np,gd.ne,*p.vm)
+       elif self.fmt==1: #  *D.th.nc or _nu.nc
+           if fname not in fids: fids[fname]=read(run+fname,1)
+           fid=fids[fname]
+           if p.init==0:
+               p.cvar='time_series' if 'time_series' in [*fid.variables] else 'tracer_concentration'
+               p.var=fid.variables[p.cvar]; p.vm=[p.var[0].min(),p.var[0].max()]
+               p.dnames=['time','node','layer','tracer']; p.dims=p.var.shape
+               p.info='  {}, C(t0)=[{:f},  {:f}]'.format(p.dims,*p.vm)
+           #work on demensions
+           # p.time=array(p.var['time'][:])/86400+p.StartT
+       self.update_panel()
+       self.init_plot(fmt=1)
+
+   def read_hgrid(self):
+       run=self.run; fn1=run+'hgrid.npz'; fn2=run+'grid.npz'; fn3=run+'hgrid.gr3'
+       self.hgrid=read(fn1) if os.path.exists(fn1) else read(fn2).hgrid if os.path.exists(fn2) else read(fn3)
+       self.hgrid.values={'hgrid.gr3': self.hgrid.z}
+
+   def window_exit(self):
+       for fn in self.figs: close(self.figs[fn])
+       self.window.destroy()
+
+   def init_window(self):
+       import tkinter as tk
+       from tkinter import ttk
+
+       #init
+       wd=tk.Tk(); self.window=wd
+       wd.title("SCHISM check: Z. WANG")
+       wd.rowconfigure([0,1,2], minsize=5, weight=3)
+       wd.columnconfigure(0, minsize=50, weight=1)
+
+       #Input file
+       fm=ttk.Frame(master=wd);   fm.grid(row=0,column=0,sticky='NW',pady=0)
+       sfm=ttk.Frame(master=fm);  sfm.grid(row=0,column=0,sticky='W',pady=0)
+       self.input=tk.StringVar(wd);  self.input.set(self.fnames[0])
+       ttk.Label(master=sfm,text='  Input ').grid(row=0,column=0,sticky='W',pady=0)
+       svar=ttk.Combobox(sfm,textvariable=self.input,values=self.fnames,width=13,); svar.grid(row=0,column=1)
+       svar.bind("<<ComboboxSelected>>",lambda x: self.read_input())
+
+       #input info
+       sfm=ttk.Frame(master=fm);  sfm.grid(row=2,column=0,sticky='W',pady=0)
+       self.info=ttk.Label(master=sfm,text='   '); self.info.grid(row=0,column=0,sticky='W',pady=0)
+
+       #action options for each input files
+       fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='W',pady=0,padx=0); self.frame=fm
+
+       #draw and exit
+       fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='E',pady=0,padx=0)
+       ttk.Button(master=fm,text='exit',command=self.window_exit,width=5).pack(side=tk.RIGHT)
+       ttk.Button(master=fm,text='draw',width=6,command=lambda: self.plot()).pack(side=tk.RIGHT)
+
+       #resize window
+       wd.geometry('400x150'); wd.update()
+
 if __name__=="__main__":
     pass
