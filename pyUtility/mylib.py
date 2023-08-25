@@ -295,7 +295,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
 
     nproc=nnode*ppn
     if fmt==0:
-       os.environ[ename]='{} {}'.format(bdir,code)
+       os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code))
        #for submit jobs
        if qnode in ['femto','cyclops']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
@@ -319,25 +319,25 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
     elif fmt==1:
        #for run parallel jobs
        if qnode in ['femto','cyclops']:
-          scmd="srun --export=ALL,job_on_node=1,bdir={} ./{} >& {}".format(bdir,code,scrout)
+          scmd="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,code,scrout)
        elif qnode in ['grace',]:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout) 
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
           if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
        elif qnode in ['frontera']:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['stampede2',]:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun ./{} >& {}".format(code,scrout)
        elif qnode in ['levante',]:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
           if ename=='run_schism':
              scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
-             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic ./{} >& {}".format(bdir,code,scrout)
+             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
-          if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
-          if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' ./{} >& {}".format(bdir,code,scrout)
+          if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
+          if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
           #if qnode=='james' and ename=='run_schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
        elif qnode in ['eagle']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -n {} ./{} >& {}".format(bdir,nproc,code,scrout)
