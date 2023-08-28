@@ -225,7 +225,7 @@ class schism_grid:
         fid=open(fname,'r'); lines=fid.readlines(); fid.close()
 
         #read ne and np; lx,ly and dp
-        self.ne,self.np=array(lines[1].split()[0:2]).astype('int')
+        self.ne,self.np=[*array(lines[1].split()[0:2]).astype('int')]
         self.x,self.y,self.dp=array([i.split()[1:4] for i in lines[2:(2+self.np)]]).astype('float').T
         if len(lines)<(2+self.np+self.ne): return
 
@@ -894,7 +894,7 @@ class schism_grid:
         if 'd' in fmt: pvi=pvi.astype('int')
 
         #prepare values
-        fstr=('{:d} '+fmt+' \n')*self.ne
+        fstr=('{:d} '+fmt+' \n')*int(self.ne)
         fval=array([range(1,self.ne+1),pvi],dtype='O').T
 
         #write prop value
