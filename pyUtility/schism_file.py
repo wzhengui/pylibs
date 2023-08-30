@@ -1635,7 +1635,7 @@ def save_schism_grid(fmt=0,path='.',method=0):
     '''
     save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
        path:  directory of grids
-       fmt=0: save as hgrid.npz and vgrid.npz;  fmt=1: save as grid.npz (include hgrid and vgrid)
+       fmt=0: save as grid.npz (include hgrid and vgrid); fmt=1: save as hgrid.npz and vgrid.npz
        method=1: save hgrid full geometry information
     '''
     #read grids
@@ -1649,7 +1649,7 @@ def save_schism_grid(fmt=0,path='.',method=0):
     if (gd is not None) and method==1: gd.compute_all()
 
     #save grid
-    if fmt==0:
+    if fmt==1:
        if gd is not None: gd.save('hgrid.npz')
        if vd is not None: vd.save('vgrid.npz')
     else:
