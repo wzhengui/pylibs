@@ -1130,10 +1130,10 @@ class schism_grid:
         if not hasattr(self.bndinfo,'nb'): self.compute_bnd()
         for i in arange(self.bndinfo.nb): #inside outline
             if self.bndinfo.island[i]==1: continue
-            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy[sindp],self.x[fpb],self.y[fpb])==1; sind[fp]=1
+            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy,self.x[fpb],self.y[fpb])==1; sind[fp]=1
         for i in arange(self.bndinfo.nb): #inside island
             if self.bndinfo.island[i]==0: continue
-            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy[sindp],self.x[fpb],self.y[fpb])==1; sind[fp]=0
+            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy,self.x[fpb],self.y[fpb])==1; sind[fp]=0
         return sind
 
     def subset(self,xy):
