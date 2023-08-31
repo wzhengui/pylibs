@@ -3307,6 +3307,10 @@ class schism_check(zdata):
        self.window.mainloop()
 
    def update_panel(self,option=0):
+       '''
+       option=0: When input is changed
+       option=1: When variable of input is changed
+       '''
        import tkinter as tk
        from tkinter import ttk
 
@@ -3318,6 +3322,7 @@ class schism_check(zdata):
            if fname.split('.')[-1] in ['gr3','ll','ic','prop']: fmts[fname]=0
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
            if fname.startswith('hotstart.nc'): fmts[fname]=2
+           if fname=='source.nc': fmts[fname]=3
            self.fmt=fmts[fname]; self.read_input_info()
        self.fmt=fmts[fname]; p=params[fname]
 
@@ -3334,7 +3339,7 @@ class schism_check(zdata):
           sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5)
           ttk.Label(master=sfm1,text='  ').grid(row=0,column=0,sticky='W')
           tk.Checkbutton(master=sfm1,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=1)
-          tk.Checkbutton(master=sfm1,text='boundary',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
+          tk.Checkbutton(master=sfm1,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm1,text='contour',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
 
           #add limit panel
@@ -3369,26 +3374,35 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
-       elif self.fmt==2:  #hotstart.nc
+       elif self.fmt in [2,3]:  #hotstart.nc or source.nc
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
+             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.sctr.set(0); p.srat.set(1)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
 
           #update panel
           fid=self.fids[fname]; p.var=self.var.get(); p.cvar=fid[p.var]
           p.dims=p.cvar.shape; p.dnames=p.cvar.dimensions
           p.info='  dim={}'.format(p.dims); self.info.config(text=p.info)
-          p.dvars=[tk.StringVar(wd) for i in p.dims]; p.xs=[*p.dims]
+          p.dvars=[tk.StringVar(wd) for i in p.dims];
+          p.xs=[*p.dims] if self.fmt==2 else [[*arange(i)] for i in p.dims]
 
           sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5)
           for n,[dn,ds,dvar] in enumerate(zip(p.dnames,p.dims,p.dvars)):
               if ds==1:
                  dvar.set(0); vs=[0]; dw=2
+              elif self.fmt==3 and p.var=='source_elem':
+                 vs=['all']; dvar.set('all'); dw=5
               elif dn in ['node', 'elem', 'side']:
                  vs=['all','mean','min','max','sum']; dvar.set('all'); dw=5
               else:
                  vs=['all','mean','min','max','sum',*arange(ds)]; dvar.set(0); dw=5
+                 if dn=='nsources': dvar.set('all')
+              if dn.startswith('time_'): dn='time'
+              if dn=='ntracers': dn='tracer'
+              if dn=='nVert': dn='layer'
+              if dn=='nsources': dn='source'
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
               ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
@@ -3400,7 +3414,15 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
           tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
-          tk.Checkbutton(master=sfm,text='boundary',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+          tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+
+          #panel for source.nc
+          if self.fmt==3:
+             sfm=ttk.Frame(master=fm); sfm.grid(row=2,column=0,sticky='W',pady=5)
+             tk.Checkbutton(master=sfm,text='scatter',variable=p.sctr,onvalue=1,offvalue=0).grid(row=0,column=0,sticky='W')
+             ttk.Label(master=sfm,text='  marker_zoom').grid(row=0,column=1,sticky='W')
+             ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
+             wd.geometry('400x170')
 
        p.init=1; wd.update()
        self.init_plot(fmt=1)
@@ -3410,19 +3432,25 @@ class schism_check(zdata):
            hf.closed=True
        def _fig_resize(args): #update figsize
            hf,p=args; p.figsize=[hf.get_figwidth(),hf.get_figheight()]
+       def _fig_xy(p): #update figure xm, and ym
+           if hasattr(p,'hp'): p.xm=p.hp.get_xlim(); p.ym=p.hp.get_ylim()
 
-       fname=self.fname; p=self.params[fname]
+       fname=self.fname; p=self.params[fname]; istat=0
        if fname in self.figs: #restore old figure
            hf=self.figs[fname]
            if hf.closed: #open a new figure canvas if original figure is closed
-              hf=figure(figsize=p.figsize,num=hf.number); hf.closed=False
-              self.figs[fname]=hf; hf.canvas.mpl_connect("close_event",lambda x: _fig_close(hf))
+              if fmt==1: return
+              hf=figure(figsize=p.figsize,num=hf.number); hf.closed=False; self.figs[fname]=hf; istat=1
            else:
               figure(hf)
        elif fmt==0 and (fname not in self.figs): #new figure
-           hf=figure(len(self.figs)); self.figs[fname]=hf; hf.closed=False; _fig_resize([hf,p])
+           hf=figure(len(self.figs)); self.figs[fname]=hf; hf.closed=False; _fig_resize([hf,p]); istat=1
+
+       #define figure actions
+       if istat==1:
            hf.canvas.mpl_connect("close_event",lambda x: _fig_close(hf))
            hf.canvas.mpl_connect("resize_event",lambda x: _fig_resize([hf,p]))
+           hf.canvas.mpl_connect("draw_event",lambda x: _fig_xy(p))
        if fmt==0: return hf
 
    def plot(self):
@@ -3435,8 +3463,16 @@ class schism_check(zdata):
           if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-          title(fname)
-       elif self.fmt in [1,2]: # bnd, nudge, hotstart
+          title(fname); pfmt=0
+       elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]:
+            if not hasattr(self,'hgrid'): self.read_hgrid()
+            if not hasattr(self.hgrid,'dpe'): self.hgrid.compute_ctr()
+            if not hasattr(p,'sinde'): p.sinde=array(self.fids[fname]['source_elem'][:])-1
+            gd=self.hgrid; scatter(gd.xctr[p.sinde],gd.yctr[p.sinde],s=p.data*p.srat.get(),c='r'); p.hp=gca()
+            if p.grid.get()==1: gd.plot()
+            if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
+            pfmt=2
+       elif self.fmt in [1,2,3]: # bnd, nudge, hotstart, source.nc
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
@@ -3446,23 +3482,28 @@ class schism_check(zdata):
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-                  title('{}: {}'.format(fname,p.var))
+                  title('{}: {}'.format(fname,p.var)); pfmt=3
               else: #1D line
                   if self.fmt==2: xi=arange(xi)
-                  plot(xi,p.data,'k-'); hp=gca()
-                  xlabel(xn); title(fname)
+                  plot(xi,p.data,'k-'); p.hp=gca()
+                  xlabel(xn); title(fname); pfmt=1
+                  if hasattr(p,'ym') and (p.ym[0]>=p.data.max() or p.ym[1]<=p.data.min()): p.ym=[p.data.min(),p.data.max()]
           else: #2D plots
               i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
               if self.fmt==2: xi=arange(xi); yi=arange(yi)
-              #hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50,extend='both'); p.hp=gca()
               hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50); p.hp=gca()
               cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1]);
               hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
-              xlabel(xn); ylabel(yn); title(fname)
-       def _fig_xy(p): #update figure xm, and ym
-          p.xm=p.hp.get_xlim(); p.ym=p.hp.get_ylim()
-       hf.canvas.mpl_connect("draw_event",lambda x: _fig_xy(p))
-       if hasattr(p,'xm'): setp(p.hp,xlim=p.xm,ylim=p.ym)
+              xlabel(xn); ylabel(yn); title(fname); pfmt=4
+
+       #change xm&ym
+       if hasattr(p,'fmt') and p.fmt==pfmt:
+          if hasattr(p,'xm'): setp(p.hp,xlim=p.xm)
+          if hasattr(p,'ym'): setp(p.hp,ylim=p.ym)
+       else:
+          p.fmt=pfmt
+          if hasattr(p,'xm'): delattr(p,'xm') 
+          if hasattr(p,'ym'): delattr(p,'ym')
        self.figs[fname]=hf; hf.tight_layout(); hf.canvas.draw(); hf.show()
 
    def read_input(self):
@@ -3479,7 +3520,7 @@ class schism_check(zdata):
               z=fids[fname]; p.info='  np={}, ne={}, [{}, {}]'.format(self.hgrid.np,self.hgrid.ne,'{:15f}'.format(z.min()).strip(),'{:15f}'.format(z.max()).strip())
               if p.vmin.get()==0 and p.vmax.get()==0: p.vmin.set(z.min()); p.vmax.set(z.max())
               self.info.config(text=p.info); wd.update()
-       elif self.fmt in [1,2]: #for bnd, nudge files, or hotstart
+       elif self.fmt in [1,2,3]: #for bnd, nudge files, or hotstart
           #get dimension index, read data slice
           cvar=fids[fname] if self.fmt==1 else p.cvar
           dns=array([i.get() for i in p.dvars])
@@ -3491,7 +3532,6 @@ class schism_check(zdata):
              else:
                 p.dns0=dns; p.cvar0=cvar
           if sum(dns=='all')>=3 or sum(dns=='all')==0 : print("can't plot scalar or 3D data"); return
-          print(fname,cvar,dns)
 
           #read data
           dind=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns])
@@ -3511,7 +3551,8 @@ class schism_check(zdata):
           if not hasattr(p,'ax0'):
              p.ax0=p.ax
           else:
-             if not array_equal(array(p.ax0),array(p.ax)): delattr(p,'xm'); delattr(p,'ym'); p.ax0=p.ax
+             if (not array_equal(array(p.ax0),array(p.ax))) and hasattr(p,'xm'): delattr(p,'xm'); delattr(p,'ym');
+             p.ax0=p.ax
           self.info.config(text=p.info); wd.update()
 
    def read_input_info(self):
@@ -3539,6 +3580,10 @@ class schism_check(zdata):
            cvar=read(run+fname,1).variables
            p.vars=[*cvar]; fids[fname]=cvar; p.var='tr_el'
            p.info='  dim={}'.format(cvar['tr_el'].shape)
+       elif self.fmt==3: #source.nc
+           cvar=read(run+fname,1).variables
+           p.vars=['source_elem','vsource','msource']; fids[fname]=cvar; p.var='msource'
+           p.info='  dim={}'.format(cvar[p.var].shape)
 
    def read_hgrid(self):
        if hasattr(self,'hgrid'): return self.hgrid
@@ -3553,6 +3598,35 @@ class schism_check(zdata):
        self.fnames=[i for i in os.listdir(self.run) if (i.split('.')[-1] in ['nc','gr3','ll','ic','prop'])]
        # self.StartT=0 #update this later
 
+   def cmd_window(self):
+        import tkinter as tk
+        from tkinter import ttk
+        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
+        cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
+        txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
+        rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
+        cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
+        if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
+        cw.geometry('{}x{}'.format(xm,ym)); cw.update()
+        print('control vars: [fname,p,fid,hf,ax,gd]')
+
+   def cmd_exec(self,cmd):
+        self.cmd=cmd
+        fname=self.fname; p,fid=self.params[fname],self.fids[fname]
+        if fname in self.figs: hf=self.figs[fname]; ax=gca()
+        if hasattr(self,'hgrid'): gd=self.hgrid
+
+        #run command
+        for i in cmd.strip().split('\n'):
+            if i=='': continue
+            try:
+               print('run: '+i); exec(i)
+            except:
+               print('fail: '+i)
+        print('\n')
+        if fname in self.figs: hf.canvas.draw()
+        self.window.update()
+
    def window_exit(self):
        for fn in self.figs: close(self.figs[fn])
        self.window.destroy()
@@ -3563,7 +3637,7 @@ class schism_check(zdata):
 
        #init
        wd=tk.Tk(); self.window=wd
-       wd.title("SCHISM check: Z. WANG")
+       wd.title("SCHISM check (Author: Z. WANG)")
        wd.rowconfigure([0,1,2], minsize=5, weight=3)
        wd.columnconfigure(0, minsize=50, weight=1)
 
@@ -3587,9 +3661,10 @@ class schism_check(zdata):
        fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='W',pady=0,padx=0); self.frame=fm
 
        #draw and exit
-       fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='E',pady=0,padx=0)
+       fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='nesw',pady=1,padx=1)
        ttk.Button(master=fm,text='exit',command=self.window_exit,width=5).pack(side=tk.RIGHT)
        ttk.Button(master=fm,text='draw',width=6,command=lambda: self.plot()).pack(side=tk.RIGHT)
+       ttk.Button(master=fm,text='command',width=10,command=self.cmd_window).pack(side=tk.LEFT)
 
        #resize window
        wd.geometry('400x150'); wd.update()
