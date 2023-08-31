@@ -39,7 +39,7 @@ class schism_grid:
         return self.dps
 
     def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
-             ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,**args):
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
@@ -80,7 +80,7 @@ class schism_grid:
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
            if cb==True:
-              hc=colorbar(hg,aspect=cb_aspect); self.hc=hc
+              hc=colorbar(hg,aspect=cb_aspect,pad=cb_pad); self.hc=hc
               if ticks is not None:
                  if not hasattr(ticks,'__len__'):
                     hc.set_ticks(linspace(*vm,int(ticks)))
@@ -3306,64 +3306,6 @@ class schism_check(zdata):
        self.init_window(); self.update_panel()
        self.window.mainloop()
 
-   def plot(self):
-       #plot for each input file
-       fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
-       self.read_input(); hf=self.init_plot(); hf.clf();
-
-       if self.fmt==0:  #gr3 files
-          gd=self.hgrid; p=self.params[fname]; data=fids[fname]
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
-          if p.grid.get()==1: gd.plot()
-          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-          title(fname)
-       elif self.fmt in [1,2]: # bnd, nudge, hotstart
-          vm=[p.vmin.get(),p.vmax.get()]
-          if p.data.ndim==1:
-              i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
-              if self.fmt==2 and (xn in ['node', 'elem']):
-                  if not hasattr(self,'hgrid'): self.read_hgrid()
-                  gd=self.hgrid
-                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
-                  if p.grid.get()==1: gd.plot()
-                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-                  title('{}: {}'.format(fname,p.var))
-              else:
-                  if self.fmt==2: xi=arange(xi)
-                  plot(xi,p.data,'k-'); hp=gca()
-                  xlabel(xn); title(fname)
-          else:
-              i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
-              if self.fmt==2: xi=arange(xi); yi=arange(yi)
-              hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50,extend='both'); p.hp=gca(); hc=colorbar() #todo, adjust colorbar()
-              cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1]); hc.ax.set_ylim(vm); hc.set_ticks(linspace(*vm,11));
-              xlabel(xn); ylabel(yn); title(fname)
-          p.itr=p.dvars[-1].get()
-       def _fig_xy(p): #update figure xm, and ym
-          p.xm=p.hp.get_xlim(); p.ym=p.hp.get_ylim()
-       hf.canvas.mpl_connect("draw_event",lambda x: _fig_xy(p))
-       if hasattr(p,'xm'): setp(p.hp,xlim=p.xm,ylim=p.ym)
-       self.figs[fname]=hf; hf.tight_layout(); hf.canvas.draw(); hf.show()
-
-   def init_plot(self,fmt=0):
-       fname=self.fname; p=self.params[fname]
-       if fname in self.figs: #restore old figure
-           hf=self.figs[fname]
-           if hf.closed: #open a new figure canvas if original figure is closed
-              phf=figure(figsize=p.figsize,num=hf.number); hf.closed=False 
-              phf.canvas.figure=hf; hf.set_canvas(phf.canvas) #; self.figs[fname]=hf
-           else:
-              figure(hf)
-       elif fmt==0 and (fname not in self.figs): #new figure
-           def _fig_close(hf): #mark closed figure
-               hf.closed=True
-           def _fig_resize(args): #update figsize
-               hf,p=args; p.figsize=[hf.get_figwidth(),hf.get_figheight()]
-           hf=figure(len(self.figs)); self.figs[fname]=hf; hf.closed=False; _fig_resize([hf,p])
-           hf.canvas.mpl_connect("close_event",lambda x: _fig_close(hf)) 
-           hf.canvas.mpl_connect("resize_event",lambda x: _fig_resize([hf,p])) 
-       if fmt==0: return hf
-
    def update_panel(self,option=0):
        import tkinter as tk
        from tkinter import ttk
@@ -3463,6 +3405,66 @@ class schism_check(zdata):
        p.init=1; wd.update()
        self.init_plot(fmt=1)
 
+   def init_plot(self,fmt=0):
+       def _fig_close(hf): #mark closed figure
+           hf.closed=True
+       def _fig_resize(args): #update figsize
+           hf,p=args; p.figsize=[hf.get_figwidth(),hf.get_figheight()]
+
+       fname=self.fname; p=self.params[fname]
+       if fname in self.figs: #restore old figure
+           hf=self.figs[fname]
+           if hf.closed: #open a new figure canvas if original figure is closed
+              hf=figure(figsize=p.figsize,num=hf.number); hf.closed=False
+              self.figs[fname]=hf; hf.canvas.mpl_connect("close_event",lambda x: _fig_close(hf))
+           else:
+              figure(hf)
+       elif fmt==0 and (fname not in self.figs): #new figure
+           hf=figure(len(self.figs)); self.figs[fname]=hf; hf.closed=False; _fig_resize([hf,p])
+           hf.canvas.mpl_connect("close_event",lambda x: _fig_close(hf))
+           hf.canvas.mpl_connect("resize_event",lambda x: _fig_resize([hf,p]))
+       if fmt==0: return hf
+
+   def plot(self):
+       #plot for each input file
+       fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
+       self.read_input(); hf=self.init_plot(); hf.clf();
+
+       if self.fmt==0:  #gr3 files
+          gd=self.hgrid; p=self.params[fname]; data=fids[fname]
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+          if p.grid.get()==1: gd.plot()
+          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+          title(fname)
+       elif self.fmt in [1,2]: # bnd, nudge, hotstart
+          vm=[p.vmin.get(),p.vmax.get()]
+          if p.data.ndim==1:
+              i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
+              if self.fmt==2 and (xn in ['node', 'elem']): #schism grid plot
+                  if not hasattr(self,'hgrid'): self.read_hgrid()
+                  gd=self.hgrid
+                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+                  if p.grid.get()==1: gd.plot()
+                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+                  title('{}: {}'.format(fname,p.var))
+              else: #1D line
+                  if self.fmt==2: xi=arange(xi)
+                  plot(xi,p.data,'k-'); hp=gca()
+                  xlabel(xn); title(fname)
+          else: #2D plots
+              i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
+              if self.fmt==2: xi=arange(xi); yi=arange(yi)
+              #hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50,extend='both'); p.hp=gca()
+              hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50); p.hp=gca()
+              cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1]);
+              hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
+              xlabel(xn); ylabel(yn); title(fname)
+       def _fig_xy(p): #update figure xm, and ym
+          p.xm=p.hp.get_xlim(); p.ym=p.hp.get_ylim()
+       hf.canvas.mpl_connect("draw_event",lambda x: _fig_xy(p))
+       if hasattr(p,'xm'): setp(p.hp,xlim=p.xm,ylim=p.ym)
+       self.figs[fname]=hf; hf.tight_layout(); hf.canvas.draw(); hf.show()
+
    def read_input(self):
        wd,fname=self.window,self.fname; fids,p=self.fids,self.params[fname]
 
@@ -3481,12 +3483,22 @@ class schism_check(zdata):
           #get dimension index, read data slice
           cvar=fids[fname] if self.fmt==1 else p.cvar
           dns=array([i.get() for i in p.dvars])
+          if not hasattr(p,'dns0'):
+             p.dns0=dns; p.cvar0=cvar
+          else:
+             if cvar==p.cvar0 and array_equal(dns,p.dns0):
+                return
+             else:
+                p.dns0=dns; p.cvar0=cvar
           if sum(dns=='all')>=3 or sum(dns=='all')==0 : print("can't plot scalar or 3D data"); return
+          print(fname,cvar,dns)
+
+          #read data
           dind=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns])
           exec('p.data=array(cvar[{}])'.format(dind));
-          if (p.vmin.get()==0 and p.vmax.get()==0) or p.itr!=p.dvars[-1].get(): p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
+          if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()): p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
+          if self.fmt==1: p.itr=p.dvars[-1].get()
           p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
-          self.info.config(text=p.info); wd.update()
 
           #perform operation, and get axis
           p.ax=[]; isht=0
@@ -3495,6 +3507,12 @@ class schism_check(zdata):
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
           if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
+          if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
+          if not hasattr(p,'ax0'):
+             p.ax0=p.ax
+          else:
+             if not array_equal(array(p.ax0),array(p.ax)): delattr(p,'xm'); delattr(p,'ym'); p.ax0=p.ax
+          self.info.config(text=p.info); wd.update()
 
    def read_input_info(self):
        '''
