@@ -2773,6 +2773,58 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
        if len(C)==0: C=[(svar,svar)]
        return C
 
+def convert_schism_source(run='.',fname='source.nc'):
+    '''
+    convert schism source_sink format from ASCII (source_sink.in, vsource.th, vsink.th, msource.th) to source.nc
+    '''
+    sdir=os.path.abspath(run)+os.path.sep
+    #open data cap
+    C=zdata(); C.vars=[]; C.file_format='NETCDF4'
+    nsources,nsinks,ntracers,ntm,ntv,nts=0,0,0,0,0,0; dtm,dtv,dts=1e6*ones(3)
+    
+    #source_sink.in
+    lines=[i.strip() for i in open(sdir+'source_sink.in','r').readlines()]
+    nsources=int(lines[0].split()[0]); isource=array([int(i.split()[0]) for i in lines[1:(nsources+1)]])
+    nsinks=int(lines[2+nsources].split()[0]); isink=array([int(i.split()[0]) for i in lines[(nsources+3):(nsources+3+nsinks)]])
+    
+    #vsource.th and msource.th
+    if nsources>0:
+       #read data
+       fdata=loadtxt(sdir+'msource.th').T; mti=fdata[0]; msource=fdata[1:]
+       fdata=loadtxt(sdir+'vsource.th').T; vti=fdata[0]; vsource=fdata[1:]
+       ntm=len(mti); ntv=len(vti); dtm=floor(diff(mti)[0]); dtv=floor(diff(vti)[0]); ntracers=int(len(msource)/len(vsource))
+       vsource=vsource.T;  msource=msource.reshape([ntracers,nsources,len(mti)]).transpose([2,0,1])
+    
+       #save data
+       C.vars.extend(['source_elem','vsource','msource'])
+       vi=zdata(); vi.dimname=('nsources',); vi.val=isource; C.source_elem=vi
+       vi=zdata(); vi.dimname=('time_vsource','nsources'); vi.val=vsource; C.vsource=vi
+       vi=zdata(); vi.dimname=('time_msource','ntracers','nsources'); vi.val=msource; C.msource=vi
+    
+    #vsink.th
+    if nsinks>0:
+       #read data
+       fdata=loadtxt('{}/vsink.th'.format(sdir)).T; sti=fdata[0]; vsink=fdata[1:].T
+       nts=len(sti); dts=floor(diff(sti)[0])
+    
+       #save data
+       C.vars.extend(['sink_elem','vsink'])
+       vi=zdata(); vi.dimname=('nsinks',); vi.val=isink; C.sink_elem=vi
+       vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink; C.vsink=vi
+    
+    #assign dimension value
+    C.dimname=['nsources','nsinks','ntracers','time_msource','time_vsource','time_vsink','one']
+    C.dims=[nsources,nsinks,ntracers,ntm,ntv,nts,1]
+    
+    #add time step 
+    C.vars.extend(['time_step_vsource','time_step_msource','time_step_vsink'])
+    vi=zdata(); vi.dimname=('one',); vi.val=dtm; C.time_step_msource=vi
+    vi=zdata(); vi.dimname=('one',); vi.val=dtv; C.time_step_vsource=vi
+    vi=zdata(); vi.dimname=('one',); vi.val=dts; C.time_step_vsink=vi
+    
+    #save as netcdf
+    WriteNC(sdir+fname,C)
+
 class schism_view:
     def __init__(self, run='.'):
         #note: p is a capsule including all information about a figure
@@ -3323,6 +3375,9 @@ class schism_check(zdata):
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
            if fname.startswith('hotstart.nc'): fmts[fname]=2
            if fname=='source.nc': fmts[fname]=3
+           if fname=='source.th':
+              sname='.source.nc'; fmts[fname]=3
+              if not os.path.exists(self.run+sname): print('convert schism source_sink format: '+sname); convert_schism_source(self.run,sname)
            self.fmt=fmts[fname]; self.read_input_info()
        self.fmt=fmts[fname]; p=params[fname]
 
@@ -3399,10 +3454,12 @@ class schism_check(zdata):
               else:
                  vs=['all','mean','min','max','sum',*arange(ds)]; dvar.set(0); dw=5
                  if dn=='nsources': dvar.set('all')
+                 if dn=='nsinks': dvar.set('all')
               if dn.startswith('time_'): dn='time'
               if dn=='ntracers': dn='tracer'
               if dn=='nVert': dn='layer'
               if dn=='nsources': dn='source'
+              if dn=='nsinks': dn='sink'
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
               ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
@@ -3464,14 +3521,19 @@ class schism_check(zdata):
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
           title(fname); pfmt=0
-       elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]:
+       elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
             if not hasattr(self,'hgrid'): self.read_hgrid()
             if not hasattr(self.hgrid,'dpe'): self.hgrid.compute_ctr()
-            if not hasattr(p,'sinde'): p.sinde=array(self.fids[fname]['source_elem'][:])-1
-            gd=self.hgrid; scatter(gd.xctr[p.sinde],gd.yctr[p.sinde],s=p.data*p.srat.get(),c='r'); p.hp=gca()
+            if not hasattr(p,'isc') and ('source_elem' in self.fids[fname]): p.isc=array(self.fids[fname]['source_elem'][:])-1
+            if not hasattr(p,'isk') and ('sink_elem' in self.fids[fname]): p.isk=array(self.fids[fname]['sink_elem'][:])-1
+            sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk
+            data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy()
+            data[data!=-9999]=nan
+            if data.max()<=0: data=-data
+            gd=self.hgrid; scatter(gd.xctr[sind],gd.yctr[sind],s=data*p.srat.get(),c='r'); p.hp=gca()
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
-            pfmt=2
+            title('{}: {}'.format(fname,p.var)); pfmt=2
        elif self.fmt in [1,2,3]: # bnd, nudge, hotstart, source.nc
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
@@ -3581,8 +3643,8 @@ class schism_check(zdata):
            p.vars=[*cvar]; fids[fname]=cvar; p.var='tr_el'
            p.info='  dim={}'.format(cvar['tr_el'].shape)
        elif self.fmt==3: #source.nc
-           cvar=read(run+fname,1).variables
-           p.vars=['source_elem','vsource','msource']; fids[fname]=cvar; p.var='msource'
+           cvar=read(run+fname,1).variables if fname=='source.nc' else read(run+'.source.nc',1).variables
+           p.vars=[i for i in cvar if (i in ['source_elem','sink_elem','vsource','vsink','msource'])]; fids[fname]=cvar; p.var='msource'
            p.info='  dim={}'.format(cvar[p.var].shape)
 
    def read_hgrid(self):
@@ -3593,9 +3655,14 @@ class schism_check(zdata):
        self.hgrid=read(fn1) if fexist(fn1) else read(fn2).hgrid if fexist(fn2) else read(fn3) if fexist(fn3) else read(fnames[0])
        return self.hgrid
 
+   def read_source(self):
+       pass;
+
    def run_info(self,run):
-       self.run=os.path.abspath(run)+os.path.sep
+       self.run=os.path.abspath(run)+os.path.sep; fexist=os.path.exists
        self.fnames=[i for i in os.listdir(self.run) if (i.split('.')[-1] in ['nc','gr3','ll','ic','prop'])]
+       if fexist(self.run+'source_sink.in'): self.fnames.append('source.th')
+       self.fnames=[i for i in self.fnames if (i not in ['.source.nc',])]
        # self.StartT=0 #update this later
 
    def cmd_window(self):

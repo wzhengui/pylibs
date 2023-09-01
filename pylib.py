@@ -111,7 +111,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         read_schism_prop,read_schism_reg,interp_schism_3d,get_schism_var_info,
         read_schism_output,change_schism_param,get_schism_output_info,get_schism_grid_subdomain,
         get_schism_output_subset,combine_schism_hotstart,combine_icm_output,read_schism_slab,
-        schism_view,schism_check)
+        convert_schism_source,schism_view,schism_check)
 
    if os.getenv('HOME')!=None:
        sys.path.append(os.getenv('HOME'))
