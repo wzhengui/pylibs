@@ -69,7 +69,7 @@ class schism_grid:
            if fmt==1 and method==1:  #tripcolor
               if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],shading='gouraud',**args)
               if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
-              if value.size==self.ne+sum(fp4): hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],shading='gouraud',**args)
+              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],shading='gouraud',**args)
            else:  #contourf or contour
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
@@ -3376,7 +3376,7 @@ class schism_check(zdata):
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
            if fname.startswith('hotstart.nc'): fmts[fname]=2
            if fname=='source.nc': fmts[fname]=3
-           if fname=='source.th':
+           if fname=='source_input':
               sname='.source.nc'; fmts[fname]=3
               if not os.path.exists(self.run+sname): print('convert schism source_sink format: '+sname); convert_schism_source(self.run,sname)
            if fname=='*.th': fmts[fname]=4
@@ -3735,8 +3735,9 @@ class schism_check(zdata):
        [fnames.append(i) for i in snames if i.endswith('D.th.nc')]  #3D bnd
        [fnames.append(i) for i in snames if i.endswith('_nu.nc')]   #3D nudge
        [fnames.append(i) for i in snames if i=='source.nc']         #source.nc
-       [fnames.append('source.th') for i in snames if i=='source_sink.in']           #source.th
-       [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source.th
+       [fnames.append('source_input') for i in snames if i=='source_sink.in']           #source_input
+       [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source_input
+       snames=[i for i in snames if not i.startswith('vsource.')]                                        #remove vsource.th
        fnames.extend(unique(['*.th' for i in snames if i.endswith('.th')]))          #*.th
        [fnames.append(i) for i in snames if i.endswith('.ll')]                       #hgrid.gr3
        [fnames.append(i) for i in snames if i.endswith('.gr3') and (i not in fnames)]#gr3
