@@ -2830,7 +2830,7 @@ class schism_view:
         #note: p is a capsule including all information about a figure
         self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
         self.run_info(run)
-        self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization: '+self.run)
+        self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization : '+self.run+' (Author: Z. WANG)')
         self.hold='off'  #animation
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
@@ -3344,6 +3344,7 @@ class schism_view:
         ttk.Button(master=fm,text='draw',width=4,command=lambda: self.schism_plot(0)).pack(side=tk.RIGHT,padx=1)
 
         #resize window
+        wd.protocol("WM_DELETE_WINDOW",self.window_exit)
         wd.geometry('600x180'); wd.update(); xm=max([i.winfo_width() for i in fms])
         for i in arange(0,100,3):
             L1['text']=' '*i; L2['text']=' '*i; wd.update(); xs=fms[-1].winfo_width()
@@ -3378,6 +3379,7 @@ class schism_check(zdata):
            if fname=='source.th':
               sname='.source.nc'; fmts[fname]=3
               if not os.path.exists(self.run+sname): print('convert schism source_sink format: '+sname); convert_schism_source(self.run,sname)
+           if fname=='*.th': fmts[fname]=4
            self.fmt=fmts[fname]; self.read_input_info()
        self.fmt=fmts[fname]; p=params[fname]
 
@@ -3477,9 +3479,34 @@ class schism_check(zdata):
           if self.fmt==3:
              sfm=ttk.Frame(master=fm); sfm.grid(row=2,column=0,sticky='W',pady=5)
              tk.Checkbutton(master=sfm,text='scatter',variable=p.sctr,onvalue=1,offvalue=0).grid(row=0,column=0,sticky='W')
-             ttk.Label(master=sfm,text='  marker_zoom').grid(row=0,column=1,sticky='W')
+             ttk.Label(master=sfm,text='  zoom').grid(row=0,column=1,sticky='W')
              ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
              wd.geometry('400x170')
+       elif self.fmt==4: #*.th file
+          if p.init==0:
+             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.transpose=tk.IntVar(wd); p.vmin.set(0); p.vmax.set(0); p.transpose.set(0)
+             p.dvars=[tk.StringVar(wd), tk.StringVar(wd)]; self.var.set(''); p.axs={'':[[],[]]}; p.var=''
+          if option==1:
+             self.convert_thfile(); p.dvars[0].set('all'); p.dvars[1].set(0)
+             p.var=self.var.get(); p.dims=[*p.cvar.shape]; self.info.config(text=' dim={}'.format(p.dims))
+          else:
+             self.var.set(p.var)
+          p.dnames=['time','tracer']; p.xs=p.axs[p.var]
+
+          #option panel
+          self.vars['values']=self.thfiles
+          sfm=ttk.Frame(master=fm); sfm.grid(row=0,column=0,sticky='W',pady=5)
+          for m in arange(2):
+              ttk.Label(master=sfm,text='  time' if m==0 else '  tracer').grid(row=0,column=2*m,sticky='W')
+              xs=['all','mean','min','max','sum',*arange(len(p.xs[m]))]
+              ttk.Combobox(sfm,textvariable=p.dvars[m],values=xs,width=7,).grid(row=0,column=2*m+1,sticky='W')
+
+          #add limit panel
+          sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
+          ttk.Label(master=sfm,text='  limit').grid(row=0,column=0,sticky='W')
+          ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
+          ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
+          tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
 
        p.init=1; wd.update()
        self.init_plot(fmt=1)
@@ -3512,15 +3539,21 @@ class schism_check(zdata):
 
    def plot(self):
        #plot for each input file
+       if self.var.get()=='': return
        fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
        self.read_input(); hf=self.init_plot(); hf.clf();
+
+       #save axis limit for reset function
+       def slimit(x,y,v=None):
+           p.xm0=[array(x).min(),array(x).max()]; p.ym0=[array(y).min(),array(y).max()]
+           if v is not None: p.vm0=[v.min(),v.max()]
 
        if self.fmt==0:  #gr3 files
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]
           if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-          title(fname); pfmt=0
+          title(fname); pfmt=0; slimit(gd.x,gd.y,data)
        elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
             if not hasattr(self,'hgrid'): self.read_hgrid()
             if not hasattr(self.hgrid,'dpe'): self.hgrid.compute_ctr()
@@ -3528,13 +3561,14 @@ class schism_check(zdata):
             if not hasattr(p,'isk') and ('sink_elem' in self.fids[fname]): p.isk=array(self.fids[fname]['sink_elem'][:])-1
             sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk
             data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy()
-            data[data!=-9999]=nan
-            if data.max()<=0: data=-data
+            data[data==-9999]=nan #don't plot -9999 value
+            if data.max()<=0: data=-data #plot negative values (vsink)
             gd=self.hgrid; scatter(gd.xctr[sind],gd.yctr[sind],s=data*p.srat.get(),c='r'); p.hp=gca()
+            slimit(gd.x,gd.y,data*p.srat.get())
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
             title('{}: {}'.format(fname,p.var)); pfmt=2
-       elif self.fmt in [1,2,3]: # bnd, nudge, hotstart, source.nc
+       elif self.fmt in [1,2,3,4]: # bnd, nudge, hotstart, source.nc
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
@@ -3544,29 +3578,45 @@ class schism_check(zdata):
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-                  title('{}: {}'.format(fname,p.var)); pfmt=3
+                  title('{}: {}'.format(fname,p.var)); pfmt=3; slimit(gd.x,gd.y,p.data)
               else: #1D line
                   if self.fmt==2: xi=arange(xi)
                   plot(xi,p.data,'k-'); p.hp=gca()
-                  xlabel(xn); title(fname); pfmt=1
+                  xlabel(xn); title(fname); pfmt=1; slimit(xi,p.data)
+                  if self.fmt==4: title(p.var)
                   if hasattr(p,'ym') and (p.ym[0]>=p.data.max() or p.ym[1]<=p.data.min()): p.ym=[p.data.min(),p.data.max()]
           else: #2D plots
               i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
               if self.fmt==2: xi=arange(xi); yi=arange(yi)
-              hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50); p.hp=gca()
+              if p.transpose.get()==1:
+                 hg=contourf(yi,xi,p.data,vmin=vm[0],vmax=vm[1],levels=50)
+                 xlabel(yn); ylabel(xn); pfmt=5; slimit(yi,xi,p.data)
+              else:
+                 hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50)
+                 xlabel(xn); ylabel(yn); pfmt=4; slimit(xi,yi,p.data)
               cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1]);
               hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
-              xlabel(xn); ylabel(yn); title(fname); pfmt=4
+              title(fname); p.hp=gca()
+              if self.fmt==4: title(p.var)
 
-       #change xm&ym
-       if hasattr(p,'fmt') and p.fmt==pfmt:
-          if hasattr(p,'xm'): setp(p.hp,xlim=p.xm)
-          if hasattr(p,'ym'): setp(p.hp,ylim=p.ym)
-       else:
-          p.fmt=pfmt
-          if hasattr(p,'xm'): delattr(p,'xm') 
-          if hasattr(p,'ym'): delattr(p,'ym')
+       self.reset_limit(1,fmt=pfmt)
        self.figs[fname]=hf; hf.tight_layout(); hf.canvas.draw(); hf.show()
+
+   def reset_limit(self,method=0,fmt=0):
+       fname=self.fname; p=self.params[fname]
+       if method==1: #modify axes range
+          if hasattr(p,'fmt') and p.fmt==fmt:
+             if hasattr(p,'xm'): setp(p.hp,xlim=p.xm)
+             if hasattr(p,'ym'): setp(p.hp,ylim=p.ym)
+          else:
+             p.fmt=int(fmt)
+             if hasattr(p,'xm'): delattr(p,'xm')
+             if hasattr(p,'ym'): delattr(p,'ym')
+       elif method==0: #reset
+            if hasattr(p,'xm0'): p.xm=p.xm0[:]
+            if hasattr(p,'ym0'): p.ym=p.ym0[:]
+            if hasattr(p,'vm0'): p.vmin.set(p.vm0[0]); p.vmax.set(p.vm0[1]); self.window.update()
+            self.plot()
 
    def read_input(self):
        wd,fname=self.window,self.fname; fids,p=self.fids,self.params[fname]
@@ -3582,7 +3632,7 @@ class schism_check(zdata):
               z=fids[fname]; p.info='  np={}, ne={}, [{}, {}]'.format(self.hgrid.np,self.hgrid.ne,'{:15f}'.format(z.min()).strip(),'{:15f}'.format(z.max()).strip())
               if p.vmin.get()==0 and p.vmax.get()==0: p.vmin.set(z.min()); p.vmax.set(z.max())
               self.info.config(text=p.info); wd.update()
-       elif self.fmt in [1,2,3]: #for bnd, nudge files, or hotstart
+       elif self.fmt in [1,2,3,4]: #for bnd, nudge files, or hotstart
           #get dimension index, read data slice
           cvar=fids[fname] if self.fmt==1 else p.cvar
           dns=array([i.get() for i in p.dvars])
@@ -3608,7 +3658,7 @@ class schism_check(zdata):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
-          if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
+          #if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
           if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
           if not hasattr(p,'ax0'):
              p.ax0=p.ax
@@ -3628,7 +3678,7 @@ class schism_check(zdata):
           if hasattr(self,'hgrid'):
              p.info='  np={}, ne={}'.format(self.hgrid.np,self.hgrid.ne)
           elif fname.split('.')[-1] in ['gr3','ll','ic']:
-             fid=open(run+fname); fid.readline(); ne,np=fid.readline().strip().split()
+             fid=open(run+fname); fid.readline(); ne,np=fid.readline().strip().split()[:2]
              p.info='  np={}, ne={}'.format(np,ne); fid.close()
           else:
              p.info=' '
@@ -3646,6 +3696,11 @@ class schism_check(zdata):
            cvar=read(run+fname,1).variables if fname=='source.nc' else read(run+'.source.nc',1).variables
            p.vars=[i for i in cvar if (i in ['source_elem','sink_elem','vsource','vsink','msource'])]; fids[fname]=cvar; p.var='msource'
            p.info='  dim={}'.format(cvar[p.var].shape)
+       elif self.fmt==4: #*.th
+           if fname not in fids:
+              sname='.th_{}.nc'.format(len([i for i in os.listdir(self.run) if i.startswith('.th_') and i.endswith('.nc')]))
+              zdata().save(self.run+sname)
+              fids[fname]=read(self.run+sname,1); p.info='convert *.th to '+sname
 
    def read_hgrid(self):
        if hasattr(self,'hgrid'): return self.hgrid
@@ -3655,14 +3710,41 @@ class schism_check(zdata):
        self.hgrid=read(fn1) if fexist(fn1) else read(fn2).hgrid if fexist(fn2) else read(fn3) if fexist(fn3) else read(fnames[0])
        return self.hgrid
 
-   def read_source(self):
-       pass;
+   def convert_thfile(self):
+       fname=self.fname; p,fid=self.params[fname],self.fids[fname]; p.var=self.var.get()
+       if p.var in fid.variables: p.cvar=fid.variables[p.var]; return
+
+       #add *.th to th.nc
+       sname=fid.filepath(); fid.close() #save file information
+       data=loadtxt(self.run+p.var); ti=data[:,0]/86400; data=data[:,1:] #read *.th
+       ds=data.shape; p.axs[p.var]=[ti,arange(ds[1])]; #save dimension info
+       fid=ReadNC(sname,1,mode='r+'); dims=[fid.dimensions[i].size for i in fid.dimensions]
+       [fid.createDimension('dim_{}'.format(i),i) for i in ds if i not in dims] #add new dimension if necessar
+       dnames=[*fid.dimensions]; dims=[fid.dimensions[i].size for i in dnames]; dn=[dnames[dims.index(i)] for i in ds] #get diminfo
+       fid.createVariable(p.var,data.dtype,dn,zlib=True); fid.variables[p.var][:]=data; fid.close() #add variables
+       fid=read(sname,1); p.cvar=fid.variables[p.var]; self.fids[fname]=fid
 
    def run_info(self,run):
+       '''
+       collect schism input information
+       '''
        self.run=os.path.abspath(run)+os.path.sep; fexist=os.path.exists
-       self.fnames=[i for i in os.listdir(self.run) if (i.split('.')[-1] in ['nc','gr3','ll','ic','prop'])]
-       if fexist(self.run+'source_sink.in'): self.fnames.append('source.th')
-       self.fnames=[i for i in self.fnames if (i not in ['.source.nc',])]
+       snames=os.listdir(self.run); fnames=[]
+       [fnames.append(i) for i in snames if i=='hgrid.gr3']         #hgrid.gr3
+       [fnames.append(i) for i in snames if i=='hotstart.nc']       #hotstart.nc
+       [fnames.append(i) for i in snames if i.endswith('D.th.nc')]  #3D bnd
+       [fnames.append(i) for i in snames if i.endswith('_nu.nc')]   #3D nudge
+       [fnames.append(i) for i in snames if i=='source.nc']         #source.nc
+       [fnames.append('source.th') for i in snames if i=='source_sink.in']           #source.th
+       [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source.th
+       fnames.extend(unique(['*.th' for i in snames if i.endswith('.th')]))          #*.th
+       [fnames.append(i) for i in snames if i.endswith('.ll')]                       #hgrid.gr3
+       [fnames.append(i) for i in snames if i.endswith('.gr3') and (i not in fnames)]#gr3
+       [fnames.append(i) for i in snames if i.endswith('.prop')]                     #prop
+       mc=[i for i in snames if i.endswith('.ic') and ('hvar' in i)]                 #ic files
+       [fnames.append(i) for i in snames if i.endswith('.ic') and (i not in mc)]; fnames.extend(mc)   #ic
+       [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_'))]  #other nc files
+       self.fnames=fnames; self.thfiles=[i for i in snames if i.endswith('.th')]     #*.th
        # self.StartT=0 #update this later
 
    def cmd_window(self):
@@ -3696,6 +3778,8 @@ class schism_check(zdata):
 
    def window_exit(self):
        for fn in self.figs: close(self.figs[fn])
+       if os.path.exists(self.run+'.source.nc'): os.remove(self.run+'.source.nc')
+       if '*.th' in self.fids: os.remove(self.fids['*.th'].filepath())
        self.window.destroy()
 
    def init_window(self):
@@ -3729,11 +3813,13 @@ class schism_check(zdata):
 
        #draw and exit
        fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='nesw',pady=1,padx=1)
-       ttk.Button(master=fm,text='exit',command=self.window_exit,width=5).pack(side=tk.RIGHT)
        ttk.Button(master=fm,text='draw',width=6,command=lambda: self.plot()).pack(side=tk.RIGHT)
-       ttk.Button(master=fm,text='command',width=10,command=self.cmd_window).pack(side=tk.LEFT)
+       ttk.Button(master=fm,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT,padx=1)
+       ttk.Button(master=fm,text='command',width=8,command=self.cmd_window).pack(side=tk.LEFT,padx=1)
+       ttk.Button(master=fm,text='reset', command=self.reset_limit,width=6).pack(side=tk.LEFT,padx=1)
 
        #resize window
+       wd.protocol("WM_DELETE_WINDOW",self.window_exit)
        wd.geometry('400x150'); wd.update()
 
 if __name__=="__main__":
