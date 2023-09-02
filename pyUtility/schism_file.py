@@ -3554,9 +3554,9 @@ class schism_check(zdata):
            p.xm0=[array(x).min(),array(x).max()]; p.ym0=[array(y).min(),array(y).max()]
            if v is not None: p.vm0=[v.min(),v.max()]
 
-       shading='gouraud' if data.size==gd.np else 'flat'
        if self.fmt==0:  #gr3 files
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]
+          shading='gouraud' if data.size==gd.np else 'flat'
           if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
@@ -3581,7 +3581,7 @@ class schism_check(zdata):
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
               if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   if not hasattr(self,'hgrid'): self.read_hgrid()
-                  gd=self.hgrid
+                  gd=self.hgrid; shading='gouraud' if p.data.size==gd.np else 'flat'
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
