@@ -3374,7 +3374,7 @@ class schism_check(zdata):
        if fname not in fmts:
            if fname.split('.')[-1] in ['gr3','ll','ic','prop']: fmts[fname]=0
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
-           if fname.startswith('hotstart.nc'): fmts[fname]=2
+           if fname.startswith('hotstart.nc') or fname=='ICM_param.nc': fmts[fname]=2
            if fname=='source.nc': fmts[fname]=3
            if fname=='source_input':
               sname='.source.nc'; fmts[fname]=3
@@ -3462,6 +3462,12 @@ class schism_check(zdata):
               if dn=='nVert': dn='layer'
               if dn=='nsources': dn='source'
               if dn=='nsinks': dn='sink'
+              if fname=='ICM_param.nc':
+                 if not hasattr(self,'hgrid'): self.read_hgrid()
+                 if ds==self.hgrid.ne or ds==self.hgrid.np:
+                    dn='node/elem'; dvar.set('all')
+                 else:
+                    dn='d{}'.format(n)
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
               ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
@@ -3572,7 +3578,7 @@ class schism_check(zdata):
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
-              if self.fmt==2 and (xn in ['node', 'elem']): #schism grid plot
+              if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   if not hasattr(self,'hgrid'): self.read_hgrid()
                   gd=self.hgrid
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
@@ -3690,8 +3696,9 @@ class schism_check(zdata):
            p.info='  dim={}'.format(p.dims)
        elif self.fmt==2: #hostart.nc
            cvar=read(run+fname,1).variables
-           p.vars=[*cvar]; fids[fname]=cvar; p.var='tr_el'
-           p.info='  dim={}'.format(cvar['tr_el'].shape)
+           p.vars=[*cvar]; fids[fname]=cvar
+           p.var='tr_el' if fname.startswith('hotstart') else p.vars[0] 
+           p.info='  dim={}'.format(cvar[p.var].shape)
        elif self.fmt==3: #source.nc
            cvar=read(run+fname,1).variables if fname=='source.nc' else read(run+'.source.nc',1).variables
            p.vars=[i for i in cvar if (i in ['source_elem','sink_elem','vsource','vsink','msource'])]; fids[fname]=cvar; p.var='msource'
@@ -3732,6 +3739,7 @@ class schism_check(zdata):
        snames=os.listdir(self.run); fnames=[]
        [fnames.append(i) for i in snames if i=='hgrid.gr3']         #hgrid.gr3
        [fnames.append(i) for i in snames if i=='hotstart.nc']       #hotstart.nc
+       [fnames.append(i) for i in snames if i=='ICM_param.nc']      #ICM_param.nc
        [fnames.append(i) for i in snames if i.endswith('D.th.nc')]  #3D bnd
        [fnames.append(i) for i in snames if i.endswith('_nu.nc')]   #3D nudge
        [fnames.append(i) for i in snames if i=='source.nc']         #source.nc
