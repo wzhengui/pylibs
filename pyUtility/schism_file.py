@@ -67,7 +67,7 @@ class schism_grid:
 
            #plot
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],shading='gouraud',**args)
+              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],**args)
               if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
               if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
@@ -3554,9 +3554,10 @@ class schism_check(zdata):
            p.xm0=[array(x).min(),array(x).max()]; p.ym0=[array(y).min(),array(y).max()]
            if v is not None: p.vm0=[v.min(),v.max()]
 
+       shading='gouraud' if data.size==gd.np else 'flat'
        if self.fmt==0:  #gr3 files
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
           title(fname); pfmt=0; slimit(gd.x,gd.y,data)
@@ -3581,7 +3582,7 @@ class schism_check(zdata):
               if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   if not hasattr(self,'hgrid'): self.read_hgrid()
                   gd=self.hgrid
-                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
                   title('{}: {}'.format(fname,p.var)); pfmt=3; slimit(gd.x,gd.y,p.data)
