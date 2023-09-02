@@ -38,7 +38,7 @@ class schism_grid:
         if not hasattr(self,'zcj'): self.compute_side(2)
         return self.dps
 
-    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
+    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',
              ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,**args):
         '''
         plot grid with default color value (grid depth)
@@ -51,6 +51,7 @@ class schism_grid:
         method=0: using tricontourf/tricontouf; method=1: using tripcolor
         cb=False: not add colorbar
         cb_aspect: adjust colorbar width
+        shading: only used for method=1, and value.size=gd.np
         '''
 
         if ec is None: ec='None'
@@ -67,7 +68,7 @@ class schism_grid:
 
            #plot
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
               if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
               if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
@@ -2905,8 +2906,7 @@ class schism_view:
                 if p.var not in ['depth','none']: # contourf
                     v=self.get_data(p)
                     if p.med==0:
-                        if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
-                        p.hp[0].set_array(r_[v,v[self.fp4]])
+                        p.hp[0].set_array(v if v.size==gd.np else r_[v,v[self.fp4]])
                     else:
                         for i in arange(len(p.ax.collections)): p.ax.collections.pop()
                         gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,ticks=11,cmap='jet',cb=False,zorder=1)
@@ -3556,8 +3556,7 @@ class schism_check(zdata):
 
        if self.fmt==0:  #gr3 files
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]
-          shading='gouraud' if data.size==gd.np else 'flat'
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
           title(fname); pfmt=0; slimit(gd.x,gd.y,data)
@@ -3581,8 +3580,8 @@ class schism_check(zdata):
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
               if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   if not hasattr(self,'hgrid'): self.read_hgrid()
-                  gd=self.hgrid; shading='gouraud' if p.data.size==gd.np else 'flat'
-                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,shading=shading); p.hp=gca()
+                  gd=self.hgrid
+                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
                   title('{}: {}'.format(fname,p.var)); pfmt=3; slimit(gd.x,gd.y,p.data)
