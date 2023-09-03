@@ -3565,15 +3565,27 @@ class schism_check(zdata):
             if not hasattr(self.hgrid,'dpe'): self.hgrid.compute_ctr()
             if not hasattr(p,'isc') and ('source_elem' in self.fids[fname]): p.isc=array(self.fids[fname]['source_elem'][:])-1
             if not hasattr(p,'isk') and ('sink_elem' in self.fids[fname]): p.isk=array(self.fids[fname]['sink_elem'][:])-1
-            sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk
+
+            #prepare scatter data
+            gd=self.hgrid; srat=p.srat.get()
+            sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk; xi,yi=gd.xctr[sind],gd.yctr[sind]
             data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy()
-            data[data==-9999]=nan #don't plot -9999 value
+            fpn=data!=-9999; xi,yi,data=xi[fpn],yi[fpn],data[fpn] #remove -9999 values
             if data.max()<=0: data=-data #plot negative values (vsink)
-            gd=self.hgrid; scatter(gd.xctr[sind],gd.yctr[sind],s=data*p.srat.get(),c='r'); p.hp=gca()
-            slimit(gd.x,gd.y,data*p.srat.get())
+            fpn=data>0; xi,yi,data=xi[fpn],yi[fpn],data[fpn] #only keep data>0
+
+            #plot and label
+            hg=scatter(xi,yi,s=data*srat,c='r'); p.hp=gca()
+            slimit(gd.x,gd.y,data*srat)
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
-            title('{}: {}'.format(fname,p.var)); pfmt=2
+            title('{}: {}'.format(fname,p.var)); pfmt=2 #title
+
+            #legend
+            m1,m2=int(log10(data.min())),int(log10(data.max()))
+            m1=max(0,m1) if m2>=0 else m2; ms=arange(m1,m2+1)
+            hl=legend(*hg.legend_elements("sizes", num=[srat*10.0**i for i in ms])) #legend
+            for i,m in enumerate(ms): hl.texts[i].set_text('$10^{'+str(m)+'}$')  #set legend value
        elif self.fmt in [1,2,3,4]: # bnd, nudge, hotstart, source.nc
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
