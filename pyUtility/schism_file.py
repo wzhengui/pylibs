@@ -3453,6 +3453,9 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
        elif self.fmt in [2,3]:  #hotstart.nc or source.nc
+          if p.init==1 and option==1: #save parameter
+             p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get()
+             p0.transpose=p.transpose.get(); p0.grid=p.grid.get(); p0.bnd=p.bnd.get(); p0.dims=[*p.dims]
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
@@ -3501,6 +3504,11 @@ class schism_check(zdata):
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
           tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
           tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+
+          #restore parameters if dims are the same
+          if p.init==1 and option==1 and array_equal(array(p0.dims),array(p.dims)):
+             [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax)
+             p.transpose.set(p0.transpose); p.grid.set(p0.grid); p.bnd.set(p0.bnd)
 
           #panel for source.nc
           if self.fmt==3:
@@ -3611,8 +3619,8 @@ class schism_check(zdata):
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
+              if not hasattr(self,'hgrid'): self.read_hgrid()
               if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
-                  if not hasattr(self,'hgrid'): self.read_hgrid()
                   gd=self.hgrid
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
