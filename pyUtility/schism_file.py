@@ -2872,7 +2872,7 @@ class schism_view:
         if fmt==0:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
-               v=self.get_data(p)
+               self.get_data(p); v=self.data
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
@@ -2892,9 +2892,11 @@ class schism_view:
            #associcate with actions
            p.hf.canvas.mpl_connect("draw_event", self.update_panel)
            p.hf.canvas.mpl_connect("button_press_event", self.onclick)
+           p.hf.canvas.mpl_connect("button_press_event", self.query)
            #p.hf.canvas.mpl_connect('motion_notify_event', self.onmove) #todo: this fun is not ready yet, as it cause screen freeze
            if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
            self.update_panel('it',p)
+           if hasattr(p,'qxy'): self.query(0)
 
         #animation
         if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
@@ -2904,7 +2906,7 @@ class schism_view:
             for p.it in its:
                 if self.play=='off': break
                 if p.var not in ['depth','none']: # contourf
-                    v=self.get_data(p)
+                    self.get_data(p); v=self.data; self.query(1)
                     if p.med==0:
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[self.fp4]])
                     else:
@@ -2979,8 +2981,27 @@ class schism_view:
     def plotsc(self):
         print('profile function not available yet'); return
 
-    def query(self):
-        print('query function not available yet'); return
+    def query(self,sp=None):
+        if not (hasattr(self,'fig') and hasattr(self.fig,'hpt') and hasattr(self.fig,'hf')): return
+        p=self.fig; qr=self.wp.query; hf=p.hf; gd=self.hgrid
+        hp=p.hpt[0]; ht=p.hpt[-1]; x,y=hp.get_xdata(),hp.get_ydata()
+
+        if sp is None: #set query state
+           import tkinter as tk
+           qr.config(relief=tk.RAISED) if qr['relief'].lower()=='sunken' else qr.config(relief=tk.SUNKEN)
+           if hasattr(p,'qxy'): delattr(p,'qxy')
+           x[-1]=nan; y[-1]=nan; hp.set_xdata(x); hp.set_ydata(y); ht.set_text(''); hf.canvas.draw()
+        elif qr['relief'].lower()=='sunken':
+            if sp not in [0,1]: #save query pt info
+               dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
+               if not (dlk==0 and btn==2): return
+               p.qxy=[bx,by,*gd.compute_acor(c_[bx,by])]
+            #update query
+            bx,by,pie,pip,pacor=p.qxy
+            x[-1]=bx; y[-1]=by; hp.set_xdata(x); hp.set_ydata(y); ht.set_x(bx); ht.set_y(by)
+            pv=self.data[pie[0]] if self.data.size==gd.ne else sum(self.data[pip]*pacor,axis=1)[0]
+            ht.set_text('{:0.6f}'.format(pv) if pv>1e-6 else '{:0.6e}'.format(pv))
+            if sp!=1: ht.set_backgroundcolor([1,1,1,0.5]); ht.set_color('k'); hf.canvas.draw()
 
     def onclick(self,sp):
         if sp.button is None: return
@@ -3014,7 +3035,7 @@ class schism_view:
 
     def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
-        if p.var=='depth': return gd.dp
+        if p.var=='depth': self.data=gd.dp; return
         C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,istack))
         if svar in self.vars_2d:
             data=array(C.variables[svar][irec])
@@ -3026,7 +3047,7 @@ class schism_view:
             else:
                 layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
         data[abs(data)>1e20]=nan
-        return data
+        self.data=data
 
     def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -3067,7 +3088,7 @@ class schism_view:
         elif event=='vm': #reset data limit
             if not hasattr(self,'hgrid'): return
             p=self.get_param()
-            if p.var!='none': data=self.get_data(p); w.vmin.set(data.min()); w.vmax.set(data.max())
+            if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
@@ -3306,8 +3327,8 @@ class schism_view:
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
         w.curve=ttk.Button(master=fm0,text='curve',command=self.plotts,width=5); w.curve.grid(row=0,column=1)
-        tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
-        tk.Button(master=fm0,text='query',bg='darkgray',command=self.query,width=5).grid(row=0,column=3,padx=1,pady=2)
+        w.query=tk.Button(master=fm0,text='query',bg='gray88',command=self.query,width=5); w.query.grid(row=0,column=2,padx=1,pady=2)
+        #tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=3,padx=1,pady=2)
 
         #xlim, ylim
         w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
