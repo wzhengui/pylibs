@@ -3429,6 +3429,9 @@ class schism_check(zdata):
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
              p.transpose=tk.IntVar(wd); p.transpose.set(0)
+             if fname.endswith('_nu.nc'):
+                p.ctr=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd)
+                p.ctr.set(0); p.grid.set(0); p.bnd.set(0)
              p.dvars=[tk.StringVar(wd) for i in p.dims]; p.xs=[[*arange(i)] for i in p.dims]
 
           #update plot options
@@ -3452,6 +3455,14 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+
+          #add gd.plot for *_nu.nc
+          if fname.endswith('_nu.nc'):
+             sfm=ttk.Frame(master=fm); sfm.grid(row=2,column=0,sticky='W')
+             ttk.Label(master=sfm,text='  ').grid(row=0,column=0,sticky='W')
+             tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
+             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
+             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
        elif self.fmt in [2,3]:  #hotstart.nc or source.nc
           if p.init==1 and option==1: #save parameter
              p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get()
@@ -3623,8 +3634,19 @@ class schism_check(zdata):
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
-              if not hasattr(self,'hgrid'): self.read_hgrid()
-              if self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
+              if not hasattr(self,'hgrid'):self.read_hgrid()
+              flag_nu=0; fn=self.run+fname.split('_')[0]+'_nudge.gr3'; fexist=os.path.exists
+              if fname.endswith('_nu.nc') and xn=='node' and fexist(fn) and p.ctr.get()==1: flag_nu=1
+              if flag_nu==1:  #plot nudge value on grid
+                  gd=self.hgrid
+                  if fn not in fids: fids[fn]=read(fn).z #read *_nudge.gr3
+                  if not hasattr(p,'sindn'): p.sindn=nonzero(fids[fn]!=0)[0]
+                  vi=zeros(gd.np); vi[p.sindn]=p.data
+                  gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+                  if p.grid.get()==1: gd.plot()
+                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+                  title('{}: {}'.format(fname,p.var)); pfmt=6; slimit(gd.x,gd.y,p.data)
+              elif self.fmt==2 and (xn in ['node', 'elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   gd=self.hgrid
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
