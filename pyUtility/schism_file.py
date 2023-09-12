@@ -3513,13 +3513,9 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
-          tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
-          tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
-
-          #restore parameters if dims are the same
-          if p.init==1 and option==1 and array_equal(array(p0.dims),array(p.dims)):
-             [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax)
-             p.transpose.set(p0.transpose); p.grid.set(p0.grid); p.bnd.set(p0.bnd)
+          if self.fmt==2:
+             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
+             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
 
           #panel for source.nc
           if self.fmt==3:
@@ -3527,7 +3523,14 @@ class schism_check(zdata):
              tk.Checkbutton(master=sfm,text='scatter',variable=p.sctr,onvalue=1,offvalue=0).grid(row=0,column=0,sticky='W')
              ttk.Label(master=sfm,text='  zoom').grid(row=0,column=1,sticky='W')
              ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
+             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=3)
+             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=4,sticky='W')
              wd.geometry('400x170')
+
+          #restore parameters if dims are the same
+          if p.init==1 and option==1 and array_equal(array(p0.dims),array(p.dims)):
+             [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax)
+             p.transpose.set(p0.transpose); p.grid.set(p0.grid); p.bnd.set(p0.bnd)
        elif self.fmt==4: #*.th file
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.transpose=tk.IntVar(wd); p.vmin.set(0); p.vmax.set(0); p.transpose.set(0)
@@ -3537,13 +3540,13 @@ class schism_check(zdata):
              p.var=self.var.get(); p.dims=[*p.cvar.shape]; self.info.config(text=' dim={}'.format(p.dims))
           else:
              self.var.set(p.var)
-          p.dnames=['time','tracer']; p.xs=p.axs[p.var]
+          p.dnames=['time','dims']; p.xs=p.axs[p.var]
 
           #option panel
           self.vars['values']=self.thfiles
           sfm=ttk.Frame(master=fm); sfm.grid(row=0,column=0,sticky='W',pady=5)
           for m in arange(2):
-              ttk.Label(master=sfm,text='  time' if m==0 else '  tracer').grid(row=0,column=2*m,sticky='W')
+              ttk.Label(master=sfm,text='  time' if m==0 else '  dims').grid(row=0,column=2*m,sticky='W')
               xs=['all','mean','min','max','sum',*arange(len(p.xs[m]))]
               ttk.Combobox(sfm,textvariable=p.dvars[m],values=xs,width=7,).grid(row=0,column=2*m+1,sticky='W')
 
