@@ -7,11 +7,11 @@ with open("README.md", "r", encoding="utf-8") as fh:
         name='pylibs_ocean',
         packages=[
           'pyUtility',
-    	    'pyScripts',
+    	  'pyScripts',
         ],
         py_modules=['pylib'],
-        version='0.1.22',  # Ideally should be same as your GitHub release tag varsion
-        package_data={'pyScripts': ['prj.npz','sflux_template.npz','Harmonic_Analysis/*']},
+        version='0.1.23',  # Ideally should be same as your GitHub release tag varsion
+        package_data={'pyScripts': ['prj.npz','sflux_template.npz','Harmonic_Analysis/*','schismcheck','schismview']},
         description='python tools for ocean reserach',
         long_description='python libraries and utilities for data processing including the pre/post-processing about SCHISM models',
         author='Zhengui Wang',
