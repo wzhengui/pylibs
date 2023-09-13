@@ -3470,7 +3470,7 @@ class schism_check(zdata):
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
-             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.sctr.set(0); p.srat.set(1)
+             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
 
           #update panel
@@ -3525,6 +3525,7 @@ class schism_check(zdata):
              ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
              tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=3)
              tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=4,sticky='W')
+             tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
              wd.geometry('400x170')
 
           #restore parameters if dims are the same
@@ -3604,6 +3605,7 @@ class schism_check(zdata):
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
           title(fname); pfmt=0; slimit(gd.x,gd.y,data)
        elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
+            vm=[p.vmin.get(),p.vmax.get()]
             if not hasattr(self,'hgrid'): self.read_hgrid()
             if not hasattr(self.hgrid,'dpe'): self.hgrid.compute_ctr()
             if not hasattr(p,'isc') and ('source_elem' in self.fids[fname]): p.isc=array(self.fids[fname]['source_elem'][:])-1
@@ -3619,20 +3621,27 @@ class schism_check(zdata):
             if data.size==0: print('no valid points found!'); return
 
             #plot and label
-            hg=scatter(xi,yi,s=data*srat,c='r'); p.hp=gca()
-            slimit(gd.x,gd.y,data*srat)
+            if p.ctr.get()==0:
+               hg=scatter(xi,yi,s=data*srat,c='r')
+            else:
+               hg=scatter(xi,yi,s=srat*10,c=data)
+            p.hp=gca(); slimit(gd.x,gd.y,data)
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
             title('{}: {}'.format(fname,p.var)); pfmt=2 #title
 
             #legend
-            v1,v2=data.min(),data.max();  m1,m2=int(log10(v1)),int(log10(v2))
-            m1=max(0,m1) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
-            if len(ms)==0:
-               hl=legend(*hg.legend_elements("sizes", num=[(v1+v2)/2])) #legend
+            if p.ctr.get()==0:
+               v1,v2=data.min(),data.max();  m1,m2=int(log10(v1)),int(log10(v2))
+               m1=max(0,m1) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
+               if len(ms)==0:
+                  hl=legend(*hg.legend_elements("sizes", num=[(v1+v2)/2])) #legend
+               else:
+                  hl=legend(*hg.legend_elements("sizes", num=[srat*10.0**i for i in ms])) #legend
+                  for i,m in enumerate(ms): hl.texts[i].set_text('$10^{'+str(m)+'}$')  #set legend value
             else:
-               hl=legend(*hg.legend_elements("sizes", num=[srat*10.0**i for i in ms])) #legend
-               for i,m in enumerate(ms): hl.texts[i].set_text('$10^{'+str(m)+'}$')  #set legend value
+               cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
+               hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
        elif self.fmt in [1,2,3,4]: # bnd, nudge, hotstart, source.nc
           vm=[p.vmin.get(),p.vmax.get()]
           if p.data.ndim==1:
