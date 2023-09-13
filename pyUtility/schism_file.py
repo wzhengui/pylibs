@@ -2852,7 +2852,7 @@ class schism_view:
             elif fmt==1: #restore old figure setting
                 self.update_panel('old',p)
         w._fn['values']=['add',*self.fns]; w.fn.set(self.fns[cid])
-        self.fig=p; figure(p.hf) #bring figure to front
+        self.fig=p; figure(p.hf.number) #bring figure to front
         return p
 
     def schism_plot(self,fmt=0):
@@ -3575,7 +3575,7 @@ class schism_check(zdata):
               if fmt==1: return
               hf=figure(figsize=p.figsize,num=hf.number); hf.closed=False; self.figs[fname]=hf; istat=1
            else:
-              figure(hf)
+              figure(hf.number)
        elif fmt==0 and (fname not in self.figs): #new figure
            hf=figure(len(self.figs)); self.figs[fname]=hf; hf.closed=False; _fig_resize([hf,p]); istat=1
 
