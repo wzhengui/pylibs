@@ -1093,7 +1093,7 @@ def savez(fname,data,fmt=0):
            else:
                 save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
-       if fmt==2: os.rename(fname+'.npz',fname[:-3]+'.pp')
+       if fmt==2: os.rename(fname+'.npz',fname)
     elif fmt==1:
        import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
@@ -2311,28 +2311,92 @@ def pplot(fnames):
     '''
     if isinstance(fnames,str): fnames=[fnames]
     try:
-        hfs=[read(i).hf for i in fnames]; show(block=False)
+        hfs=[]
+        for fname in fnames:
+            F=read(fname)
+            if hasattr(F,'attrs'): #redraw
+               hf=figure()
+               for ax0 in F.axs:
+                   ax=axes(ax0.position)
+                   for hp0 in ax0.ps:
+                       if hp0.type=='line':
+                           hp=plot(hp0.x,hp0.y)[0]
+                       elif hp0.type=='text':
+                           hp=text(*hp0.postion,hp0.text)
+                       elif hp0.type=='legend':
+                           hp=legend(hp0.texts)
+                           hp.set_bbox_to_anchor(hp0.position,hp0.transform)
+                       for i in hp0.attrs: exec('hp.set_{}(hp0._{})'.format(i,i))
+                   for i in ax0.attrs: exec('ax.set_{}(ax0._{})'.format(i,i))
+                   for i,k in zip(ax.get_xgridlines(),ax0.xgrid): i.set_visible(k)
+                   for i,k in zip(ax.get_ygridlines(),ax0.ygrid): i.set_visible(k)
+               for i in F.attrs: exec('hf.set_{}(F._{})'.format(i,i))
+            else:
+               hf=F.hf
+        hfs.append(hf)
     except:
         import pickle
-        hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
+        hfs=[pickle.load(open(i,'rb')) for i in fnames]
+
+    show(block=False)
     return hfs
 
-def savefig(fname,fig=None,**args):
+def savefig(fname,fig=None,fmt=0,**args):
     '''
     rewrite python savefig function with new options
     fname: figure name
            if fname.endswith('.pp'):
-              save fig in binary format
+              fmt==0: extract data from figure, to replot later
+              fmt==1: save fig in binary format (can repeat precisely, but with large memory)
            else:
               plt.savefig(fname)
     '''
     if fname.endswith('.pp'):
-       fig=gcf() if fig is None else fig
-       try:
-          c=zdata(); c.hf=fig; c.save(fname)
-       except:
-          import pickle
-          pickle.dump(fig,open(fname, "wb"))
+       hf=gcf() if fig is None else fig
+       if fmt==0:
+          #fig info
+          attrs=['figheight','figwidth','tight_layout','zorder']
+          F=zdata(); F.attrs=attrs; F.axs=[]
+          for i in attrs: exec('F._{}=hf.get_{}()'.format(i,i))
+
+          for ax in hf.axes: #for axes
+              #save ax info
+              attrs=['aspect','facecolor','label','title','xlabel','xscale','xticks','xticklabels',
+                     'ylabel','yscale','yticks','yticklabels','xlim','ylim','zorder',]
+              A=zdata(); A.attrs=attrs; A.ps=[]; A.position=ax.get_position()
+              for i in attrs: exec('A._{}=ax.get_{}()'.format(i,i))
+              A._xticklabels=[i.get_text() for i in A._xticklabels]
+              A._yticklabels=[i.get_text() for i in A._yticklabels]
+              A.xgrid=[i.get_visible() for i in ax.get_xgridlines()]
+              A.ygrid=[i.get_visible() for i in ax.get_ygridlines()]
+
+              for hp in ax.get_children(): #save info for each plot obj
+                  if type(hp)==mpl.lines.Line2D:
+                      attrs=['color','linestyle','linewidth','marker','markeredgecolor','markeredgewidth',
+                             'markerfacecolor','markerfacecoloralt','markersize','markevery','zorder',]
+                      H=zdata(); H.type='line'; H.attrs=attrs; H.x,H.y=hp.get_xdata(), hp.get_ydata()
+                      for i in attrs: exec('H._{}=hp.get_{}()'.format(i,i))
+                  elif type(hp)==mpl.text.Text:
+                      attrs=['color','fontsize','fontweight','rotation']
+                      H=zdata(); H.type='text'; H.attrs=attrs; H.postion,H.text=hp.get_position(),hp.get_text()
+                      for i in attrs: exec('H._{}=hp.get_{}()'.format(i,i))
+                  elif type(hp)==mpl.legend.Legend:
+                      attrs=[]
+                      H=zdata(); H.type='legend'; H.attrs=attrs
+                      H.texts=[i.get_text() for i in hp.get_texts()]
+                      for i in attrs: exec('H._{}=hp.get_{}()'.format(i,i))
+                      H.position=mpl.transforms.Bbox(hp.get_bbox_to_anchor()); H.transform=hp.get_transform()
+                  else:
+                      continue
+                  A.ps.append(H)
+              F.axs.append(A)
+          F.save(fname)
+       else: #fmt==1: binary format
+          try:
+             c=zdata(); c.hf=hf; c.save(fname)
+          except:
+             import pickle
+             pickle.dump(hf,open(fname, "wb"))
     else:
        plt.savefig(fname,**args)
 
