@@ -59,30 +59,6 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
     #connect actions
     fig.canvas.mpl_connect('button_release_event', onclick)
 
-def pplot(fnames):
-    '''
-    function to display figures in python format (*.pp)
-    '''
-    import pickle
-    if isinstance(fnames,str): fnames=[fnames]
-    hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
-    return hfs
-
-def savefig(fname,**args):
-    '''
-    rewrite python savefig function with new options
-    fname: figure name
-           if fname.endswith('.pp'):
-              save fig in binary format
-           else:
-              plt.savefig(fname)
-    '''
-    if fname.endswith('.pp'):
-       import pickle
-       pickle.dump(gcf(),open(fname, "wb"))
-    else:
-       plt.savefig(fname,**args)
-
 class blit_manager:
     def __init__(self,hgs,hf=None):
         '''
@@ -1091,11 +1067,12 @@ def savez(fname,data,fmt=0):
     #determine format
     if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
+    if fname.endswith('.pp'):  fmt=2; fname=fname[:-3]
     if fmt==1: fname=fname+'.pkl'
     if type(data)!=zdata: import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
     #save data
-    if fmt==0:
+    if fmt in [0,2]:
        #check variable types (list, string, int, float and method), and constrcut save_string
        zdict=data.__dict__;  svars=list(zdict.keys())
        save_str='savez_compressed("{}" '.format(fname)
@@ -1116,6 +1093,7 @@ def savez(fname,data,fmt=0):
            else:
                 save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
+       if fmt==2: os.rename(fname+'.npz',fname+'.pp')
     elif fmt==1:
        import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
@@ -1125,7 +1103,7 @@ def loadz(fname,svars=None):
     load self-defined data "fname.npz" or "fname.pkl"
          svars: list of variables to be read
     '''
-    if fname.endswith('.npz'):
+    if fname.endswith('.npz') or fname.endswith('.pp'):
        #get data info
        data0=load(fname,allow_pickle=True)
        svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
@@ -2314,7 +2292,7 @@ def read(fname,*args0,**args):
     if fname.endswith('.asc') or fname.endswith('.tif') or fname.endswith('.tiff'): F=read_dem
     if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic'): F=read_schism_hgrid
     if fname.endswith('vgrid.in'):  F=read_schism_vgrid
-    if fname.endswith('.npz') or fname.endswith('pkl'):  F=loadz
+    if fname.endswith('.npz') or fname.endswith('pkl') or fname.endswith('.pp'):  F=loadz
     if fname.endswith('.bp'):   F=read_schism_bpfile
     if fname.endswith('.reg'):  F=read_schism_reg
     if fname.endswith('.prop'): F=read_schism_prop
@@ -2326,6 +2304,36 @@ def read(fname,*args0,**args):
     if F is None: sys.exit('unknown type of file: '+fname)
 
     return F(fname,*args0,**args)
+
+def pplot(fnames):
+    '''
+    function to display figures in python format (*.pp)
+    '''
+    if isinstance(fnames,str): fnames=[fnames]
+    try:
+        hfs=[read(i).hf for i in fnames]; show(block=False)
+    except:
+        import pickle
+        hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
+    return hfs
+
+def savefig(fname,**args):
+    '''
+    rewrite python savefig function with new options
+    fname: figure name
+           if fname.endswith('.pp'):
+              save fig in binary format
+           else:
+              plt.savefig(fname)
+    '''
+    if fname.endswith('.pp'):
+       try:
+          c=zdata(); c.hf=gcf(); c.save(fname)
+       except:
+          import pickle
+          pickle.dump(gcf(),open(fname, "wb"))
+    else:
+       plt.savefig(fname,**args)
 
 def harmonic_fit(oti,oyi,dt,mti,tidal_names=0, **args):
     '''
