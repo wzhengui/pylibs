@@ -1067,7 +1067,7 @@ def savez(fname,data,fmt=0):
     #determine format
     if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
-    if fname.endswith('.pp'):  fmt=2; fname=fname[:-3]
+    if fname.endswith('.pp'):  fmt=2
     if fmt==1: fname=fname+'.pkl'
     if type(data)!=zdata: import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
@@ -1093,7 +1093,7 @@ def savez(fname,data,fmt=0):
            else:
                 save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
-       if fmt==2: os.rename(fname+'.npz',fname+'.pp')
+       if fmt==2: os.rename(fname+'.npz',fname[:-3]+'.pp')
     elif fmt==1:
        import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
@@ -2317,7 +2317,7 @@ def pplot(fnames):
         hfs=[pickle.load(open(i,'rb')) for i in fnames]; show(block=False)
     return hfs
 
-def savefig(fname,**args):
+def savefig(fname,fig=None,**args):
     '''
     rewrite python savefig function with new options
     fname: figure name
@@ -2327,11 +2327,12 @@ def savefig(fname,**args):
               plt.savefig(fname)
     '''
     if fname.endswith('.pp'):
+       fig=gcf() if fig is None else fig
        try:
-          c=zdata(); c.hf=gcf(); c.save(fname)
+          c=zdata(); c.hf=fig; c.save(fname)
        except:
           import pickle
-          pickle.dump(gcf(),open(fname, "wb"))
+          pickle.dump(fig,open(fname, "wb"))
     else:
        plt.savefig(fname,**args)
 
