@@ -10,7 +10,8 @@ for fname in sys.argv[1:]:
     if fname.endswith('.pp'):
        try:
            from pylib import *
-           hf=read(fname).hf
+           pplot(fname)
+           #hf=read(fname).hf
        except:
            pass
            #import pickle
