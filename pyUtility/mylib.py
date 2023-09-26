@@ -2324,13 +2324,14 @@ def pplot(fnames):
                        elif hp0.type=='text':
                            hp=text(*hp0.postion,hp0.text)
                        elif hp0.type=='legend':
-                           hp=legend(hp0.texts)
-                           hp.set_bbox_to_anchor(hp0.position,hp0.transform)
+                           hp=legend(hp0.texts); hl=hp; pos=hp0.position
+                           hp.set_bbox_to_anchor(hp0.position,transform=hf.transFigure)
                        for i in hp0.attrs: exec('hp.set_{}(hp0._{})'.format(i,i))
                    for i in ax0.attrs: exec('ax.set_{}(ax0._{})'.format(i,i))
                    for i,k in zip(ax.get_xgridlines(),ax0.xgrid): i.set_visible(k)
                    for i,k in zip(ax.get_ygridlines(),ax0.ygrid): i.set_visible(k)
                for i in F.attrs: exec('hf.set_{}(F._{})'.format(i,i))
+               #hl.set_bbox_to_anchor(pos,transform=hf.transFigure)
             else:
                hf=F.hf
         hfs.append(hf)
@@ -2385,7 +2386,8 @@ def savefig(fname,fig=None,fmt=0,**args):
                       H=zdata(); H.type='legend'; H.attrs=attrs
                       H.texts=[i.get_text() for i in hp.get_texts()]
                       for i in attrs: exec('H._{}=hp.get_{}()'.format(i,i))
-                      H.position=mpl.transforms.Bbox(hp.get_bbox_to_anchor()); H.transform=hp.get_transform()
+                      pl=hp.get_bbox_to_anchor(); pf=hf.bbox; xm=pf.x1-pf.x0; ym=pf.y1-pf.y0
+                      H.position=[pl.x0/xm,pl.y0/ym,(pl.x1-pl.x0)/xm,(pl.y1-pl.y0)/ym,]
                   else:
                       continue
                   A.ps.append(H)
