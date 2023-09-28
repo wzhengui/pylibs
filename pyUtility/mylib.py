@@ -169,7 +169,7 @@ def read_excel(fname,sht=0,fmt=0):
     if fmt==1: return header, fdata
 
 def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
-                color=None,fontsize=None,fontweight=None,**args):
+                color=None,fontsize=None,fontweight=None,figsize=None, **args):
     '''
     use xlsxwriter to write Excel file
        fname: name of Excel file
@@ -184,6 +184,7 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        fmt=0: append data to existing file, or create file if not existing
        fmt=1: replace mode of excel file
        fmt=2: only replace sheet, but keep other sheets of excel file
+       fmt=3: insert image (data should be the path of image,and figsize=[w,h] is used to resize the figure)
     '''
     import openpyxl
     import pandas as pd
@@ -191,51 +192,56 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
-    if os.path.exists(fname) and (fmt==0 or fmt==2):
-        fid=pd.ExcelWriter(fname,mode='a',engine='openpyxl',if_sheet_exists='replace')
+    if os.path.exists(fname) and (fmt in [0,2,3]):
+        fid=pd.ExcelWriter(fname,mode='a',engine='openpyxl',if_sheet_exists='overlay')
     else:
         fid=pd.ExcelWriter(fname,mode='w+',engine='openpyxl')
 
-    #reorganize data to a 2D array
-    if type(data)==str or (not hasattr(data,'__len__')): data=array([[data,],]) #for single data
-    data=array(data) #for list
-    if data.ndim==1: data=data[None,:] if (align=='row') else data[:,None]  #for 1D array
+    if fmt in [0,1,2]: #write cell data
+       #reorganize data to a 2D array
+       if type(data)==str or (not hasattr(data,'__len__')): data=array([[data,],]) #for single data
+       data=array(data) #for list
+       if data.ndim==1: data=data[None,:] if (align=='row') else data[:,None]  #for 1D array
 
-    #get dimension info
-    ds=data.shape; ny, nx=ds[0]+indy, ds[1]+indx
+       #get dimension info
+       ds=data.shape; ny, nx=ds[0]+indy, ds[1]+indx
 
-    #create matrix of fields
-    if (sht in list(fid.sheets)) and fmt==0:
-        data0=read_excel(fname,sht).astype('O'); ny0,nx0=data0.shape
-        if old_font==1:
-           sid=fid.sheets[sht]; fonts=ones([ny0,nx0]).astype('O')
-           for k in arange(ny0):
-               for i in arange(nx0): fonts[k,i]=sid.cell(k+1,i+1).font.copy()
-        if ny0<ny: data0=r_[data0,tile('',[(ny-ny0),nx0])]; ny0=ny
-        if nx0<nx: data0=c_[data0,tile('',[ny0,(nx-nx0)])]; nx0=nx
-    else:
-        data0=tile('',[ny,nx]).astype('O')
+       #create matrix of fields
+       if (sht in list(fid.sheets)) and fmt==0:
+           data0=read_excel(fname,sht).astype('O'); ny0,nx0=data0.shape
+           if old_font==1:
+              sid=fid.sheets[sht]; fonts=ones([ny0,nx0]).astype('O')
+              for k in arange(ny0):
+                  for i in arange(nx0): fonts[k,i]=sid.cell(k+1,i+1).font.copy()
+           if ny0<ny: data0=r_[data0,tile('',[(ny-ny0),nx0])]; ny0=ny
+           if nx0<nx: data0=c_[data0,tile('',[ny0,(nx-nx0)])]; nx0=nx
+       else:
+           data0=tile('',[ny,nx]).astype('O')
 
-    #write data
-    for k, datai in enumerate(data):
-        for i, dataii in enumerate(datai): data0[indy+k,indx+i]=dataii
-
-    df=pd.DataFrame([list(i) for i in data0])
-    df.to_excel(fid,sheet_name=sht,header=False,index=False)
-
-    #specify cell font
-    if old_font==1 and (sht in list(fid.sheets)) and fmt==0:
-       sid=fid.sheets[sht]
-       for k in arange(fonts.shape[0]):
-           for i in arange(fonts.shape[1]): sid.cell(k+1,i+1).font=fonts[k,i]
-    if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
-       #from openpyxl.styles import Color, PatternFill, Font, Border
-       if color is not None: color=mpl.colors.to_hex(color)[1:]
-       cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
-       sid=fid.sheets[sht]
+       #write data
        for k, datai in enumerate(data):
-           for i, dataii in enumerate(datai): sid.cell(indy+k+1,indx+i+1).font=cf
+           for i, dataii in enumerate(datai): data0[indy+k,indx+i]=dataii
 
+       df=pd.DataFrame([list(i) for i in data0])
+       df.to_excel(fid,sheet_name=sht,header=False,index=False)
+
+       #specify cell font
+       if old_font==1 and (sht in list(fid.sheets)) and fmt==0:
+          sid=fid.sheets[sht]
+          for k in arange(fonts.shape[0]):
+              for i in arange(fonts.shape[1]): sid.cell(k+1,i+1).font=fonts[k,i]
+       if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
+          #from openpyxl.styles import Color, PatternFill, Font, Border
+          if color is not None: color=mpl.colors.to_hex(color)[1:]
+          cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
+          sid=fid.sheets[sht]
+          for k, datai in enumerate(data):
+              for i, dataii in enumerate(datai): sid.cell(indy+k+1,indx+i+1).font=cf
+    elif fmt==3: #insert image
+      idata=openpyxl.drawing.image.Image(data)
+      sid=fid.sheets[sht]
+      if figsize is not None: idata.width=figsize[0]; idata.height=figsize[1]
+      sid.add_image(idata,sid.cell(indy,indx).coordinate)
     fid.close()
 
 def read_yaml(fname):
