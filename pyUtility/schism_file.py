@@ -1350,9 +1350,12 @@ class schism_grid:
         abp.triggered.connect(_show_node)
 
 class schism_bpfile:
-    def __init__(self):
-        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
+    def __init__(self,x=None,y=None,station=None):
+        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([])
         self.station=[]; self.hp=[]; self.ht=[]
+        if x is not None: self.x=x
+        if y is not None: self.y=y
+        if station is not None: self.station=station
         self.edit()
 
     @property
