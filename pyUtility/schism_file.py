@@ -3354,6 +3354,7 @@ class schism_view:
         menu.add_command(label="command", command=self.cmd_window)
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_command(label="show node/element", command=self.show_node)
+        menu.add_command(label="schismcheck", command=lambda: schism_check(self.runpath))
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
