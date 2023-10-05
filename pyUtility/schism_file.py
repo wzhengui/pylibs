@@ -2832,7 +2832,7 @@ def convert_schism_source(run='.',fname='source.nc'):
 class schism_view:
     def __init__(self, run='.'):
         #note: p is a capsule including all information about a figure
-        self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
+        self.figs=[]; self.fns=[]; self._nf=0; self.sbp=[] #list of figure objects
         self.run_info(run)
         self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization : '+self.run+' (Author: Z. WANG)')
         self.hold='off'  #animation
@@ -3135,6 +3135,13 @@ class schism_view:
     def window_exit(self):
         if hasattr(self,'_fid'):
             for i in self._fid: self._fid[i].close()
+        for p in self.sbp:
+            try:
+               p.kill()
+            except:
+               pass
+        if os.path.exists(os.curdir+os.sep+'.schism_check'): os.remove(os.curdir+os.sep+'.schism_check')
+        if os.path.exists(os.curdir+os.sep+'.schism_compare'): os.remove(os.curdir+os.sep+'.schism_compare')
         close('all'); self.window.destroy()
 
     @property
@@ -3268,6 +3275,20 @@ class schism_view:
         p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
         self.play='off'; self.schism_plot(1); p.anim=None
 
+    def schism_compare(self):
+        from tkinter import filedialog
+        import subprocess
+        crun=filedialog.askdirectory(initialdir = self.runpath,title = "choose run to compare")
+        cfile='.schism_compare'; fid=open(cfile,'w+'); os.chmod(cfile,0o777)
+        fid.write("#!/usr/bin/env python3\nfrom pylib import *\nmpl.use('TkAgg')\nschism_view('{}')".format(crun)); fid.close()
+        p=subprocess.Popen(os.curdir+os.sep+cfile); self.sbp.append(p)
+
+    def schism_check(self):
+        import subprocess
+        cfile='.schism_check'; fid=open(cfile,'w+'); os.chmod(cfile,0o777)
+        fid.write("#!/usr/bin/env python3\nfrom pylib import *\nmpl.use('TkAgg')\nschism_check('{}')".format(self.runpath)); fid.close()
+        p=subprocess.Popen(os.curdir+os.sep+cfile); self.sbp.append(p)
+
     def init_window(self):
         #open an window
         import tkinter as tk
@@ -3354,7 +3375,8 @@ class schism_view:
         menu.add_command(label="command", command=self.cmd_window)
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_command(label="show node/element", command=self.show_node)
-        menu.add_command(label="schismcheck", command=lambda: schism_check(self.runpath))
+        menu.add_command(label="schismcheck", command=self.schism_check)
+        menu.add_command(label="compare", command=self.schism_compare)
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
