@@ -2902,7 +2902,7 @@ class schism_view:
            if hasattr(p,'qxy'): self.query(0)
 
         #animation
-        if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
+        if fmt!=0 and (p.var not in ['depth','none',*self.gr3] or p.vvar!='none'):
             if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; it0=p.it; its=arange(it0+p.ns,p.it2,p.ns)
             if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
             if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #savefig for animation
@@ -3039,6 +3039,7 @@ class schism_view:
     def get_data(self,p):  #slab data
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
         if p.var=='depth': self.data=gd.dp; return
+        if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
         C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,istack))
         if svar in self.vars_2d:
             data=array(C.variables[svar][irec])
@@ -3149,8 +3150,8 @@ class schism_view:
 
         #check output
         print('reading grid and output info.')
-        fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); iout=1
-        self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]; self.run=os.path.basename(os.path.abspath(run))
+        fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); self.gr3=[os.path.basename(i) for i in glob(run+'/*.gr3')]; iout=1
+        self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]; self.runpath=os.path.abspath(run); self.run=os.path.basename(self.runpath)
         if len(fnames)!=0:
            [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
            iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
@@ -3284,7 +3285,7 @@ class schism_view:
         #variable
         w.var=tk.StringVar(wd); w.var.set('depth')
         ttk.Label(master=fm,text='  variable').grid(row=0,column=0,sticky='W',pady=4)
-        svar=ttk.Combobox(fm,textvariable=w.var,values=['none','depth',*self.vars],width=15,); svar.grid(row=0,column=1)
+        svar=ttk.Combobox(fm,textvariable=w.var,values=['none','depth',*self.vars,*self.gr3],width=15,); svar.grid(row=0,column=1)
         svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm'))
 
         #figure
