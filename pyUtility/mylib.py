@@ -1110,8 +1110,10 @@ def loadz(fname,svars=None):
          svars: list of variables to be read
     '''
     if fname.endswith('.npz') or fname.endswith('.pp'):
-       #get data info
+       #get data info, collect variables
        data0=load(fname,allow_pickle=True)
+       fmt=1 if isinstance(svars,str) else 0 #determine what to return
+       if svars=='vars': return list(data0.keys()) #return variables list
        svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
        vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables','_CLASS']
        ivars=list(data0[vlist[0]]) if (vlist[0] in svars) else []
@@ -1150,7 +1152,7 @@ def loadz(fname,svars=None):
        fid.close()
     else:
        sys.exit('unknown format: {}'.format(fname))
-    return vdata
+    return vdata if fmt==0 else vdata.__dict__[svars[0]]
 
 def least_square_fit(X,Y):
     '''
@@ -2309,7 +2311,15 @@ def read(fname,*args0,**args):
     if fname.endswith('.mat'):  F=convert_matfile
     if F is None: sys.exit('unknown type of file: '+fname)
 
-    return F(fname,*args0,**args)
+
+    if (fname.endswith('.npz') or fname.endswith('.nc')) and ('IO' in args0):
+       def fid_npz(svar):
+           return loadz(fname,svar)
+       def fid_nc(svar):
+           return [*ReadNC(fname,1).variables] if svar=='vars' else array(ReadNC(fname,1).variables[svar][:])
+       return fid_npz if fname.endswith('.npz') else fid_nc
+    else:
+        return F(fname,*args0,**args)
 
 def pplot(fnames):
     '''
