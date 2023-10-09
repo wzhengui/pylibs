@@ -169,7 +169,7 @@ def read_excel(fname,sht=0,fmt=0):
     if fmt==1: return header, fdata
 
 def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
-                color=None,fontsize=None,fontweight=None,figsize=None, **args):
+                color=None,fontsize=None,fontweight=None,number_format=None,figsize=None, **args):
     '''
     use xlsxwriter to write Excel file
        fname: name of Excel file
@@ -180,6 +180,7 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        align='row': write 1D data as a row; align='column': write 1D data as a column
        old_font=1: for existing sheet,keep old font styles; old_font=0: discard
        color,fontsize,fontweight: options for specify cell font (see openpyxl.styles.Font)
+       number_format: specifiy the data format (e.g. "0.0000")
 
        fmt=0: append data to existing file, or create file if not existing
        fmt=1: replace mode of excel file
@@ -230,13 +231,17 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
           sid=fid.sheets[sht]
           for k in arange(fonts.shape[0]):
               for i in arange(fonts.shape[1]): sid.cell(k+1,i+1).font=fonts[k,i]
-       if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
-          #from openpyxl.styles import Color, PatternFill, Font, Border
-          if color is not None: color=mpl.colors.to_hex(color)[1:]
-          cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
-          sid=fid.sheets[sht]
-          for k, datai in enumerate(data):
-              for i, dataii in enumerate(datai): sid.cell(indy+k+1,indx+i+1).font=cf
+
+       #cell format
+       sid=fid.sheets[sht]
+       for k, datai in enumerate(data):
+           for i, dataii in enumerate(datai):
+               if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
+                  #from openpyxl.styles import Color, PatternFill, Font, Border
+                  if color is not None: color=mpl.colors.to_hex(color)[1:]
+                  cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
+                  sid.cell(indy+k+1,indx+i+1).font=cf
+               if number_format is not None: sid.cell(indy+k+1,indx+i+1).number_format=number_format
     elif fmt==3: #insert image
       idata=openpyxl.drawing.image.Image(data)
       sid=fid.sheets[sht]
@@ -2316,7 +2321,8 @@ def read(fname,*args0,**args):
        def fid_npz(svar):
            return loadz(fname,svar)
        def fid_nc(svar):
-           return [*ReadNC(fname,1).variables] if svar=='vars' else array(ReadNC(fname,1).variables[svar][:])
+           fid=ReadNC(fname,1); f=fid.variables; data=[*f] if svar=='vars' else array(f[svar][:]); fid.close()
+           return data
        return fid_npz if fname.endswith('.npz') else fid_nc
     else:
         return F(fname,*args0,**args)
