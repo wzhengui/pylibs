@@ -234,11 +234,11 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
 
        #cell format
        sid=fid.sheets[sht]
+       if color is not None: color=mpl.colors.to_hex(color)[1:]
        for k, datai in enumerate(data):
            for i, dataii in enumerate(datai):
                if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
                   #from openpyxl.styles import Color, PatternFill, Font, Border
-                  if color is not None: color=mpl.colors.to_hex(color)[1:]
                   cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
                   sid.cell(indy+k+1,indx+i+1).font=cf
                if number_format is not None: sid.cell(indy+k+1,indx+i+1).number_format=number_format
