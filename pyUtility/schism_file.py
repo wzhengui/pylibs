@@ -3492,10 +3492,10 @@ class schism_check(zdata):
              tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
        elif self.fmt in [2,3]:  #hotstart.nc or source.nc
           if p.init==1 and option==1: #save parameter
-             p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get()
+             p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get(); p0.scale=p.scale.get()
              p0.transpose=p.transpose.get(); p0.grid=p.grid.get(); p0.bnd=p.bnd.get(); p0.dims=[*p.dims]
           if p.init==0:
-             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
+             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.scale=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0); p.scale.set(1)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
              if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
@@ -3503,6 +3503,7 @@ class schism_check(zdata):
           #update panel
           fid=self.fids[fname]; p.var=self.var.get(); p.cvar=fid[p.var]
           p.dims=p.cvar.shape; p.dnames=p.cvar.dimensions
+          if p.var in['su2','sv2']: p.dims=[*p.dims,1]; p.dnames=[*p.dnames,'uv']
           p.info='  dim={}'.format(p.dims); self.info.config(text=p.info)
           p.dvars=[tk.StringVar(wd) for i in p.dims];
           p.xs=[*p.dims] if self.fmt==2 else [[*arange(i)] for i in p.dims]
@@ -3511,6 +3512,7 @@ class schism_check(zdata):
           for n,[dn,ds,dvar] in enumerate(zip(p.dnames,p.dims,p.dvars)):
               if ds==1:
                  dvar.set(0); vs=[0]; dw=2
+                 if dn=='uv': vs=['all','mean','min','max','sum',0]; dw=5
               elif self.fmt==3 and p.var=='source_elem':
                  vs=['all']; dvar.set('all'); dw=5
               elif dn in ['node', 'elem', 'side']:
@@ -3533,6 +3535,10 @@ class schism_check(zdata):
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
               ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
+
+          if self.fmt==2 and p.var in ['su2','sv2']:
+             ttk.Label(master=sfm1,text='  scale').grid(row=0,column=len(p.dims)+1,sticky='W')
+             ttk.Entry(sfm1,textvariable=p.scale,width=5).grid(row=0,column=len(p.dims)+2,sticky='W',padx=2)
 
           #add limit panel
           sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
@@ -3557,7 +3563,7 @@ class schism_check(zdata):
 
           #restore parameters if dims are the same
           if p.init==1 and option==1 and array_equal(array(p0.dims),array(p.dims)):
-             [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax)
+             [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax); p.scale.set(p0.scale)
              p.transpose.set(p0.transpose); p.grid.set(p0.grid); p.bnd.set(p0.bnd)
        elif self.fmt==4: #*.th file
           if p.init==0:
@@ -3631,6 +3637,18 @@ class schism_check(zdata):
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
           title(fname); pfmt=0; slimit(gd.x,gd.y,data)
+       elif self.fmt==2 and (p.var in ['su2','sv2']) and p.data.ndim==2 and p.data.shape[1]==2: #vector for su2 sv2 in hotstart
+          if not hasattr(self,'hgrid'): self.read_hgrid()
+          if not hasattr(self.hgrid,'xcj'): self.hgrid.compute_side(fmt=2)
+          gd=self.hgrid
+          if p.grid.get()==1: gd.plot()
+          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+          if hasattr(p,'xm') and hasattr(p,'ym'):
+             fpm=(gd.xcj>=p.xm[0])*(gd.xcj<=p.xm[1])*(gd.ycj>=p.ym[0])*(gd.ycj<=p.ym[1])
+          else:
+             fpm=~isnan(p.data[:,0])
+          quiver(gd.xcj[fpm],gd.ycj[fpm],p.data[fpm,0],p.data[fpm,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
+          pfmt=7; slimit(gd.x,gd.y,p.data)
        elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
             vm=[p.vmin.get(),p.vmax.get()]
             if not hasattr(self,'hgrid'): self.read_hgrid()
@@ -3748,7 +3766,7 @@ class schism_check(zdata):
           #get dimension index, read data slice
           cvar=fids[fname] if self.fmt==1 else p.cvar
           dns=array([i.get() for i in p.dvars])
-          if not hasattr(p,'dns0'):
+          if not hasattr(p,'dns0'): #return if parameters are the same as old ones
              p.dns0=dns; p.cvar0=cvar
           else:
              if cvar==p.cvar0 and array_equal(dns,p.dns0):
@@ -3759,7 +3777,11 @@ class schism_check(zdata):
 
           #read data
           dind=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns])
-          exec('p.data=array(cvar[{}])'.format(dind));
+          if p.var in ['su2','sv2']: dind=dind[:-2]
+          if p.var in ['su2','sv2'] and dns[-1]!='0': #deal with vector in hotstart
+             fid=fids[fname]; exec('p.data=array(concatenate((fid["su2"][{}][...,None],fid["sv2"][{}][...,None]),axis=-1))'.format(dind,dind))
+          else:
+             exec('p.data=array(cvar[{}])'.format(dind))
           if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()): p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
           if self.fmt==1: p.itr=p.dvars[-1].get()
           p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
