@@ -38,7 +38,7 @@ class schism_grid:
         if not hasattr(self,'zcj'): self.compute_side(2)
         return self.dps
 
-    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',
+    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,
              ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,**args):
         '''
         plot grid with default color value (grid depth)
@@ -52,12 +52,14 @@ class schism_grid:
         cb=False: not add colorbar
         cb_aspect: adjust colorbar width
         shading: only used for method=1, and value.size=gd.np
+        xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
         '''
 
         if ec is None: ec='None'
         if fc is None: fc='None'
         if levels is None: levels=51
         if ax is None: ax=gca()
+        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         fp3=self.i34==3; fp4=~fp3; vm=clim
 
         if fmt in [1,2]: #plot contours
@@ -68,15 +70,15 @@ class schism_grid:
 
            #plot
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
-              if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
-              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
+              if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
-              if fmt==1: hg=tricontourf(self.x,self.y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
-              if fmt==2: hg=tricontour(self.x,self.y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
 
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
@@ -93,8 +95,8 @@ class schism_grid:
            if isinstance(ec,str): ec=[ec,ec]
            if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
            iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
-           x3,y3=self.x[iqd],self.y[iqd]; x3[5::6]=nan; y3[5::6]=nan
-           hg0=[triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
+           x3,y3=x[iqd],y[iqd]; x3[5::6]=nan; y3[5::6]=nan
+           hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
 
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -178,15 +180,15 @@ class schism_grid:
         '''
         return self.plot(**args)
 
-    def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
+    def plot_bnd(self,c='k',lw=0.5,ax=None,xy=0,**args):
         '''
           plot schims grid boundary
-
+          xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
           gd.plot_bnd(): plot bnd
           gd.plot_bnd(c='rb'): open bnd in red,land bnd in blue
-
         '''
         if ax!=None: sca(ax)
+        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         if not hasattr(self,'nob'): self.compute_bnd()
 
         #get indices for bnds
@@ -194,7 +196,7 @@ class schism_grid:
         for i in arange(self.nob):
             sindo=r_[sindo,-1,self.iobn[i]]
         sindo=array(sindo).astype('int'); fpn=sindo==-1
-        bx1=self.x[sindo]; by1=self.y[sindo]
+        bx1=x[sindo]; by1=y[sindo]
         bx1[fpn]=nan; by1[fpn]=nan
 
         sindl=[]
@@ -204,7 +206,7 @@ class schism_grid:
             else:
                sindl=r_[sindl,-1,self.ilbn[i],self.ilbn[i][0]]
         sindl=array(sindl).astype('int'); fpn=sindl==-1
-        bx2=self.x[sindl]; by2=self.y[sindl]
+        bx2=x[sindl]; by2=y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
 
         if len(c)==1:
@@ -3437,7 +3439,7 @@ class schism_check(zdata):
        if self.fmt==0: #update gr3 file parameters and panel
           if p.init==0:
              p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.ctr=tk.IntVar(wd); p.grid.set(0); p.bnd.set(0); p.ctr.set(1)
-             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
+             p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.sflux=tk.StringVar(wd); p.vmin.set(0); p.vmax.set(0); p.sflux.set('None')
 
           #update plot options
           self.var.set('z'); self.vars['values']='z'
@@ -3446,6 +3448,9 @@ class schism_check(zdata):
           tk.Checkbutton(master=sfm1,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=1)
           tk.Checkbutton(master=sfm1,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm1,text='contour',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+          if self.sflux is not None:
+             ttk.Label(master=sfm1,text=' sflux_grid').grid(row=0,column=4,sticky='W')
+             ttk.Combobox(sfm1,textvariable=p.sflux,values=['None',*self.sflux],width=17).grid(row=0,column=5)
 
           #add limit panel
           sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
@@ -3632,11 +3637,18 @@ class schism_check(zdata):
            if v is not None: p.vm0=[v.min(),v.max()]
 
        if self.fmt==0:  #gr3 files
-          gd=self.hgrid; p=self.params[fname]; data=fids[fname]
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
-          if p.grid.get()==1: gd.plot()
-          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-          title(fname); pfmt=0; slimit(gd.x,gd.y,data)
+          gd=self.hgrid; p=self.params[fname]; data=fids[fname]; sflux=0 if p.sflux.get()=='None' else 1
+          if sflux==1: #read lon and lat
+             if not hasattr(gd,'lon'): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
+             sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,xy=sflux)
+          if p.grid.get()==1: gd.plot(xy=sflux)
+          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1,xy=sflux)
+          if sflux==1:
+             for i,k in zip(sx,sy): plot(i,k,'.-',color='orange',lw=0.5,ms=2,alpha=0.75)
+             for i,k in zip(sx.T,sy.T): plot(i,k,'.-',color='orange',lw=0.5,ms=2,alpha=0.75)
+          p.hp=gca(); title(fname); pfmt=0 if sflux==0 else -1
+          slimit(gd.x,gd.y,data) if sflux==0 else slimit(gd.lon,gd.lat,data)
        elif self.fmt==2 and (p.var in ['su2','sv2']) and p.data.ndim==2 and p.data.shape[1]==2: #vector for su2 sv2 in hotstart
           if not hasattr(self,'hgrid'): self.read_hgrid()
           if not hasattr(self.hgrid,'xcj'): self.hgrid.compute_side(fmt=2)
@@ -3882,6 +3894,7 @@ class schism_check(zdata):
        [fnames.append(i) for i in snames if i.endswith('.ic') and (i not in mc)]; fnames.extend(mc)   #ic
        [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_'))]  #other nc files
        self.fnames=fnames; self.thfiles=[i for i in snames if i.endswith('.th')]     #*.th
+       self.sflux=[i[:-3] for i in os.listdir(self.run+'sflux') if i.endswith('nc')] if fexist(self.run+'sflux') else None
        # self.StartT=0 #update this later
 
    def cmd_window(self):

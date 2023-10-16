@@ -2316,7 +2316,6 @@ def read(fname,*args0,**args):
     if fname.endswith('.mat'):  F=convert_matfile
     if F is None: sys.exit('unknown type of file: '+fname)
 
-
     if (fname.endswith('.npz') or fname.endswith('.nc')) and ('IO' in args0):
        def fid_npz(svar):
            return loadz(fname,svar)
