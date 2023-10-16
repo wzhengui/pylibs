@@ -3638,17 +3638,16 @@ class schism_check(zdata):
 
        if self.fmt==0:  #gr3 files
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]; sflux=0 if p.sflux.get()=='None' else 1
-          if sflux==1: #read lon and lat
-             if not hasattr(gd,'lon'): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
-             sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
+          if sflux==1 and (not hasattr(gd,'lon')): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
           if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,xy=sflux)
           if p.grid.get()==1: gd.plot(xy=sflux)
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1,xy=sflux)
+          p.hp=gca(); title(fname); pfmt=0; slimit(gd.x,gd.y,data)
           if sflux==1:
+             sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
              for i,k in zip(sx,sy): plot(i,k,'.-',color='orange',lw=0.5,ms=2,alpha=0.75)
              for i,k in zip(sx.T,sy.T): plot(i,k,'.-',color='orange',lw=0.5,ms=2,alpha=0.75)
-          p.hp=gca(); title(fname); pfmt=0 if sflux==0 else -1
-          slimit(gd.x,gd.y,data) if sflux==0 else slimit(gd.lon,gd.lat,data)
+             if abs(gd.lon-gd.x).mean()>1: pfmt=-1; slimit(gd.lon,gd.lat,data)
        elif self.fmt==2 and (p.var in ['su2','sv2']) and p.data.ndim==2 and p.data.shape[1]==2: #vector for su2 sv2 in hotstart
           if not hasattr(self,'hgrid'): self.read_hgrid()
           if not hasattr(self.hgrid,'xcj'): self.hgrid.compute_side(fmt=2)
