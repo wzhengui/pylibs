@@ -12,7 +12,7 @@ import matplotlib.cm as cm
 import matplotlib as mpl
 
 from pylib_essentials.utility_functions import loadz, savez, zdata, signa, \
-    get_VINFO, proj
+    get_VINFO, proj, WriteNC, inside_polygon
 
 # for experimental features
 from pathlib import Path
@@ -3244,7 +3244,7 @@ def read_schism_hgrid_cached(fname, overwrite_cache=False):
     for filename in [gd_original_fname, gd_fname]:
         try:
             print(f'Try reading from {filename}.')
-            gd = schism_grid(filename)
+            gd = schism_grid(str(filename))
             gd.source_file = filename
         except Exception as e:
             print(f'{e}\nError reading from original file: {filename}.')
@@ -3332,7 +3332,7 @@ class TimeHistory:
     However, the *.th file itself lacks information about the time units and start time
     and this class is to bind those information in a dataframe.
     The class also sets the time column as the index of the dataframe
-    and assign each data column with a name (e.g., station name)
+    and assign each data column with a meaningful name (e.g., station name)
     to facilitate data queries and processing.
     """
     @property
@@ -3343,6 +3343,10 @@ class TimeHistory:
         return t
 
     @property
+    def delta_t(self): # time step
+        return self.time[1] - self.time[0]
+
+    @property
     def n_time(self):
         return self.df.shape[0]
     
@@ -3351,9 +3355,14 @@ class TimeHistory:
         return self.df.shape[1]
     
     @property
+    def stations(self):
+        return self.df.columns.values.tolist()
+    
+    @property
     def data(self):
         # original data excluding time
         return self.df.values
+    
 
     def __init__(self, start_time_str="2000-01-01 00:00:00", data_array=None, columns=None, th_unit='seconds'):
         """
@@ -3364,9 +3373,10 @@ class TimeHistory:
 
         # list of main attributes
         self.df = pd.DataFrame(data_array)
-        self.sec_per_time_unit = None
         self.meaningful_columns = False  # some functions only work when column names are meaningful,
+        self.th_unit = th_unit
                                          # e.g., station names or element ids, but not datetime + column numbers
+        self.sec_per_time_unit = None
 
         # set time unit
         unit_dict = {'seconds': 1, 'minutes': 60, 'hours': 3600, 'days': 86400, 'weeks': 604800, 'years': 31536000}
@@ -3410,6 +3420,54 @@ class TimeHistory:
         """
         data = np.loadtxt(file_name)
         return cls(data_array=data, th_unit=th_unit, start_time_str=start_time_str, columns=columns)
+    
+    def __getitem__(self, selector):
+        """Subset the TimeHistory object by column names"""
+
+        # parse row and col selectors from selector
+        if type(selector) is str:
+            selector = [selector]
+        elif isinstance(selector, np.ndarray):
+            if len(selector.shape) == 1:  # 1D array of column names
+                selector = selector.astype(str).tolist()
+            else:
+                raise IndexError("Column names must be a 1D array")
+
+        if type(selector) is list and all(isinstance(x, str) for x in selector):  # subset by column names
+            column_names = selector
+            subset_data = np.array(self.df[column_names])
+            return TimeHistory(
+                start_time_str=self.df.index[0],
+                data_array=np.c_[self.time, subset_data],
+                columns=column_names,
+                th_unit=self.th_unit
+            )
+        elif isinstance(selector, tuple):  # subset by row and column indices; column index does not include time
+            if len(selector) != 2:
+                raise IndexError("Only 2D indexing is supported")
+            row_idx, col_idx = selector
+            subset_data = self.data[row_idx, col_idx]
+            subset_time_str = self.df.index[row_idx]
+            subset_time = self.time[row_idx]
+
+            # if isinstance(row_idx, slice) or isinstance(col_idx, slice):
+            #     # Handle slices here
+            #     rows = self.data[row_idx] if isinstance(row_idx, int) else [self.data[i] for i in range(*row_idx.indices(len(self.data)))]
+            #     if isinstance(col_idx, int):
+            #         return [row[col_idx] for row in rows]
+            #     else:
+            #         return [row[col_idx] for row in rows for col_idx in range(*col_idx.indices(len(row)))]
+            # else:
+            #     # Regular integer indexing
+            #     data = self.data[row_idx][col_idx]
+
+            return TimeHistory(
+                start_time_str=subset_time_str[0],
+                data_array=np.c_[subset_time, subset_data],
+                columns=self.df.columns[col_idx].tolist()
+            )
+        else:
+            raise IndexError("Unknown type of index")
     
     def __add__(self, other, weights=[1.0, 1.0]):
         """
@@ -3536,11 +3594,11 @@ class source_sink:
     provide additional functions.
     """
     @property
-    def source_eles(self):
+    def source_eles(self):  # element index starts from 1
         return self.source_sink_in.ele_groups[0]
     
     @property
-    def sink_eles(self):
+    def sink_eles(self):  # element index starts from 1
         return self.source_sink_in.ele_groups[1]
     
     @property
@@ -3571,13 +3629,14 @@ class source_sink:
         self.source_sink_in = None
                         
         # if vsource, vsink, and msources are properly set,
-        # then ntracers and source_sink_in will be automatically set
+        # then ntracers and source_sink_in can be decided without additional inputs
         if vsource is not None:
             self.ntracers = len(msource)
-            source_eles = vsource.df.columns.astype(int).values
+            source_eles = vsource.df.columns.astype(int).values  # index starts from 1
         else:
             self.ntracers = 0
             source_eles = []
+
         if vsink is not None:
             sink_eles = vsink.df.columns.astype(int).values
         else:
@@ -3585,25 +3644,15 @@ class source_sink:
 
         self.source_sink_in = SourceSinkIn(ele_groups=[source_eles, sink_eles])
 
+        self.sanity_check()
+
     @classmethod
-    def dummy(cls, start_time_str='2000-01-01 00:00:00', timedeltas=[0.0, 86400.0*365*100],
+    def dummy(cls, start_time_str='2000-01-01 00:00:00', timestamps=[0.0, 86400.0*365*100],
                  source_eles=[], sink_eles=[], ntracers=2):
         """create a dummy source_sink object for testing purpose"""
 
-        # Sanity check
-        if vsource_data is None:
-            vsource_data = np.zeros([nt, nsources])
-        else:
-            if len(source_eles) != vsource_data.shape[1] + 1:
-                raise ValueError("source_eles and vsource_data must have the same number of elements")
-        if vsink_data is None:
-            vsink_data = np.zeros([nt, nsinks])
-        else:
-            if len(sink_eles) != vsink_data.shape[1] + 1:
-                raise ValueError("sink_eles and vsink_data must have the same number of elements")  
-
         # initialize a set of source/sink files from scratch
-        nt = len(timedeltas)
+        nt = len(timestamps)
         nsources = len(source_eles)
         nsinks = len(sink_eles)
         vsource = None
@@ -3611,22 +3660,22 @@ class source_sink:
         msource = [None] * ntracers
 
         if nsources > 0:
-            vsource = TimeHistory(file_name=None, start_time_str=start_time_str,
-                                  data_array=np.c_[np.array(timedeltas), vsource_data],
+            vsource = TimeHistory(start_time_str=start_time_str,
+                                  data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])],
                                   columns=source_eles)
             # dummy temperature, set to -9999, i.e., ambient temperature
-            msource[0] = TimeHistory(file_name=None, start_time_str=start_time_str,
-                                     data_array=np.c_[np.array(timedeltas), -9999*np.ones([nt, nsources])],
+            msource[0] = TimeHistory(start_time_str=start_time_str,
+                                     data_array=np.c_[np.array(timestamps), -9999*np.ones([nt, nsources])],
                                      columns=source_eles)
             # dummy salinity, set to 0
-            msource[1] = TimeHistory(file_name=None, start_time_str=start_time_str,
-                                     data_array=np.c_[np.array(timedeltas), np.zeros([nt, nsources])],
+            msource[1] = TimeHistory(start_time_str=start_time_str,
+                                     data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])],
                                      columns=source_eles)
 
         if nsinks > 0:
-            vsink = TimeHistory(file_name=None, start_time_str=start_time_str,
-                               data_array=np.c_[np.array(timedeltas), vsink_data],
-                               columns=sink_eles)
+            vsink = TimeHistory(start_time_str=start_time_str,
+                                data_array=np.c_[np.array(timestamps), np.zeros([nt, nsinks])],
+                                columns=sink_eles)
 
         return cls(vsource, vsink, msource)
 
@@ -3682,8 +3731,73 @@ class source_sink:
             )
         
         source_sink = cls(vsource, vsink, msource)
-        source_sink.check_consistency()
+        source_sink.sanity_check()
         return source_sink
+    
+    def subset_by_idx(self, source_idx, sink_idx):
+        '''
+        Subset source/sink files by index.
+        '''
+        if self.vsource is not None:
+            subset_vsource = self.vsource[:, source_idx]
+            subset_msource = [x[:, source_idx] for x in self.msource]
+        else:
+            subset_vsource = None
+            subset_msource = None
+            
+        if self.vsink is not None:
+            subset_vsink = self.vsink[:, sink_idx]
+        else:
+            subset_vsink = None
+
+        return source_sink(subset_vsource, subset_vsink, subset_msource)
+    
+    def subset_by_ele(self, source_eles=[], sink_eles=[]):
+        '''subset source/sink files by element ids (index starts from 1)'''
+        if self.vsource is not None:
+            if source_eles == []:  # no subsetting
+                subset_vsource = self.vsource
+                subset_msource = self.msource
+            else:
+                subset_vsource = self.vsource[source_eles]
+                subset_msource = [x[source_eles] for x in self.msource]
+        else:
+            subset_vsource = None
+            subset_msource = None
+        
+        if self.vsink is not None:
+            if sink_eles == []:
+                subset_vsink = self.vsink  # no subsetting
+            else:
+                subset_vsink = self.vsink[sink_eles]
+        else:
+            subset_vsink = None
+
+        return source_sink(subset_vsource, subset_vsink, subset_msource)
+
+    
+    def clip_by_polygons(self, hgrid, polygons_xy=[]):
+        '''
+        Select source/sink elements by polygons.
+        An hgrid of schism_grid type is required to get element coordinates.
+        polygons: a list of 2D np arrays of (x, y) coordinates of each polygon
+        '''
+        hgrid.compute_ctr()
+
+        # select source and sink elements
+        inside_source = np.zeros(self.nsource, dtype=bool)
+        inside_sink = np.zeros(self.nsink, dtype=bool)
+        for polygon_xy in polygons_xy:
+            ele_xy = np.c_[hgrid.xctr[self.source_eles-1], hgrid.yctr[self.source_eles-1]]
+            inside_source += inside_polygon(ele_xy, polygon_xy[:, 0], polygon_xy[:, 1]).astype(bool)
+
+            ele_xy = np.c_[hgrid.xctr[self.sink_eles-1], hgrid.yctr[self.sink_eles-1]]
+            inside_sink += inside_polygon(ele_xy, polygon_xy[:, 0], polygon_xy[:, 1]).astype(bool)
+        
+        inside_ss = self.subset_by_idx(inside_source, inside_sink)
+        outside_ss = self.subset_by_idx(~inside_source, ~inside_sink)
+
+        return inside_ss, outside_ss
     
     def writer(self, output_dir):
         '''
@@ -3704,29 +3818,90 @@ class source_sink:
         if self.vsink is not None:
             self.vsink.writer(f"{output_dir}/vsink.th")
         
-    def check_consistency(self):
-        # check consistency of source_sink_in and vsource/vsink/msource
+        # additional outputs in *.nc format
+        self.nc_writer(output_dir=output_dir)
+    
+    def diag_writer(self, hgrid, output_dir):
+        '''writer for diagnostic files'''
+        hgrid.compute_ctr()
+
+        if self.vsource:
+            np.savetxt(
+                f'{output_dir}/sources.xyz',
+                np.c_[hgrid.xctr[self.source_eles-1], hgrid.yctr[self.source_eles-1], self.vsource.df.mean().values]
+            )
+        if self.vsink:
+            np.savetxt(
+                f'{output_dir}/sinks.xyz',
+                np.c_[hgrid.xctr[self.sink_eles-1], hgrid.yctr[self.sink_eles-1], self.vsink.df.mean().values]
+            )
+
+    def nc_writer(self, output_dir=None):
+        if output_dir is None:
+            raise Exception("output_dir is required.")
+        os.makedirs(output_dir, exist_ok=True)
+
+        # create netcdf data
+        C=zdata(); C.vars=[]; C.file_format='NETCDF4'
+
+        # create dummy source/sink if they are empty
         if self.nsource == 0:
-            if self.vsource is not None:
-                raise Exception('inconsistent number of sources in source_sink.in and vsource.th')
+            dummy_ss = source_sink.dummy(start_time_str=self.vsink.df.index[0], timestamps=self.vsink.time, source_eles=['1'], sink_eles=['1'], ntracers=2)
+            vsource = dummy_ss.vsource
+            msource = dummy_ss.msource
+            vsink = self.vsink
+            nsource = 1
+            nsink = self.nsink
+            ntracers = 2
         else:
-            if len(self.msource) != self.ntracers:
-                raise Exception('inconsistent number of sources in source_sink.in and msource.th')
-            if self.nsource != self.msource[0].n_station:
-                raise Exception('inconsistent number of sources in source_sink.in and vsource.th')
-            if self.nsource != self.vsource.n_station:
-                raise Exception('inconsistent number of sources in source_sink.in and vsource.th')
-            if np.min(self.vsource.df.values, axis=None) < 0:
-                raise Exception('vsource must be positive')
+            dummy_ss = source_sink.dummy(start_time_str=self.vsource.df.index[0], timestamps=self.vsource.time, source_eles=['1'], sink_eles=['1'], ntracers=self.ntracers)
+            vsource = self.vsource
+            msource = self.msource
+            vsink = dummy_ss.vsink
+            nsource = self.nsource
+            nsink = 1
+            ntracers = self.ntracers
+
+        C.dimname=['nsources', 'nsinks', 'ntracers', 'time_msource','time_vsource','time_vsink','one']
+        C.dims=[nsource, nsink, ntracers, msource[0].n_time, vsource.n_time, vsink.n_time, 1]
+
+        C.vars.extend(['source_elem','vsource','msource'])
+        vi=zdata(); vi.dimname=('nsources',); vi.val=vsource.df.columns.values.astype(int); C.source_elem=vi
+        vi=zdata(); vi.dimname=('time_vsource','nsources'); vi.val=vsource.data; C.vsource=vi
+        msource_data = np.stack([x.data for x in msource], axis=1)  # cast into a 3D array of shape (nt, ntracers, nsources)
+        vi=zdata(); vi.dimname=('time_msource','ntracers','nsources'); vi.val=msource_data; C.msource=vi
+
+        C.vars.extend(['sink_elem','vsink'])
+        vi=zdata(); vi.dimname=('nsinks',); vi.val=vsink.df.columns.values.astype(int); C.sink_elem=vi
+        vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink.data; C.vsink=vi
         
-        if self.nsink == 0:
-            if self.vsink is not None:
-                raise Exception('inconsistent number of sinks in source_sink.in and vsink.th')
-        else:
+        C.vars.extend(['time_step_vsource','time_step_msource','time_step_vsink'])
+        vi=zdata(); vi.dimname=('one',); vi.val=vsource.delta_t; C.time_step_vsource=vi
+        vi=zdata(); vi.dimname=('one',); vi.val=msource[0].delta_t; C.time_step_msource=vi
+        vi=zdata(); vi.dimname=('one',); vi.val=vsink.delta_t; C.time_step_vsink=vi
+
+        WriteNC(f'{output_dir}/source.nc', C)
+        
+    def sanity_check(self):
+        # check consistency of source_sink_in and vsource/vsink/msource
+        if self.vsource is None and self.vsink is None:
+            raise ValueError("vsource and vsink cannot be both None")
+
+        if self.vsource is not None:
+            if len(self.msource) != self.ntracers:
+                raise Exception('inconsistent number of tracers')
+            if self.nsource != self.msource[0].n_station:
+                raise Exception('inconsistent number of msource stations')
+            if self.nsource != self.vsource.n_station:
+                raise Exception('inconsistent number of vsource stations')
+            if np.min(self.vsource.df.values, axis=None) < 0:
+                raise Exception('vsource must be non-negative')
+        
+        if self.vsink is not None:
             if self.nsink != self.vsink.n_station:
-                raise Exception('inconsistent number of sinks in source_sink.in and vsink.th')  
+                raise Exception('inconsistent number of sink stations')  
             if np.max(self.vsink.df.values, axis=None) > 0:
-                raise Exception('vsink must be negative')
+                raise Exception('vsink must be non-positive')
     
     def __add__(self, other):
         '''
@@ -3824,4 +3999,5 @@ class test_combine_dataframes(unittest.TestCase):
             self.assertTrue(all(np.isclose(df_combined[col].loc[self.df_B.index], self.df_A[col].loc[self.df_B.index] + self.df_B[col], atol=1e-5)))
 
 if __name__ == "__main__":
+
     unittest.main()

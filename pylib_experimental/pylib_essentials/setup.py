@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pylib_essentials',
-    version='0.0.4',
+    version='0.0.6',
     description='The essentials of the experimental package of pylibs, which require minimum dependencies',
     license='MIT',
     packages=['pylib_essentials'],
