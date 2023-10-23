@@ -3660,7 +3660,8 @@ class schism_check(zdata):
              fpm=(gd.xcj>=p.xm[0])*(gd.xcj<=p.xm[1])*(gd.ycj>=p.ym[0])*(gd.ycj<=p.ym[1])
           else:
              fpm=~isnan(p.data[:,0])
-          quiver(gd.xcj[fpm],gd.ycj[fpm],p.data[fpm,0],p.data[fpm,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
+          hv=quiver(gd.xcj[fpm],gd.ycj[fpm],p.data[fpm,0],p.data[fpm,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
+          quiverkey(hv,X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
           pfmt=7; slimit(gd.x,gd.y,p.data)
        elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
             vm=[p.vmin.get(),p.vmax.get()]
