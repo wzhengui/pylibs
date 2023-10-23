@@ -2880,7 +2880,8 @@ class schism_view:
                self.get_data(p); v=self.data
                if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
-           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
+           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
+           if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
@@ -2920,7 +2921,7 @@ class schism_view:
                 if p.vvar!='none':  #vector
                    u,v=self.get_vdata(p)
                    if p.med==0: p.hv[0].set_UVC(u,v)
-                   if p.med==1: p.hv=[quiver(p.vx,p.vy,u,v,scale=2,scale_units='inches',width=0.001,zorder=3)]
+                   if p.med==1: p.hv=[quiver(p.vx,p.vy,u,v,scale=1/p.zoom,scale_units='inches',width=0.001,zorder=3)]
                 p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
                 self.update_panel('it',p); self.window.update()
                 if p.med==0: p.bm.update()
@@ -3099,7 +3100,7 @@ class schism_view:
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
-            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.med.set(p.med)
+            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
             if not fignum_exists(self.fig.hf.number): return
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
@@ -3112,7 +3113,7 @@ class schism_view:
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
-        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
+        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.zoom=w.zoom.get()
         p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
 
@@ -3346,10 +3347,11 @@ class schism_view:
         fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW'); fms.append(fm)
 
         #vector
-        w.vvar=tk.StringVar(wd); w.vvar.set('none')
+        w.vvar=tk.StringVar(wd); w.zoom=tk.DoubleVar(wd); w.vvar.set('none'); w.zoom.set(1.0)
         fm3=ttk.Frame(master=fm); fm3.grid(row=0,column=0,sticky='W')
         ttk.Label(master=fm3,text='  vector ').grid(row=1,column=0,sticky='W',pady=4)
         vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
+        ttk.Entry(fm3,textvariable=w.zoom,width=5).grid(row=1,column=2)
 
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
