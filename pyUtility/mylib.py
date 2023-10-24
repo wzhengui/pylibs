@@ -1949,12 +1949,12 @@ def get_stat(xi_model,xi_obs,fmt=0):
     #eng=matlab.engine.start_matlab()
     '''
 
-    x1=xi_model; x2=xi_obs
+    x1=array(xi_model); x2=array(xi_obs); npt=len(x1)
     mx1=mean(x1); mx2=mean(x2)
 
     S=zdata(); dx=x1-x2; std1=std(x1); std2=std(x2)
     #---save data
-    S.R=corrcoef(x1,x2)[0,1] #R
+    S.R=corrcoef(x1,x2)[0,1] if npt>=3 else nan #R
     S.ME=mean(dx)
     S.MAE=mean(abs(dx))
     S.RMSD=sqrt((dx**2).mean())
@@ -1962,7 +1962,7 @@ def get_stat(xi_model,xi_obs,fmt=0):
     S.ms=1-sum(dx**2)/sum((abs(x1-mx2)+abs(x2-mx2))**2)
     if fmt==1: a,S.pvalue=sp.stats.pearsonr(x1,x2)
     S.std1=std1; S.std2=std2
-    S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R])
+    S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R]) if npt>=3 else [0,0,0]
 
     return S
 
