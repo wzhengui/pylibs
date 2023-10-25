@@ -1661,7 +1661,7 @@ def save_schism_grid(fmt=0,path='.',method=0):
     else:
        S=zdata()
        if gd is not None: S.hgrid=gd
-       if vd is not None: S.vgrid=gd
+       if vd is not None: S.vgrid=vd
        S.save('grid.npz')
 
 class schism_vgrid:
