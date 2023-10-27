@@ -82,8 +82,11 @@ for svar in svars:
    for istack in stacks:
        fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
-          read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype,prj=prj)
-          dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
+          try:
+             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype,prj=prj)
+             dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
+          except:
+             pass
 
 #combine results
 comm.Barrier()
