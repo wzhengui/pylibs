@@ -3464,9 +3464,9 @@ class schism_check(zdata):
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
              p.transpose=tk.IntVar(wd); p.transpose.set(0)
-             if fname.endswith('_nu.nc'):
-                p.ctr=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd)
-                p.ctr.set(0); p.grid.set(0); p.bnd.set(0)
+             if fname.endswith('_nu.nc') or fname=='uv3D.th.nc':
+                p.ctr=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.scale=tk.DoubleVar(wd)
+                p.ctr.set(0); p.grid.set(0); p.bnd.set(0); p.scale.set(1.0)
              p.dvars=[tk.StringVar(wd) for i in p.dims]; p.xs=[[*arange(i)] for i in p.dims]
 
           #update plot options
@@ -3492,12 +3492,16 @@ class schism_check(zdata):
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
 
           #add gd.plot for *_nu.nc
-          if fname.endswith('_nu.nc'):
+          if fname.endswith('_nu.nc') or fname=='uv3D.th.nc':
              sfm=ttk.Frame(master=fm); sfm.grid(row=2,column=0,sticky='W')
              ttk.Label(master=sfm,text='  ').grid(row=0,column=0,sticky='W')
-             tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
-             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
-             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
+             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
+             if fname.endswith('_nu.nc'):
+                tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+             else:
+                ttk.Label(master=sfm,text='   zoom').grid(row=0,column=3,sticky='W')
+                ttk.Entry(sfm,textvariable=p.scale,width=5).grid(row=0,column=4,sticky='W')
        elif self.fmt in [2,3]:  #hotstart.nc or source.nc
           if p.init==1 and option==1: #save parameter
              p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get(); p0.scale=p.scale.get()
@@ -3545,7 +3549,7 @@ class schism_check(zdata):
               ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,).grid(row=0,column=1,sticky='W')
 
           if self.fmt==2 and p.var in ['su2','sv2']:
-             ttk.Label(master=sfm1,text='  scale').grid(row=0,column=len(p.dims)+1,sticky='W')
+             ttk.Label(master=sfm1,text='  zoom').grid(row=0,column=len(p.dims)+1,sticky='W')
              ttk.Entry(sfm1,textvariable=p.scale,width=5).grid(row=0,column=len(p.dims)+2,sticky='W',padx=2)
 
           #add limit panel
@@ -3651,17 +3655,20 @@ class schism_check(zdata):
           if p.grid.get()==1: gd.plot(xy=fxy,zorder=2)
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1,xy=fxy,zorder=2)
           p.hp=gca(); title(fname); slimit(gd.x,gd.y,data)
-       elif self.fmt==2 and (p.var in ['su2','sv2']) and p.data.ndim==2 and p.data.shape[1]==2: #vector for su2 sv2 in hotstart
+       elif ((self.fmt==2 and (p.var in ['su2','sv2'])) or (self.fmt==1 and fname=='uv3D.th.nc')) and p.data.ndim==2 and p.data.shape[1]==2: #vector (su2,sv2) in hotstart, or uv3d.th.nc
           if not hasattr(self,'hgrid'): self.read_hgrid()
-          if not hasattr(self.hgrid,'xcj'): self.hgrid.compute_side(fmt=2)
           gd=self.hgrid
           if p.grid.get()==1: gd.plot()
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
-          if hasattr(p,'xm') and hasattr(p,'ym'):
-             fpm=(gd.xcj>=p.xm[0])*(gd.xcj<=p.xm[1])*(gd.ycj>=p.ym[0])*(gd.ycj<=p.ym[1])
-          else:
-             fpm=~isnan(p.data[:,0])
-          hv=quiver(gd.xcj[fpm],gd.ycj[fpm],p.data[fpm,0],p.data[fpm,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
+          if self.fmt==1:
+             bid=hstack(gd.iobn); hv=quiver(gd.x[bid],gd.y[bid],p.data[:,0],p.data[:,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
+          elif self.fmt==2:
+             if not hasattr(self.hgrid,'xcj'): self.hgrid.compute_side(fmt=2)
+             if hasattr(p,'xm') and hasattr(p,'ym'):
+                fpm=(gd.xcj>=p.xm[0])*(gd.xcj<=p.xm[1])*(gd.ycj>=p.ym[0])*(gd.ycj<=p.ym[1])
+             else:
+                fpm=~isnan(p.data[:,0])
+             hv=quiver(gd.xcj[fpm],gd.ycj[fpm],p.data[fpm,0],p.data[fpm,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
           quiverkey(hv,X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
           pfmt=7; slimit(gd.x,gd.y,p.data)
        elif self.fmt==3 and p.sctr.get()==1 and p.data.ndim==1 and p.data.size==p.dims[-1]: #source.nc
