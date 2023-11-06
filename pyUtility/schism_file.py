@@ -3437,7 +3437,7 @@ class schism_check(zdata):
        self.fmt=fmts[fname]; p=params[fname]
 
        for widget in fm.winfo_children(): widget.destroy() #clean plot option frame
-       self.info.config(text=p.info); ap.dvars=[]
+       self.info.config(text=p.info); ap.dns=[]
        #design plot option frame
        if self.fmt==0: #update gr3 file parameters and panel
           if p.init==0:
@@ -3482,7 +3482,8 @@ class schism_check(zdata):
               dw=7 if n==2 else 2 if n==3 else 5
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W')
-              mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W'); ap.dvars.append(mm)
+              mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W')
+              mm.bind("<<ComboboxSelected>>",lambda x: self.set_anim()); ap.dns.append(mm)
 
           #add limit panel
           sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
@@ -3546,7 +3547,8 @@ class schism_check(zdata):
                     dn='d{}'.format(n)
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W'); p.dnames[n]=dn
-              mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W'); ap.dvars.append(mm)
+              mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W')
+              mm.bind("<<ComboboxSelected>>",lambda x: self.set_anim()); ap.dns.append(mm)
 
           if self.fmt==2 and p.var in ['su2','sv2']:
              ttk.Label(master=sfm1,text='  zoom').grid(row=0,column=len(p.dims)+1,sticky='W')
@@ -3594,7 +3596,8 @@ class schism_check(zdata):
           for m in arange(2):
               ttk.Label(master=sfm,text='  time' if m==0 else '  dims').grid(row=0,column=2*m,sticky='W')
               xs=['all','mean','min','max','sum',*arange(len(p.xs[m]))]
-              mm=ttk.Combobox(sfm,textvariable=p.dvars[m],values=xs,width=7,); mm.grid(row=0,column=2*m+1,sticky='W'); ap.dvars.append(mm)
+              mm=ttk.Combobox(sfm,textvariable=p.dvars[m],values=xs,width=7,); mm.grid(row=0,column=2*m+1,sticky='W')
+              mm.bind("<<ComboboxSelected>>",lambda x: self.set_anim()); ap.dns.append(mm)
 
           #add limit panel
           sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
@@ -3603,23 +3606,29 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
 
-       p.init=1; wd.update();  self.ap.var.set('none')
-       if hasattr(p,'dnames'): self.ap.vars['values']=['none',*p.dnames]
+       p.init=1; wd.update(); self.set_anim()
        self.init_plot(fmt=1)
+
+   def set_anim(self):
+       #set available dimensions for animation
+       ap,p=self.ap,self.params[self.fname]
+       if not hasattr(p,'dnames'): return
+       dnames=p.dnames; dvars=p.dvars; avars=[]
+       for dname,dvar,dn in zip(dnames,dvars,ap.dns):
+           if dvar.get() in ['all','mean','min','max','sum'] or len(dn['values'])==1: continue
+           avars.append(dname)
+       ap.vars['values']=avars; ap.var.set(avars[0] if len(avars)!=0 else 'none')
 
    def anim(self,fmt=0):
        #animation for along one dimension
-       ap,p=self.ap,self.params[self.fname]
+       ap,p=self.ap,self.params[self.fname]; dn=ap.var.get()
        if fmt==4: ap.stop=1; return
-
-       svars=ap.vars['values']; svar=ap.var.get(); sid=svars.index(svar)-1 #find loop dimension
-       if sid==-1: return #no dimension chosen
-       dvar=p.dvars[sid]; ds=ap.dvars[sid]['values']
-       if (dvar.get() in ['all','mean','min','max','sum']) or ('0' not in ds): return  #loop impossible
+       if dn=='none': return
 
        #determine loop arange
+       sid=p.dnames.index(dn); dvar=p.dvars[sid]; ds=ap.dns[sid]['values']  #find loop dimension
        nrec=len(ds); iv0=ds.index('0'); iv=ds.index(dvar.get()); ns=ap.skip.get() #get dim info.
-       ap.stop=0  #used to stop the animation
+       ap.stop=0 if fmt in [3,5] else 1  #used to stop the animation
        if fmt==1: ts=[ds[iv0],]   #first record
        if fmt==7: ts=[ds[-1], ]   #last  record
        if fmt==2: ts=[ds[max(iv-ns,iv0)],]  #back one
@@ -3629,8 +3638,8 @@ class schism_check(zdata):
 
        #loop plot in loop
        for ti in ts[::ns]:
-           if ap.stop==1: break
            dvar.set(ti); self.plot(); pause(0.1)
+           if ap.stop==1: break
 
    def init_plot(self,fmt=0):
        def _fig_close(hf): #mark closed figure
@@ -3662,7 +3671,7 @@ class schism_check(zdata):
        #plot for each input file
        if self.var.get()=='': return
        fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
-       self.read_input(); hf=self.init_plot(); hf.clf();
+       self.read_input(); hf=self.init_plot(); hf.clf(); p.curve_1d=False
 
        #save axis limit for reset function
        def slimit(x,y,v=None):
@@ -3760,8 +3769,15 @@ class schism_check(zdata):
               else: #1D line
                   if self.fmt==2: xi=arange(xi)
                   plot(xi,p.data,'k-'); p.hp=gca()
-                  xlabel(xn); pfmt=1; slimit(xi,p.data)
-                  if hasattr(p,'ym') and (p.ym[0]>=p.data.max() or p.ym[1]<=p.data.min()): p.ym=[p.data.min(),p.data.max()]
+                  xlabel(xn); pfmt=1; slimit(xi,p.data); p.curve_1d=True
+
+                  #set ylim
+                  y1,y2=p.vmin.get(),p.vmax.get()
+                  if y1!=y2:
+                     p.ym=[y1,y2]
+                  else:
+                     p.ym=[p.data.min(),p.data.max()]
+                  #if hasattr(p,'ym') and (p.ym[0]>=p.data.max() or p.ym[1]<=p.data.min()): p.ym=[p.data.min(),p.data.max()]
           else: #2D plots
               i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
               if self.fmt==2: xi=arange(xi); yi=arange(yi)
@@ -3801,6 +3817,7 @@ class schism_check(zdata):
             if hasattr(p,'xm0'): p.xm=p.xm0[:]
             if hasattr(p,'ym0'): p.ym=p.ym0[:]
             if hasattr(p,'vm0'): p.vmin.set(p.vm0[0]); p.vmax.set(p.vm0[1]); self.window.update()
+            if hasattr(p,'ym0') and p.curve_1d: p.vmin.set(p.ym0[0]); p.vmax.set(p.ym0[1]); self.window.update()
             self.plot()
 
    def read_input(self):
