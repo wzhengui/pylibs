@@ -327,7 +327,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
           if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
           #if qnode=='james' and ename=='run_schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
        elif qnode in ['eagle','deception']:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' -{} {} ./{} >& {}".format(bdir,'n' if qnode=='eagle' else 'np',nproc,code,scrout)
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -{} {} {} >& {}".format(bdir,'n' if qnode=='eagle' else 'np',nproc,code,scrout)
        else:
           sys.exit('unknow qnode: {},tag=2'.format(qnode))
 
