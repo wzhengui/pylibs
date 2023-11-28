@@ -2057,11 +2057,12 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
                     stype=[type(S.attvalue[m][0]) for m in arange(len(S.attname))]
 
             for m in arange(len(stype)):
-                if stype[m] in [np.int,np.int8,np.int16,np.int32,np.int64]:
+                npint,npfloat,npstr=[np.int,np.float,np.str] if hasattr(np,'int') else [int,float,str]
+                if stype[m] in [npint,np.int8,np.int16,np.int32,np.int64]:
                     W.field(S.attname[m],'N')
-                elif stype[m] in [np.float,np.float16,np.float32,np.float64]:
+                elif stype[m] in [npfloat,np.float16,np.float32,np.float64]:
                     W.field(S.attname[m],'F',float_len,float_decimal)
-                elif stype[m] in [np.str0,np.str,np.str_,np.string_]:
+                elif stype[m] in [np.str0,npstr,np.str_,np.string_]:
                     W.field(S.attname[m],'C',100)
                 else:
                     print('attribute type not included: {}'.format(stype[m]))
