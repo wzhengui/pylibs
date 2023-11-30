@@ -2074,25 +2074,13 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
         #put values
         for i in arange(nrec):
             if S.type=='POINT': #point, W.multipoint(S.xy) is multiple pts features
-                vali=S.xy[i]
-                W.point(*vali)
+                W.point(*S.xy[i])
             elif S.type=='POLYLINE':
-                if S.xy.dtype==dtype('O'):
-                    vali=S.xy[i]
-                else:
-                    vali=S.xy
-                #reorganize the shape of vali
-                valii=delete_shapefile_nan(vali,0)
-                W.line(valii)
+                vali=S.xy[i] if S.xy.dtype==dtype('O') else S.xy
+                W.line(delete_shapefile_nan(vali,0)) #reorganize the shape of vali, and write
             elif S.type=='POLYGON':
-                if S.xy.dtype==dtype('O'):
-                    vali=S.xy[i]
-                else:
-                    vali=S.xy
-                #reorganize the shape of vali
-                valii=delete_shapefile_nan(vali,1)
-                valii=[[[*k] for k in valii[0]]]
-                W.poly(valii)
+                vali=S.xy[i] if S.xy.dtype==dtype('O') else S.xy
+                W.poly([[[*m] for m in k] for k in delete_shapefile_nan(vali,1)]) #reorganize the shape of vali and add polygons
 
             #add attribute
             if hasattr(S,'attname'):
@@ -2115,6 +2103,7 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
 def delete_shapefile_nan(xi,iloop=0):
     '''
     delete nan (head and tail), and get ind for the rest
+    iloop: prepare for multiple polygons
     '''
     if xi.ndim==1:
         i1=0; i2=xi.shape[0]
