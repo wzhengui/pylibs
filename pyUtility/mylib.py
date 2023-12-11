@@ -322,6 +322,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
              scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
              scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
+          code=os.path.abspath(code)
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
           if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
           if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
