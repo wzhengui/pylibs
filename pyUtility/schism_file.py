@@ -3672,6 +3672,7 @@ class schism_check(zdata):
        if self.var.get()=='': return
        fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
        self.read_input(); hf=self.init_plot(); hf.clf(); p.curve_1d=False
+       if p.data is None: close(hf); self.ap.stop=1; return
 
        #save axis limit for reset function
        def slimit(x,y,v=None):
@@ -3864,6 +3865,7 @@ class schism_check(zdata):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
+          if sum(isnan(p.data))!=0: print('NaN value found !!'); p.data=None; return
           #if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
           if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
           if not hasattr(p,'ax0'):
