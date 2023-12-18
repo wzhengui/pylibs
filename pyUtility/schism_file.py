@@ -3860,13 +3860,20 @@ class schism_check(zdata):
           if self.fmt==1: p.itr=p.dvars[-1].get()
           p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
 
+          #sanity check
+          errmsg=' found in "{}, {}[{}]" !!'.format(fname,p.var,dind)
+          if sum(isnan(p.data))!=0: print('NaN value'+errmsg); p.data=None; return #check nan values
+          if fname in ['source.nc','source_input']: #check source.nc
+             if p.var=='msource' and sum(p.data[p.data!=-9999]<0)!=0: print('negative mass concentration'+errmsg); p.data=None; return
+             if p.var=='vsource' and sum(p.data<0)!=0: print('negative volume source'+errmsg); p.data=None; return
+             if p.var=='vsink' and sum(p.data>0)!=0: print('positive volume sink'+errmsg); p.data=None; return
+
           #perform operation, and get axis
           p.ax=[]; isht=0
           for n, dn in enumerate(dns):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
-          if sum(isnan(p.data))!=0: print('NaN value found in "{}, {}[{}]" !!'.format(fname,p.var,dind)); p.data=None; return
           #if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
           if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
           if not hasattr(p,'ax0'):
