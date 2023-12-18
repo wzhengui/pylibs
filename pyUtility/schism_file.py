@@ -3774,7 +3774,7 @@ class schism_check(zdata):
 
                   #set ylim
                   y1,y2=p.vmin.get(),p.vmax.get()
-                  if y1!=y2:
+                  if y1!=y2 and ~isnan(y1+y2):
                      p.ym=[y1,y2]
                   else:
                      p.ym=[p.data.min(),p.data.max()]
@@ -3855,7 +3855,8 @@ class schism_check(zdata):
              fid=fids[fname]; exec('p.data=array(concatenate((fid["su2"][{}][...,None],fid["sv2"][{}][...,None]),axis=-1))'.format(dind,dind))
           else:
              exec('p.data=array(cvar[{}])'.format(dind))
-          if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()): p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
+          if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()) or isnan(p.vmin.get()+p.vmax.get()):
+              p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
           if self.fmt==1: p.itr=p.dvars[-1].get()
           p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
 
@@ -3865,7 +3866,7 @@ class schism_check(zdata):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
-          if sum(isnan(p.data))!=0: print('NaN value found !!'); p.data=None; return
+          if sum(isnan(p.data))!=0: print('NaN value found in "{}, {}[{}]" !!'.format(fname,p.var,dind)); p.data=None; return
           #if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
           if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
           if not hasattr(p,'ax0'):
