@@ -3672,7 +3672,7 @@ class schism_check(zdata):
        if self.var.get()=='': return
        fname,run,params,fids=self.fname,self.run,self.params,self.fids; p=params[fname]
        self.read_input(); hf=self.init_plot(); hf.clf(); p.curve_1d=False
-       if p.data is None: close(hf); self.ap.stop=1; return
+       if hasattr(p,'data') and (p.data is None):  close(hf); self.ap.stop=1; return
 
        #save axis limit for reset function
        def slimit(x,y,v=None):
