@@ -3510,7 +3510,7 @@ class schism_check(zdata):
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.scale=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0); p.scale.set(1)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
-             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0)
+             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.id=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0); p.id.set(0)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
 
           #update panel
@@ -3573,6 +3573,7 @@ class schism_check(zdata):
              tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=3)
              tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=4,sticky='W')
              tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+             tk.Checkbutton(master=sfm,text='id',variable=p.id,onvalue=1,offvalue=0).grid(row=0,column=6,sticky='W')
              wd.geometry('400x185')
 
           #restore parameters if dims are the same
@@ -3716,11 +3717,11 @@ class schism_check(zdata):
 
             #prepare scatter data
             gd=self.hgrid; srat=p.srat.get()
-            sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk; xi,yi=gd.xctr[sind],gd.yctr[sind]
+            sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk; xi,yi=gd.xctr[sind],gd.yctr[sind]; eid=arange(len(sind))
             data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy()
-            fpn=data!=-9999; xi,yi,data=xi[fpn],yi[fpn],data[fpn] #remove -9999 values
+            fpn=data!=-9999; xi,yi,data,eid=xi[fpn],yi[fpn],data[fpn],eid[fpn] #remove -9999 values
             if data.max()<=0: data=-data #plot negative values (vsink)
-            fpn=data>0; xi,yi,data=xi[fpn],yi[fpn],data[fpn] #only keep data>0
+            fpn=data>0; xi,yi,data,eid=xi[fpn],yi[fpn],data[fpn],eid[fpn] #only keep data>0
             if data.size==0: print('no valid points found!'); return
 
             #plot and label
@@ -3728,10 +3729,12 @@ class schism_check(zdata):
                hg=scatter(xi,yi,s=data*srat,c='r')
             else:
                hg=scatter(xi,yi,s=srat*10,c=data)
-            p.hp=gca(); slimit(gd.x,gd.y,data)
+            p.hp=gca(); slimit(gd.x,gd.y,data); pfmt=2
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
-            pfmt=2
+            if p.id.get()==1: #plot source id
+               if hasattr(p,'fmt')  and hasattr(p,'xm') and p.fmt==pfmt: fp=(xi>=p.xm[0])*(xi<=p.xm[1])*(yi>=p.ym[0])*(yi<=p.ym[1]); xi,yi,eid=xi[fp],yi[fp],eid[fp]
+               for xii,yii,eidi in zip(xi,yi,eid): text(xii,yii,'{}'.format(eidi),fontsize=7)
 
             #legend
             if p.ctr.get()==0:
