@@ -3722,7 +3722,7 @@ class schism_check(zdata):
             fpn=data!=-9999; xi,yi,data,eid=xi[fpn],yi[fpn],data[fpn],eid[fpn] #remove -9999 values
             if data.max()<=0: data=-data #plot negative values (vsink)
             fpn=data>0; xi,yi,data,eid=xi[fpn],yi[fpn],data[fpn],eid[fpn] #only keep data>0
-            if data.size==0: print('no valid points found!'); return
+            if data.size==0: print('no valid points found!'); close(hf); return
 
             #plot and label
             if p.ctr.get()==0:
