@@ -71,8 +71,9 @@ modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)     #
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
 #read model grid
-gd=loadz(run+'/grid.npz').hgrid if fexist(run+'/grid.npz') else read_schism_hgrid(run+'/hgrid.gr3')
-gd.compute_bnd(); sys.stdout.flush()
+fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'
+gd=loadz(fgz,'hgrid') if fexist(fgz) else read_schism_hgrid(fgd); gd.compute_bnd()
+vd=loadz(fgz,'vgrid') if fexist(fgz) else read_schism_vgrid(fvd); sys.stdout.flush()
 
 #extract results
 irec=0; oname=odir+'/.schout'
@@ -83,7 +84,7 @@ for svar in svars:
        fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
           try:
-             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,grid=gd,fmt=itype,prj=prj)
+             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,hgrid=gd,vgrid=vd,fmt=itype,prj=prj)
              dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
           except:
              pass

@@ -70,10 +70,9 @@ if isinstance(txy,str) or array(txy[0]).ndim==1: txy=[txy]
 rdp=read_schism_bpfile; txy=[[rdp(i).x,rdp(i).y] if isinstance(i,str) else i for i in txy]
 
 #read grid
-if fexist(run+'/grid.npz'):
-   gd=loadz(run+'/grid.npz').hgrid; vd=loadz(run+'/grid.npz').vgrid
-else:
-   gd=read_schism_hgrid(run+'/hgrid.gr3'); vd=read_schism_vgrid(run+'/vgrid.in')
+fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'
+gd=loadz(fgz,'hgrid') if fexist(fgz) else read_schism_hgrid(fgd)
+vd=loadz(fgz,'vgrid') if fexist(fgz) else read_schism_vgrid(fvd)
 
 #compute transect information
 nps,dsa=[],[]; sx,sy,sinds,angles=[],[],[],[]; ns=len(txy); pxy=ones(ns).astype('O'); ipt=0
@@ -100,7 +99,7 @@ for m,[x0,y0] in enumerate(txy):
 S=zdata(); S.time=[]; S.flux=[[] for i in txy]; S.tflux=[[[] for i in txy] for i in svars]
 for istack in stacks:
     if istack%nproc!=myrank: continue
-    t00=time.time(); C=read_schism_output(run,['zcor','hvel',*svars],c_[sx,sy],istack,nspool=nspool,grid=gd,fmt=1) #read profile
+    t00=time.time(); C=read_schism_output(run,['zcor','hvel',*svars],c_[sx,sy],istack,nspool=nspool,hgrid=gd,vgrid=vd,fmt=1) #read profile
     for m,npt in enumerate(nps): #for each transect
         sind=sinds[m]; angle=angles[m][:,None,None]; ds=dsa[m][:,None,None]
         dz=diff(C.zcor[sind],axis=2); dz=(dz[:-1]+dz[1:])/2; dz[dz<0]=0

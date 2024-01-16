@@ -1799,7 +1799,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
             kbp=array([nonzero(abs(i+1)<1e-10)[0][-1] for i in sigma])
 
         #thickness of water column
-        hw=dp+eta
+        hw=dp+eta; hw[hw<0]=0
 
         #add elevation
         zcor=hw[:,None]*sigma+eta[:,None]
@@ -2466,7 +2466,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,grid=None,fmt=0,extend=0,prj=None):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,extend=0,prj=None,zcor=0):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -2478,9 +2478,11 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
        sname:   (optional) variable name for save
        fname:   (optional) save the results as fname.npz
-       grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
+       hgrid:   (optional) hgrid=read_schism_hgrid('hgrid.gr3'); hgrid.compute_all(); used to speed up
+       vgrid:   (optional) vgrid=read_schism_vgrid('vgrid.in'); used to speed up
        extend:  (optional) 0: extend bottom value beyond;  1: assign nan for value beyond bottom
        prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
+       zcor:    (optional) 0: zcoordinate computed from elev;  1: read from outputs
     '''
 
     #get schism outputs information
@@ -2491,9 +2493,9 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if isinstance(sname,str): sname=[sname]
 
     #read grid
-    if grid is not None: gd=grid
-    if (grid is None) and os.path.exists(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
-    if (grid is None) and (not os.path.exists(run+'/grid.npz')): gd=read_schism_hgrid(run+'/hgrid.gr3')
+    fexist=os.path.exists; fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'
+    gd=hgrid if (hgrid is not None) else loadz(fgz,'hgrid') if fexist(fgz) else read_schism_hgrid(fgd)
+    if zcor==0: vd=vgrid if (vgrid is not None) else loadz(fgz,'vgrid') if fexist(fgz) else read_schism_vgrid(fvd)
 
     #read station coordinates (xyz)
     if isinstance(xyz,str): bp=read_schism_bpfile(xyz); xyz=c_[bp.x,bp.y,bp.z]
@@ -2510,14 +2512,14 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
     for istack in stacks:
         print('reading stack: {}'.format(istack))
-        if outfmt==0:
-           if fmt==0: Z0=ReadNC('{}/zCoordinates_{}.nc'.format(bdir,istack),1); Z=Z0.variables['zCoordinates']
-           C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1)
-        else:
-           C0=ReadNC('{}/schout_{}.nc'.format(bdir,istack),1); Z=C0.variables['zcor']
-        mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti)
+        C0=ReadNC('{}/{}_{}.nc'.format(bdir,'out2d' if outfmt==0 else 'schout',istack),1)
+        if fmt==0 and zcor==1: #open zcoordinates channel
+            if outfmt==0:
+              Z0=ReadNC('{}/zCoordinates_{}.nc'.format(bdir,istack),1); Z=Z0.variables['zCoordinates']
+            else:
+              Z=C0.variables['zcor']
+        mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti); ntime=len(mti); zii=None
         if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
-        zii=None
 
         for m,varnamei in enumerate(varname):
             vs=[]; svars=get_schism_var_info(varnamei,modules,fmt=outfmt) #get variable information
@@ -2531,7 +2533,13 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                 else: #3D
                     #read zcoor,and extend zcoor downward
                     if (zii is None) and fmt==0:
-                       if n==0: zii=(array([array(Z[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
+                       if n==0:
+                          if zcor==0:
+                             eta=array([C0['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel()
+                             sindp=tile(pip,[ntime,1,1]).ravel(); zii0=compute_zcor(vd.sigma[sindp],gd.dp[sindp],eta)
+                             zii=(zii0.reshape([ntime,3,npt,nvrt])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
+                          else:
+                             zii=(array([array(Z[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                        for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8]
                        if ifs==0: zii=zii-zii[-1][None,...]
 
@@ -2565,7 +2573,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                        if nd==4: vs.append(vii[...,0]); vs.append(vii[...,1])
             mdata[m].extend(array(vs).transpose([1,2,0])) if (fmt==0 or (svar in dvars_2d)) else mdata[m].extend(array(vs).transpose([2,3,1,0]))
         C0.close()
-        if fmt==0 and outfmt==0: Z0.close()
+        if fmt==0 and outfmt==0 and zcor==1: Z0.close()
 
     #save data
     if sname is None: sname=varname
