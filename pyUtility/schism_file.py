@@ -1715,7 +1715,7 @@ class schism_vgrid:
 
     def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None,ifix=0):
         '''
-        compute schism zcor (ivcor=1)
+        compute schism zcor (ivcor=1 and 2)
             dp:  depth at nodes (dim=[np] or [1])
             eta: surface elevation (dim=[np] or [1])
             fmt: output format of zcor
@@ -1777,7 +1777,7 @@ def read_schism_vgrid(fname):
 
 def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
     '''
-    compute schism zcor (ivcor=1)
+    compute schism zcor (ivcor=1 and 2)
         sigma: sigma cooridinate (dim=[np,nvrt])
         dp: depth at nodes (dim=[np] or [1])
         eta: surface elevation (dim=[np] or [1])
@@ -1787,6 +1787,10 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
         kbp: index of bottom layer (not necessary, just to speed up if provided for ivcor=1)
         method=1 and ivcor=2: return zcor and kbp
         ifix=1 and ivcor=2: using traditional sigma in shallow if error raise
+
+    usage:
+      for ivcor=1: compute_zcor(sigma,dp,eta)
+      for ivcor=2: compute_zcor(sigma,dp,eta,vd=vd,ivcor=2)
     '''
 
     if ivcor==1:
@@ -1811,53 +1815,36 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
                 zcor[i,:kbp[i]]=nan
         return zcor
     elif ivcor==2:
-        #get dimension of pts
-        if not hasattr(dp,'__len__'):
-            np=1; dp=array([dp])
-        else:
-            np=len(dp)
-        if not hasattr(eta,'__len__'): eta=ones(np)*eta
-        zcor=ones([vd.nvrt,np])*nan
+        #arange data
+        np,dp=[1,array([dp])] if not hasattr(dp,'__len__') else [len(dp),dp]
+        eta=ones(np)*eta if not hasattr(eta,'__len__') else eta
 
-        cs=(1-vd.theta_b)*sinh(vd.theta_f*vd.sigma)/sinh(vd.theta_f)+ \
-            vd.theta_b*(tanh(vd.theta_f*(vd.sigma+0.5))-tanh(vd.theta_f*0.5))/2/tanh(vd.theta_f*0.5)
-        #for sigma layer: depth<=h_c
-        hmod=dp.copy(); fp=hmod>vd.h_s; hmod[fp]=vd.h_s
-        fps=hmod<=vd.h_c
-        zcor[(vd.kz-1):,fps]=vd.sigma[:,None]*(hmod[fps][None,:]+eta[fps][None,:])+eta[fps][None,:]
+        #sz parameter
+        nvrt,sigma,theta_b,theta_f,h_c,h_s,kz,ztot=vd.nvrt,vd.sigma,vd.theta_b,vd.theta_f,vd.h_c,vd.h_s,vd.kz,vd.ztot
+        cs=(1-theta_b)*sinh(theta_f*sigma)/sinh(theta_f)+ theta_b*(tanh(theta_f*(sigma+0.5))-tanh(theta_f*0.5))/2/tanh(theta_f*0.5)
 
-        #depth>h_c
-        fpc=eta<=(-vd.h_c-(hmod-vd.h_c)*vd.theta_f/sinh(vd.theta_f))
-        if sum(fpc)>0:
-            if ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(vd.h_c))
-            if ifix==1: zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]+(eta[~fps][None,:]+hmod[~fps][None,:])*vd.sigma[:,None]
-        else:
-            zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]*(1+vd.sigma[:,None])+vd.h_c*vd.sigma[:,None]+cs[:,None]*(hmod[~fps]-vd.h_c)
+        #for sigma layer
+        zcor=zeros([nvrt,np]); hmod=dp.copy(); hmod[hmod>h_s]=h_s
+        for k in arange(kz-1,nvrt):
+            kin=k-kz+1
+            #hmod<=h_c
+            fps=hmod<=h_c; htot=hmod[fps]+eta[fps]; htot[htot<0]=0
+            zcor[k,fps]=sigma[kin]*(htot)+eta[fps]
+
+            #hmod>h_c
+            sindc=nonzero(~fps)[0]; fpc=eta[sindc]<=(-h_c-(hmod[sindc]-h_c)*theta_f/sinh(theta_f)); sindf=sindc[fpc]; sinds=sindc[~fpc]
+            if sum(fpc)>0 and ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(h_c))
+            if sum(fpc)>0 and ifix==1: zcor[k:,sindf]=(eta[sindf]+hmod[sindf])*sigma[kin]+eta[sindf]
+            zcor[k,sinds]=eta[sinds]*(1+sigma[kin])+h_c*sigma[kin]+cs[kin]*(hmod[sinds]-h_c)
+        zcor[:(kz-1),:]=nan if fmt==1 else zcor[kz-1,:][None,:] #extend
 
         #for z layer
-        kbp=-ones(np).astype('int'); kbp[dp<=vd.h_s]=vd.kz-1
-        fpz=dp>vd.h_s; sind=nonzero(fpz)[0]
-        for i in sind:
-            for k in arange(0,vd.kz-1):
-                if (-dp[i]>=vd.ztot[k])*(-dp[i]<=vd.ztot[k+1]):
-                    kbp[i]=k;
-                    break
-            #check
-            if kbp[i]==-1:
-                sys.exit('can not find a bottom level for node')
-            elif kbp[i]<0 or kbp[i]>=(vd.kz-1):
-                sys.exit('impossible kbp,kz: {}, {}'.format(kbp[i],vd.kz))
-
-            #assign values
-            zcor[kbp[i],i]=-dp[i]
-            for k in arange(kbp[i]+1,vd.kz-1):
-                zcor[k,i]=vd.ztot[k]
+        kbp=zeros(np).astype('int'); fp=dp>h_s; sind=nonzero(fp)[0]; kbp[~fp]=kz-1
+        for k in arange(kz-1):
+            fpz=(-dp[sind]>=ztot[k])*(-dp[sind]<ztot[k+1]); sindz=sind[fpz]; kbp[sindz]=k
+            zcor[:(k+1),sindz]=-dp[sindz][None,:]; zcor[(k+1):(kz-1),sindz]=ztot[(k+1):(kz-1),None]
+            if fmt==1: zcor[:k,sindz]=nan
         zcor=zcor.T; vd.kbp=kbp
-
-        #change format
-        if fmt==0:
-            for i in arange(np):
-                zcor[i,:kbp[i]]=zcor[i,kbp[i]]
         if method==0: return zcor
         if method==1: return [zcor,kbp]
 
@@ -2535,8 +2522,8 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     if (zii is None) and fmt==0:
                        if n==0:
                           if zcor==0:
-                             eta=array([C0['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel()
-                             sindp=tile(pip,[ntime,1,1]).ravel(); zii0=compute_zcor(vd.sigma[sindp],gd.dp[sindp],eta)
+                             eta=array([C0['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel(); sindp=tile(pip,[ntime,1,1]).ravel()
+                             sigma=vd.sigma[sindp] if vd.ivcor==1 else 0; zii0=compute_zcor(sigma,gd.dp[sindp],eta,ivcor=vd.ivcor,vd=vd)
                              zii=(zii0.reshape([ntime,3,npt,nvrt])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                           else:
                              zii=(array([array(Z[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
