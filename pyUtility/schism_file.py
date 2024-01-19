@@ -2179,6 +2179,33 @@ def grd2sms(grd,sms):
     #save grid save *2dm format
     gd.grd2sms(sms)
 
+def zcor_to_schism_grid(zcor,x=None,value=None):
+    '''
+    convert z-coordinate transect to a schism grid
+    Inputs:
+        zcor[npt,nvrt]: z-coordinates for each points
+        x[npt]: distances of each pionts from starting point
+        value[npt,nvrt]: value assicated for each point @(x,y)
+    '''
+
+    #get x,y,z
+    ys=zcor.T; nvrt,npt=ys.shape
+    xs=tile(arange(npt) if x is None else x,[nvrt,1]).astype('float')
+    vs=zeros([nvrt,npt]) if value is None else value.T
+
+    #create schism grid
+    gd=schism_grid(); ip=arange(ys.size).reshape([nvrt,npt]);  #original point index
+    for k in arange(nvrt-1)[::-1]: fp=ys[k]==ys[k+1]; ip[k,fp]=ip[k+1,fp]  #remove repeated points
+    elnode=array([ip[:-1,:-1],ip[:-1,1:],ip[1:,1:],ip[1:,:-1]]).reshape([4,(nvrt-1)*(npt-1)]).T #all quads
+    y=ys.ravel()[elnode]; fp=(y[:,0]==y[:,3])*(y[:,1]==y[:,2]); elnode=elnode[~fp]; p=elnode #valid quads
+    sindp,sindv=unique(elnode,return_inverse=True) #get unique points
+    gd.x,gd.y,gd.dp=xs.ravel()[sindp],ys.ravel()[sindp],vs.ravel()[sindp]
+    elnode=arange(sindp.size)[sindv].reshape(elnode.shape) #renumber node index
+    p=elnode; p[p[:,3]==p[:,0],3]=-2; p[p[:,2]==p[:,1],2]=-2; fp=p[:,2]==-2; p[fp]=p[fp][:,array([3,0,1,2])] #for triangle
+    gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
+
+    return gd
+
 def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None):
     '''
     create schism grid from scatter pts
