@@ -331,20 +331,13 @@ class schism_grid:
         '''
         if not hasattr(self,'xctr'):
            fp3=self.i34==3; fp4=~fp3; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
-           self.xctr[fp3]=self.x[self.elnode[fp3,:3]].mean(axis=1)
-           self.xctr[fp4]=self.x[self.elnode[fp4,:]].mean(axis=1)
-           self.yctr[fp3]=self.y[self.elnode[fp3,:3]].mean(axis=1)
-           self.yctr[fp4]=self.y[self.elnode[fp4,:]].mean(axis=1)
-           self.dpe[fp3]=self.dp[self.elnode[fp3,:3]].mean(axis=1)
-           self.dpe[fp4]=self.dp[self.elnode[fp4,:]].mean(axis=1)
+           self.xctr[fp3],self.yctr[fp3],self.dpe[fp3]=c_[self.x,self.y,self.dp][self.elnode[fp3,:3]].mean(axis=1).T
+           self.xctr[fp4],self.yctr[fp4],self.dpe[fp4]=c_[self.x,self.y,self.dp][self.elnode[fp4]].mean(axis=1).T
         return self.dpe
 
     def compute_area(self):
-        fp=self.elnode[:,-1]<0;
-        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]];
-        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]];
-        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]];
-        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; x4[fp]=x1[fp]; y4[fp]=y1[fp]
+        x1,x2,x3,x4=self.x[self.elnode].T; y1,y2,y3,y4=self.y[self.elnode].T
+        fp=self.elnode[:,-1]<0; x4[fp]=x1[fp]; y4[fp]=y1[fp]
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
@@ -372,14 +365,9 @@ class schism_grid:
         if len(v0)==self.ne: v0=self.interp_elem_to_node(value=v0)
 
         #get pts
-        fp=self.elnode[:,-1]<0; fpn=~fp;
-        x1=x[self.elnode[:,0]]; y1=y[self.elnode[:,0]]; v1=v0[self.elnode[:,0]]
-        x2=x[self.elnode[:,1]]; y2=y[self.elnode[:,1]]; v2=v0[self.elnode[:,1]]
-        x3=x[self.elnode[:,2]]; y3=y[self.elnode[:,2]]; v3=v0[self.elnode[:,2]]
-        x4=x[self.elnode[:,3]]; y4=y[self.elnode[:,3]]; v4=v0[self.elnode[:,3]]
-        x4[fp]=x1[fp]; y4[fp]=y1[fp]; v4[fp]=v1[fp]
-        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
-        a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
+        x1,x2,x3,x4=x[self.elnode].T; y1,y2,y3,y4=y[self.elnode].T; v1,v2,v3,v4=v0[self.elnode].T
+        fp=self.elnode[:,-1]<0; fpn=~fp; x4[fp],y4[fp],v4[fp]=x1[fp],y1[fp],v1[fp]
+        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
 
         #compute gradients
         dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
