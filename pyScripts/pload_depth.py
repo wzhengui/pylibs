@@ -28,20 +28,14 @@ sdir=r'/sciclone/data10/wangzg/DEM/npz'  #directory of DEM data
 reverse_sign=1  #invert depth sign
 
 #resource requst 
-walltime='00:10:00'
-qnode='x5672'; nnode=8; ppn=4       #hurricane, ppn=8
-#qnode='bora'; nnode=2; ppn=20      #bora, ppn=20
-#qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-#qnode='femto'; nnode=2; ppn=12     #femto,ppn=32
-#qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
-#qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-#qnode='levante'; nnode=1; ppn=36   #levante, ppn=128
-#qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
+walltime='00:10:00'; nnode=1;  ppn=4
+#hpc: femto, hurricane, bora, vortex, potomac, james, frontera, levante, stampede2
+#ppn:   32,       8,     8,    12,       12,     20,     56,      128,      48
 
-#additional information:  frontera,levante,stampede2
-qname='flex'                        #partition name
-account='TG-OCE140024'              #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
+#optional: (frontera,levante,stampede2)
+qname   ='compute'         #partition name
+account ='TG-OCE140024'    #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028 
+qnode   =None              #specify node name, or default qnode based on HOST will be used
 
 jname='load_dem' #job name
 ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
@@ -50,7 +44,7 @@ ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('job_on_node')==None:
-   if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]
+   if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]; os.environ['qnode']=get_qnode(qnode)
    if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
    scode=get_hpc_command(bcode,bdir,jname,qnode,nnode,ppn,walltime,scrout,fmt=fmt,qname=qname,account=account)
    print(scode); os.system(scode); os._exit(0)

@@ -266,8 +266,23 @@ def read_yaml(fname):
 
     return param
 
-def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='01:00:00',
-                    scrout='screen.out',fmt=0,ename='param',qname='flex',account='gg0028',mem='4G'):
+def get_qnode(qnode=None):
+    '''
+    return hpc node name based on system's environment variable $HOST
+    '''
+    if qnode is not None: return qnode  #used other node names
+
+    host=os.getenv('HOST')
+    if host is None: sys.exit('set HOST environment variable HOST')
+    if host in ['femto.sciclone.wm.edu','viz']: qnode='femto'
+    if host in ['hurricane.sciclone.wm.edu']: qnode='x5672'
+    if host in ['bora.sciclone.wm.edu']: qnode='bora'
+    if host in ['vortex.sciclone.wm.edu']: qnode='vortex'
+    if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
+    return qnode
+
+def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',
+                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,mem='4G'):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -279,8 +294,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        mem: meomory; needed on cluster grace
        fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
     '''
-
-    nproc=nnode*ppn
+  
+    qnode0=qnode; qnode=os.getenv('qnode') if qnode is None else qnode; nproc=nnode*ppn
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code))
        #for submit jobs
@@ -297,7 +312,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode='x5672',nnode=1,ppn=1,wtime='
        elif qnode in ['stampede2',]:
           scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
-          scmd='qsub {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
+          scmd='qsub {} {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,'-V' if qnode0 is None else '', ename,bdir,code,jname,nnode,qnode,ppn,wtime)
           if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
        elif qnode in ['eagle','deception']:
           scmd='sbatch --export=ALL -A {} -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(account,jname,qname,nnode,ppn,wtime,code)
