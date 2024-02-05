@@ -2661,7 +2661,11 @@ def get_schism_output_info(run,fmt=0):
     Outputs:
         fmt=0/1: [modules,outfmt,stacks,svars,svars_2d]
         fmt=2: information about domain-decomposition
+        fmt=3: gather run information
+        fmt=4: return reconstructed SCHISM hgrid
+        (Note: fmt=3/4 works for new schism outputs)
     '''
+    from glob import glob
 
     if fmt in [0,1]:
        #default variables to be excluded
@@ -2680,11 +2684,11 @@ def get_schism_output_info(run,fmt=0):
 
        #get additional SCHISM variables
        if outfmt==0:
-          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('out2d_') and i.endswith('.nc'))])
+          stacks=unique([int(i[:-3].split('_')[-1]) for i in glob(run+'/out2d_*.nc')])
           C=ReadNC(run+'/out2d_{}.nc'.format(stacks[0]),1); svars_2d=setdiff1d(array([*C.variables]),dvars); C.close()
           svars=setdiff1d(r_[ovars,svars_2d],dvars)
        else:
-          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('.nc'))])
+          stacks=unique([int(i[:-3].split('_')[-1]) for i in glob(run+'/schout_*.nc')])
           fname=[i for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('_{}.nc'.format(stacks[0])))][0]
           C=ReadNC(run+'/{}'.format(fname),1); svars=setdiff1d(array([*C.variables]),dvars)
           svars_2d=array([i for i in svars if C.variables[i].ndim==2]); C.close()
@@ -2693,7 +2697,7 @@ def get_schism_output_info(run,fmt=0):
        M=get_schism_var_info(fmt=outfmt).__dict__
        modules=array([k for k in M if len(intersect1d([*M[k].values()],svars))!=0])
        return [modules,outfmt,stacks,svars,svars_2d]
-    else:
+    elif fmt==2:
        nes=[]; nps=[]; nss=[]; ies=[]; ips=[]; iss=[]
        nsg,neg,npg,nvrt,nproc,ntr=[int(i) for i in open(run+'/local_to_global_000000','r').readline().split()[:6]]
        for n in arange(nproc):
@@ -2706,6 +2710,19 @@ def get_schism_output_info(run,fmt=0):
        S=zdata(); S.nsg,S.neg,S.npg,S.nvrt,S.nproc,S.ntr=nsg,neg,npg,nvrt,nproc,ntr
        S.nes,S.nps,S.nss,S.ies,S.ips,S.iss=array(nes),array(nps),array(nss),ies,ips,iss
        return S
+    elif fmt==3:
+       fns=array(glob(run+'/out2d_*.nc')); ifs=array([int(i.replace('_','.').split('.')[-2]) for i in fns]); idx=argsort(ifs); ifs,fns=ifs[idx],fns[idx] #files
+       f=ReadNC(fns[0],1); v=f.variables['time']; StartT=datenum(*[int(i.split('.')[0]) for i in v.base_date.split()]); dt=(v[1]-v[0])/86400; ns=len(v); f.close() #StartT
+       mis=array([arange(ns)+(i-1)*ns for i in ifs]).ravel(); mts=dt*mis+StartT; EndT=mts[-1] #time
+       irec=mod(mis,ns); istack=array([tile(i,ns) for i in ifs]).ravel(); f=ReadNC(fns[-1],1); nm=len(f.variables['time'])-ns; f.close() #stack and record
+       if nm!=0: mts,istack,irec=mts[:nm],istack[:nm],irec[:nm]
+       S=zdata(); S.outdir,S.StartT, S.EndT, S.dt, S.nrec, S.ifs, S.fns, S.istack, S.irec, S.mts=run,StartT,EndT,dt,ns,ifs,fns,istack,irec,mts
+       return S
+    elif fmt==4:
+       sinfo=get_schism_output_info(run,3); f=ReadNC(sinfo.fns[0],1); cvar=f.variables; gd=schism_grid()
+       gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth']); gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1
+       gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.elnode[(gd.elnode<0)|(abs(gd.elnode)>1e8)]=-2; gd.i34=sum(gd.elnode!=-2,axis=1); gd.ns=cvar['SCHISM_hgrid_edge_x'].size; f.close()
+       return gd
 
 def get_schism_var_info(svar=None,modules=None,fmt=0):
     '''
@@ -3189,8 +3206,7 @@ class schism_view:
            vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
            if gd==None: #create hgrid
               if cvar==None: return
-              gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
-              gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1); gd.ns=cvar['SCHISM_hgrid_edge_x'].size
+              gd=get_schism_output_info(self.outputs,4)
            self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
