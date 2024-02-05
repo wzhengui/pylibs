@@ -274,15 +274,16 @@ class schism_grid:
 
     def interp_node_to_elem(self,value=None):
         '''
-        interpolate node values to element values
+        interpolate node values to element values (works for multi-dimensional data)
             default is self.dp => self.dpe
         '''
         #interpolate
         dp=self.dp if (value is None) else value
-        fp3=self.i34==3; fp4=~fp3; dpe=zeros(self.ne)
-        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1)
-        dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
-        return dpe
+        dms=[*dp.shape]; ip=dms.index(self.np); idm=arange(len(dms)); dms[ip]=self.ne
+        if len(dms)>1:  idm[0],idm[ip]=ip,0; dms[0],dms[ip]=dms[ip],dms[0] #put dim=np 1st for multi-dimensional data
+        fp3=self.i34==3; fp4=~fp3; dp=dp.transpose(idm); dpe=zeros(dms)
+        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1); dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
+        return dpe.transpose(idm)
 
     def interp_elem_to_node(self,value=None,fmt=0,p=1):
         '''
