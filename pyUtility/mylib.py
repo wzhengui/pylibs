@@ -1980,6 +1980,46 @@ def get_stat(xi_model,xi_obs,fmt=0):
     S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R]) if (npt>=3 and std2!=0) else [0,0,0]
     return S
 
+def interp_vertical(data,zs,zcor):
+    '''
+    interpolate data in the vertical dimension; works for multi-dimensional.
+    format:
+      data([nz0,...], or [nz0, npt,...]): data to be interpolated
+      zs  ([nz0],     or [nz0, npt]):  z-coordiantes of data. remaining dimesnions are automatically expanded
+      zcor([nz], or [nz,npt]): target z-coordiantes.  remaining dimesnions are automatically expanded
+
+      Note: nz0 and nz are number of vertical layers, npt can be number of horizontal locations
+    '''
+
+    #collect dimension info
+    vs=data; ds=vs.shape; ndim=vs.ndim; npt=ds[1]; nz0=len(zs); nz=len(zcor); sdata=zeros([nz,*ds[1:]])*nan
+    def expand(edata,efmt=0): #expand the data to be the shape of sdata
+        if efmt==0:
+           return tile(edata,[*ds[2:],1,1]).transpose([ndim-2,ndim-1,*arange(ndim-2)])
+        elif efmt==1:
+           return tile(edata,[nz,*[1,]*(ndim-1)])
+
+    #check zcor order and dimension
+    dz=array(zs[0]-zs[-1]); invert=0
+    if dz.min()*dz.max()<0: sys.exit('zcor should be either decreasing or increasing for all pts')
+    if dz.max()>0: data=data[::-1]; zs=zs[::-1]; invert=1
+    if zs.ndim==1:   zs=tile(zs,[npt,1]).T
+    if zcor.ndim==1: zcor=tile(zcor,[npt,1]).T
+
+    #extend suface and bottom beyond
+    fp=expand(zcor<=zs[0][None,:]);  sdata[fp]=expand(vs[0],1)[fp]
+    fp=expand(zcor>=zs[-1][None,:]); sdata[fp]=expand(vs[-1],1)[fp]
+
+    #interp in the middle
+    for k in arange(nz0-1):
+        z1,z2=zs[k],zs[k+1]; v1,v2=vs[k],vs[k+1]; dz=z2-z1; fpz=dz==0; dz[fpz]=1 #exclude z1=z2
+        if sum(~fpz)==0: continue
+        rat=(zcor-z1[None,:])/dz[None,:]; fp=(rat>=0)*(rat<=1); fp[:,fpz]=False; rat[:,fpz]=0
+        if sum(fp)==0: continue
+        fp=expand(fp); rat=expand(rat); sdata[fp]=((1-rat)*expand(vs[k],1)+rat*expand(vs[k+1],1))[fp]
+
+    return sdata
+
 def read_shapefile_data(fname):
     '''
     read shapefile (*.shp) and return its content
