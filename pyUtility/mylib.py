@@ -1992,12 +1992,7 @@ def interp_vertical(data,zs,zcor):
     '''
 
     #collect dimension info
-    vs=data; ds=vs.shape; ndim=vs.ndim; npt=ds[1]; nz0=len(zs); nz=len(zcor); sdata=zeros([nz,*ds[1:]])*nan
-    def expand(edata,efmt=0): #expand the data to be the shape of sdata
-        if efmt==0:
-           return tile(edata,[*ds[2:],1,1]).transpose([ndim-2,ndim-1,*arange(ndim-2)])
-        elif efmt==1:
-           return tile(edata,[nz,*[1,]*(ndim-1)])
+    vs=data; ds=vs.shape; ndim=vs.ndim; npt=ds[1]; nz0=len(zs); nz=len(zcor)
 
     #check zcor order and dimension
     dz=array(zs[0]-zs[-1]); invert=0
@@ -2007,17 +2002,20 @@ def interp_vertical(data,zs,zcor):
     if zcor.ndim==1: zcor=tile(zcor,[npt,1]).T
 
     #extend suface and bottom beyond
-    fp=expand(zcor<=zs[0][None,:]);  sdata[fp]=expand(vs[0],1)[fp]
-    fp=expand(zcor>=zs[-1][None,:]); sdata[fp]=expand(vs[-1],1)[fp]
+    def expand(f): #expand data dimension
+        for i in arange(ndim-2): f=expand_dims(f,axis=-1)
+        return f
+    sdata=zeros([nz,*ds[1:]])*nan; sfp=ones(sdata.shape)==1
+    fp=zcor<=zs[0][None,:]; efp=expand(fp); afp=sfp*efp; sdata[afp]=(vs[0][None,...]*efp)[afp]
+    fp=zcor>=zs[0][None,:]; efp=expand(fp); afp=sfp*efp; sdata[afp]=(vs[0][None,...]*efp)[afp]
 
     #interp in the middle
     for k in arange(nz0-1):
-        z1,z2=zs[k],zs[k+1]; v1,v2=vs[k],vs[k+1]; dz=z2-z1; fpz=dz==0; dz[fpz]=1 #exclude z1=z2
+        z1,z2=zs[k],zs[k+1]; dz=z2-z1; fpz=dz==0; dz[fpz]=1 #exclude z1=z2
         if sum(~fpz)==0: continue
         rat=(zcor-z1[None,:])/dz[None,:]; fp=(rat>=0)*(rat<=1); fp[:,fpz]=False; rat[:,fpz]=0
         if sum(fp)==0: continue
-        fp=expand(fp); rat=expand(rat); sdata[fp]=((1-rat)*expand(vs[k],1)+rat*expand(vs[k+1],1))[fp]
-
+        efp=expand(fp); erat=expand(rat); afp=efp*sfp; sdata[afp]=((1-erat)*vs[k][None,...]+erat*vs[k+1][None,...])[afp]
     return sdata
 
 def read_shapefile_data(fname):
