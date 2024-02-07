@@ -2552,25 +2552,17 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     if np==gd.np and nd==3: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                     if np==gd.np and nd==4: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None,None]).sum(axis=1).transpose([2,0,1,3])
                     if np==gd.ne: vii=array([C[i][pie] for i in arange(0,nt,nspool)]).transpose([2,0,1])
-                    if np==gd.ns: _sindex(); vii=array([[(sum(array(C[i,P.ins.ravel(),k]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for k in arange(nvrt)] for i in arange(0,nt,nspool)]).transpose([1,0,2])
+                    if np==gd.ns: _sindex(); vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in arange(0,nt,nspool)]).transose([2,0,1])
                     if extend==0:
-                       for k in arange(nvrt-1): z1=vii[nvrt-k-2]; z2=vii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8] #extend value at bottom
+                       for k in arange(nvrt-1)[::-1]: z1=vii[k]; z2=vii[k+1]; fpn=abs(z1)>1e8; z1[fpn]=z2[fpn] #extend value at bottom
                     else:
                        fpn=abs(vii)>1e8; vii[fpn]=nan
                     if outfmt==0: C1.close()
 
                     #interp in the vertical
                     if fmt==0: #time series
-                       for ivs in arange(2):
-                           if ivs==1 and nd==3: continue
-                           viii=vii if nd==3 else vii[:,:,:,ivs]
-                           vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
-                           ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
-                           ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
-                           for k in arange(nvrt-1):
-                               z1=zii[k]; z2=zii[k+1]; v1=viii[k]; v2=viii[k+1]; fpz=(zm>z1)*(zm<=z2)
-                               if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-                           vs.append(vi)
+                       vs=interp_vertical(vii,zii,-lz[None,None,:])
+                       if nd==4: vs=vs[0].transpose([2,0,1])
                     else: #transect
                        if nd==3: vs.append(vii)
                        if nd==4: vs.append(vii[...,0]); vs.append(vii[...,1])
