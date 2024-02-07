@@ -1980,43 +1980,40 @@ def get_stat(xi_model,xi_obs,fmt=0):
     S.taylor=array([sqrt(mean((x1-x1.mean())**2))/S.std2,sqrt(((x1-x1.mean()-x2+x2.mean())**2).mean())/S.std2,S.R]) if (npt>=3 and std2!=0) else [0,0,0]
     return S
 
-def interp_vertical(data,zs,zcor):
+def interp_vertical(data0,zcor0,zcor):
     '''
-    interpolate data in the vertical dimension; works for multi-dimensional.
+    interpolate data in the vertical dimension; works for multi-dimensional data.
     format:
-      data([nz0,...], or [nz0, npt,...]): data to be interpolated
-      zs  ([nz0],     or [nz0, npt]):  z-coordiantes of data. remaining dimesnions are automatically expanded
-      zcor([nz], or [nz,npt]): target z-coordiantes.  remaining dimesnions are automatically expanded
+      data0([nz0,...]: can be mutli-dimensional, but the 1st dim must be vertical
+      zcor0[nz0,...]:    z-coordiantes of data; it can have fewer dimenions of data
+      zcor[nz,...]:   target z-coordiantes.
+    where nz0 and nz are number of vertical layers
 
-      Note: nz0 and nz are number of vertical layers, npt can be number of horizontal locations
+    Note: zs and zcor can have different number of dimensions, can be different from data.
+          However, their dimensions should be consistent with data if ndim>1.
     '''
 
     #collect dimension info
-    vs=data; ds=vs.shape; ndim=vs.ndim; npt=ds[1]; nz0=len(zs); nz=len(zcor)
+    v0=data0; z0=zcor0; z=zcor; nz0=len(z0); nz=len(z); ds=[nz,*v0.shape[1:]]; ndim=v0.ndim
 
     #check zcor order and dimension
-    dz=array(zs[0]-zs[-1]); invert=0
+    dz=array(z0[0]-z0[-1])
     if dz.min()*dz.max()<0: sys.exit('zcor should be either decreasing or increasing for all pts')
-    if dz.max()>0: data=data[::-1]; zs=zs[::-1]; invert=1
-    if zs.ndim==1:   zs=tile(zs,[npt,1]).T
-    if zcor.ndim==1: zcor=tile(zcor,[npt,1]).T
+    if dz.max()>0: v0=v0[::-1]; z0=z0[::-1]
 
-    #extend suface and bottom beyond
-    def expand(f): #expand data dimension
-        for i in arange(ndim-2): f=expand_dims(f,axis=-1)
-        return f
-    sdata=zeros([nz,*ds[1:]])*nan; sfp=ones(sdata.shape)==1
-    fp=zcor<=zs[0][None,:]; efp=expand(fp); afp=sfp*efp; sdata[afp]=(vs[0][None,...]*efp)[afp]
-    fp=zcor>=zs[0][None,:]; efp=expand(fp); afp=sfp*efp; sdata[afp]=(vs[0][None,...]*efp)[afp]
-
-    #interp in the middle
+    #interpolate in the vertical
+    v=zeros(ds)*nan; sfp=ones(ds)==1
+    for i in arange(ndim-z0.ndim): z0=z0[...,None] #z0=expand_dims(z0,axis=-1) expand z dims
+    for i in arange(ndim-z.ndim):  z=z[...,None]   #z=expand_dims(z,axis=-1)
+    fp=z<=z0[0][None,...];  afp=sfp*fp; v[afp]=(v0[0][None,...]*sfp)[afp]  #extend bottom
+    fp=z>=z0[-1][None,...]; afp=sfp*fp; v[afp]=(v0[-1][None,...]*sfp)[afp] #extend surface
     for k in arange(nz0-1):
-        z1,z2=zs[k],zs[k+1]; dz=z2-z1; fpz=dz==0; dz[fpz]=1 #exclude z1=z2
+        z1,z2=z0[k][None,...],z0[k+1][None,...]; dz=z2-z1; fpz=dz==0; dz[fpz]=1 #exclude z1=z2
         if sum(~fpz)==0: continue
-        rat=(zcor-z1[None,:])/dz[None,:]; fp=(rat>=0)*(rat<=1); fp[:,fpz]=False; rat[:,fpz]=0
+        rat=(z-z1)/dz; fp=(rat>=0)*(rat<=1); fp=fp*(~fpz)
         if sum(fp)==0: continue
-        efp=expand(fp); erat=expand(rat); afp=efp*sfp; sdata[afp]=((1-erat)*vs[k][None,...]+erat*vs[k+1][None,...])[afp]
-    return sdata
+        afp=fp*sfp; v[afp]=((1-rat)*v0[k][None,...]+rat*v0[k+1][None,...])[afp]
+    return v
 
 def read_shapefile_data(fname):
     '''
