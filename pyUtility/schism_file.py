@@ -1385,16 +1385,11 @@ class schism_bpfile:
             if self.nsta==0: return
             fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
             data=array([fc(line) for line in lines[2:(2+self.nsta)]])
-
-            self.x=data[:,1].astype(float)
-            self.y=data[:,2].astype(float)
-            self.z=data[:,3].astype(float)
+            self.x,self.y,self.z=data[:,1:4].T.astype(float)
         elif fmt==1:
             self.nsta=int(lines[2][0])
             if self.nsta==0: return
-            data=squeeze(array([lines[3:]])).astype('float')
-            self.x=data[:,0]
-            self.y=data[:,1]
+            self.x,self.y=squeeze(array([lines[3:]])).astype('float').T
             self.z=zeros(self.nsta)
         else:
             sys.exit('unknow format')
@@ -1481,10 +1476,11 @@ class schism_bpfile:
         '''
         check whether pts c_[x,y] are inside the polygon of bp points.
         fmt=0: return indices of pts inside; fmt=1: return boolean flag
+        fmt=2: return indices of pts outside region; fmt=3: return boolean flag outside
         '''
 
         fp=inside_polygon(xy,self.x,self.y)==1
-        return nonzero(fp)[0] if fmt==0 else fp
+        return nonzero(fp)[0] if fmt==0 else fp if fmt==1 else nonzero(~fp)[0] if fmt==2 else ~fp
 
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
@@ -2210,6 +2206,18 @@ def zcor_to_schism_grid(zcor,x=None,value=None):
     gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
 
     return gd
+
+def compute_schism_volume(hgrid,vgrid,**args):
+    '''
+    compute schism cell volumes. It needs inputs hgrid and vgrid, and use vgrid's function to compute
+    the veritical cooridantes, and the following arguments can be used.
+       vd.compute_zcor(dp, eta=0, fmt=0, method=0, sigma=None, kbp=None, ifix=0)
+    '''
+    gd=hgrid; vd=vgrid; fp3=gd.i34==3; fp4=gd.i34==4
+    zcor=vd.compute_zcor(gd.dp,**args);  ze=zeros([gd.ne,vd.nvrt])
+    ze[fp3]=zcor[gd.elnode[fp3,:3]].mean(axis=1); ze[fp4]=zcor[gd.elnode[fp4]].mean(axis=1)
+    v=(ze[:,1:]-ze[:,:-1])*gd.area[:,None]
+    return v
 
 def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None):
     '''
