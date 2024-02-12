@@ -711,6 +711,19 @@ class schism_grid:
            kb=kbp[self.isidenode].max(axis=1)
         return kb
 
+    def compute_angle(self):
+        '''
+        compute internal angles
+        '''
+        ie=arange(self.ne); angles=[]
+        for i in arange(4):
+            i1=(i-1)%self.i34; i2=i%self.i34; i3=(i+1)%self.i34
+            id=self.elnode[ie[:,None],c_[i1,i2,i3]]; x1,x2,x3=self.x[id].T; y1,y2,y3=self.y[id].T
+            a1=angle((x1-x2)+1j*(y1-y2)); a2=angle((x3-x2)+1j*(y3-y2))
+            fp=a1<a2; a1[fp]=a1[fp]+2*pi; angles.append((a1-a2)*180/pi)
+        self.angles=array(angles).T
+        return self.angles
+
     def interp(self,pxy,value=None,fmt=0):
         '''
         interpolate to get value at pxy
@@ -2236,9 +2249,10 @@ def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_m
     z=xyz[:,2] if xyz.shape[1]>=3 else zeros(np)
 
     #triangulate scatter
-    tr=mpl.tri.Triangulation(x,y); gd=schism_grid()
-    gd.np,gd.ne=np,len(tr.triangles); gd.x,gd.y,gd.dp=x,y,z
-    gd.elnode=c_[tr.triangles,-2*ones([gd.ne,1])].astype('int'); gd.i34=3*ones(gd.ne).astype('int')
+    gd=schism_grid(); gd.x,gd.y,gd.dp=x,y,z; gd.np=len(gd.x)
+    #tr=sp.spatial.Delaunay(c_[x,y]); gd.elnode=tr.simplices #method 1
+    tr=mpl.tri.Triangulation(x,y); gd.elnode=unique(tr.triangles,axis=0) #method 2
+    gd.ne=len(gd.elnode); gd.elnode=resize(gd.elnode,[gd.ne,4],-2); gd.i34=tile(3,gd.ne)
 
     #clean mesh
     gd=delete_schism_grid_element(gd,angle_min=angle_min,area_max=area_max,side_min=side_min,side_max=side_max,reg_in=reg_in,reg_out=reg_out)
