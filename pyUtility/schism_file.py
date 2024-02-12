@@ -738,7 +738,7 @@ class schism_grid:
         ibn=self.bndinfo.ibn[0]; reg_out=c_[self.x[ibn],self.y[ibn]]
 
         if fmt==0:
-           if not hasattr(self,'dpe'): self.compute_bnd()
+           if not hasattr(self,'dpe'): self.compute_ctr()
            gdn=scatter_to_schism_grid(c_[self.xctr,self.yctr,self.dpe],reg_out=reg_out)
         elif fmt==1:
            if not hasattr(self,'dps'): self.compute_side(fmt=2)
@@ -2302,7 +2302,7 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
         sind=sort(r_[sind,array(sinde)])
 
     #delete elements
-    gd.ne,gd.i34,gd.elnode=len(sind),gd.i34[sind],gd.elnode[sind]
+    gd.ne,gd.i34,gd.elnode=len(sind),gd.i34[sind],gd.elnode[sind]; gd.compute_nne()
     gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
     return gd
 
