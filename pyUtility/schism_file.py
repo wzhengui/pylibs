@@ -1048,31 +1048,17 @@ class schism_grid:
         if threshold is None and angle_min is None: threshold=30
         if not hasattr(self,'dpe'): self.compute_ctr()
 
-        sindw=[]
         if threshold is not None: #check length ratio
            if not hasattr(self,'distj'):  self.compute_side(fmt=2)
            if not hasattr(self,'elside'): self.compute_ic3()
            if not hasattr(self,'area'):   self.compute_area()
            distj=self.distj[self.elside]; distj[self.elside==-1]=0  #side length
            srat=distj.max(axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon)) #ratio
-           sindw.extend(nonzero(srat>threshold)[0])
+           sindw=nonzero(srat>threshold)[0]
 
         if angle_min is not None: #check minimum angle
-           #for triangles
-           fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
-           for i in arange(3):
-               x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
-               ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-               sind.extend(nonzero(ai<=angle_min)[0])
-           sind3=fp[unique(sind).astype('int')]
-
-           #for quads
-           fp=nonzero(self.i34==4)[0]; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; sind=[]
-           for i in arange(4):
-               x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
-               ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-               sind.extend(nonzero(ai<=angle_min)[0])
-           sind4=fp[unique(sind).astype('int')]; sindw.extend(r_[sind3,sind4])
+           if not hasattr(self,'angles'): self.compute_angle()
+           a=self.angles; a[a<0]=999; sindw=nonzero(a.min(axis=1)<=angle_min)[0]
 
         #combine and save
         sindw=array(sindw)
