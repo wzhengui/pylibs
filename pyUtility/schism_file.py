@@ -719,8 +719,7 @@ class schism_grid:
         for i in arange(4):
             i1=(i-1)%self.i34; i2=i%self.i34; i3=(i+1)%self.i34
             id=self.elnode[ie[:,None],c_[i1,i2,i3]]; x1,x2,x3=self.x[id].T; y1,y2,y3=self.y[id].T
-            a1=angle((x1-x2)+1j*(y1-y2)); a2=angle((x3-x2)+1j*(y3-y2))
-            fp=a1<a2; a1[fp]=a1[fp]+2*pi; angles.append((a1-a2)*180/pi)
+            a=(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))%(2*pi); angles.append(a*180/pi)
         self.angles=array(angles).T
         return self.angles
 
@@ -946,42 +945,23 @@ class schism_grid:
         if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,angle_min,angle_max)
 
         #compute (angle_max-angle_min) in splitted triangle
-        qind=self.index_bad_quad;
-        x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
+        qind=self.index_bad_quad; x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]]
 
         #compute difference between internal angles
         for i in arange(4):
-            id1=mod(i-1+4,4); id2=i; id3=mod(i+1,4)
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3]
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3]
-
-            a1=angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2))
-            a2=angle((x2-x3)+1j*(y2-y3))-angle((x1-x3)+1j*(y1-y3))
-            a3=angle((x3-x1)+1j*(y3-y1))-angle((x2-x1)+1j*(y2-y1))
-            a1=mod(a1*180/pi+360,360);a2=mod(a2*180/pi+360,360);a3=mod(a3*180/pi+360,360)
-
-            #compute amax-amin
-            a=c_[a1,a2,a3]; Ai=a.max(axis=1)-a.min(axis=1)
-            A=Ai if i==0 else c_[A,Ai]
+            nid=r_[(i-1)%4,i,(i+1)%4]; x1,x2,x3=x[:,nid].T; y1,y2,y3=y[:,nid].T
+            a1=(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))%(2*pi)
+            a2=(angle((x2-x3)+1j*(y2-y3))-angle((x1-x3)+1j*(y1-y3)))%(2*pi)
+            a3=(angle((x3-x1)+1j*(y3-y1))-angle((x2-x1)+1j*(y2-y1)))%(2*pi)
+            a=c_[a1,a2,a3]*180/pi; da=a.max(axis=1)-a.min(axis=1) #compute amax-amin
+            A=da if i==0 else c_[A,da]
+        flag=sign(A[:,0]+A[:,2]-A[:,1]-A[:,3]) #flag for spliting quads
 
         #split quads
-        flag=sign(A[:,0]+A[:,2]-A[:,1]-A[:,3])
-
-        ne=self.ne; nea=len(self.index_bad_quad);
-        self.elnode=r_[self.elnode,ones([nea,4])-3].astype('int');
-        for i in arange(nea):
-            ind=self.index_bad_quad[i]
-            nds=self.elnode[ind,:].copy();
-            if flag[i]>=0:
-                self.elnode[ind,:]=r_[nds[[0,1,2]],-2]; self.i34[ind]=3
-                self.elnode[ne+i,:]=r_[nds[[2,3,0]],-2]
-            else:
-                self.elnode[ind,:]=r_[nds[[1,2,3]],-2]; self.i34[ind]=3
-                self.elnode[ne+i,:]=r_[nds[[3,0,1]],-2]
-
-        self.ne=ne+nea
-        self.i34=r_[self.i34,ones(nea)*3].astype('int');
-        self.elnode=self.elnode.astype('int')
+        nea=len(self.index_bad_quad); elnode=tile(-2,[nea,4]); nds=self.elnode[qind]; self.i34[qind]=3
+        fp=flag>=0; ie=qind[fp]; self.elnode[ie,:3]=nds[fp,:3]; self.elnode[ie,-1]=-2; elnode[fp,:3]=nds[fp][:,array([2,3,0])]
+        fp=flag<0;  ie=qind[fp]; self.elnode[ie,:3]=nds[fp][:,array([1,2,3])]; self.elnode[ie,-1]=-2; elnode[fp,:3]=nds[fp][:,array([3,0,1])]
+        self.ne=self.ne+nea; self.i34=r_[self.i34,tile(3,nea)]; self.elnode=r_[self.elnode,elnode]
 
         #write new grids
         if fname is not None: self.write_hgrid(fname)
@@ -997,32 +977,18 @@ class schism_grid:
         '''
 
         if angle_ratio is None and angle_min is None and angle_max is None: angle_ratio=0.5
-        qind=nonzero(self.i34==4)[0];
-        x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
-
-        #compute internal angle
-        a=[];
-        for i in arange(4):
-            id1=mod(i-1+4,4); id2=i; id3=mod(i+1,4)
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3];
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3];
-
-            ai=angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2))
-            a.append(ai*180/pi);
-        a=array(a).T; a=mod(a+360,360)
+        if not hasattr(self,'angles'): self.compute_angle()
+        if not hasattr(self,'xctr'): self.compute_ctr()
 
         #check violation
-        fp=a[:,0]==-999
-        if angle_ratio is not None: fp=fp|((a.min(axis=1)/a.max(axis=1))<angle_ratio)
-        for i in arange(4):
-            if angle_min is not None: fp=fp|(a[:,i]<=angle_min)
-            if angle_max is not None: fp=fp|(a[:,i]>=angle_max)
+        qind=nonzero(self.i34==4)[0]; A=self.angles[qind]; fp=qind==-999
+        if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<angle_ratio)
+        if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
+        if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
         self.index_bad_quad=qind[nonzero(fp)[0]]
 
         #output bad_quad location as bp file
-        if not hasattr(self,'xctr'): self.compute_ctr()
-        qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
-        sbp=schism_bpfile(); sbp.nsta=len(qxi); sbp.x=qxi; sbp.y=qyi; sbp.z=zeros(sbp.nsta); sbp.write_bpfile(fname)
+        sbp=schism_bpfile(); sbp.x,sbp.y=c_[self.xctr,self.yctr][self.index_bad_quad].T; sbp.save(fname)
         return self.index_bad_quad
 
     def plot_bad_quads(self,color='r',ms=12,*args):
