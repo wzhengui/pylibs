@@ -747,14 +747,15 @@ class schism_grid:
         '''
         #outer region
         if not hasattr(self,'bndinfo'): self.compute_bnd()
-        ibn=self.bndinfo.ibn[0]; reg_out=c_[self.x[ibn],self.y[ibn]]
+        reg_out=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[:1]]
+        reg_in=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[1:]]
 
         if fmt==0:
            if not hasattr(self,'dpe'): self.compute_ctr()
-           gdn=scatter_to_schism_grid(c_[self.xctr,self.yctr,self.dpe],reg_out=reg_out)
+           gdn=scatter_to_schism_grid(c_[self.xctr,self.yctr,self.dpe],reg_out=reg_out,reg_in=reg_in)
         elif fmt==1:
            if not hasattr(self,'dps'): self.compute_side(fmt=2)
-           gdn=scatter_to_schism_grid(c_[self.xcj,self.ycj,self.dps],reg_out=reg_out)
+           gdn=scatter_to_schism_grid(c_[self.xcj,self.ycj,self.dps],reg_out=reg_out,reg_in=reg_in)
         return gdn
 
     def smooth(self,dist,value=None,fmt=0,ms=1e8):
@@ -2223,53 +2224,48 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
         method=0: use side_max for dangling pts; method=1: use angle_min for dangling pts
     '''
 
-    #find max/min side or angle values
-    angles,sides=[],[];  fp3=gd.i34==3; fp4=gd.i34==4
-    id1,id2,id3=ones([3,gd.ne]).astype('int'); sid=arange(gd.ne)
-    for i in arange(4):
-        id1[fp3]=i%3; id2[fp3]=(i+1)%3; id3[fp3]=(i+2)%3
-        id1[fp4]=i%4; id2[fp4]=(i+1)%4; id3[fp4]=(i+2)%4
-        x1=gd.x[gd.elnode[sid,id1]]; x2=gd.x[gd.elnode[sid,id2]]; x3=gd.x[gd.elnode[sid,id3]]
-        y1=gd.y[gd.elnode[sid,id1]]; y2=gd.y[gd.elnode[sid,id2]]; y3=gd.y[gd.elnode[sid,id3]]
-        ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi; angles.append(ai)
-        si=abs((x1+1j*y1)-(x2+1j*y2)); sides.append(si)
-    angles=array(angles).T; sides=array(sides)
-    mangle=angles.min(axis=1); sidemin=sides.min(axis=0); sidemax=sides.max(axis=0)
+    fpe=tile(True,gd.ne)
+    if angle_min is not None: #check min angle
+        if not hasattr(gd,'angles'): gd.compute_angle()
+        fpe=fpe*(gd.angles.min(axis=1)>=angle_min)
 
-    #filter illegal elements
-    gd.compute_area(); gd.compute_ctr()
-    fangle=nonzero(mangle<angle_min)[0] if (angle_min is not None) else array([])
-    farea=nonzero(gd.area>area_max)[0] if (area_max is not None) else array([])
-    fside_max=nonzero(sidemax>side_max)[0] if (side_max is not None) else array([])
-    fside_min=nonzero(sidemin<side_min)[0] if (side_min is not None) else array([])
-    sindp=r_[fangle,farea,fside_max,fside_min].astype('int')
+    if area_max is not None: #check maximum area
+        if not hasattr(gd,'area'): gd.compute_area()
+        fpe=fpe*(gd.area<=area_max)
 
-    #filter elements inside region
-    if (reg_in is not None) and len(sindp)!=0:
-        if isinstance(reg_in,str): bp=read_schism_bpfile(reg_in,fmt=1); reg_in=c_[bp.x,bp.y]
-        print(reg_in.shape); sys.exit()
-        fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],reg_in[:,0],reg_in[:,1])==1; sindp=sindp[fpr]
+    if (side_min is not None) or (side_max is not None): #check side length
+        slen=[]; ie=arange(gd.ne)
+        for n in arange(4):
+            i1=gd.elnode[ie,n%gd.i34]; i2=gd.elnode[ie,(n+1)%gd.i34]
+            slen.append(abs((gd.x[i2]-gd.x[i1])+1j*(gd.y[i2]-gd.y[i1])))
+        slen=array(slen).T
+        if side_min is not None: fpe=fpe*(slen.min(axis=1)>=side_min)
+        if side_max is not None: fpe=fpe*(slen.max(axis=1)<=side_max)
 
-    #filter elements outside region
-    if reg_out is not None:
-        if isinstance(reg_out,str): bp=read_schism_bpfile(reg_out,fmt=1); reg_out=c_[bp.x,bp.y]
-        sindo=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],reg_out[:,0],reg_out[:,1])==0)[0]; sindp=r_[sindp,sindo]
+    for m in arange(2): #check region inside and outside
+        regs=reg_in if m==0 else reg_out
+        if regs is not None:
+            if not hasattr(gd,'xctr'): gd.compute_ctr()
+            if isinstance(regs,str) or array(regs[0]).ndim==1: regs=[regs]
+            for n,rxy in enumerate(regs):
+                if isinstance(rxy,str): bp=read(rxy); rxy=c_[bp.x,bp.y]
+                fpe=fpe*(inside_polygon(c_[gd.xctr,gd.yctr], rxy[:,0],rxy[:,1])==(0 if m==0 else 1))
 
-    sind=setdiff1d(arange(gd.ne),sindp)
+    #add back one element if nodal is zero
+    ip=unique(gd.elnode[fpe])[1:]
+    if ip.size<gd.np:
+       if not hasattr(gd, 'ine'): gd.compute_nne()
+       if not hasattr(gd,'angles'): gd.compute_angle()
+       sindp=setdiff1d(arange(gd.np),ip); sinde=gd.ine[sindp]; fpn=sinde==-1
+       A=gd.angles[sinde]; dA=A.max(axis=2)-A.min(axis=2); dA[fpn]=1e3
+       ie=sinde[arange(len(sinde)),dA.argmin(axis=1)]; fpe[ie]=True
 
-    #add back elements with dangling pts
-    ips=setdiff1d(arange(gd.np),unique(gd.elnode[sind].ravel()))
-    if len(ips)!=0:
-        gd.compute_nne(); sinde=[]
-        for ip in ips:
-            ies=gd.indel[ip]
-            if method==0: ai=sidemax[ies]; sinde.append(ies[nonzero(ai==min(ai))[0][0]])
-            if method==1: ai=mangle[ies]; sinde.append(ies[nonzero(ai==max(ai))[0][0]])
-        sind=sort(r_[sind,array(sinde)])
-
-    #delete elements
-    gd.ne,gd.i34,gd.elnode=len(sind),gd.i34[sind],gd.elnode[sind]; gd.compute_nne()
-    gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
+    #delete elements and update grid
+    gd.ne=sum(fpe); gd.i34=gd.i34[fpe]; gd.elnode=gd.elnode[fpe]
+    if hasattr(gd,'angles'): gd.angles=gd.angles[fpe]
+    if hasattr(gd,'area'): gd.angles=gd.area[fpe]
+    if hasattr(gd,'xctr'): gd.xctr=gd.xctr[fpe]; gd.yctr=gd.yctr[fpe]; gd.dpe=gd.dpe[fpe]
+    gd.compute_nne()
     return gd
 
 def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
