@@ -522,7 +522,7 @@ class schism_grid:
                #search each segments
                while True:
                    idp=id; id=sinds[id][-1]; ifb[sindf[idp]]=0
-                   if(id==id0): break
+                   if(id==id0): ibni.extend(sinds[idp][:-1]); break
                    ibni.extend(sinds[idp]); iloop=iloop+1
                    if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
                nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
@@ -2553,7 +2553,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,extend=0,prj=None,zcor=0):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,extend=0,prj=None,zcor=0,sgrid=None):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -2570,6 +2570,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        extend:  (optional) 0: extend bottom value beyond;  1: assign nan for value beyond bottom
        prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
        zcor:    (optional) 0: zcoordinate computed from elev;  1: read from outputs
+       sgrid:   (optional) side-based grid used to extract side values (FEM method)
     '''
 
     #get schism outputs information
@@ -2591,8 +2592,12 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if prj is not None: lx,ly=proj_pts(lx,ly,prj[0],prj[1])
     pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T; P=zdata()
     def _sindex(): #for output@side
-        if not hasattr(gd,'nns'): gd.compute_side(fmt=2)
-        if not hasattr(P,'nns'): P.nns,P.ins=gd.nns[pip],gd.ins[pip]; P.ds=P.ins.shape; P.fp=P.ins!=0
+        if sgrid is None:
+           if not hasattr(gd,'nns'): gd.compute_side(fmt=2)
+           if not hasattr(P,'nns'): P.nns,P.ins=gd.nns[pip],gd.ins[pip]; P.ds=P.ins.shape; P.fp=P.ins!=0
+        else:
+           if isinstance(sgrid,int): sgrid=gd.scatter_to_grid(fmt=2)
+           if not hasattr(P,'pie'): P.pie,P.pip,P.pacor=sgrid.compute_acor(c_[lx,ly])
 
     #extract time series@xyz
     S=zdata(); mtime=[]; mdata=[[] for i in varname]
@@ -2613,9 +2618,11 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
             for n,[vari,svar] in enumerate(svars):
                 if svar in dvars_2d: #2D
                     C=C0.variables[svar]; np=C.shape[1]
+                    if np==gd.ns: _sindex()
                     if np==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
                     if np==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
-                    if np==gd.ns: _sindex(); vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in arange(0,nt,nspool)])
+                    if (np==gd.ns) and (sgrid is None): vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in arange(0,nt,nspool)])
+                    if (np==gd.ns) and (sgrid is not None): vi=array([sum(array(C[i][P.pip]*P.pacor),axis=1) for i in arange(0,nt,nspool)])
                     vs.append(vi)
                 else: #3D
                     #read zcoor,and extend zcoor downward
@@ -2633,10 +2640,13 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     #read data for the whole vertical
                     C1=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1) if outfmt==0 else C0
                     C=C1.variables[svar]; np=C.shape[1]; nd=C.ndim
-                    if np==gd.np and nd==3: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
-                    if np==gd.np and nd==4: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None,None]).sum(axis=1).transpose([2,0,1,3])
-                    if np==gd.ne: vii=array([C[i][pie] for i in arange(0,nt,nspool)]).transpose([2,0,1])
-                    if np==gd.ns: _sindex(); vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in arange(0,nt,nspool)]).transpose([2,0,1])
+                    if np==gd.ns: _sindex()
+                    if np==gd.np and nd==3: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1)
+                    if np==gd.np and nd==4: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None,None]).sum(axis=1)
+                    if np==gd.ne: vii=array([C[i][pie] for i in arange(0,nt,nspool)])
+                    if (np==gd.ns) and (sgrid is None): vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in arange(0,nt,nspool)])
+                    if (np==gd.ns) and (sgrid is not None: vii=array([sum(C[i][P.pip]*P.pacor[...,None],axis=1) for i in arange(0,nt,nspool)])
+                    vii=vii.transpose([2,0,1]) if nd==3 else vii.tranpose([2,0,1,3] #from (nt,npt,nvrt) to (nvrt,nt,npt)
                     if extend==0:
                        for k in arange(nvrt-1)[::-1]: z1=vii[k]; z2=vii[k+1]; fpn=abs(z1)>1e8; z1[fpn]=z2[fpn] #extend value at bottom
                     else:
