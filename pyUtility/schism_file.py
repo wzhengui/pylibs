@@ -432,7 +432,7 @@ class schism_grid:
 
            return self.ns,self.isidenode,self.isdel
 
-    def compute_bnd(self,bxy=None,nb_max=500000):
+    def compute_bnd(self,bxy=None,nb_max=500000,method=0):
         '''
         compute boundary information. If bxy is provided, define open/land boundries
 
@@ -442,47 +442,128 @@ class schism_grid:
             3). bxy="bpfile", with paired build points sequentially defining each boundaries
 
         nb_max: maximum boundary nodes allowed for each bnd segments
+        method=0: latest method in computing bnd; method=1: old method
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
 
-        #find boundary side and element
-        fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+        if method==0:
+           #find boundary side and element, and sort it
+           fpn=self.isdel[:,-1]==-1; be=self.isdel[fpn][:,0]; n1,n2=self.isidenode[fpn].T; i34=self.i34[be]; nbs=len(be)
+           for i in arange(4): fp=(n1==self.elnode[be,(i+1)%i34])*(n2==self.elnode[be,i%i34]); n1[fp],n2[fp]=n2[fp],n1[fp]
+           sinds=dict(zip(n1,[[i] for i in n2]))
 
-        #sort isn
-        i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
-        for i in arange(4):
-            if i==3:
-                i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
-                fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
-            else:
-                i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
-                fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
+           #---------------------------------------------------------------------------
+           #this part is used to dealing with illegal mesh
+           #---------------------------------------------------------------------------
+           #find the nodes connecting to more than 2 sides,and build the side dict
+           ibnx,nbnx=unique(n1,return_counts=True); ibnx=ibnx[nbnx>1]
+           for i in ibnx:
+               #find all nodes in the nodal ball, and compute the angles
+               if not hasattr(self,'xctr'): self.compute_ctr()
+               ips=unique(self.elnode[self.indel[i]]); ips=setdiff1d(ips[1:] if ips[0]<0 else ips,i); nps=len(ips)
+               A=angle((self.x[ips]-self.x[i])+1j*(self.y[ips]-self.y[i])); iA=argsort(A); A,ips=A[iA],ips[iA]
+               cA=angle((self.xctr[self.indel[i]]-self.x[i])+1j*(self.yctr[self.indel[i]]-self.y[i])) #angle for element center
 
-        #compute all boundaries
-        ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
-        sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
+               #get all boundary nodes
+               ib1=nonzero(n1==i)[0]; ip1=n2[ib1];  ib2=nonzero(n2==i)[0]; ip2=n1[ib2]; sinds[i]=[]
+               for n in arange(nps):
+                   i1=ips[n]; i2=ips[(n+1)%nps]; A1=A[n]; A2=A[(n+1)%nps]
+                   if A2<A1: A2=A2%(2*pi); cA=cA%(2*pi)
+                   if sum((cA>A1)*(cA<A2))!=0: continue #element center between i1 and i2
+                   if (i1 in ip1) and (i2 in ip2):  #find a pair
+                       sinds[i].append([i2,i,i1])
+                   elif (i2 in ip1) and (i1 in ip2):
+                       sinds[i].append([i1,i,i2])
+                   else:
+                       sys.exit('wrong in connect side pairs')
 
-        #find the nodes connecting to more than 2 sides
-        ibnx,nbnx=unique(isn[:,0],return_counts=True); idx=[]; nbx=0
-        for i in ibnx[nbnx>1]: k=nonzero(isn[:,0]==i)[0]; idx.extend(k); nbx=nbx+len(k)
+           #reconnect sides, but skip the nodes connecting to more than 2 sides
+           while True:#append sides to their downstream sides
+               iflag=0
+               for i in ibnx:
+                   for n, side in enumerate(sinds[i]):
+                       if side is None: continue
+                       if side[-1] in ibnx:
+                           iflag=1
+                           for m,dside in enumerate(sinds[side[-1]]):
+                               if dside is None: continue
+                               nsd=dside.index(side[-1])
+                               if array_equal(side[-(nsd+1):],dside[:(nsd+1)]):
+                                   sinds[i][n]=[*side,*dside[(nsd+1):]]
+                                   sinds[side[-1]][m]=None; break
+               if iflag==0: break
 
-        #search boundary from other nodes
-        while(sum(ifb)!=0):
-            #start points
-            if nbx>0:
-                nbx=nbx-1; id0,id=isn[idx[nbx]]; ifb[idx[nbx]]=0
-            else:
-                id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
-            ibni=[id0,id]; ifb[sinds[id]]=0; iloop=0
+           while True: #append all sides to their upstream ordinary sides
+               iflag=0
+               for i in ibnx:
+                   for n, side in enumerate(sinds[i]):
+                       if side is None: continue
+                       sinds[i][n]=None; iflag=1
+                       if side[0] in ibnx: #append to upstream side
+                           for m,uside in enumerate(sinds[side[0]]):
+                               if uside is None: continue
+                               isd=uside.index(side[0]); nsd=len(uside)-isd
+                               if array_equal(uside[isd:],side[:nsd]):
+                                   sinds[side[0]][m]=[*uside,*side[nsd:]]
+                                   sinds[i][n]=None; break
+                       else: #append to other side
+                           sinds[side[0]]=side[1:]
+               if iflag==0: break
+           for i in ibnx: del sinds[i]
+           #---------------------------------------------------------------------------
 
-            #search each segments
-            while True:
-                id=isn[sinds[id],1]; ifb[sinds[id]]=0
-                if(id==id0): break
-                ibni.append(id); iloop=iloop+1
-                if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
-            nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
+           #search boundary from other nodes
+           ids=list(sinds.keys()); ns=len(ids); sindf=dict(zip(ids,arange(ns))); ifb=ones(ns).astype('int'); nb=0; nbn=[]; ibn=[]
+           while(sum(ifb)!=0):
+               #start points
+               ib=nonzero(ifb==1)[0][0]; id0=ids[ib]; id=sinds[id0][-1]; ifb[sindf[id0]]=0; ibni=[id0,*sinds[id0]]; iloop=0
+
+               #search each segments
+               while True:
+                   idp=id; id=sinds[id][-1]; ifb[sindf[idp]]=0
+                   if(id==id0): break
+                   ibni.extend(sinds[idp]); iloop=iloop+1
+                   if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
+               nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
+        else:
+            #find boundary side and element
+            fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+
+            #sort isn
+            i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
+            for i in arange(4):
+                if i==3:
+                    i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
+                    fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
+                else:
+                    i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
+                    fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
+
+            #compute all boundaries
+            ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
+            sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
+
+            #find the nodes connecting to more than 2 sides
+            ibnx,nbnx=unique(isn[:,0],return_counts=True); idx=[]; nbx=0
+            for i in ibnx[nbnx>1]: k=nonzero(isn[:,0]==i)[0]; idx.extend(k); nbx=nbx+len(k)
+
+            #search boundary from other nodes
+            while(sum(ifb)!=0):
+                #start points
+                if nbx>0:
+                    nbx=nbx-1; id0,id=isn[idx[nbx]]; ifb[idx[nbx]]=0
+                else:
+                    id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
+                ibni=[id0,id]; ifb[sinds[id]]=0; iloop=0
+
+                #search each segments
+                while True:
+                    id=isn[sinds[id],1]; ifb[sinds[id]]=0
+                    if(id==id0): break
+                    ibni.append(id); iloop=iloop+1
+                    if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
+                nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
         #sort bnd
         nbn=array(nbn); ibn=array(ibn,dtype='O'); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
@@ -514,7 +595,9 @@ class schism_grid:
            self.nlb=S.nb+1; self.nlbn=array([2,*S.nbn]); self.island=array([0,*S.island])
            self.ilbn=array([array([S.ibn[0][-1],S.ibn[0][0]]).astype('int'), *S.ibn],dtype='O')
 
+        #----------------------------------------------------------------------------
         #define open/land/island boundaries
+        #----------------------------------------------------------------------------
         if bxy is not None:
            if isinstance(bxy,str): #bxy is a bpfile
               bp=read_schism_bpfile(bxy); bxy=[]
@@ -741,21 +824,36 @@ class schism_grid:
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (vi[pip]*pacor).sum(axis=1)
 
-    def construct_grid(self,fmt=0):
+    def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
-        construct a new schism grid based on element center (fmt=0) or side center (fmt=1)
-        '''
-        #outer region
-        if not hasattr(self,'bndinfo'): self.compute_bnd()
-        reg_out=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[:1]]
-        reg_in=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[1:]]
+        construct a new schism grid based on:
+           fmt=0:  node
+           fmt=1:  element center
+           fmt=2:  side center
 
-        if fmt==0:
+        reg_in=1:  delete elements inside islands;      reg_in=0: not delete
+        reg_out=1: delete elements outside grid domain; reg_out=0: not delete
+
+        '''
+        #get regions
+        if reg_in==1 or reg_out==1:
+           if not hasattr(self,'bndinfo'): self.compute_bnd()
+           if reg_in==1:  reg_in=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[1:]]
+           if reg_out==1: reg_out=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[:1]]
+        if reg_in==0:  reg_in=None
+        if reg_out==0: reg_out=None
+
+        #get scatter
+        if fmt==0: xyz=c_[self.x,self.y,self.z]
+        if fmt==1:
            if not hasattr(self,'dpe'): self.compute_ctr()
-           gdn=scatter_to_schism_grid(c_[self.xctr,self.yctr,self.dpe],reg_out=reg_out,reg_in=reg_in)
-        elif fmt==1:
+           xyz=c_[self.xctr,self.yctr,self.dpe]
+        if fmt==2:
            if not hasattr(self,'dps'): self.compute_side(fmt=2)
-           gdn=scatter_to_schism_grid(c_[self.xcj,self.ycj,self.dps],reg_out=reg_out,reg_in=reg_in)
+           xyz=c_[self.xcj,self.ycj,self.dps]
+
+        #build grid
+        gdn=scatter_to_schism_grid(xyz,reg_out=reg_out,reg_in=reg_in,**args)
         return gdn
 
     def smooth(self,dist,value=None,fmt=0,ms=1e8):
