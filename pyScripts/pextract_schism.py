@@ -17,6 +17,7 @@ sname='./icm'
 #ifs=0           #0: refer to free surface; 1: fixed depth
 #stacks=[1,3]    #outputs stacks to be extracted
 #nspool=12       #sub-sampling frequency within each stack (1 means all)
+#mdt=1           #time window (day) for averaging output
 #rvars=['elev','salt','hvel','NO3'] #rname the varibles 
 #prj=['epsg:26918','epsg:4326']  #projections used to transform coord. in station.bp
 
@@ -60,6 +61,7 @@ if 'ifs' not in locals(): ifs=0                                  #refer to free 
 if 'nspool' not in locals(): nspool=1                            #subsample
 if 'rvars' not in locals(): rvars=svars                          #rename variables
 if 'prj' not in locals(): prj=None                               #projections
+if 'mdt' not in locals(): mdt=None                               #average
 modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)     #schism outputs information
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
@@ -77,7 +79,7 @@ for svar in svars:
        fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
           try:
-             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,hgrid=gd,vgrid=vd,fmt=itype,prj=prj)
+             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,hgrid=gd,vgrid=vd,fmt=itype,prj=prj,mdt=mdt)
              dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
           except:
              pass

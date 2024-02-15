@@ -2553,7 +2553,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,extend=0,prj=None,zcor=0,sgrid=None):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -2563,6 +2563,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
        ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
+       mdt:     (optional) time window (day) for averaging output
        sname:   (optional) variable name for save
        fname:   (optional) save the results as fname.npz
        hgrid:   (optional) hgrid=read_schism_hgrid('hgrid.gr3'); hgrid.compute_all(); used to speed up
@@ -2570,7 +2571,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        extend:  (optional) 0: extend bottom value beyond;  1: assign nan for value beyond bottom
        prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
        zcor:    (optional) 0: zcoordinate computed from elev;  1: read from outputs
-       sgrid:   (optional) side-based grid used to extract side values (FEM method)
+       sgrid:   (optional) side-based grid used to extract side values (FEM method); see gd.scatter_to_grid(fmt=2)
     '''
 
     #get schism outputs information
@@ -2599,8 +2600,8 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
            if isinstance(sgrid,int): sgrid=gd.scatter_to_grid(fmt=2)
            if not hasattr(P,'pie'): P.pie,P.pip,P.pacor=sgrid.compute_acor(c_[lx,ly])
 
-    #extract time series@xyz
-    S=zdata(); mtime=[]; mdata=[[] for i in varname]
+    #extract time series@xyz or transect@xy
+    mtime=[]; mdata=[[] for i in varname]
     stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
     for istack in stacks:
         print('reading stack: {}'.format(istack))
@@ -2665,15 +2666,15 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
         if fmt==0 and outfmt==0 and zcor==1: Z0.close()
 
     #save data
-    if sname is None: sname=varname
-    for m,k in enumerate(sname):
-        if array(mdata[m]).ndim==3: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2]))
-        if array(mdata[m]).ndim==4: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2,3]))
-    S.time=array(mtime)
-    if fname is not None: savez(fname,S)
+    S=zdata(); sdict=S.__dict__; mt=array(mtime); mdata=[array(i) for i in mdata]
+    for m,k in enumerate(varname if sname is None else sname):
+        vi=mdata[m] if (mdt is None) else array([mdata[m][(mt>=i)*(mt<(i+mdt))].mean(axis=0) for i in arange(mt[0],mt[-1],mdt)]) #average
+        sdict[k]=squeeze(vi.transpose([1,0,2] if vi.ndim==3 else [1,0,2,3]))
+    S.time=mt if (mdt is None) else array([mt[(mt>=i)*(mt<(i+mdt))].mean() for i in arange(mt[0],mt[-1],mdt)]) #average
+    if fname is not None: S.save(fname)
     return S
 
-def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None):
+def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None,reg=None):
     '''
     extract slabs of SCHISM results (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
@@ -2684,58 +2685,55 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
        mdt:     (optional) time window (day) for averaging output
        sname:   (optional) variable name for save
        fname:   (optional) save the results as fname.npz
+       reg:     (optional) subsetting reslts inside region (*.reg, or *.bp, or gd_subgrid)
     '''
     #proc
+    fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'; fexist=os.path.exists; P=zdata()
     bdir=run+'/outputs'; modules,outfmt,dstacks,dvars,dvars_2d =get_schism_output_info(bdir,1)
     if isinstance(varname,str): varname=[varname]
     if sname is None: sname=varname
     if stacks is None: stacks=dstacks
     if outfmt==1: sys.exit('OLDIO not supported yet')
+    if reg is not None: #build subgrid
+       gd=read(fgz,'hgrid') if fexist(fgz) else read(fgd); np,ne,ns=gd.np,gd.ne,gd.ns
+       sgd=gd.subset(reg) if isinstance(reg,str) else reg; sindp,sinde,sinds=sgd.sindp,sgd.sinde,sgd.sinds
 
     #read output
-    S=zdata(); sdict=S.__dict__; sdict['time']=[]; S.levels=array(levels)
-    for i in sname: sdict[i]=[]
+    mtime=[]; mdata=[[] for i in varname]
     for istack in [*unique(stacks).ravel()]:
         if outfmt==0:
            C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
            #np=C0.dimensions['nSCHISM_hgrid_node'].size; ne=C0.dimensions['nSCHISM_hgrid_face'].size
-           mt=array(C0.variables['time'][:])/86400; nt=len(mt); sdict['time'].extend(mt[::nspool])
+           mt=array(C0.variables['time'][:])/86400; nt=len(mt); mtime.extend(mt[::nspool])
 
-        for snamei,varnamei in zip(sname,varname):
-            svars=get_schism_var_info(varnamei,modules,fmt=outfmt); nvar=len(svars)
+        for ivar, varnamei in enumerate(varname):
+            svars=get_schism_var_info(varnamei,modules,fmt=outfmt)
             for m,[vari,svar] in enumerate(svars):
+                C=C0 if (svar in dvars_2d) else read('{}/{}_{}.nc'.format(bdir,svar,istack),1); cvar=C.variables[svar]; vi=[]
                 if svar in dvars_2d:  #2D
-                   A=array([array(C0.variables[svar][i]).astype('float32') for i in arange(nt) if i%nspool==0])
+                   vi=array([array(cvar[i]).astype('float32') for i in arange(nt) if i%nspool==0])
+                   if reg is not None: npt=cvar.shape[1]; vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                 else:   #3D
-                   C=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1); A=[]
                    for n,k in enumerate(levels):
-                       if ('kbp' not in locals()) and (k>nvrt): #get bottom index
-                          grd=run+'grid.npz'; vd=loadz(grd,['vgrid']).vgrid if os.path.exists(grd) else read_schism_vgrid(run+'/vgrid.in')
-                          sindp=arange(vd.np); kbp=vd.kbp
                        if k>nvrt:
-                          a=array([array(C.variables[svar][i][sindp,kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
+                          if not hasattr(P,'kbp'): vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sindp,P.kbp=arange(np),vd.kbp
+                          vii=array([array(cvar[i][P.sindp,P.kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
                        else:
-                          a=array([array(C.variables[svar][i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
-                       A.append(a)
-                   A=A[0] if len(levels)==1 else array(A).transpose([1,0,2]); C.close()
-                datai=A if m==0 else c_[datai[...,None],A[...,None]]
-            S.__dict__[snamei].extend(datai)
+                          vii=array([array(cvar[i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
+                       if reg is not None: npt=cvar.shape[1]; vii=vii[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
+                       vi.append(vii)
+                   vi=vi[0] if len(levels)==1 else array(vi).transpose([1,0,2]); C.close()
+                vs=vi if m==0 else c_[vs[...,None],vi[...,None]]
+            mdata[ivar].extend(vs)
         C0.close()
-    sind=argsort(array(S.time))
-    for i in ['time',*sname]: sdict[i]=array(sdict[i])[sind]
-
-    #average data
-    if mdt is not None:
-       M=zdata(); mdict=M.__dict__
-       for i in ['time',*sname]: mdict[i]=[]
-       for ti in arange(S.time[0],S.time[-1],mdt):
-           fpt=(S.time>=ti)*(S.time<(ti+mdt))
-           for i in ['time',*sname]: mdict[i].append(sdict[i][fpt].mean(axis=0))
-       for i in ['time',*sname]: mdict[i]=array(mdict[i])
-       S=M
 
     #save data
-    if fname is not None: savez(fname,S)
+    S=zdata(); sdict=S.__dict__; S.levels=array(levels); mt=array(mtime); mdata=[array(i) for i in mdata]
+    for m, k in enumerate(sname):
+        sdict[k]=mdata[m] if (mdt is None) else array([mdata[m][(mt>=i)*(mt<(i+mdt))].mean(axis=0) for i in arange(mt[0],mt[-1],mdt)])
+    sdict['time']=mt if (mdt is None) else array([mt[(mt>=i)*(mt<(i+mdt))].mean() for i in arange(mt[0],mt[-1],mdt)])
+    if reg is not None: S.gd=sgd
+    if fname is not None: S.save(fname)
     return S
 
 def get_schism_output_info(run,fmt=0):

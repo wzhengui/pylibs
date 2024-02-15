@@ -17,6 +17,7 @@ sname='RUN08a/slab'  #name for saving the resutls
 #nspool=12      #sub-sampling frequency within each stack (1 means all)
 #mdt=1          #time window (day) for averaging output
 #rvars=['elev','hvel','G1'] #rname the varibles 
+#reg=None       #region for subsetting reslts (*.reg, or *.bp, or gd_subgrid)
 
 #resource requst 
 walltime='00:10:00'; nnode=1;  ppn=4
@@ -55,7 +56,8 @@ if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 sdir=run+'/outputs'                            #output directory
 if 'nspool' not in locals(): nspool=1          #subsample
 if 'rvars' not in locals(): rvars=svars        #rename variables
-if 'mdt' not in locals(): mdt=None             #rename variables
+if 'mdt' not in locals(): mdt=None             #averaging
+if 'reg' not in locals(): reg=None             #region
 modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)  #schism outputs information
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
@@ -67,7 +69,7 @@ for svar in svars:
    for istack in stacks:
        fname='{}_{}_{}_slab'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
-          read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fname)
+          read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fname,reg=reg)
           dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results
