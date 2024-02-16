@@ -104,6 +104,7 @@ class schism_grid:
         if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
            if 'node' not in ats: self.show_node()
@@ -216,6 +217,7 @@ class schism_grid:
         if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
            if 'node' not in ats: self.show_node()
@@ -1421,9 +1423,9 @@ class schism_grid:
         abp.triggered.connect(_show_node)
 
 class schism_bpfile:
-    def __init__(self,x=None,y=None,z=None,station=None):
+    def __init__(self,x=None,y=None,z=None,station=None,fmt=0):
         self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([])
-        self.station=[]; self.hp=[]; self.ht=[]
+        self.station=[]; self.hp=[]; self.ht=[]; self.fmt=fmt
         if x is not None: self.x=x
         if y is not None: self.y=y
         if z is not None: self.z=z
@@ -1588,13 +1590,22 @@ class schism_bpfile:
         self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
         return self.ie,self.ip,self.acor
 
+    def disconnect_edit(self):
+        if hasattr(self,'cidpress'): gcf().canvas.mpl_disconnect(self.cidpress)
+        if hasattr(self,'cidmove'):  gcf().canvas.mpl_disconnect(self.cidmove)
+        acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]; ap=acs[ats.index('Pan')]
+        if ap.isChecked(): ap.trigger()
+        gcf().canvas.draw()
+
     def edit(self):
         def connect_actions():
             self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', onmove)
             self.cidpress=gcf().canvas.mpl_connect('button_press_event', onclick)
             if self.nsta!=0 and len(self.hp)==0: self.plot_station()
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-            if not ac.isChecked(): ac.trigger()
+            acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]
+            ap=acs[ats.index('Pan')]; ab=acs[ats.index('reg' if self.fmt==0 else 'bp')]
+            if not ap.isChecked(): ap.trigger()
+            if hasattr(ab,'bp'): ab.bp.disconnect_edit()
             gcf().canvas.draw()
             print('double click: left=add pt, right=remove pt; middle=finish edit')
             print('single click: middle=move pt')
@@ -1609,61 +1620,43 @@ class schism_bpfile:
             #double click
             if dlk==1 and btn==1: add_pt(bx,by)
             if dlk==1 and btn==3: remove_pt(bx,by)
-            if dlk==1 and btn==2:
-               gcf().canvas.mpl_disconnect(self.cidpress)
-               gcf().canvas.mpl_disconnect(self.cidmove)
-               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-               if ac.isChecked(): ac.trigger()
-               gcf().canvas.draw()
+            if dlk==1 and btn==2: self.disconnect_edit()
 
         def add_pt(x,y):
-            self.nsta=self.nsta+1; self.station=[*self.station,'{}'.format(self.nsta)]
-            self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,0.0]
-
-            #plot point
-            if len(self.hp)!=0:
-                hp=self.hp[-1][0]; ht=self.ht[-1]
-                color=hp.get_color(); mk=hp.get_marker(); ms=hp.get_markersize(); ls=hp.get_linestyle()
-                fs=ht.get_fontsize(); fw=ht.get_fontweight(); fc=ht.get_color()
-            else:
-                color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            hpi=plot(x,y,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp.append(hpi)
-            hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
-            gcf().canvas.draw()
+            self.x=r_[self.x,x]; self.y=r_[self.y,y]; plot_pt()
 
         def remove_pt(x,y):
             if self.nsta==0: return
             distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
-            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            for i in arange(sid,self.nsta):
-                if i==self.nsta-1:
-                   self.hp[-1][0].remove(); self.ht[-1].remove()
-                   del self.hp[-1]; del self.ht[-1]
-                else:
-                   xi=self.x[i+1]; yi=self.y[i+1]
-                   self.x[i]=xi; self.y[i]=yi; self.station[i]='{}'.format(i+1)
-                   self.hp[i][0].remove(); self.ht[i].remove()
-                   hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[i]=hpi
-                   hti=text(xi,yi,self.station[i],color=fc,fontsize=fs,fontweight=fw); self.ht[i]=hti
-            self.x=self.x[:-1]; self.y=self.y[:-1]; self.z=self.z[:-1]; self.station=self.station[:-1]; self.nsta=self.nsta-1
-            gcf().canvas.draw()
+            self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; plot_pt()
 
         def move_pt(xi,yi):
             distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
-            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            self.x[sid]=xi; self.y[sid]=yi
-            self.hp[sid][0].remove(); self.ht[sid].remove()
-            hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[sid]=hpi
-            hti=text(xi,yi,self.station[sid],color=fc,fontsize=fs,fontweight=fw); self.ht[sid]=hti
+            self.x[sid]=xi; self.y[sid]=yi; plot_pt()
+
+        def plot_pt():
+            xs,ys,fmt=self.x, self.y,self.fmt; npt=len(xs); self.nsta=npt
+            cs='rm'; ls=['None','-']; self.z=zeros(npt); self.station=(arange(npt)+1).astype('U')
+
+            #pt label
+            [i.remove() for i in self.ht]; self.ht=[]
+            for xi,yi,ti in zip(xs,ys,self.station): hti=text(xi,yi,ti,color=cs[fmt],fontsize=10); self.ht.append(hti)
+
+            #plot pts
+            if fmt==1 and hasattr(self,'hp2'): self.hp2.remove()
+            if fmt==1 and npt>=3: [self.hp2]=fill(xs,ys,facecolor='m',alpha=0.15)
+            if fmt==1 and npt!=0: xs=r_[xs,xs[0]]; ys=r_[ys,ys[0]] #close polygon
+            if len(self.hp)!=0: self.hp[0].set_xdata(xs); self.hp[0].set_ydata(ys)
+            if len(self.hp)==0: self.hp=plot(xs,ys,marker='.',markersize=6,color=cs[fmt],linestyle=ls[fmt])
             gcf().canvas.draw()
 
         if mpl._pylab_helpers.Gcf.get_active() is not None:
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-            abp=acs[nonzero(ats=='bp')[0][0]] if 'bp' in ats else gcf().canvas.toolbar.addAction('bp')
+            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); at='bp' if self.fmt==0 else 'reg'
+            abp=acs[nonzero(ats==at)[0][0]] if at in ats else gcf().canvas.toolbar.addAction(at)
             #if not abp.isCheckable(): abp.setCheckable(True)
 
             #disconnect and clean previous bpfile
-            if hasattr(abp,'bp'):
+            if hasattr(abp,at):
                if self is not abp.bp:
                   nhp=len(abp.bp.hp)
                   for i in arange(nhp):
