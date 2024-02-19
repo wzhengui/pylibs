@@ -1430,7 +1430,7 @@ class schism_bpfile:
         if y is not None: self.y=y
         if z is not None: self.z=z
         if station is not None: self.station=station
-        self.edit()
+        self.check(); self.edit()
 
     @property
     def INFO(self):
@@ -1493,13 +1493,7 @@ class schism_bpfile:
         fmt=1: write ACE/gredit *.reg file
         '''
 
-        #check data
-        if (not hasattr(self,'nsta')) or (self.nsta==0 and len(self.x)!=0): self.nsta=len(self.x)
-        if (not hasattr(self,'z')) or (len(self.z)==0 and self.nsta!=0): self.z=zeros(self.nsta)
-        if (not hasattr(self,'station')) or (len(self.station)==0 and self.nsta!=0): self.station=array([str(i+1) for i in arange(self.nsta)])
-        self.np=self.nsta
-
-        fid=open(fname,'w+')
+        self.check(); fid=open(fname,'w+')
         #write header
         if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
         if fmt==0: fid.write('bpfile in ACE/gredit format\n{}\n'.format(self.nsta))
@@ -1510,6 +1504,15 @@ class schism_bpfile:
             if fmt==0: fid.write('{:<d} {:<.8f} {:<.8f} {:<.8f} !{}\n'.format(i+1,self.x[i],self.y[i],self.z[i],self.station[i]))
             if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
         fid.close()
+
+    def check(self):
+        '''
+        fill up missing field in bpfile based on self.x
+        '''
+        if (not hasattr(self,'nsta')) or (self.nsta==0 and len(self.x)!=0): self.nsta=len(self.x)
+        if (not hasattr(self,'z')) or (len(self.z)==0 and self.nsta!=0): self.z=zeros(self.nsta)
+        if (not hasattr(self,'station')) or (len(self.station)==0 and self.nsta!=0): self.station=array([str(i+1) for i in arange(self.nsta)])
+        self.np=self.nsta
 
     def get_unique_pts(self,fmt=0):
         '''
@@ -1534,7 +1537,7 @@ class schism_bpfile:
             lon0,lat0: lon&lat of cpp projection center; needed only if 'cpp' in [prj0,prj1]
                        if ("ll"=>"cpp") and (lon0 or lat0 is not provided): lon0=mean(x); lat0=mean(y)
         '''
-        px,py=proj(prj0=prj0,prj1=prj1,x=self.x,y=self.y,lon0=lon0,lat0=lat0)
+        self.check(); px,py=proj(prj0=prj0,prj1=prj1,x=self.x,y=self.y,lon0=lon0,lat0=lat0)
         if fmt==0: self.x,self.y=px,py
         return [px,py]
 
@@ -1569,7 +1572,7 @@ class schism_bpfile:
           fmt=1: plot unique points
         '''
 
-        self.edit()
+        self.check(); self.edit()
         #pre-processing
         if ls is None: ls='None'
         lc=color if label else 'None'
