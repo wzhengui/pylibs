@@ -1439,32 +1439,31 @@ class schism_bpfile:
     def VINFO(self):
         return get_INFO(self)
 
-    def read_reg(self,fname):
-        self.read_bpfile(fname,fmt=1)
+    def read_reg(self,*args0,**args):
+        self.read(fname,*args0,**args)
 
-    def read_bpfile(self,fname,fmt=0):
-        #read file content
-        lines=[i.strip().split() for i in open(fname,'r').readlines()]
-        stations=[i.strip().split('!')[-1] for i in open(fname,'r').readlines()[2:] if ('!' in i)]
-        if fmt==0:
-            self.nsta=int(lines[1][0])
-            if self.nsta==0: return
-            fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
-            data=array([fc(line) for line in lines[2:(2+self.nsta)]])
-            self.x,self.y,self.z=data[:,1:4].T.astype(float)
-        elif fmt==1:
-            self.nsta=int(lines[2][0])
-            if self.nsta==0: return
-            self.x,self.y=squeeze(array([lines[3:]])).astype('float').T
-            self.z=zeros(self.nsta)
-        else:
-            sys.exit('unknow format')
+    def read_bpfile(self,*args0,**args):
+        self.read(fname,*args0,**args)
 
-        #get unique station data.
-        if len(stations)==self.nsta:
-           self.station=array(stations)
-        else:
-           self.station=array(['{}'.format(i) for i in arange(self.nsta)])
+    def read(self,fname,delimiter='!',fmt=None):
+        '''
+        read SCHISM bpfile or reg file
+        fmt=0: bpfile;  fmt=1: regfile
+        '''
+        #pre-proc
+        lines=[i.strip() for i in open(fname,'r').readlines()]
+        self.fmt=1 if len(lines[2].split())==2 else 0 #check file format
+        if (fmt is not None) and self.fmt!=fmt: sys.exit('fmt is wrong; fmt is not need anymore!')
+
+        if self.fmt==0: #bpfile
+           self.nsta=int(lines[1].split()[0])
+           snames=[i.split(delimiter)[-1] if (delimiter in i) else ''  for i in lines[2:]] #read stations
+           self.station=[] if (len(unique(snames))==1 and snames[0]=='') else snames
+           self.x,self.y,self.z=array([i.split()[1:4] for i in lines[2:(2+self.nsta)]]).astype('float').T
+        else: #regfile
+            self.nsta=int(lines[2].split()[0])
+            self.x,self.y=array([i.split()[:2] for i in lines[3:(3+self.nsta)]]).astype('float').T
+        self.check() 
 
     def write(self,fname,**args):
         '''
@@ -1509,22 +1508,18 @@ class schism_bpfile:
         '''
         fill up missing field in bpfile based on self.x
         '''
-        if (not hasattr(self,'nsta')) or (self.nsta==0 and len(self.x)!=0): self.nsta=len(self.x)
-        if (not hasattr(self,'z')) or (len(self.z)==0 and self.nsta!=0): self.z=zeros(self.nsta)
-        if (not hasattr(self,'station')) or (len(self.station)==0 and self.nsta!=0): self.station=array([str(i+1) for i in arange(self.nsta)])
-        self.np=self.nsta
+        npt=len(self.x); self.nsta=npt; self.npt=npt; nz0=len(self.z); nsta0=len(self.station)
+        if nz0<npt: self.z=r_[array(self.z),zeros(npt-nz0)]
+        if nsta0<npt: self.station=r_[array(self.station,dtype='U'),arange(nsta0+1,npt+1).astype('U')]
 
     def get_unique_pts(self,fmt=0):
         '''
         compute unique pts
-            fmt=0: compute ux,uy,uz,ustation of the point
-            fmt=1: replace (x,y,z,station) by (ux,uy,uz,ustation)
+          fmt=0: unique xy; fmt=1: unique xyz
         '''
-        #get unique locations
-        upxy,sind=unique(self.x+1j*self.y,return_index=True); sind=sort(sind)
-        self.ux=self.x[sind]; self.uy=self.y[sind]
-        self.uz=self.z[sind]; self.ustation=self.station[sind]
-        if fmt==1: self.x,self.y,self.z,self.station,self.nsta=self.ux,self.uy,self.uz,self.ustation,len(self.ux)
+        sind=sort(unique(c_[self.x,self.y] if fmt==0 else c_[self.x,self.y,self.z],axis=0,return_index=True)[1])
+        self.ux,self.uy,self.uz,self.ustation=self.x[sind],self.y[sind],self.z[sind],self.station[sind]
+        self.unsta=self.unpt=len(sind)
         return [self.ux,self.uy,self.uz,self.ustation]
 
     def proj(self,prj0,prj1='epsg:4326',fmt=0,lon0=None,lat0=None):
@@ -1565,28 +1560,35 @@ class schism_bpfile:
     def plot_station(self,**args):
         return self.plot(**args)
 
-    def plot(self,ax=None,color='r',marker='.',ls=None,label=True,fmt=0,**args):
+    def plot(self,ax=None,color=None,ls=None,label=None,marker='.',markersize=6,fmt=0,connect_mpl=1,**args):
         '''
         plot points on current figure
-          fmt=0: plot all points
-          fmt=1: plot unique points
+          fmt=0: plot all points; fmt=1: plot unique points
         '''
-
-        self.check(); self.edit()
         #pre-processing
-        if ls is None: ls='None'
-        lc=color if label else 'None'
-        if not None: ax=gca()
-        if fmt==0: sx,sy,sz,stations=self.x,self.y,self.z,self.station
-        if fmt==1: sx,sy,sz,stations=self.get_unique_pts()
+        if connect_mpl==1: self.edit()
+        if color is None: color='r'
+        if ls is None: ls='None' if self.fmt==0 else '-'
+        if label is None: label=1 
+        if ax is None: ax=gca()
+
+        #get pts
+        self.check(); npt,xs,ys,zs,stations=self.npt,self.x,self.y,self.z,self.station
+        if fmt==1: xs,ys,zs,stations=self.get_unique_pts(); npt=len(xs)
+
+        #label
+        if label==1:
+           [i.remove() for i in self.ht]; self.ht=[]
+           for xi,yi,ti in zip(xs,ys,stations): hti=text(xi,yi,ti,color=color,fontsize=10); self.ht.append(hti)
 
         #plot
-        self.hp=[]; self.ht=[]
-        for i,station in enumerate(stations):
-            hpi=plot(sx[i],sy[i],marker=marker,color=color,linestyle=ls,**args); self.hp.append(hpi)
-            hti=text(sx[i],sy[i],station,color=lc); self.ht.append(hti)
-        #show(block=False)
-        return [self.hp,self.ht]
+        if self.fmt==1: #for region file
+           if hasattr(self,'hp2'): self.hp2.remove(); delattr(self,'hp2')
+           if npt>=3: [self.hp2]=fill(xs,ys,facecolor='m',alpha=0.15)
+           if npt!=0: xs=r_[xs,xs[0]]; ys=r_[ys,ys[0]] #close polygon
+        if len(self.hp)!=0: self.hp[0].set_xdata(xs); self.hp[0].set_ydata(ys)
+        if len(self.hp)==0: self.hp=plot(xs,ys,marker=marker,markersize=markersize,color=color,linestyle=ls,**args)
+        gcf().canvas.draw()
 
     def compute_acor(self,gd):
         #compute areal coordinates, and gd is the schism grid
@@ -1624,34 +1626,19 @@ class schism_bpfile:
             if dlk==1 and btn==1: add_pt(bx,by)
             if dlk==1 and btn==3: remove_pt(bx,by)
             if dlk==1 and btn==2: self.disconnect_edit()
+            if dlk==1 and btn in [1,3]: self.station=(arange(len(self.x))+1).astype('U'); self.plot(connect_mpl=0)
 
         def add_pt(x,y):
-            self.x=r_[self.x,x]; self.y=r_[self.y,y]; plot_pt()
+            self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.plot(connect_mpl=0)
 
         def remove_pt(x,y):
             if self.nsta==0: return
             distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
-            self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; plot_pt()
+            self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; self.plot()
 
         def move_pt(xi,yi):
             distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
-            self.x[sid]=xi; self.y[sid]=yi; plot_pt()
-
-        def plot_pt():
-            xs,ys,fmt=self.x, self.y,self.fmt; npt=len(xs); self.nsta=npt
-            cs='rm'; ls=['None','-']; self.z=zeros(npt); self.station=(arange(npt)+1).astype('U')
-
-            #pt label
-            [i.remove() for i in self.ht]; self.ht=[]
-            for xi,yi,ti in zip(xs,ys,self.station): hti=text(xi,yi,ti,color=cs[fmt],fontsize=10); self.ht.append(hti)
-
-            #plot pts
-            if fmt==1 and hasattr(self,'hp2'): self.hp2.remove()
-            if fmt==1 and npt>=3: [self.hp2]=fill(xs,ys,facecolor='m',alpha=0.15)
-            if fmt==1 and npt!=0: xs=r_[xs,xs[0]]; ys=r_[ys,ys[0]] #close polygon
-            if len(self.hp)!=0: self.hp[0].set_xdata(xs); self.hp[0].set_ydata(ys)
-            if len(self.hp)==0: self.hp=plot(xs,ys,marker='.',markersize=6,color=cs[fmt],linestyle=ls[fmt])
-            gcf().canvas.draw()
+            self.x[sid]=xi; self.y[sid]=yi; self.plot()
 
         if mpl._pylab_helpers.Gcf.get_active() is not None:
             acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); at='bp' if self.fmt==0 else 'reg'
@@ -1679,7 +1666,14 @@ def read_schism_bpfile(fname,fmt=0):
     '''
     read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
     '''
-    bp=schism_bpfile(); bp.read_bpfile(fname,fmt=fmt)
+    bp=schism_bpfile(); bp.read(fname); bp.edit()
+    return bp
+
+def read_schism_reg(fname):
+    '''
+    read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
+    '''
+    bp=schism_bpfile(); bp.read(fname); bp.edit()
     return bp
 
 def read_schism_prop(fname):
@@ -1692,12 +1686,6 @@ def read_schism_prop(fname):
       pdata=array([i.strip().split() for i in open(fname,'r').readlines() if len(i.split())==2]).astype('float')
     pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
     return pvalue
-
-def read_schism_reg(fname):
-    '''
-    read schism *.reg file created by ACE/gredit
-    '''
-    return read_schism_bpfile(fname,fmt=1)
 
 def save_schism_grid(fmt=0,path='.',method=0):
     '''
