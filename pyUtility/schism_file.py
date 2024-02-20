@@ -2663,7 +2663,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     extract slabs of SCHISM results (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
        varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
-       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level)
+       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level; "all": all layers)
        stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
        mdt:     (optional) time window (day) for averaging output
@@ -2687,8 +2687,8 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     for istack in [*unique(stacks).ravel()]:
         if outfmt==0:
            C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
-           #np=C0.dimensions['nSCHISM_hgrid_node'].size; ne=C0.dimensions['nSCHISM_hgrid_face'].size
            mt=array(C0.variables['time'][:])/86400; nt=len(mt); mtime.extend(mt[::nspool])
+           zs=arange(nvrt,0,-1) if levels=='all' else array(levels)
 
         for ivar, varnamei in enumerate(varname):
             svars=get_schism_var_info(varnamei,modules,fmt=outfmt)
@@ -2698,7 +2698,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
                    vi=array([array(cvar[i]).astype('float32') for i in arange(nt) if i%nspool==0])
                    if reg is not None: npt=cvar.shape[1]; vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                 else:   #3D
-                   for n,k in enumerate(levels):
+                   for n,k in enumerate(zs):
                        if k>nvrt:
                           if not hasattr(P,'kbp'): vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sindp,P.kbp=arange(np),vd.kbp
                           vii=array([array(cvar[i][P.sindp,P.kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
@@ -2706,13 +2706,13 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
                           vii=array([array(cvar[i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
                        if reg is not None: npt=cvar.shape[1]; vii=vii[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                        vi.append(vii)
-                   vi=vi[0] if len(levels)==1 else array(vi).transpose([1,0,2]); C.close()
+                   vi=vi[0] if len(zs)==1 else array(vi).transpose([1,0,2]); C.close()
                 vs=vi if m==0 else c_[vs[...,None],vi[...,None]]
             mdata[ivar].extend(vs)
         C0.close()
 
     #save data
-    S=zdata(); sdict=S.__dict__; S.levels=array(levels); mt=array(mtime); mdata=[array(i) for i in mdata]
+    S=zdata(); sdict=S.__dict__; S.zs=array(zs); mt=array(mtime); mdata=[array(i) for i in mdata]
     for m, k in enumerate(sname):
         sdict[k]=mdata[m] if (mdt is None) else array([mdata[m][(mt>=i)*(mt<(i+mdt))].mean(axis=0) for i in arange(mt[0],mt[-1],mdt)])
     sdict['time']=mt if (mdt is None) else array([mt[(mt>=i)*(mt<(i+mdt))].mean() for i in arange(mt[0],mt[-1],mdt)])
