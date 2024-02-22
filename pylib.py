@@ -101,7 +101,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,get_subplot_position2,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml,read_excel,
         write_excel,rtext,mklink,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
-        get_qnode)
+        get_qnode,modify_figure)
 
    import pyUtility.schism_file as schism_file
    sys.modules['schism_file'] = schism_file
@@ -131,6 +131,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import zdata as npz_data; mylib.npz_data=zdata
    from pyUtility.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
    from pyUtility.mylib import move_figure as mvfig
+   from pyUtility.mylib import modify_figure as mfig
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
    from pyUtility.mylib import convert_matfile as mat2npz
    from pyUtility.mylib import convert_matfile as loadm

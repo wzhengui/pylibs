@@ -1681,6 +1681,20 @@ def move_figure(x=0,y=0,f=None):
         # You can also use window.setGeometry
         f.canvas.manager.window.move(x, y)
 
+def modify_figure(fmt=0,hf=None):
+    '''
+    todo: not working yet !!
+    alias for "gcf().tight_layout(); mvfig(); show(block=False)"
+    '''
+    if hf is None: hf=gcf()
+    try:
+       hf.tight_layout(); mvfig(f=hf)
+       plt.ion(); show()
+       #if fmt==0: hf.show(block=False)
+       #if fmt==1: hf.show()
+    except:
+       pass
+
 def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
     tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,lon0,lat0,order0,order1)

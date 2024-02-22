@@ -1545,6 +1545,8 @@ class schism_bpfile:
 
         fp=inside_polygon(xy,self.x,self.y)==1
         return nonzero(fp)[0] if fmt==0 else fp if fmt==1 else nonzero(~fp)[0] if fmt==2 else ~fp
+    def outside(self,xy,fmt=2):
+        return self.inside(xy,fmt=fmt)
 
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
