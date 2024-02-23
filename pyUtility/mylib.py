@@ -275,6 +275,7 @@ def get_qnode(qnode=None):
     host=os.getenv('HOST')
     if host is None: sys.exit('set HOST environment variable HOST')
     if host in ['femto.sciclone.wm.edu','viz']: qnode='femto'
+    if host in ['kuro.sciclone.wm.edu']: qnode='kuro'
     if host in ['hurricane.sciclone.wm.edu']: qnode='x5672'
     if host in ['bora.sciclone.wm.edu']: qnode='bora'
     if host in ['vortex.sciclone.wm.edu']: qnode='vortex'
@@ -299,7 +300,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code))
        #for submit jobs
-       if qnode in ['femto','cyclops']:
+       if qnode in ['femto','cyclops','kuro']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
        elif qnode in ['grace',]:
@@ -320,7 +321,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
           sys.exit('unknow qnode: {},tag=1'.format(qnode))
     elif fmt==1:
        #for run parallel jobs
-       if qnode in ['femto','cyclops']:
+       if qnode in ['femto','cyclops','kuro']:
           scmd="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,code,scrout)
        elif qnode in ['grace',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
