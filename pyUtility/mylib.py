@@ -90,6 +90,42 @@ class blit_manager:
         self.hf.canvas.blit(self.hf.bbox)
         self.hf.canvas.flush_events()
 
+class _COMM_WORLD:
+      def __init__(self):
+          self.pid=os.getpid()
+          self.myrank=None
+
+      def Get_size(self):
+          self.nproc=int(os.getenv('nproc'))
+          return self.nproc
+
+      def Get_rank(self):
+          from glob import glob
+          header='.pylib_pjob_id_'; open(header+str(self.pid),'w+').close()
+          if not hasattr(self,'nproc'): self.Get_size()
+          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
+          fnames=glob(header+'*'); pids=[*sort([int(i.split('_')[-1]) for i in fnames])]
+          self.myrank=pids.index(self.pid); self.delete(header,0.2)
+          return self.myrank
+
+      def Barrier(self):
+          from glob import glob
+          header='.pylib_pjob_lock_'; open(header+str(self.pid),'w+').close()
+          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
+          self.delete(header,dt=0.2)
+
+      def delete(self,header=None,dt=0):
+          from glob import glob
+          if self.myrank==0: time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
+
+class parallel_jobs:
+      '''
+      compute nproc and myrank by dumping pid information on disk, when mpi4py fails.
+      Note: this is not MPI, but only for the purpose in distributing parallel jobs
+      '''
+      def __init__(self):
+          self.COMM_WORLD=_COMM_WORLD()
+
 def resize(data,shape,fill=0):
     '''
     re-define the shape of an data array; The added data are filled with value='fill argument'
@@ -322,26 +358,26 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
     elif fmt==1:
        #for run parallel jobs
        if qnode in ['femto','cyclops','kuro']:
-          scmd="srun --export=ALL,job_on_node=1,bdir={} {} >& {}".format(bdir,code,scrout)
+          scmd="srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['grace',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
           if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
        elif qnode in ['frontera']:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun {} >& {}".format(code,scrout)
        elif qnode in ['stampede2',]:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun {} >& {}".format(code,scrout)
        elif qnode in ['levante',]:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -n {} {} >& {}".format(bdir,nproc,code,scrout)
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='run_schism':
              scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
              scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           code=os.path.abspath(code)
-          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
-          if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
-          if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' {} >& {}".format(bdir,code,scrout)
+          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
+          if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
+          if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
           #if qnode=='james' and ename=='run_schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
        elif qnode in ['eagle','deception']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -{} {} {} >& {}".format(bdir,'n' if qnode=='eagle' else 'np',nproc,code,scrout)
