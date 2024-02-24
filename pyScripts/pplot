@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from PIL import Image
+from matplotlib.pyplot import show
 
 if len(sys.argv)==1:
    sys.exit('Usage: pplot *.pp\n')
