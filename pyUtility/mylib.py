@@ -116,7 +116,10 @@ class _COMM_WORLD:
 
       def delete(self,header=None,dt=0):
           from glob import glob
-          if self.myrank==0: time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
+          if self.myrank==0:
+             time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
+          else:
+             time.sleep(2*dt)
 
 class parallel_jobs:
       '''
