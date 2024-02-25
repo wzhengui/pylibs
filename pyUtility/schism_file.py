@@ -3596,7 +3596,7 @@ class schism_check(zdata):
              tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
              tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
              if fname.endswith('_nu.nc'):
-                tk.Checkbutton(master=sfm,text='contour',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+                tk.Checkbutton(master=sfm,text='dispaly on mesh',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
              else:
                 ttk.Label(master=sfm,text='   zoom').grid(row=0,column=3,sticky='W')
                 ttk.Entry(sfm,textvariable=p.scale,width=5).grid(row=0,column=4,sticky='W')
@@ -3669,7 +3669,7 @@ class schism_check(zdata):
              ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
              tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=3)
              tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=4,sticky='W')
-             tk.Checkbutton(master=sfm,text='ctr',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+             tk.Checkbutton(master=sfm,text='color',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
              tk.Checkbutton(master=sfm,text='id',variable=p.id,onvalue=1,offvalue=0).grid(row=0,column=6,sticky='W')
              wd.geometry('400x185')
 
