@@ -96,7 +96,7 @@ class _COMM_WORLD:
           self.myrank=None
 
       def Get_size(self):
-          self.nproc=int(os.getenv('nproc'))
+          self.nproc=1 if os.getenv('nproc') is None else int(os.getenv('nproc'))
           return self.nproc
 
       def Get_rank(self):
