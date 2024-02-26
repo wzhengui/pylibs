@@ -100,7 +100,6 @@ class _COMM_WORLD:
           return self.nproc
 
       def Get_rank(self):
-          from glob import glob
           header='.pylib_pjob_id_'; open(header+str(self.pid),'w+').close()
           if not hasattr(self,'nproc'): self.Get_size()
           while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
@@ -109,13 +108,11 @@ class _COMM_WORLD:
           return self.myrank
 
       def Barrier(self):
-          from glob import glob
           header='.pylib_pjob_lock_'; open(header+str(self.pid),'w+').close()
           while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
           self.delete(header,dt=0.2)
 
       def delete(self,header=None,dt=0):
-          from glob import glob
           if self.myrank==0:
              time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
           else:

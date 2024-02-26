@@ -2,6 +2,7 @@
 #import system lib
 #---------------------------------------------------------------------
 import os,sys
+from glob import glob
 
 Libs=['pylib','mylib','schism_file']
 if not set(Libs).issubset(set(sys.modules.keys())):

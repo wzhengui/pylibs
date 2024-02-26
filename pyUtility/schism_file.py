@@ -2362,7 +2362,6 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
     '''
     from time import time as gettime
     from shutil import copyfile
-    from glob import glob
     from netCDF4 import Dataset
 
     outdir=rundir+'/outputs/'
@@ -2736,7 +2735,6 @@ def get_schism_output_info(run,fmt=0):
         fmt=4: return reconstructed SCHISM hgrid
         (Note: fmt=3/4 works for new schism outputs)
     '''
-    from glob import glob
 
     if fmt in [0,1]:
        #default variables to be excluded
@@ -3254,7 +3252,6 @@ class schism_view:
         return get_INFO(self)
 
     def run_info(self,run):
-        from glob import glob
         import threading,time
 
         #check output
