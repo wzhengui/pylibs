@@ -1458,7 +1458,7 @@ class schism_bpfile:
         if self.fmt==0: #bpfile
            self.nsta=int(lines[1].split()[0])
            snames=[i.split(delimiter)[-1] if (delimiter in i) else ''  for i in lines[2:]] #read stations
-           self.station=[] if (len(unique(snames))==1 and snames[0]=='') else snames
+           self.station=[] if (len(unique(snames))==1 and snames[0]=='') else array(snames,dtype='U')
            self.x,self.y,self.z=array([i.split()[1:4] for i in lines[2:(2+self.nsta)]]).astype('float').T
         else: #regfile
             self.nsta=int(lines[2].split()[0])
