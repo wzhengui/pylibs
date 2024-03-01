@@ -2417,7 +2417,7 @@ def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
     '''
     combine schism hotstart
        outdir: schism output directory
-       fmt=0: combine the last hotstart; fmt=1: combine all hotstart
+       fmt=0: combine the last hotstart; fmt=1: combine all hotstart, skip combined; fmt=2: re-combine all
        irec: step number of hotstrat (fmt is disabled when irec is set)
     '''
     from netCDF4 import Dataset
@@ -2434,7 +2434,9 @@ def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
     fnames=[]
     for m,irec in enumerate(irecs):
         fname='hotstart.nc_{}'.format(irec); fnames.append(fname)
+        if fmt==1 and os.path.exists(outdir+'/'+fname): continue
         fid=Dataset(outdir+'/'+fname,'w',format='NETCDF4');  #open file
+        print('combining '+fname)
         for n in arange(S.nproc):  #assemble subdomain information
             C=ReadNC('{}/hotstart_{:06}_{}.nc'.format(outdir,n,irec),1)
             cvar=C.variables; cdim=C.dimensions
