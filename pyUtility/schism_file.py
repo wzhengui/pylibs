@@ -291,9 +291,11 @@ class schism_grid:
         '''
         interpolate element values to nodes
         if value not given, dpe is used
-        fmt=0: simple avarage; fmt=1: inverse distance (power=p)
+        fmt=0: element area weighted avarage in nodal ball
+        fmt=1: inverse distance (power=p)
         fmt=2: maximum of surrounding nodal values
         fmt=3: minimum of surrounding nodal values
+        fmt=4: simple avarage in nodal ball
         '''
         #element values
         if not hasattr(self,'nne'): self.compute_nne()
@@ -303,16 +305,21 @@ class schism_grid:
         #interpolation
         vs=v0[self.ine]
         if fmt==0:
-           w=self.ine!=-1; tw=w.sum(axis=1)
-           if sum(isnan(value))!=0:
-              vs[~w]=0; v=vs.sum(axis=1)/tw
-           else:
-              v=(w*vs).sum(axis=1)/tw
-        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
-        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+           if not hasattr(self,'area'): self.compute_area()
+           fpn=self.ine!=-1; a=self.area[self.ine]
+           ta=sum(a*fpn,axis=1); tv=sum(a*vs*fpn,axis=1)
+           fpz=ta!=0; v=zeros(self.np)*nan; v[fpz]=tv[fpz]/ta[fpz]
         if fmt==1:
               dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
               w=1/(dist**p); w[self.ine==-1]=0; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
+        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
+        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+        if fmt==4:
+           w=self.ine!=-1; tw=w.sum(axis=1)
+           if sum(isnan(v0))!=0:
+              vs[~w]=0; v=vs.sum(axis=1)/tw
+           else:
+              v=(w*vs).sum(axis=1)/tw
         return v
 
     def compute_all(self,fmt=0):
