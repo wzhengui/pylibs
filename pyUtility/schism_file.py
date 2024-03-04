@@ -42,7 +42,8 @@ class schism_grid:
              ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,**args):
         '''
         plot grid with default color value (grid depth)
-        fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
+        fmt=0: plot grid only; fmt=1: plot filled contours
+        fmt=2: plot contour lines at levels; colors and linewidths can be provided for each contour
         value: color value size(np,or ne)
         ec: color of grid line;  fc: element color; lw: grid line width
         levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
@@ -901,6 +902,26 @@ class schism_grid:
            return pv
         else:
            return self.interp_elem_to_node(pv)
+
+    def compute_contour(self,levels,value=None):
+        '''
+        compute contour lines
+        '''
+        value=self.dp if value is None else value
+        if value.size==self.ne: value=self.interp_elem_to_node(value)
+
+        #plot contour and extract the lines
+        fp4=self.i34==4; trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
+        hf=figure(); hf.set_visible(False)
+        P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
+        for k in arange(len(P.collections)):
+            p=P.collections[k].get_paths()
+            for i in arange(len(p)):
+                xii,yii=p[i].vertices.T
+                xi=r_[xii,NaN] if i==0 else r_[xi,xii,NaN]
+                yi=r_[yii,NaN] if i==0 else r_[yi,yii,NaN]
+            cxy.append(c_[xi,yi])
+        return array(cxy,dtype='O')
 
     def write(self, fname=None,**args):
         '''
