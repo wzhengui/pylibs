@@ -2684,12 +2684,12 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     #proc
     fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'; fexist=os.path.exists; P=zdata()
     bdir=run+'/outputs'; modules,outfmt,dstacks,dvars,dvars_2d =get_schism_output_info(bdir,1)
+    gd=read(fgz,'hgrid') if fexist(fgz) else read(fgd); np,ne,ns=gd.np,gd.ne,gd.ns
     if isinstance(varname,str): varname=[varname]
     if sname is None: sname=varname
     if stacks is None: stacks=dstacks
     if outfmt==1: sys.exit('OLDIO not supported yet')
     if reg is not None: #build subgrid
-       gd=read(fgz,'hgrid') if fexist(fgz) else read(fgd); np,ne,ns=gd.np,gd.ne,gd.ns
        sgd=gd.subset(reg) if isinstance(reg,str) else reg; sindp,sinde,sinds=sgd.sindp,sgd.sinde,sgd.sinds
 
     #read output
