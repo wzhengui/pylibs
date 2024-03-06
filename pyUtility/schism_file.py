@@ -921,7 +921,7 @@ class schism_grid:
                 xi=r_[xii,NaN] if i==0 else r_[xi,xii,NaN]
                 yi=r_[yii,NaN] if i==0 else r_[yi,yii,NaN]
             cxy.append(c_[xi,yi])
-        return array(cxy,dtype='O')
+        return array(cxy) if len(cxy)==1 else array(cxy,dtype='O')
 
     def write(self, fname=None,**args):
         '''
