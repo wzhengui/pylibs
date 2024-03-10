@@ -903,6 +903,44 @@ class schism_grid:
         else:
            return self.interp_elem_to_node(pv)
 
+    def compute_zcor(self,vgrid,eta=None):
+        ''' 
+        compute zcor @ each nodes; need inputs:
+           vgrid: read_schism_vgrid('vgrid.in')
+           eta (optional): surface elevation (dim=[np] or [1])
+        ''' 
+        if eta is None:
+           zcor=self.zcor if hasattr(self,'zcor') else vgrid.compute_zcor(self.dp)
+           if not hasattr(self,'zcor'): self.zcor=zcor #save zcor
+        else:
+           zcor=vgrid.compute_zcor(self.dp,eta=eta)
+        return zcor
+
+    def compute_volume(self,vgrid,fmt=0,value=None,eta=None): 
+        '''
+        compute volume or volume*value for schism grid
+        Inputs:
+           vgrid: read_schism_vgrid('vgrid.in')
+           eta   (optional): surface elevation (dim=[np] or [1])
+           value (optional): tracer concentration with dimension size (ne, nvrt) or (np, nvrt).
+        Outputs:
+          fmt=0: each prism   (ne,nvrt-1)
+          fmt=1: each column  (ne,)
+          fmt=2: total volumn (1,)
+        '''
+        #compute prism volume
+        if not hasattr(self,'area'): self.compute_area()
+        zcor=self.compute_zcor(vgrid,eta=eta); ze=zeros([self.ne,vgrid.nvrt]); fp3=self.i34==3; fp4=~fp3
+        ze[fp3]=zcor[self.elnode[fp3,:3]].mean(axis=1); ze[fp4]=zcor[self.elnode[fp4]].mean(axis=1)
+        v=(ze[:,1:]-ze[:,:-1])*self.area[:,None]
+
+        #multiplee value
+        if value is not None:
+           if value.shape[0]==self.np: value=self.interp_node_to_elem(value); value[:,1:]=(value[:,:-1]+value[:,1:])/2
+           v=v*value[:,1:]
+        
+        return v if fmt==0 else v.sum(axis=1) if fmt==1 else v.sum()
+
     def compute_contour(self,levels,value=None):
         '''
         compute contour lines
@@ -2285,17 +2323,11 @@ def zcor_to_schism_grid(zcor,x=None,value=None):
 
     return gd
 
-def compute_schism_volume(hgrid,vgrid,**args):
+def compute_schism_volume(hgrid,vgrid,fmt=0,value=None,eta=None):
     '''
-    compute schism cell volumes. It needs inputs hgrid and vgrid, and use vgrid's function to compute
-    the veritical cooridantes, and the following arguments can be used.
-       vd.compute_zcor(dp, eta=0, fmt=0, method=0, sigma=None, kbp=None, ifix=0)
+    compute volume or volume*value for schism grid; see help from gd.compute_volume
     '''
-    gd=hgrid; vd=vgrid; fp3=gd.i34==3; fp4=gd.i34==4
-    zcor=vd.compute_zcor(gd.dp,**args);  ze=zeros([gd.ne,vd.nvrt])
-    ze[fp3]=zcor[gd.elnode[fp3,:3]].mean(axis=1); ze[fp4]=zcor[gd.elnode[fp4]].mean(axis=1)
-    v=(ze[:,1:]-ze[:,:-1])*gd.area[:,None]
-    return v
+    return hgrid.compute_volume(vgrid,fmt,value,eta)
 
 def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None):
     '''
