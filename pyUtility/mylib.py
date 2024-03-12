@@ -319,7 +319,7 @@ def get_qnode(qnode=None):
     return qnode
 
 def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',
-                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,mem='4G'):
+                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,mem='4G',reservation=None):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -329,6 +329,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        qnode: hpc node name
        nnode,ppn,wtime: request node number, core per node, and walltime
        mem: meomory; needed on cluster grace
+       reservation: get request debug node on kuro
        fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
     '''
   
@@ -339,6 +340,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        if qnode in ['femto','cyclops','kuro']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
+          if qnode=='kuro' and (reservation is not None): scmd='sbatch --reservation=debug --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
        elif qnode in ['grace',]:
           scmd='sbatch --export=ALL -J {} -N {} --mem={} --ntasks-per-node {} -t {} {}'.format(jname,nnode,mem,ppn,wtime,code)
        elif qnode in ['frontera',]:
