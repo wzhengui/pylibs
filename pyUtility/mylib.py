@@ -337,17 +337,16 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code))
        #for submit jobs
-       if qnode in ['femto','cyclops','kuro','hercules']:
+       if qnode in ['femto','cyclops','kuro']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
           if qnode=='kuro' and (reservation is not None): scmd='sbatch --reservation=debug --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
-          if qnode=='hercules': scmd='sbatch --export=ALL --exclusive -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
        elif qnode in ['grace',]:
           scmd='sbatch --export=ALL -J {} -N {} --mem={} --ntasks-per-node {} -t {} {}'.format(jname,nnode,mem,ppn,wtime,code)
        elif qnode in ['frontera',]:
           #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,nnode,ppn,wtime,code)
-       elif qnode in ['levante',]:
+       elif qnode in ['levante','hercules']:
           scmd='sbatch --export=ALL --exclusive -J {} -p {} --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,account,nnode,ppn,wtime,code)
        elif qnode in ['stampede2',]:
           scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
@@ -360,11 +359,8 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
           sys.exit('unknow qnode: {},tag=1'.format(qnode))
     elif fmt==1:
        #for run parallel jobs
-       if qnode in ['femto','cyclops','kuro','hercules']:
+       if qnode in ['femto','cyclops','kuro',]:
           scmd="srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          if qnode=='hercules' and ename=='run_schism':
-             scmd="set -e; ulimit -s unlimited; source /home/yjzhang/modules.hercules;"
-             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['grace',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
           if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
@@ -374,11 +370,14 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        elif qnode in ['stampede2',]:
           scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='run_schism': scmd="ibrun {} >& {}".format(code,scrout)
-       elif qnode in ['levante',]:
+       elif qnode in ['levante','hercules']:
           scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='run_schism':
              scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
              scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
+          if qnode=='hercules' and ename=='run_schism':
+             scmd="set -e; ulimit -s unlimited; source /home/yjzhang/modules.hercules;"
+             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
           code=os.path.abspath(code)
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
