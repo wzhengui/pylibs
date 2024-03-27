@@ -80,6 +80,7 @@ class schism_grid:
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
               if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
+           self.data=value
 
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
@@ -826,13 +827,17 @@ class schism_grid:
 
           Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
-        #get node value
-        vi=self.dp if value is None else value
-        if len(vi)==self.ne: vi=self.interp_elem_to_node(value=vi)
+
+        vi=self.dp if value is None else value; npt=len(vi) #get value
+        pie,pip,pacor=self.compute_acor(pxy,fmt=fmt)        #get interp coeff
 
         #interp
-        pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
-        return (vi[pip]*pacor).sum(axis=1)
+        if npt==self.np:
+           return (vi[pip]*pacor).sum(axis=1)
+        elif npt==self.ne:
+           return vi[pie]
+        else:
+           sys.exit('unknown data size: {}'.format(npt))
 
     def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
@@ -1450,19 +1455,27 @@ class schism_grid:
             self.cidquery=gcf().canvas.mpl_connect('button_press_event', onclick)
 
         def onclick(sp):
-            dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-            if dlk==0 and btn==1:
+            dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata; pz=0
+            if dlk==0 and btn==3:
                acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
                if hasattr(ac,'bp'):
                   if ac.bp.nsta==0: return
                   distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
-                  pie,pip,pacor=self.compute_acor(c_[ac.bp.x[sid],ac.bp.y[sid]]); pzi=(self.dp[pip]*pacor).sum()
-                  print('query: bp depth= {}'.format(pzi))
-            elif dlk==0 and btn==3:
-               pie,pip,pacor=self.compute_acor(c_[bx,by]); pzi=(self.dp[pip]*pacor).sum()
-               print('query: depth= {}'.format(pzi))
+                  px=ac.bp.x[sid]; py=ac.bp.y[sid]; pz=1
+            elif dlk==0 and btn==1:
+               px=bx; py=by; pz=1
             elif dlk==0 and btn==2:
+               self.hqt.remove(); self.hqp.remove(); delattr(self,'hqt'); delattr(self,'hqp'); gcf().canvas.draw()
                gcf().canvas.mpl_disconnect(self.cidquery)
+
+            #annotate text
+            if dlk==0 and (btn in [1,3]) and pz==1:
+               pz=self.interp(c_[px,py],value=self.data if hasattr(self,'data') else self.dp)
+               if not hasattr(self,'hqp'):
+                  self.hqp=plot(px,py,'g^',ms=6,alpha=1)[0]
+                  self.hqt=text(px,py,'',color='orangered',fontsize=12,bbox=dict(facecolor='w',alpha=0.75))
+               self.hqt.set_x(px); self.hqt.set_y(py); self.hqt.set_text(' {}'.format(pz[0]))
+               self.hqp.set_xdata(px); self.hqp.set_ydata(py); gcf().canvas.draw()
 
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
