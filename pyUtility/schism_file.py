@@ -2333,6 +2333,8 @@ def zcor_to_schism_grid(zcor,x=None,value=None):
     elnode=arange(sindp.size)[sindv].reshape(elnode.shape) #renumber node index
     p=elnode; p[p[:,3]==p[:,0],3]=-2; p[p[:,2]==p[:,1],2]=-2; fp=p[:,2]==-2; p[fp]=p[fp][:,array([3,0,1,2])] #for triangle
     gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
+    gd.compute_area(); fp3=(gd.i34==3)*(gd.area<0); fp4=(gd.i34==4)*(gd.area<0)
+    gd.elnode[fp3,:3]=gd.elnode[fp3,2::-1]; gd.elnode[fp4,:]=gd.elnode[fp4,::-1]; gd.compute_area()
 
     return gd
 
