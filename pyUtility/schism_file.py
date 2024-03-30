@@ -455,8 +455,8 @@ class schism_grid:
         nb_max: maximum boundary nodes allowed for each bnd segments
         method=0: latest method in computing bnd; method=1: old method
         '''
-        print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+        if self.ns>1e6: print('computing grid boundaries')
 
         if method==0:
            #find boundary side and element, and sort it
