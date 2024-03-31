@@ -788,7 +788,8 @@ class schism_grid:
             if sum(fpn)!=0:
                x1,x2,x3=self.x[pip[fpn]].T; y1,y2,y3=self.y[pip[fpn]].T; x,y=pxy[fpn].T
                A1=signa(c_[x,x2,x3],c_[y,y2,y3]); A2=signa(c_[x1,x,x3],c_[y1,y,y3])
-               A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
+               A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); fp=(A1+A2-A)>0; A[fp]=A1[fp]+A2[fp]
+               pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
             if sum(~fpn)!=0:
                sindn=near_pts(pxy[~fpn],c_[self.x,self.y]); pip[~fpn]=sindn[:,None]; pacor[~fpn,0]=1
 
@@ -1260,7 +1261,8 @@ class schism_grid:
             #get index of pts
             if i==0: sind.extend(nonzero(fps)[0])
             if i==1: sind.extend(sindr[fps])
-            pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,1-ac1-ac2])
+            ac3=1-ac1-ac2; fpn=ac3<0; ac2[fpn]=1-ac1[fpn]; ac3[fpn]=0
+            pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,ac3])
         return array(sind),array(pip),array(pacor)
 
     def inside_grid(self,pxy):
