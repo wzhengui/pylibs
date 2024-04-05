@@ -2720,12 +2720,12 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
 
                     #interp in the vertical
                     if fmt==0: #time series
-                       vs=interp_vertical(vii,zii,-lz[None,None,:])
+                       vii=interp_vertical(vii,zii,-lz[None,None,:]); vs.append(vii)
                        if nd==4: vs=vs[0].transpose([2,0,1])
                     else: #transect
                        if nd==3: vs.append(vii)
                        if nd==4: vs.append(vii[...,0]); vs.append(vii[...,1])
-            mdata[m].extend(array(vs).transpose([1,2,0])) if (fmt==0 or (svar in dvars_2d)) else mdata[m].extend(array(vs).transpose([2,3,1,0]))
+            mdata[m].extend(array(vs).transpose([1,2,0])) if (fmt==0 or (svar in dvars_2d))*(array(vs).ndim==3) else mdata[m].extend(array(vs).transpose([2,3,1,0]))
         C0.close()
         if fmt==0 and outfmt==0 and zcor==1: Z0.close()
 
@@ -3926,12 +3926,9 @@ class schism_check(zdata):
           if p.data.ndim==1:
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
               if not hasattr(self,'hgrid'):self.read_hgrid()
-              flag_nu=0; fn=self.run+fname.split('_')[0]+'_nudge.gr3'; fexist=os.path.exists
-              if fname.endswith('_nu.nc') and xn=='node' and fexist(fn) and p.ctr.get()==1: flag_nu=1
-              if flag_nu==1:  #plot nudge value on grid
+              if fname.endswith('_nu.nc') and xn=='node' and p.ctr.get()==1:
                   gd=self.hgrid
-                  if fn not in fids: fids[fn]=read(fn).z #read *_nudge.gr3
-                  if not hasattr(p,'sindn'): p.sindn=nonzero(fids[fn]!=0)[0]
+                  if not hasattr(p,'sindn'): p.sindn=array(read(self.run+os.path.sep+fname,1).variables['map_to_global_node'])-1
                   vi=zeros(gd.np); vi[p.sindn]=p.data
                   gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
