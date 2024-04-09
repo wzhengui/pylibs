@@ -103,7 +103,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,get_subplot_position2,load_bathymetry,plot_taylor_diagram,
         convert_dem_format,get_hpc_command,least_square_fit,read_yaml,read_excel,
         write_excel,rtext,mklink,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
-        get_qnode,modify_figure,parallel_jobs)
+        get_qnode,modify_figure,parallel_jobs,fig_IFNO)
 
    import pyUtility.schism_file as schism_file
    sys.modules['schism_file'] = schism_file

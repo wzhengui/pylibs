@@ -1737,6 +1737,16 @@ def modify_figure(fmt=0,hf=None):
     except:
        pass
 
+def fig_IFNO(hf=None,ax=None):
+    '''
+    get figure information
+    '''
+    if hf is None: hf=gcf()
+    if ax is None: ax=gca()
+    f='figure(figsize=[{},{}])'.format(hf.get_figwidth(),hf.get_figheight())
+    a='xm={}; ym={}'.format(ax.get_xlim(),ax.get_ylim())
+    print('\n'+f+'\n\n'+a)
+
 def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
     tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,lon0,lat0,order0,order1)
