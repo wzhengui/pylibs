@@ -2608,6 +2608,39 @@ def harmonic_analysis(data,dt,t0=0,tidal_names=None,code=None,tname=None,fname=N
     if os.path.exists(tname): os.remove(tname)
     return S
 
+def ceqstate(T,S,P=0):
+    '''
+    calculate seawater density (Millero and Poisson 1981, Gill, 1982); Input:
+      T: temperature in [C]
+      S: salinity in [PSU]
+      P: pressure [bars] (P=0: at 1 atm. pressure)
+    '''
+
+    npt=len(T)
+    #pre_calculation
+    T2=T*T; T3=T**3; T4=T**4; T5=T**5
+    S05=sqrt(S); S15=S*S05; S2=S*S; P2=P*P
+
+    #pure water S=0,at 1 atm.
+    rho_pw=999.842594+6.793952e-2*T-9.095290e-3*T2+1.001685e-4*T3-1.120083e-6*T4+6.536332e-9*T5
+
+    #density with Salinity
+    A=8.24493e-1-4.0899e-3*T+7.6438e-5*T2-8.2467e-7*T3+5.3875e-9*T4
+    B=-5.72466e-3+1.0227e-4*T-1.6546e-6*T2
+    C=4.8314e-4
+    rho_st=rho_pw+A*S+B*S15+C*S2
+
+    #pressure not zero
+    if P==0:
+      rho=rho_st
+    else:
+      K_pw=19652.21+148.4206*T-2.327105*T2+1.360477e-2*T3-5.155288e-5*T4; K_st=K_pw
+      K_st=K_st+S*(54.6746-0.603459*T+1.09987e-2*T2-6.1670e-5*T3)+S15*(7.944e-2+1.6483e-2*T-5.3009e-4*T2);
+      K_stp=K_st+P*(3.239908+1.43713e-3*T+1.16092e-4*T2-5.77905e-7*T3)+P*S*(2.2838e-3-1.0981e-5*T-1.6078e-6*T2)+1.91075e-4*P*S15 \
+            +P2*(8.50935e-5-6.12293e-6*T+5.2787e-8*T2)+P2*S*(-9.9348e-7+2.0816e-8*T+9.1697e-10*T2)
+      rho=rho_st/(1-P/K_stp)
+    return rho
+
 def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
     '''
     extract Hycom time series at stations
