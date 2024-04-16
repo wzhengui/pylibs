@@ -4,7 +4,7 @@ import sys
 from numpy import array, array_equal, argsort, arange, c_, r_, diff,\
   sort, unique, zeros, ones, setdiff1d, fliplr, flipud, tile, nonzero,\
   nan, isnan, loadtxt, savetxt, load, linspace, meshgrid, concatenate,\
-  squeeze, mod, angle, pi, sign
+  squeeze, mod, angle, pi, sign, sqrt, maximum
 from matplotlib.pyplot import figure, show, savefig, tricontour,\
     tricontourf, tripcolor, colorbar, gca, gcf, plot, axis, xlim, ylim,\
     triplot, title, xlabel, ylabel, gca, gcf, setp, getp, close
@@ -12,7 +12,7 @@ import matplotlib.cm as cm
 import matplotlib as mpl
 
 from pylib_essentials.utility_functions import loadz, savez, zdata, signa, \
-    get_VINFO, proj, WriteNC, inside_polygon
+    get_VINFO, proj, WriteNC, inside_polygon, near_pts
 
 # for experimental features
 from pathlib import Path
@@ -20,7 +20,6 @@ import numpy as np
 import pickle
 import pandas as pd
 import copy
-import scipy
 import unittest
 
 
@@ -41,14 +40,32 @@ class schism_grid:
         self.source_file = fname
 
     @property
+    def INFO(self):
+        return get_INFO(self)
+    @property
     def VINFO(self):
-        return get_VINFO(self)
+        return get_INFO(self)
 
-    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,
-             ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,**args):
+    @property
+    def z(self):
+        return self.dp
+
+    @property
+    def zctr(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return self.dpe
+
+    @property
+    def zcj(self):
+        if not hasattr(self,'zcj'): self.compute_side(2)
+        return self.dps
+
+    def plot(self,ax=None,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,
+             ticks=None,xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,**args):
         '''
         plot grid with default color value (grid depth)
-        fmt=0: plot grid only; fmt=1: plot filled contours; fmt=2: plot contour lines
+        fmt=0: plot grid only; fmt=1: plot filled contours
+        fmt=2: plot contour lines at levels; colors and linewidths can be provided for each contour
         value: color value size(np,or ne)
         ec: color of grid line;  fc: element color; lw: grid line width
         levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
@@ -57,12 +74,15 @@ class schism_grid:
         method=0: using tricontourf/tricontouf; method=1: using tripcolor
         cb=False: not add colorbar
         cb_aspect: adjust colorbar width
+        shading: only used for method=1, and value.size=gd.np
+        xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
         '''
 
         if ec is None: ec='None'
         if fc is None: fc='None'
         if levels is None: levels=51
         if ax is None: ax=gca()
+        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         fp3=self.i34==3; fp4=~fp3; vm=clim
 
         if fmt in [1,2]: #plot contours
@@ -73,20 +93,20 @@ class schism_grid:
 
            #plot
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(self.x,self.y,trs,value,vmin=vm[0],vmax=vm[1],**args)
-              if value.size==self.ne: hg=tripcolor(self.x,self.y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
-              if value.size==self.ne+sum(fp4): hg=tripcolor(self.x,self.y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
+              if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
-              if fmt==1: hg=tricontourf(self.x,self.y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
-              if fmt==2: hg=tricontour(self.x,self.y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
 
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
            if cb==True:
-              hc=colorbar(hg,aspect=cb_aspect); self.hc=hc
+              hc=colorbar(hg,aspect=cb_aspect,pad=cb_pad); self.hc=hc
               if ticks is not None:
                  if not hasattr(ticks,'__len__'):
                     hc.set_ticks(linspace(*vm,int(ticks)))
@@ -98,8 +118,8 @@ class schism_grid:
            if isinstance(ec,str): ec=[ec,ec]
            if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
            iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
-           x3,y3=self.x[iqd],self.y[iqd]; x3[5::6]=nan; y3[5::6]=nan
-           hg0=[triplot(self.x,self.y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
+           x3,y3=x[iqd],y[iqd]; x3[5::6]=nan; y3[5::6]=nan
+           hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
 
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -107,6 +127,7 @@ class schism_grid:
         if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
            if 'node' not in ats: self.show_node()
@@ -179,19 +200,19 @@ class schism_grid:
         #   return hg
     def plot_grid(self,**args):
         '''
-        alias for plot_grid()
+        alias for gd.plot()
         '''
         return self.plot(**args)
 
-    def plot_bnd(self,c='k',lw=0.5,ax=None,**args):
+    def plot_bnd(self,c='k',lw=0.5,ax=None,xy=0,**args):
         '''
           plot schims grid boundary
-
+          xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
           gd.plot_bnd(): plot bnd
           gd.plot_bnd(c='rb'): open bnd in red,land bnd in blue
-
         '''
         if ax!=None: sca(ax)
+        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         if not hasattr(self,'nob'): self.compute_bnd()
 
         #get indices for bnds
@@ -199,7 +220,7 @@ class schism_grid:
         for i in arange(self.nob):
             sindo=r_[sindo,-1,self.iobn[i]]
         sindo=array(sindo).astype('int'); fpn=sindo==-1
-        bx1=self.x[sindo]; by1=self.y[sindo]
+        bx1=x[sindo]; by1=y[sindo]
         bx1[fpn]=nan; by1[fpn]=nan
 
         sindl=[]
@@ -209,7 +230,7 @@ class schism_grid:
             else:
                sindl=r_[sindl,-1,self.ilbn[i],self.ilbn[i][0]]
         sindl=array(sindl).astype('int'); fpn=sindl==-1
-        bx2=self.x[sindl]; by2=self.y[sindl]
+        bx2=x[sindl]; by2=y[sindl]
         bx2[fpn]=nan; by2[fpn]=nan
 
         if len(c)==1:
@@ -219,6 +240,7 @@ class schism_grid:
         if mpl.get_backend().lower() in ['qt5agg','qtagg']:
            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
            if 'bp' not in ats: self.bp=schism_bpfile()
+           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
            if 'query' not in ats: self.query_pt()
            if 'bnd' not in ats: self.create_bnd()
            if 'node' not in ats: self.show_node()
@@ -231,7 +253,7 @@ class schism_grid:
         fid=open(fname,'r'); lines=fid.readlines(); fid.close()
 
         #read ne and np; lx,ly and dp
-        self.ne,self.np=array(lines[1].split()[0:2]).astype('int')
+        self.ne,self.np=[*array(lines[1].split()[0:2]).astype('int')]
         self.x,self.y,self.dp=array([i.split()[1:4] for i in lines[2:(2+self.np)]]).astype('float').T
         if len(lines)<(2+self.np+self.ne): return
 
@@ -277,23 +299,26 @@ class schism_grid:
 
     def interp_node_to_elem(self,value=None):
         '''
-        interpolate node values to element values
+        interpolate node values to element values (works for multi-dimensional data)
             default is self.dp => self.dpe
         '''
         #interpolate
         dp=self.dp if (value is None) else value
-        fp3=self.i34==3; fp4=~fp3; dpe=zeros(self.ne)
-        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1)
-        dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
-        return dpe
+        dms=[*dp.shape]; ip=dms.index(self.np); idm=arange(len(dms)); dms[ip]=self.ne
+        if len(dms)>1:  idm[0],idm[ip]=ip,0; dms[0],dms[ip]=dms[ip],dms[0] #put dim=np 1st for multi-dimensional data
+        fp3=self.i34==3; fp4=~fp3; dp=dp.transpose(idm); dpe=zeros(dms)
+        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1); dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
+        return dpe.transpose(idm)
 
     def interp_elem_to_node(self,value=None,fmt=0,p=1):
         '''
         interpolate element values to nodes
         if value not given, dpe is used
-        fmt=0: simple avarage; fmt=1: inverse distance (power=p)
+        fmt=0: element area weighted avarage in nodal ball
+        fmt=1: inverse distance (power=p)
         fmt=2: maximum of surrounding nodal values
         fmt=3: minimum of surrounding nodal values
+        fmt=4: simple avarage in nodal ball
         '''
         #element values
         if not hasattr(self,'nne'): self.compute_nne()
@@ -303,16 +328,21 @@ class schism_grid:
         #interpolation
         vs=v0[self.ine]
         if fmt==0:
-           w=self.ine!=-1; tw=w.sum(axis=1)
-           if sum(isnan(value))!=0:
-              vs[~w]=0; v=vs.sum(axis=1)/tw
-           else:
-              v=(w*vs).sum(axis=1)/tw
-        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
-        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+           if not hasattr(self,'area'): self.compute_area()
+           fpn=self.ine!=-1; a=self.area[self.ine]
+           ta=sum(a*fpn,axis=1); tv=sum(a*vs*fpn,axis=1)
+           fpz=ta!=0; v=zeros(self.np)*nan; v[fpz]=tv[fpz]/ta[fpz]
         if fmt==1:
               dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
               w=1/(dist**p); w[self.ine==-1]=0; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
+        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
+        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+        if fmt==4:
+           w=self.ine!=-1; tw=w.sum(axis=1)
+           if sum(isnan(v0))!=0:
+              vs[~w]=0; v=vs.sum(axis=1)/tw
+           else:
+              v=(w*vs).sum(axis=1)/tw
         return v
 
     def compute_all(self,fmt=0):
@@ -334,24 +364,17 @@ class schism_grid:
         '''
         if not hasattr(self,'xctr'):
            fp3=self.i34==3; fp4=~fp3; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
-           self.xctr[fp3]=self.x[self.elnode[fp3,:3]].mean(axis=1)
-           self.xctr[fp4]=self.x[self.elnode[fp4,:]].mean(axis=1)
-           self.yctr[fp3]=self.y[self.elnode[fp3,:3]].mean(axis=1)
-           self.yctr[fp4]=self.y[self.elnode[fp4,:]].mean(axis=1)
-           self.dpe[fp3]=self.dp[self.elnode[fp3,:3]].mean(axis=1)
-           self.dpe[fp4]=self.dp[self.elnode[fp4,:]].mean(axis=1)
+           self.xctr[fp3],self.yctr[fp3],self.dpe[fp3]=c_[self.x,self.y,self.dp][self.elnode[fp3,:3]].mean(axis=1).T
+           self.xctr[fp4],self.yctr[fp4],self.dpe[fp4]=c_[self.x,self.y,self.dp][self.elnode[fp4]].mean(axis=1).T
         return self.dpe
 
     def compute_area(self):
-        fp=self.elnode[:,-1]<0;
-        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]];
-        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]];
-        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]];
-        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; x4[fp]=x1[fp]; y4[fp]=y1[fp]
+        x1,x2,x3,x4=self.x[self.elnode].T; y1,y2,y3,y4=self.y[self.elnode].T
+        fp=self.elnode[:,-1]<0; x4[fp]=x1[fp]; y4[fp]=y1[fp]
         self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
         return self.area
 
-    def compute_gradient(self,fmt=0,value=None,outfmt=0, cpp=None,lon_ori=None,lat_ori=None):
+    def compute_gradient(self,fmt=0,value=None,outfmt=0,cpp=None,lon0=None,lat0=None):
         '''
         Compute gradient on each element first, then convert to node value
           fmt: interploation method (see details in interp_elem_to_node())
@@ -359,35 +382,25 @@ class schism_grid:
           value=None: gd.dp is used;    value: array of [np,] or [ne]
           outfmt=0: return (dpdx,dpdy,dpdxy); outfmt=1: return (dpdx,dpdy,dpdxy,dpedx,dpedy,dpedxy)
           cpp=1: CPP projection. It project decimal degress (lon/lat) to CPP coordinate (https://www.xmswiki.com/wiki/CPP_Coordinate_System).
-                 If lon_ori and lat_ori are not defined, they will be the center of the grid 
+                 If lon0 and lat0 are not defined, they will be the center of the grid
         '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
 
         if cpp==1:
-            ox=self.x.copy(); oy=self.y.copy()
-            if lon_ori==None or lat_ori==None:
-                lon_ori=(ox.max()-ox.min())/2+ox.min(); lat_ori=(oy.max()-oy.min())/2+oy.min() # the center of the grid
-            R=6378206.4 # (Clarke 1866 major spheroid radius)
-            lon_radian, lat_radian = self.x*(pi/180), self.y*(pi/180)
-            lon_ori_radian, lat_ori_radian = lon_ori*(pi/180), lat_ori*(pi/180)
-
-            self.x = R * (lon_radian - lon_ori_radian) * cos(lat_ori_radian)
-            self.y = R * lat_radian
+            if lon0==None or lat0==None: lon0=(self.x.min()+self.x.max())/2; lat0=(self.y.min()+self.y.max())/2
+            x,y=proj_pts(self.x,self.y,'epsg:4326','cpp',lon0=lon0,lat0=lat0)
+        else:
+            x=self.x; y=self.y
 
         #get node value
         v0=self.dp if value is None else value
         if len(v0)==self.ne: v0=self.interp_elem_to_node(value=v0)
 
         #get pts
-        fp=self.elnode[:,-1]<0; fpn=~fp;
-        x1=self.x[self.elnode[:,0]]; y1=self.y[self.elnode[:,0]]; v1=v0[self.elnode[:,0]]
-        x2=self.x[self.elnode[:,1]]; y2=self.y[self.elnode[:,1]]; v2=v0[self.elnode[:,1]]
-        x3=self.x[self.elnode[:,2]]; y3=self.y[self.elnode[:,2]]; v3=v0[self.elnode[:,2]]
-        x4=self.x[self.elnode[:,3]]; y4=self.y[self.elnode[:,3]]; v4=v0[self.elnode[:,3]]
-        x4[fp]=x1[fp]; y4[fp]=y1[fp]; v4[fp]=v1[fp]
-        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2
-        a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
+        x1,x2,x3,x4=x[self.elnode].T; y1,y2,y3,y4=y[self.elnode].T; v1,v2,v3,v4=v0[self.elnode].T
+        fp=self.elnode[:,-1]<0; fpn=~fp; x4[fp],y4[fp],v4[fp]=x1[fp],y1[fp],v1[fp]
+        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
 
         #compute gradients
         dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
@@ -403,8 +416,6 @@ class schism_grid:
         dpdx=self.interp_elem_to_node(value=dpedx,fmt=fmt)
         dpdy=self.interp_elem_to_node(value=dpedy,fmt=fmt)
         dpdxy=self.interp_elem_to_node(value=dpedxy,fmt=fmt)
-
-        if cpp==1: self.x=ox; self.y=oy # restore lon/lat in decimal degrees.
 
         if outfmt==0:
            return dpdx,dpdy,dpdxy
@@ -453,7 +464,7 @@ class schism_grid:
 
            return self.ns,self.isidenode,self.isdel
 
-    def compute_bnd(self,bxy=None):
+    def compute_bnd(self,bxy=None,nb_max=500000,method=0):
         '''
         compute boundary information. If bxy is provided, define open/land boundries
 
@@ -461,52 +472,147 @@ class schism_grid:
             1). bxy=[x1,x2,y1,y2]  #only one open boundary
             2). bxy=[[x1,x2,y1,y2],[x1,x2,y1,y2],...]  #multiple open boundaries
             3). bxy="bpfile", with paired build points sequentially defining each boundaries
+
+        nb_max: maximum boundary nodes allowed for each bnd segments
+        method=0: latest method in computing bnd; method=1: old method
         '''
         print('computing grid boundaries')
         if not hasattr(self,'isdel') or not hasattr(self,'isidenode'): self.compute_side(fmt=1)
 
-        #find boundary side and element
-        fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+        if method==0:
+           #find boundary side and element, and sort it
+           fpn=self.isdel[:,-1]==-1; be=self.isdel[fpn][:,0]; n1,n2=self.isidenode[fpn].T; i34=self.i34[be]; nbs=len(be)
+           for i in arange(4): fp=(n1==self.elnode[be,(i+1)%i34])*(n2==self.elnode[be,i%i34]); n1[fp],n2[fp]=n2[fp],n1[fp]
+           sinds=dict(zip(n1,[[i] for i in n2]))
 
-        #sort isn
-        i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
-        for i in arange(4):
-            if i==3:
-                i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
-                fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
-            else:
-                i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
-                fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
+           #---------------------------------------------------------------------------
+           #this part is used to dealing with illegal mesh
+           #---------------------------------------------------------------------------
+           #find the nodes connecting to more than 2 sides,and build the side dict
+           ibnx,nbnx=unique(n1,return_counts=True); ibnx=ibnx[nbnx>1]
+           for i in ibnx:
+               #find all nodes in the nodal ball, and compute the angles
+               if not hasattr(self,'xctr'): self.compute_ctr()
+               ips=unique(self.elnode[self.indel[i]]); ips=setdiff1d(ips[1:] if ips[0]<0 else ips,i); nps=len(ips)
+               A=angle((self.x[ips]-self.x[i])+1j*(self.y[ips]-self.y[i])); iA=argsort(A); A,ips=A[iA],ips[iA]
+               cA=angle((self.xctr[self.indel[i]]-self.x[i])+1j*(self.yctr[self.indel[i]]-self.y[i])) #angle for element center
 
-        #compute all boundaries
-        sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
-        ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
-        while(sum(ifb)!=0):
-            #start points
-            id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ibni=[id0,id]
-            ifb[sinds[id0]]=0; ifb[sinds[id]]=0;
-            while True:
-                id=isn[sinds[id],1]; ifb[sinds[id]]=0
-                if(id==id0): break
-                ibni.append(id)
-            nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
+               #get all boundary nodes
+               ib1=nonzero(n1==i)[0]; ip1=n2[ib1];  ib2=nonzero(n2==i)[0]; ip2=n1[ib2]; sinds[i]=[]
+               for n in arange(nps):
+                   i1=ips[n]; i2=ips[(n+1)%nps]; A1=A[n]; A2=A[(n+1)%nps]
+                   if A2<A1: A2=A2%(2*pi); cA=cA%(2*pi)
+                   if sum((cA>A1)*(cA<A2))!=0: continue #element center between i1 and i2
+                   if (i1 in ip1) and (i2 in ip2):  #find a pair
+                       sinds[i].append([i2,i,i1])
+                   elif (i2 in ip1) and (i1 in ip2):
+                       sinds[i].append([i1,i,i2])
+                   else:
+                       sys.exit('wrong in connect side pairs')
+
+           #reconnect sides, but skip the nodes connecting to more than 2 sides
+           while True:#append sides to their downstream sides
+               iflag=0
+               for i in ibnx:
+                   for n, side in enumerate(sinds[i]):
+                       if side is None: continue
+                       if side[-1] in ibnx:
+                           iflag=1
+                           for m,dside in enumerate(sinds[side[-1]]):
+                               if dside is None: continue
+                               nsd=dside.index(side[-1])
+                               if array_equal(side[-(nsd+1):],dside[:(nsd+1)]):
+                                   sinds[i][n]=[*side,*dside[(nsd+1):]]
+                                   sinds[side[-1]][m]=None; break
+               if iflag==0: break
+
+           while True: #append all sides to their upstream ordinary sides
+               iflag=0
+               for i in ibnx:
+                   for n, side in enumerate(sinds[i]):
+                       if side is None: continue
+                       sinds[i][n]=None; iflag=1
+                       if side[0] in ibnx: #append to upstream side
+                           for m,uside in enumerate(sinds[side[0]]):
+                               if uside is None: continue
+                               isd=uside.index(side[0]); nsd=len(uside)-isd
+                               if array_equal(uside[isd:],side[:nsd]):
+                                   sinds[side[0]][m]=[*uside,*side[nsd:]]
+                                   sinds[i][n]=None; break
+                       else: #append to other side
+                           sinds[side[0]]=side[1:]
+               if iflag==0: break
+           for i in ibnx: del sinds[i]
+           #---------------------------------------------------------------------------
+
+           #search boundary from other nodes
+           ids=list(sinds.keys()); ns=len(ids); sindf=dict(zip(ids,arange(ns))); ifb=ones(ns).astype('int'); nb=0; nbn=[]; ibn=[]
+           while(sum(ifb)!=0):
+               #start points
+               ib=nonzero(ifb==1)[0][0]; id0=ids[ib]; id=sinds[id0][-1]; ifb[sindf[id0]]=0; ibni=[id0,*sinds[id0]]; iloop=0
+
+               #search each segments
+               while True:
+                   idp=id; id=sinds[id][-1]; ifb[sindf[idp]]=0
+                   if(id==id0): ibni.extend(sinds[idp][:-1]); break
+                   ibni.extend(sinds[idp]); iloop=iloop+1
+                   if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
+               nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
+        else:
+            #find boundary side and element
+            fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
+
+            #sort isn
+            i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
+            for i in arange(4):
+                if i==3:
+                    i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
+                    fp=(isn[fp4,0]==i2)*(isn[fp4,1]==i1); isn[fp4[fp]]=fliplr(isn[fp4[fp]])
+                else:
+                    i1=self.elnode[be,i]; i2[fp3]=self.elnode[be[fp3],(i+1)%3]; i2[fp4]=self.elnode[be[fp4],i+1]
+                    fp=(isn[:,0]==i2)*(isn[:,1]==i1); isn[fp]=fliplr(isn[fp])
+
+            #compute all boundaries
+            ifb=ones(nbs).astype('int'); nb=0; nbn=[]; ibn=[]
+            sinds=dict(zip(isn[:,0],arange(nbs))) #dict for sides
+
+            #find the nodes connecting to more than 2 sides
+            ibnx,nbnx=unique(isn[:,0],return_counts=True); idx=[]; nbx=0
+            for i in ibnx[nbnx>1]: k=nonzero(isn[:,0]==i)[0]; idx.extend(k); nbx=nbx+len(k)
+
+            #search boundary from other nodes
+            while(sum(ifb)!=0):
+                #start points
+                if nbx>0:
+                    nbx=nbx-1; id0,id=isn[idx[nbx]]; ifb[idx[nbx]]=0
+                else:
+                    id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
+                ibni=[id0,id]; ifb[sinds[id]]=0; iloop=0
+
+                #search each segments
+                while True:
+                    id=isn[sinds[id],1]; ifb[sinds[id]]=0
+                    if(id==id0): break
+                    ibni.append(id); iloop=iloop+1
+                    if iloop>nb_max: print('grid boundary search failed: check your grid'); return array(ibni)
+                nb=nb+1; nbn.append(len(ibni)); ibn.append(array(ibni))
 
         #sort bnd
         nbn=array(nbn); ibn=array(ibn,dtype='O'); fps=flipud(argsort(nbn)); nbn,ibn=nbn[fps],ibn[fps]
         if ibn.shape[0]==1: ibn=ibn.astype('int')
 
         #find the outline
-        island=ones(nb).astype('int')
+        island=ones(nb).astype('int'); bid=[]
         for i in arange(nb):
             px=self.x[ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
             sid=ibn[i][array([(i0-1)%nbn[i],i0,(i0+1)%nbn[i]])].astype('int')
-            if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid=i; break
+            if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid.append(i)
 
         #put outline bnd ahead
-        if bid!=0:
-           island=ones(nb).astype('int'); island[0]=0
-           nbn=array([nbn[bid],*nbn[:bid],*nbn[(bid+1):]])
-           ibn=array([ibn[bid],*ibn[:bid],*ibn[(bid+1):]],dtype='O')
+        if len(bid)!=0:
+           bid=array(bid); nbid=setdiff1d(arange(nb),bid); island=array([*island[bid],*island[nbid]])
+           nbn=array([*nbn[bid],*nbn[nbid]]); ibn=array([*ibn[bid],*ibn[nbid]],dtype='O')
+           if ibn.shape[0]==1: ibn=ibn.astype('int')
 
         #save boundary information
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
@@ -521,7 +627,9 @@ class schism_grid:
            self.nlb=S.nb+1; self.nlbn=array([2,*S.nbn]); self.island=array([0,*S.island])
            self.ilbn=array([array([S.ibn[0][-1],S.ibn[0][0]]).astype('int'), *S.ibn],dtype='O')
 
+        #----------------------------------------------------------------------------
         #define open/land/island boundaries
+        #----------------------------------------------------------------------------
         if bxy is not None:
            if isinstance(bxy,str): #bxy is a bpfile
               bp=read_schism_bpfile(bxy); bxy=[]
@@ -571,7 +679,10 @@ class schism_grid:
              mnei:  maximum number of elements in nodal ball
              indel: indices for each nodal ball
              ine:   indices for each nodal ball, but in maxtrix " shape=[np,max(nne)]"
+             nnp:   number of nodes in nodal ball (exclude itself)
+             mnpi:  maximum number of nodes in nodal ball
              inp:   node indices for each nodal ball
+             indnd: node indices for each nodal ball
 
         fmt=0: not compute inp; fmt=1: compute inp
         '''
@@ -715,6 +826,18 @@ class schism_grid:
            kb=kbp[self.isidenode].max(axis=1)
         return kb
 
+    def compute_angle(self):
+        '''
+        compute internal angles
+        '''
+        ie=arange(self.ne); angles=[]
+        for i in arange(4):
+            i1=(i-1)%self.i34; i2=i%self.i34; i3=(i+1)%self.i34
+            id=self.elnode[ie[:,None],c_[i1,i2,i3]]; x1,x2,x3=self.x[id].T; y1,y2,y3=self.y[id].T
+            a=(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))%(2*pi); angles.append(a*180/pi)
+        self.angles=array(angles).T
+        return self.angles
+
     def interp(self,pxy,value=None,fmt=0):
         '''
         interpolate to get value at pxy
@@ -732,6 +855,38 @@ class schism_grid:
         #interp
         pip,pacor=self.compute_acor(pxy,fmt=fmt)[1:]
         return (vi[pip]*pacor).sum(axis=1)
+
+    def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
+        '''
+        construct a new schism grid based on:
+           fmt=0:  node
+           fmt=1:  element center
+           fmt=2:  side center
+
+        reg_in=1:  delete elements inside islands;      reg_in=0: not delete
+        reg_out=1: delete elements outside grid domain; reg_out=0: not delete
+
+        '''
+        #get regions
+        if reg_in==1 or reg_out==1:
+           if not hasattr(self,'bndinfo'): self.compute_bnd()
+           if reg_in==1:  reg_in=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[1:]]
+           if reg_out==1: reg_out=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[:1]]
+        if reg_in==0:  reg_in=None
+        if reg_out==0: reg_out=None
+
+        #get scatter
+        if fmt==0: xyz=c_[self.x,self.y,self.z]
+        if fmt==1:
+           if not hasattr(self,'dpe'): self.compute_ctr()
+           xyz=c_[self.xctr,self.yctr,self.dpe]
+        if fmt==2:
+           if not hasattr(self,'dps'): self.compute_side(fmt=2)
+           xyz=c_[self.xcj,self.ycj,self.dps]
+
+        #build grid
+        gdn=scatter_to_schism_grid(xyz,reg_out=reg_out,reg_in=reg_in,**args)
+        return gdn
 
     def smooth(self,dist,value=None,fmt=0,ms=1e8):
         '''
@@ -770,6 +925,64 @@ class schism_grid:
         else:
            return self.interp_elem_to_node(pv)
 
+    def compute_zcor(self,vgrid,eta=None):
+        '''
+        compute zcor @ each nodes; need inputs:
+           vgrid: read_schism_vgrid('vgrid.in')
+           eta (optional): surface elevation (dim=[np] or [1])
+        '''
+        if eta is None:
+           zcor=self.zcor if hasattr(self,'zcor') else vgrid.compute_zcor(self.dp)
+           if not hasattr(self,'zcor'): self.zcor=zcor #save zcor
+        else:
+           zcor=vgrid.compute_zcor(self.dp,eta=eta)
+        return zcor
+
+    def compute_volume(self,vgrid,fmt=0,value=None,eta=None):
+        '''
+        compute volume or volume*value for schism grid
+        Inputs:
+           vgrid: read_schism_vgrid('vgrid.in')
+           eta   (optional): surface elevation (dim=[np] or [1])
+           value (optional): tracer concentration with dimension size (ne, nvrt) or (np, nvrt).
+        Outputs:
+          fmt=0: each prism   (ne,nvrt-1)
+          fmt=1: each column  (ne,)
+          fmt=2: total volumn (1,)
+        '''
+        #compute prism volume
+        if not hasattr(self,'area'): self.compute_area()
+        zcor=self.compute_zcor(vgrid,eta=eta); ze=zeros([self.ne,vgrid.nvrt]); fp3=self.i34==3; fp4=~fp3
+        ze[fp3]=zcor[self.elnode[fp3,:3]].mean(axis=1); ze[fp4]=zcor[self.elnode[fp4]].mean(axis=1)
+        v=(ze[:,1:]-ze[:,:-1])*self.area[:,None]
+
+        #multiplee value
+        if value is not None:
+           if value.shape[0]==self.np: value=self.interp_node_to_elem(value); value[:,1:]=(value[:,:-1]+value[:,1:])/2
+           v=v*value[:,1:]
+
+        return v if fmt==0 else v.sum(axis=1) if fmt==1 else v.sum()
+
+    def compute_contour(self,levels,value=None):
+        '''
+        compute contour lines
+        '''
+        value=self.dp if value is None else value
+        if value.size==self.ne: value=self.interp_elem_to_node(value)
+
+        #plot contour and extract the lines
+        fp4=self.i34==4; trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
+        hf=figure(); hf.set_visible(False)
+        P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
+        for k in arange(len(P.collections)):
+            p=P.collections[k].get_paths()
+            for i in arange(len(p)):
+                xii,yii=p[i].vertices.T
+                xi=r_[xii,NaN] if i==0 else r_[xi,xii,NaN]
+                yi=r_[yii,NaN] if i==0 else r_[yi,yii,NaN]
+            cxy.append(c_[xi,yi])
+        return array(cxy) if len(cxy)==1 else array(cxy,dtype='O')
+
     def write(self, fname=None,**args):
         '''
         generic function to save grid as different format
@@ -781,8 +994,7 @@ class schism_grid:
         '''
         #check fname, and output as *.npz or *.pkl format
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0]) #check fname
-        if fname.endswith('.npz') or fname.endswith('.pkl'):
-           s=zdata(); s.hgrid=self; savez(fname,s,**args); return
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
 
         #outputs grid as other format
         F=None
@@ -891,7 +1103,7 @@ class schism_grid:
         if 'd' in fmt: pvi=pvi.astype('int')
 
         #prepare values
-        fstr=('{:d} '+fmt+' \n')*self.ne
+        fstr=('{:d} '+fmt+' \n')*int(self.ne)
         fval=array([range(1,self.ne+1),pvi],dtype='O').T
 
         #write prop value
@@ -910,91 +1122,63 @@ class schism_grid:
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_min=60,angle_max=120,fname=None):
+    def split_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname=None):
         '''
-        1). split the quads that have angle (<angle_min or >angle_max), add append the connectivity in the end
+        1). check the quality of quads, violations can be:
+            a. angle_min/angle_max <= angle_ratio
+            b. internal angle <= angle_min,
+            c. internal angle >= angle_max,
+            if no parameters are provided, angle_ratio=0.5 will be use
         2). fname: output a new grid "fname" if fname!=None
         '''
-        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_min,angle_max)
+        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,angle_min,angle_max)
 
         #compute (angle_max-angle_min) in splitted triangle
-        qind=self.index_bad_quad;
-        x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
+        qind=self.index_bad_quad; x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]]
 
         #compute difference between internal angles
         for i in arange(4):
-            id1=mod(i-1+4,4); id2=i; id3=mod(i+1,4)
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3];
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3];
-
-            a1=angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2))
-            a2=angle((x2-x3)+1j*(y2-y3))-angle((x1-x3)+1j*(y1-y3))
-            a3=angle((x3-x1)+1j*(y3-y1))-angle((x2-x1)+1j*(y2-y1))
-            a1=mod(a1*180/pi+360,360);a2=mod(a2*180/pi+360,360);a3=mod(a3*180/pi+360,360);
-
-            #compute amax-amin
-            a=c_[a1,a2,a3];
-            Ai=a.max(axis=1)-a.min(axis=1)
-            if i==0:
-                A=Ai
-            else:
-                A=c_[A,Ai]
+            nid=r_[(i-1)%4,i,(i+1)%4]; x1,x2,x3=x[:,nid].T; y1,y2,y3=y[:,nid].T
+            a1=(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))%(2*pi)
+            a2=(angle((x2-x3)+1j*(y2-y3))-angle((x1-x3)+1j*(y1-y3)))%(2*pi)
+            a3=(angle((x3-x1)+1j*(y3-y1))-angle((x2-x1)+1j*(y2-y1)))%(2*pi)
+            a=c_[a1,a2,a3]*180/pi; da=a.max(axis=1)-a.min(axis=1) #compute amax-amin
+            A=da if i==0 else c_[A,da]
+        flag=sign(A[:,0]+A[:,2]-A[:,1]-A[:,3]) #flag for spliting quads
 
         #split quads
-        flag=sign(A[:,0]+A[:,2]-A[:,1]-A[:,3])
-
-        ne=self.ne; nea=len(self.index_bad_quad);
-        self.elnode=r_[self.elnode,ones([nea,4])-3].astype('int');
-        for i in arange(nea):
-            ind=self.index_bad_quad[i]
-            nds=self.elnode[ind,:].copy();
-            if flag[i]>=0:
-                self.elnode[ind,:]=r_[nds[[0,1,2]],-2]; self.i34[ind]=3
-                self.elnode[ne+i,:]=r_[nds[[2,3,0]],-2]
-            else:
-                self.elnode[ind,:]=r_[nds[[1,2,3]],-2]; self.i34[ind]=3
-                self.elnode[ne+i,:]=r_[nds[[3,0,1]],-2]
-
-        self.ne=ne+nea
-        self.i34=r_[self.i34,ones(nea)*3].astype('int');
-        self.elnode=self.elnode.astype('int')
+        nea=len(self.index_bad_quad); elnode=tile(-2,[nea,4]); nds=self.elnode[qind]; self.i34[qind]=3
+        fp=flag>=0; ie=qind[fp]; self.elnode[ie,:3]=nds[fp,:3]; self.elnode[ie,-1]=-2; elnode[fp,:3]=nds[fp][:,array([2,3,0])]
+        fp=flag<0;  ie=qind[fp]; self.elnode[ie,:3]=nds[fp][:,array([1,2,3])]; self.elnode[ie,-1]=-2; elnode[fp,:3]=nds[fp][:,array([3,0,1])]
+        self.ne=self.ne+nea; self.i34=r_[self.i34,tile(3,nea)]; self.elnode=r_[self.elnode,elnode]
 
         #write new grids
         if fname is not None: self.write_hgrid(fname)
 
-    def check_quads(self,angle_min=60,angle_max=120,fname='bad_quad.bp'):
+    def check_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp'):
         '''
-        1). check the quality of quads, violation when internal angle < angle_min, or >angle_max
+        1). check the quality of quads, violations can be:
+            a. angle_min/angle_max <= angle_ratio
+            b. internal angle <= angle_min,
+            c. internal angle >= angle_max,
+            if no parameters are provided, angle_ratio=0.5 will be used
         2). the locations of bad quads are saved in file "fname"
         '''
 
-        qind=nonzero(self.i34==4)[0];
-        x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]];
-
-        #compute internal angle
-        a=[];
-        for i in arange(4):
-            id1=mod(i-1+4,4); id2=i; id3=mod(i+1,4)
-            x1=x[:,id1]; x2=x[:,id2]; x3=x[:,id3];
-            y1=y[:,id1]; y2=y[:,id2]; y3=y[:,id3];
-
-            ai=angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2))
-            a.append(ai*180/pi);
-        a=array(a).T; a=mod(a+360,360)
+        if angle_ratio is None and angle_min is None and angle_max is None: angle_ratio=0.5
+        if not hasattr(self,'angles'): self.compute_angle()
+        if not hasattr(self,'xctr'): self.compute_ctr()
 
         #check violation
-        for i in arange(4):
-            if i==0:
-                fp=(a[:,i]<=angle_min)|(a[:,i]>=angle_max)
-            else:
-                fp=fp|(a[:,i]<=angle_min)|(a[:,i]>=angle_max)
-
-        self.index_bad_quad=qind[nonzero(fp)[0]];
+        qind=nonzero(self.i34==4)[0]; A=self.angles[qind]; fp=qind==-999
+        if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<angle_ratio)
+        if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
+        if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
+        self.index_bad_quad=qind[nonzero(fp)[0]]
 
         #output bad_quad location as bp file
-        if not hasattr(self,'xctr'): self.compute_ctr()
-        qxi=self.xctr[self.index_bad_quad]; qyi=self.yctr[self.index_bad_quad]
-        sbp=schism_bpfile(); sbp.nsta=len(qxi); sbp.x=qxi; sbp.y=qyi; sbp.z=zeros(sbp.nsta); sbp.write_bpfile(fname)
+        sbp=schism_bpfile(); sbp.x,sbp.y=c_[self.xctr,self.yctr][self.index_bad_quad].T; sbp.save(fname)
+        return self.index_bad_quad
 
     def plot_bad_quads(self,color='r',ms=12,*args):
         #plot grid with bad quads
@@ -1032,39 +1216,43 @@ class schism_grid:
         if fmt==0: self.x,self.y=x1,y2
         return [x1,y2]
 
-    def check_skew_elems(self,angle_min=5,fname='skew_element.bp',fmt=0):
+    def check_skew_elems(self,threshold=None,angle_min=None,fname=None):
         '''
-        1) check schism grid's skewness with angle<=angle_min
-        2) the locations of skew elements are (xskew,yskew), and also save in file "fname"
-        Inputs:
-            angle_min: skew element if one of element's internal angles is smaller than angle_min
-            fname=None: not save skew_element.bp; fname!=None: save skew_element.bp
-            fmt=1: return indices of skew elements
-        '''
+        check schism grid's skewness based on criteria:
+            a. xmgredit length_ratio > threshold
+            b. internal angle , angle_min
+            Note: if no parameters, threshold=30 is used
 
+        Inputs:
+            threshold: xmgredit length_ratio of longest_side_length/quivalent_element_radius
+            angle_min: minimum angle
+            fname!=None: output skew_element bpfile
+        Outputs:
+            element indices of skew elements
+
+        Examples:
+            1). gd.check_skew_elems(), or gd.check_skew_elems(threshold=30)
+            2). gd.check_skew_elems(15,10), or gd.check_skew_elems(threshold=15,angle_min=10)
+        '''
+        if threshold is None and angle_min is None: threshold=30
         if not hasattr(self,'dpe'): self.compute_ctr()
 
-        #for triangles
-        fp=nonzero(self.i34==3)[0]; x=self.x[self.elnode[fp,:3]]; y=self.y[self.elnode[fp,:3]]; sind=[]
-        for i in arange(3):
-            x1=x[:,i]; x2=x[:,(i+1)%3]; x3=x[:,(i+2)%3]; y1=y[:,i]; y2=y[:,(i+1)%3]; y3=y[:,(i+2)%3]
-            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sind.extend(nonzero(ai<=angle_min)[0])
-        sind3=fp[unique(sind).astype('int')]
+        if threshold is not None: #check length ratio
+           if not hasattr(self,'distj'):  self.compute_side(fmt=2)
+           if not hasattr(self,'elside'): self.compute_ic3()
+           if not hasattr(self,'area'):   self.compute_area()
+           distj=self.distj[self.elside]; distj[self.elside==-1]=0  #side length
+           srat=distj.max(axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon)) #ratio
+           sindw=nonzero(srat>threshold)[0]
 
-        #for quads
-        fp=nonzero(self.i34==4)[0]; x=self.x[self.elnode[fp,:]]; y=self.y[self.elnode[fp,:]]; sind=[]
-        for i in arange(4):
-            x1=x[:,i]; x2=x[:,(i+1)%4]; x3=x[:,(i+2)%4]; y1=y[:,i]; y2=y[:,(i+1)%4]; y3=y[:,(i+2)%4]
-            ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi
-            sind.extend(nonzero(ai<=angle_min)[0])
-        sind4=fp[unique(sind).astype('int')]; sindw=r_[sind3,sind4]
+        if angle_min is not None: #check minimum angle
+           if not hasattr(self,'angles'): self.compute_angle()
+           a=self.angles; a[a<0]=999; sindw=nonzero(a.min(axis=1)<=angle_min)[0]
 
         #combine and save
-        if fname is not None:
-            self.xskew,self.yskew,self.zskew=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]
-            sbp=schism_bpfile(); sbp.nsta=len(self.xskew); sbp.x,sbp.y,sbp.z=self.xskew,self.yskew,self.zskew; sbp.write_bpfile(fname)
-        if fmt==1: return sindw
+        sindw=array(sindw)
+        if fname is not None: C=schism_bpfile(); C.x,C.y,C.z=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]; C.save(fname)
+        return sindw
 
     def inside_elem(self,pxy,ie):
         '''
@@ -1099,15 +1287,23 @@ class schism_grid:
             sind=gd.inside_grid(pxy)
             sind=0: outside; sind=1: inside
         '''
-        npt=len(pxy); sindp=arange(npt)
+        npt=len(pxy); sind=zeros(npt).astype('int')
         if not hasattr(self,'bndinfo'): self.compute_bnd()
         if not hasattr(self.bndinfo,'nb'): self.compute_bnd()
-        for i in arange(self.bndinfo.nb):
-            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy[sindp],self.x[fpb],self.y[fpb])==1
-            sindp=sindp[fp] if self.bndinfo.island[i]==0 else sindp[~fp]
-            if len(sindp)==0: break
-        sind=zeros(npt).astype('int'); sind[sindp]=1
+        for i in arange(self.bndinfo.nb): #inside outline
+            if self.bndinfo.island[i]==1: continue
+            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy,self.x[fpb],self.y[fpb])==1; sind[fp]=1
+        for i in arange(self.bndinfo.nb): #inside island
+            if self.bndinfo.island[i]==0: continue
+            fpb=self.bndinfo.ibn[i].astype('int'); fp=inside_polygon(pxy,self.x[fpb],self.y[fpb])==1; sind[fp]=0
         return sind
+
+    def subset(self,xy):
+        '''
+        return a new grid for elements inside a polygon defined by xy
+        xy:  subdomin region (c_[x,y], or reg file)
+        '''
+        return get_schism_grid_subdomain(self,xy)
 
     def write_shp(self,fname,fmt=0,prj='epsg:4326'):
         '''
@@ -1187,10 +1383,12 @@ class schism_grid:
                if S.npt%2==1: print('open boundary needs to be defined'); return #don't allow finish
 
                #add a new land bnd to the end of the segment
-               if S.nlb<S.nob:
+               bid=S.bid[-1]; ip=S.pt[-1]
+               #if S.nlb<S.nob:
+               if S.ibn[bid][0]!=ip:
                   bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
                   S.nlb=S.nlb+1; ibni=r_[S.ibn[bid][pid:],S.ibn[bid][0]]; S.ilbn.append(ibni)
-                  hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+                  hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hb.append(hlb); S.ihb.append(0)
 
                #save boundary information
                self.nob=S.nob; self.iobn=array(S.iobn,dtype='O'); self.nobn=array([len(i) for i in self.iobn])
@@ -1210,7 +1408,7 @@ class schism_grid:
             if S.npt!=0:
                bid0=S.bid[-1]; pid0=nonzero(S.ibn[bid0]==S.pt[-1])[0][0]
                if S.npt%2==1 and bid!=bid0: return  #two pts are not on the same boundary
-               if S.npt%2==1 and pid0>=pid: return  #the 2nd pt is ahead of the 1st pt
+               if S.npt%2==1 and (pid0>=pid and pid!=0): return  #the 2nd pt is ahead of the 1st pt (except open bnd to 1st node)
             if bid not in S.bid: S.ibn[bid]=r_[S.ibn[bid][pid:],S.ibn[bid][:pid]] #reorder boundary points
 
             #new bnd pt
@@ -1219,33 +1417,38 @@ class schism_grid:
 
             #new open bnd
             if S.npt%2==0:
-               S.nob=S.nob+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.iobn.append(ibni)
-               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hob.append(hob)
+               S.nob=S.nob+1; ibni=r_[S.ibn[bid][pid0:],S.ibn[bid][0]] if pid==0 else S.ibn[bid][pid0:(pid+1)]
+               hob=plot(self.x[ibni],self.y[ibni],'r-'); S.hb.append(hob); S.ihb.append(1); S.iobn.append(ibni)
 
             #new land bnd
-            if S.npt>2 and S.npt%2==1 and bid0==bid:
+            if S.npt>2 and S.npt%2==1 and bid0==bid and pid!=pid0:
                S.nlb=S.nlb+1; ibni=S.ibn[bid][pid0:(pid+1)]; S.ilbn.append(ibni)
-               hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hlb.append(hlb)
+               hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hb.append(hlb); S.ihb.append(0)
 
             #add a new land bnd to the end of the segment
-            if S.npt>=2 and bid0!=bid:
+            if S.npt>=2 and bid0!=bid and pid0!=0:
                S.nlb=S.nlb+1; ibni=r_[S.ibn[bid0][pid0:],S.ibn[bid0][0]]; S.ilbn.append(ibni)
-               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hlb.append(hlb)
+               hlb=plot(self.x[r_[ibni,S.ibn[bid0][0]]],self.y[r_[ibni,S.ibn[bid0][0]]],'g-'); S.hb.append(hlb); S.ihb.append(0)
             gcf().canvas.draw()
 
         def remove_pt(x,y):
             if S.npt==0: return
             bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
 
+            #remove 1st land bnd
+            if len(S.hb)!=0:
+               if S.ihb[-1]==0 and S.ilbn[-1][-1]!=S.pt[-1]: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
+
             #remove bnd pt
             S.hp[-1][0].remove(); S.hp.pop(); S.pt.pop(); S.bid.pop(); S.npt=S.npt-1
 
             #remove open bnd
-            if S.npt%2==1: S.hob[-1][0].remove(); S.hob.pop(); S.nob=S.nob-1; S.iobn.pop()
+            if len(S.hb)!=0:
+               if S.npt%2==1 and S.ihb[-1]==1: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.nob=S.nob-1; S.iobn.pop()
 
             #remove land bnd
-            if (S.nlb>S.nob) or (S.nlb==S.nob and S.npt%2==0 and S.npt>0):
-               S.hlb[-1][0].remove(); S.hlb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
+            if len(S.hb)!=0:
+               if S.ihb[-1]==0 and S.ilbn[-1][-1]!=S.pt[-1]: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
             gcf().canvas.draw()
 
         #add bnd icon
@@ -1255,7 +1458,7 @@ class schism_grid:
 
         #add bndinfo capsule
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
-        S=self.bndinfo; S.hp=[]; S.hob=[]; S.hlb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
+        S=self.bndinfo; S.hp=[]; S.hb=[]; S.ihb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
 
         #connect to actions
         abn.triggered.connect(connect_actions)
@@ -1308,46 +1511,47 @@ class schism_grid:
         abp.triggered.connect(_show_node)
 
 class schism_bpfile:
-    def __init__(self):
-        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([]);
-        self.station=[]; self.hp=[]; self.ht=[]
-        self.edit()
+    def __init__(self,x=None,y=None,z=None,station=None,fmt=0):
+        self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([])
+        self.station=[]; self.hp=[]; self.ht=[]; self.fmt=fmt
+        if x is not None: self.x=x
+        if y is not None: self.y=y
+        if z is not None: self.z=z
+        if station is not None: self.station=station
+        self.check(); self.edit()
 
     @property
+    def INFO(self):
+        return get_INFO(self)
+    @property
     def VINFO(self):
-        return get_VINFO(self)
+        return get_INFO(self)
 
-    def read_reg(self,fname):
-        self.read_bpfile(fname,fmt=1)
+    def read_reg(self,*args0,**args):
+        self.read(fname,*args0,**args)
 
-    def read_bpfile(self,fname,fmt=0):
-        #read file content
-        lines=[i.strip().split() for i in open(fname,'r').readlines()]
-        stations=[i.strip().split('!')[-1] for i in open(fname,'r').readlines()[2:] if ('!' in i)]
-        if fmt==0:
-            self.nsta=int(lines[1][0])
-            if self.nsta==0: return
-            fc=lambda x: x if len(x)==4 else [*x[:4],x[4][1:]]
-            data=array([fc(line) for line in lines[2:(2+self.nsta)]])
+    def read_bpfile(self,*args0,**args):
+        self.read(fname,*args0,**args)
 
-            self.x=data[:,1].astype(float)
-            self.y=data[:,2].astype(float)
-            self.z=data[:,3].astype(float)
-        elif fmt==1:
-            self.nsta=int(lines[2][0])
-            if self.nsta==0: return
-            data=squeeze(array([lines[3:]])).astype('float')
-            self.x=data[:,0]
-            self.y=data[:,1]
-            self.z=zeros(self.nsta)
-        else:
-            sys.exit('unknow format')
+    def read(self,fname,delimiter='!',fmt=None):
+        '''
+        read SCHISM bpfile or reg file
+        fmt=0: bpfile;  fmt=1: regfile
+        '''
+        #pre-proc
+        lines=[i.strip() for i in open(fname,'r').readlines()]
+        self.fmt=1 if len(lines[2].split())==2 else 0 #check file format
+        if (fmt is not None) and self.fmt!=fmt: sys.exit('fmt is wrong; fmt is not need anymore!')
 
-        #get unique station data.
-        if len(stations)==self.nsta:
-           self.station=array(stations)
-        else:
-           self.station=array(['{}'.format(i) for i in arange(self.nsta)])
+        if self.fmt==0: #bpfile
+           self.nsta=int(lines[1].split()[0])
+           snames=[i.split(delimiter)[-1] if (delimiter in i) else ''  for i in lines[2:]] #read stations
+           self.station=[] if (len(unique(snames))==1 and snames[0]=='') else array(snames,dtype='U')
+           self.x,self.y,self.z=array([i.split()[1:4] for i in lines[2:(2+self.nsta)]]).astype('float').T
+        else: #regfile
+            self.nsta=int(lines[2].split()[0])
+            self.x,self.y=array([i.split()[:2] for i in lines[3:(3+self.nsta)]]).astype('float').T
+        self.check()
 
     def write(self,fname,**args):
         '''
@@ -1355,10 +1559,11 @@ class schism_bpfile:
         when other format is provided, output as *.bp
         '''
         F=None
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
         if fname.endswith('.reg'): F=self.write_reg
         if fname.endswith('.shp'): F=self.write_shapefile; fname=fname[:-4]
         if fname.endswith('.bp') or (F is None):  F=self.write_bpfile
-        if F is not None: F(fname,**args)
+        F(fname,**args)
 
     def save(self,fname,**args):
         '''
@@ -1375,13 +1580,7 @@ class schism_bpfile:
         fmt=1: write ACE/gredit *.reg file
         '''
 
-        #check data
-        if (not hasattr(self,'nsta')) or (self.nsta==0 and len(self.x)!=0): self.nsta=len(self.x)
-        if (not hasattr(self,'z')) or (len(self.z)==0 and self.nsta!=0): self.z=zeros(self.nsta)
-        if (not hasattr(self,'station')) or (len(self.station)==0 and self.nsta!=0): self.station=array([str(i+1) for i in arange(self.nsta)])
-        self.np=self.nsta
-
-        fid=open(fname,'w+')
+        self.check(); fid=open(fname,'w+')
         #write header
         if hasattr(self,'note'): fid.write('ACE/gredit: {}'.format(self.note))
         if fmt==0: fid.write('bpfile in ACE/gredit format\n{}\n'.format(self.nsta))
@@ -1393,17 +1592,22 @@ class schism_bpfile:
             if fmt==1: fid.write('{:<.8f} {:<.8f}\n'.format(self.x[i],self.y[i]))
         fid.close()
 
+    def check(self):
+        '''
+        fill up missing field in bpfile based on self.x
+        '''
+        npt=len(self.x); self.nsta=npt; self.npt=npt; nz0=len(self.z); nsta0=len(self.station)
+        if nz0<npt: self.z=r_[array(self.z),zeros(npt-nz0)]
+        if nsta0<npt: self.station=r_[array(self.station,dtype='U'),arange(nsta0+1,npt+1).astype('U')]
+
     def get_unique_pts(self,fmt=0):
         '''
         compute unique pts
-            fmt=0: compute ux,uy,uz,ustation of the point
-            fmt=1: replace (x,y,z,station) by (ux,uy,uz,ustation)
+          fmt=0: unique xy; fmt=1: unique xyz
         '''
-        #get unique locations
-        upxy,sind=unique(self.x+1j*self.y,return_index=True); sind=sort(sind)
-        self.ux=self.x[sind]; self.uy=self.y[sind]
-        self.uz=self.z[sind]; self.ustation=self.station[sind]
-        if fmt==1: self.x,self.y,self.z,self.station,self.nsta=self.ux,self.uy,self.uz,self.ustation,len(self.ux)
+        sind=sort(unique(c_[self.x,self.y] if fmt==0 else c_[self.x,self.y,self.z],axis=0,return_index=True)[1])
+        self.ux,self.uy,self.uz,self.ustation=self.x[sind],self.y[sind],self.z[sind],self.station[sind]
+        self.unsta=self.unpt=len(sind)
         return [self.ux,self.uy,self.uz,self.ustation]
 
     def proj(self,prj0,prj1='epsg:4326',fmt=0,lon0=None,lat0=None):
@@ -1416,9 +1620,21 @@ class schism_bpfile:
             lon0,lat0: lon&lat of cpp projection center; needed only if 'cpp' in [prj0,prj1]
                        if ("ll"=>"cpp") and (lon0 or lat0 is not provided): lon0=mean(x); lat0=mean(y)
         '''
-        px,py=proj(prj0=prj0,prj1=prj1,x=self.x,y=self.y,lon0=lon0,lat0=lat0)
+        self.check(); px,py=proj(prj0=prj0,prj1=prj1,x=self.x,y=self.y,lon0=lon0,lat0=lat0)
         if fmt==0: self.x,self.y=px,py
         return [px,py]
+
+    def inside(self,xy,fmt=0):
+        '''
+        check whether pts c_[x,y] are inside the polygon of bp points.
+        fmt=0: return indices of pts inside; fmt=1: return boolean flag
+        fmt=2: return indices of pts outside region; fmt=3: return boolean flag outside
+        '''
+
+        fp=inside_polygon(xy,self.x,self.y)==1
+        return nonzero(fp)[0] if fmt==0 else fp if fmt==1 else nonzero(~fp)[0] if fmt==2 else ~fp
+    def outside(self,xy,fmt=2):
+        return self.inside(xy,fmt=fmt)
 
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
@@ -1434,41 +1650,57 @@ class schism_bpfile:
     def plot_station(self,**args):
         return self.plot(**args)
 
-    def plot(self,ax=None,color='r',marker='.',ls=None,label=True,fmt=0,**args):
+    def plot(self,ax=None,color=None,ls=None,label=None,marker='.',markersize=6,fmt=0,connect_mpl=1,**args):
         '''
         plot points on current figure
-          fmt=0: plot all points
-          fmt=1: plot unique points
+          fmt=0: plot all points; fmt=1: plot unique points
         '''
-
-        self.edit()
         #pre-processing
-        if ls is None: ls='None'
-        lc=color if label else 'None'
-        if not None: ax=gca()
-        if fmt==0: sx,sy,sz,stations=self.x,self.y,self.z,self.station
-        if fmt==1: sx,sy,sz,stations=self.get_unique_pts()
+        if connect_mpl==1: self.edit()
+        if color is None: color='r'
+        if ls is None: ls='None' if self.fmt==0 else '-'
+        if label is None: label=1
+        if ax is None: ax=gca()
+
+        #get pts
+        self.check(); npt,xs,ys,zs,stations=self.npt,self.x,self.y,self.z,self.station
+        if fmt==1: xs,ys,zs,stations=self.get_unique_pts(); npt=len(xs)
+
+        #label
+        if label==1:
+           [i.remove() for i in self.ht]; self.ht=[]
+           for xi,yi,ti in zip(xs,ys,stations): hti=text(xi,yi,ti,color=color,fontsize=10); self.ht.append(hti)
 
         #plot
-        self.hp=[]; self.ht=[]
-        for i,station in enumerate(stations):
-            hpi=plot(sx[i],sy[i],marker=marker,color=color,linestyle=ls,**args); self.hp.append(hpi)
-            hti=text(sx[i],sy[i],station,color=lc); self.ht.append(hti)
-        #show(block=False)
-        return [self.hp,self.ht]
+        if self.fmt==1: #for region file
+           if hasattr(self,'hp2'): self.hp2.remove(); delattr(self,'hp2')
+           if npt>=3: [self.hp2]=fill(xs,ys,facecolor='m',alpha=0.15)
+           if npt!=0: xs=r_[xs,xs[0]]; ys=r_[ys,ys[0]] #close polygon
+        if len(self.hp)!=0: self.hp[0].set_xdata(xs); self.hp[0].set_ydata(ys)
+        if len(self.hp)==0: self.hp=plot(xs,ys,marker=marker,markersize=markersize,color=color,linestyle=ls,**args)
+        gcf().canvas.draw()
 
     def compute_acor(self,gd):
         #compute areal coordinates, and gd is the schism grid
         self.ie,self.ip,self.acor=gd.compute_acor(c_[self.x,self.y])
         return self.ie,self.ip,self.acor
 
+    def disconnect_edit(self):
+        if hasattr(self,'cidpress'): gcf().canvas.mpl_disconnect(self.cidpress)
+        if hasattr(self,'cidmove'):  gcf().canvas.mpl_disconnect(self.cidmove)
+        acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]; ap=acs[ats.index('Pan')]
+        if ap.isChecked(): ap.trigger()
+        gcf().canvas.draw()
+
     def edit(self):
         def connect_actions():
             self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', onmove)
             self.cidpress=gcf().canvas.mpl_connect('button_press_event', onclick)
             if self.nsta!=0 and len(self.hp)==0: self.plot_station()
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-            if not ac.isChecked(): ac.trigger()
+            acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]
+            ap=acs[ats.index('Pan')]; ab=acs[ats.index('reg' if self.fmt==0 else 'bp')]
+            if not ap.isChecked(): ap.trigger()
+            if hasattr(ab,'bp'): ab.bp.disconnect_edit()
             gcf().canvas.draw()
             print('double click: left=add pt, right=remove pt; middle=finish edit')
             print('single click: middle=move pt')
@@ -1483,61 +1715,28 @@ class schism_bpfile:
             #double click
             if dlk==1 and btn==1: add_pt(bx,by)
             if dlk==1 and btn==3: remove_pt(bx,by)
-            if dlk==1 and btn==2:
-               gcf().canvas.mpl_disconnect(self.cidpress)
-               gcf().canvas.mpl_disconnect(self.cidmove)
-               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-               if ac.isChecked(): ac.trigger()
-               gcf().canvas.draw()
+            if dlk==1 and btn==2: self.disconnect_edit()
+            if dlk==1 and btn in [1,3]: self.station=(arange(len(self.x))+1).astype('U'); self.plot(connect_mpl=0)
 
         def add_pt(x,y):
-            self.nsta=self.nsta+1; self.station=[*self.station,'{}'.format(self.nsta)]
-            self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,0.0]
-
-            #plot point
-            if len(self.hp)!=0:
-                hp=self.hp[-1][0]; ht=self.ht[-1]
-                color=hp.get_color(); mk=hp.get_marker(); ms=hp.get_markersize(); ls=hp.get_linestyle()
-                fs=ht.get_fontsize(); fw=ht.get_fontweight(); fc=ht.get_color()
-            else:
-                color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            hpi=plot(x,y,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp.append(hpi)
-            hti=text(x,y,self.station[-1],color=fc,fontsize=fs,fontweight=fw); self.ht.append(hti)
-            gcf().canvas.draw()
+            self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.plot(connect_mpl=0)
 
         def remove_pt(x,y):
             if self.nsta==0: return
             distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
-            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            for i in arange(sid,self.nsta):
-                if i==self.nsta-1:
-                   self.hp[-1][0].remove(); self.ht[-1].remove()
-                   del self.hp[-1]; del self.ht[-1]
-                else:
-                   xi=self.x[i+1]; yi=self.y[i+1]
-                   self.x[i]=xi; self.y[i]=yi; self.station[i]='{}'.format(i+1)
-                   self.hp[i][0].remove(); self.ht[i].remove()
-                   hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[i]=hpi
-                   hti=text(xi,yi,self.station[i],color=fc,fontsize=fs,fontweight=fw); self.ht[i]=hti
-            self.x=self.x[:-1]; self.y=self.y[:-1]; self.z=self.z[:-1]; self.station=self.station[:-1]; self.nsta=self.nsta-1
-            gcf().canvas.draw()
+            self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; self.plot()
 
         def move_pt(xi,yi):
             distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
-            color='r'; mk='.'; ms=6.0; ls='None'; fs=10; fw='normal'; fc='r'
-            self.x[sid]=xi; self.y[sid]=yi
-            self.hp[sid][0].remove(); self.ht[sid].remove()
-            hpi=plot(xi,yi,marker=mk,markersize=ms,color=color,linestyle=ls); self.hp[sid]=hpi
-            hti=text(xi,yi,self.station[sid],color=fc,fontsize=fs,fontweight=fw); self.ht[sid]=hti
-            gcf().canvas.draw()
+            self.x[sid]=xi; self.y[sid]=yi; self.plot()
 
         if mpl._pylab_helpers.Gcf.get_active() is not None:
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-            abp=acs[nonzero(ats=='bp')[0][0]] if 'bp' in ats else gcf().canvas.toolbar.addAction('bp')
+            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); at='bp' if self.fmt==0 else 'reg'
+            abp=acs[nonzero(ats==at)[0][0]] if at in ats else gcf().canvas.toolbar.addAction(at)
             #if not abp.isCheckable(): abp.setCheckable(True)
 
             #disconnect and clean previous bpfile
-            if hasattr(abp,'bp'):
+            if hasattr(abp,at):
                if self is not abp.bp:
                   nhp=len(abp.bp.hp)
                   for i in arange(nhp):
@@ -1557,7 +1756,14 @@ def read_schism_bpfile(fname,fmt=0):
     '''
     read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
     '''
-    bp=schism_bpfile(); bp.read_bpfile(fname,fmt=fmt)
+    bp=schism_bpfile(); bp.read(fname); bp.edit()
+    return bp
+
+def read_schism_reg(fname):
+    '''
+    read schism *bp (fmt=0) or *.reg (fmt=1) file created by ACE/gredit
+    '''
+    bp=schism_bpfile(); bp.read(fname); bp.edit()
     return bp
 
 def read_schism_prop(fname):
@@ -1571,37 +1777,43 @@ def read_schism_prop(fname):
     pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
     return pvalue
 
-def read_schism_reg(fname):
+def save_schism_grid(fmt=0,path='.',method=0):
     '''
-    read schism *.reg file created by ACE/gredit
+    save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
+       path:  directory of grids
+       fmt=0: save as grid.npz (include hgrid and vgrid); fmt=1: save as hgrid.npz and vgrid.npz
+       method=1: save hgrid full geometry information
     '''
-    return read_schism_bpfile(fname,fmt=1)
+    #read grids
+    grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path)
+    gd=None; gd0=None; vd=None
+    if os.path.exists(grd):  gd=read_schism_hgrid(grd)
+    if os.path.exists(grd0): gd0=read_schism_hgrid(grd0)
+    if os.path.exists(vrd):  vd=read_schism_vgrid(vrd)
+    if (gd is None) and (gd0 is not None): gd=gd0
+    if (gd is not None) and (gd0 is not None): gd.lon,gd.lat=gd0.x,gd0.y
+    if (gd is not None) and method==1: gd.compute_all()
 
-def save_schism_grid(fname='grid',path='.',fmt=0):
-    '''
-    read and save path/{hgrid.gr3,hgrid.ll,vgrid.in}
-       fname: save name
-       path:  directory whether grids exist
-       fmt=0: not save grid's full geometry; fmt=1: save
-    '''
-    grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path); S=zdata()
-    if os.path.exists(grd):
-       gd=read_schism_hgrid(grd)
-       if os.path.exists(grd0): gd0=read_schism_hgrid(grd0); gd.lon,gd.lat=gd0.x,gd0.y
-       if fmt==1: gd.compute_all(); gd.compute_bnd()
-       S.hgrid=gd
-    if os.path.exists(vrd): S.vgrid=read_schism_vgrid(vrd)
-    if (not hasattr(S,'hgrid')) and (not hasattr(S,'vgrid')): sys.exit('not found: {}, {}'.format(grd,vrd))
-    savez(fname,S)
-    return S
+    #save grid
+    if fmt==1:
+       if gd is not None: gd.save('hgrid.npz')
+       if vd is not None: vd.save('vgrid.npz')
+    else:
+       S=zdata()
+       if gd is not None: S.hgrid=gd
+       if vd is not None: S.vgrid=vd
+       S.save('grid.npz')
 
 class schism_vgrid:
     def __init__(self):
         pass
 
     @property
+    def INFO(self):
+        return get_INFO(self)
+    @property
     def VINFO(self):
-        return get_VINFO(self)
+        return get_INFO(self)
 
     def read_vgrid(self,fname):
         #read schism vgrid
@@ -1642,7 +1854,7 @@ class schism_vgrid:
 
     def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None,ifix=0):
         '''
-        compute schism zcor (ivcor=1)
+        compute schism zcor (ivcor=1 and 2)
             dp:  depth at nodes (dim=[np] or [1])
             eta: surface elevation (dim=[np] or [1])
             fmt: output format of zcor
@@ -1659,12 +1871,19 @@ class schism_vgrid:
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
-    def write_vgrid(self,fname='vgrid.in',fmt=0):
+    def save(self,fname=None,fmt=0,**args):
+        '''
+        alias to write_vgrid
+        '''
+        self.write_vgrid(fname,fmt,**args)
+
+    def write_vgrid(self,fname='vgrid.in',fmt=0,**args):
         '''
         write schism vertical grid
             fmt=0: write vgrid.in in latest format of ivcor=1 (one line per lelvel)
             fmt=1: write vgrid.in in old format of ivcor=1    (one line per node)
         '''
+        if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
         if self.ivcor==1:
            nvrt,np,kbp,sigma=self.nvrt,self.np,self.kbp.copy(),self.sigma.copy()
            fid=open(fname,'w+'); fid.write('1    !average # of layers={}\n{}  \n'.format(mean(nvrt-kbp),nvrt))
@@ -1697,7 +1916,7 @@ def read_schism_vgrid(fname):
 
 def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
     '''
-    compute schism zcor (ivcor=1)
+    compute schism zcor (ivcor=1 and 2)
         sigma: sigma cooridinate (dim=[np,nvrt])
         dp: depth at nodes (dim=[np] or [1])
         eta: surface elevation (dim=[np] or [1])
@@ -1707,6 +1926,10 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
         kbp: index of bottom layer (not necessary, just to speed up if provided for ivcor=1)
         method=1 and ivcor=2: return zcor and kbp
         ifix=1 and ivcor=2: using traditional sigma in shallow if error raise
+
+    usage:
+      for ivcor=1: compute_zcor(sigma,dp,eta)
+      for ivcor=2: compute_zcor(sigma,dp,eta,vd=vd,ivcor=2)
     '''
 
     if ivcor==1:
@@ -1719,7 +1942,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
             kbp=array([nonzero(abs(i+1)<1e-10)[0][-1] for i in sigma])
 
         #thickness of water column
-        hw=dp+eta
+        hw=dp+eta; hw[hw<0]=0
 
         #add elevation
         zcor=hw[:,None]*sigma+eta[:,None]
@@ -1731,53 +1954,36 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
                 zcor[i,:kbp[i]]=nan
         return zcor
     elif ivcor==2:
-        #get dimension of pts
-        if not hasattr(dp,'__len__'):
-            np=1; dp=array([dp])
-        else:
-            np=len(dp)
-        if not hasattr(eta,'__len__'): eta=ones(np)*eta
-        zcor=ones([vd.nvrt,np])*nan
+        #arange data
+        np,dp=[1,array([dp])] if not hasattr(dp,'__len__') else [len(dp),dp]
+        eta=ones(np)*eta if not hasattr(eta,'__len__') else eta
 
-        cs=(1-vd.theta_b)*sinh(vd.theta_f*vd.sigma)/sinh(vd.theta_f)+ \
-            vd.theta_b*(tanh(vd.theta_f*(vd.sigma+0.5))-tanh(vd.theta_f*0.5))/2/tanh(vd.theta_f*0.5)
-        #for sigma layer: depth<=h_c
-        hmod=dp.copy(); fp=hmod>vd.h_s; hmod[fp]=vd.h_s
-        fps=hmod<=vd.h_c
-        zcor[(vd.kz-1):,fps]=vd.sigma[:,None]*(hmod[fps][None,:]+eta[fps][None,:])+eta[fps][None,:]
+        #sz parameter
+        nvrt,sigma,theta_b,theta_f,h_c,h_s,kz,ztot=vd.nvrt,vd.sigma,vd.theta_b,vd.theta_f,vd.h_c,vd.h_s,vd.kz,vd.ztot
+        cs=(1-theta_b)*sinh(theta_f*sigma)/sinh(theta_f)+ theta_b*(tanh(theta_f*(sigma+0.5))-tanh(theta_f*0.5))/2/tanh(theta_f*0.5)
 
-        #depth>h_c
-        fpc=eta<=(-vd.h_c-(hmod-vd.h_c)*vd.theta_f/sinh(vd.theta_f))
-        if sum(fpc)>0:
-            if ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(vd.h_c))
-            if ifix==1: zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]+(eta[~fps][None,:]+hmod[~fps][None,:])*vd.sigma[:,None]
-        else:
-            zcor[(vd.kz-1):,~fps]=eta[~fps][None,:]*(1+vd.sigma[:,None])+vd.h_c*vd.sigma[:,None]+cs[:,None]*(hmod[~fps]-vd.h_c)
+        #for sigma layer
+        zcor=zeros([nvrt,np]); hmod=dp.copy(); hmod[hmod>h_s]=h_s
+        for k in arange(kz-1,nvrt):
+            kin=k-kz+1
+            #hmod<=h_c
+            fps=hmod<=h_c; htot=hmod[fps]+eta[fps]; htot[htot<0]=0
+            zcor[k,fps]=sigma[kin]*(htot)+eta[fps]
+
+            #hmod>h_c
+            sindc=nonzero(~fps)[0]; fpc=eta[sindc]<=(-h_c-(hmod[sindc]-h_c)*theta_f/sinh(theta_f)); sindf=sindc[fpc]; sinds=sindc[~fpc]
+            if sum(fpc)>0 and ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(h_c))
+            if sum(fpc)>0 and ifix==1: zcor[k:,sindf]=(eta[sindf]+hmod[sindf])*sigma[kin]+eta[sindf]
+            zcor[k,sinds]=eta[sinds]*(1+sigma[kin])+h_c*sigma[kin]+cs[kin]*(hmod[sinds]-h_c)
+        zcor[:(kz-1),:]=nan if fmt==1 else zcor[kz-1,:][None,:] #extend
 
         #for z layer
-        kbp=-ones(np).astype('int'); kbp[dp<=vd.h_s]=vd.kz-1
-        fpz=dp>vd.h_s; sind=nonzero(fpz)[0]
-        for i in sind:
-            for k in arange(0,vd.kz-1):
-                if (-dp[i]>=vd.ztot[k])*(-dp[i]<=vd.ztot[k+1]):
-                    kbp[i]=k;
-                    break
-            #check
-            if kbp[i]==-1:
-                sys.exit('can not find a bottom level for node')
-            elif kbp[i]<0 or kbp[i]>=(vd.kz-1):
-                sys.exit('impossible kbp,kz: {}, {}'.format(kbp[i],vd.kz))
-
-            #assign values
-            zcor[kbp[i],i]=-dp[i]
-            for k in arange(kbp[i]+1,vd.kz-1):
-                zcor[k,i]=vd.ztot[k]
+        kbp=zeros(np).astype('int'); fp=dp>h_s; sind=nonzero(fp)[0]; kbp[~fp]=kz-1
+        for k in arange(kz-1):
+            fpz=(-dp[sind]>=ztot[k])*(-dp[sind]<ztot[k+1]); sindz=sind[fpz]; kbp[sindz]=k
+            zcor[:(k+1),sindz]=-dp[sindz][None,:]; zcor[(k+1):(kz-1),sindz]=ztot[(k+1):(kz-1),None]
+            if fmt==1: zcor[:k,sindz]=nan
         zcor=zcor.T; vd.kbp=kbp
-
-        #change format
-        if fmt==0:
-            for i in arange(np):
-                zcor[i,:kbp[i]]=zcor[i,kbp[i]]
         if method==0: return zcor
         if method==1: return [zcor,kbp]
 
@@ -1802,158 +2008,6 @@ def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e6,h_c=10,th
         vd.write_vgrid(fname)
     else:
         sys.exit('ivcor=1 option not available yet')
-
-def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
-    '''
-    3D interpolation for multiple variables; interplation only for the variables with a dimension of ne or np
-        (gd,  vd):    (hgrid,vgrid) from save_schism_grid
-        (pxy, pz): (c_[x,y],   z[:,:])  or (hgrid,vgrid) from save_schism_grid
-        values: list of np.array, or np.array
-        pind: indice of ne/np dimension for each variable; use -1 to skip interpolation of the variables
-        zind: indice of nvrt dimension for each variable;  use -1 to skip the vertical dimension
-        fmt=0: higher efficency for many pts; fmt=1: higher efficency for fewer pts
-    '''
-    #get xyz of interpolation pts
-    if hasattr(pxy,'dp') and hasattr(pz,'ivcor'):
-        pz=-pz.compute_zcor(pxy.dp); pxy=c_[pxy.x,pxy.y]
-    elif isinstance(pxy,np.ndarray) and isinstance(pz,np.ndarray):
-        if pz.ndim==1: pz=pz[:,None]
-    else:
-        sys.exit('(pxy,pz) should be either (schism_grid, schism_vgrid) or (np.array, np.array)')
-    npt=len(pxy); nz=pz.shape[1]
-
-    #compute zcor
-    if not hasattr(vd,'ivcor'): sys.exit('vgrid should a "schism_vgrid" object')
-    nvrt=vd.nvrt; zcor=-vd.compute_zcor(gd.dp)
-
-    #compute area coordinate
-    pie,pip,pacor=gd.compute_acor(pxy,fmt=fmt); zcor=(zcor[pip]*pacor[...,None]).sum(axis=1)
-
-    #limit pz
-    zm=tile(zcor[:,-1],[nz,1]).T; fpz=pz<zm; pz[fpz]=zm[fpz]
-    zm=tile(zcor[:,0],[nz,1]).T;  fpz=pz>zm; pz[fpz]=zm[fpz]; zm=None
-
-    #get variables' dimension information
-    ilst,nvar,values=[0,1,[values,]] if isinstance(values,np.ndarray) else [1,len(values),values]
-    dims=[array(i.shape) for i in values]; ndims=[len(i) for i in dims]
-    if pind is None: pind=nan*ones(nvar)
-    if zind is None: zind=nan*ones(nvar)
-    pind=array(pind).astype('int'); zind=array(zind).astype('int')
-
-    #modify variables dimension, interp from elem to node, interp horizontally,
-    tind=[]; w0=None; pvalues=[]
-    for i,[value,ds,ndim] in enumerate(zip(values,dims,ndims)):
-        sindp=nonzero(ds==gd.np)[0]; sinde=nonzero(ds==gd.ne)[0]; sindk=nonzero(ds==nvrt)[0]
-
-        #get index of ne or np
-        if pind[i]!=-1:
-            if len(sindp)==1: pind[i]=sindp[0]
-            if len(sindp)==0 and len(sinde)==1: pind[i]=sinde[0]
-            if len(sindp)==0 and len(sinde)==0: pind[i]=-1
-            if len(sindp)>1 and len(sinde)>1:  sys.exit('need "pind" for np/ne in {}th variable: dims={}, np={}, ne={}'.format(i+1,ds,gd.ne,gd.np))
-
-        #get index for nvrt
-        if zind[i]!=-1:
-            if len(sindk)==1: zind[i]=sindk[0]
-            if len(sindk)==0: zind[i]=-1
-            if len(sindk)>1: sys.exit('need "zind" for nvrt in {}th variable: dims={}, nvrt={} '.format(i+1,ds,nvrt))
-
-        #transpose the dimensions
-        if pind[i]!=-1 and zind[i]!=-1:
-            sind=[pind[i],zind[i],*setdiff1d(arange(ndim),[pind[i],zind[i]])]
-        elif pind[i]!=-1 and zind[i]==-1:
-            sind=[pind[i],*setdiff1d(arange(ndim),[pind[i]])]
-        else:
-            sind=None
-        tind.append(sind)
-        if sind is not None: values[i]=value.transpose(sind); dims[i]=dims[i][sind]
-
-        #compute weight function, and interpolate from elem to node
-        if pind[i]!=-1 and dims[i][0]==gd.ne:
-            if not hasattr(gd,'nne'): gd.compute_nne()
-            if w0 is None: w0=gd.ine!=-1; tw0=w0.sum(axis=1)
-            w=w0.copy(); tw=tw0.copy()
-            for n in arange(ndim-1): w=expand_dims(w,axis=2); tw=expand_dims(tw,axis=1)
-            values[i]=(w*values[i][gd.ine]).sum(axis=1)/tw
-
-        #create variables for pxyz
-        dsn=dims[i].copy()
-        if pind[i]!=-1: dsn[0]=npt
-        if zind[i]!=-1: dsn[1]=nz
-        pvalue=zeros(dsn)
-
-        #interp horizontal
-        if pind[i]!=-1:
-            acor=pacor.copy()
-            for n in arange(ndim-1): acor=expand_dims(acor,axis=2)
-            values[i]=(values[i][pip]*acor).sum(axis=1)
-            if zind[i]==-1: pvalue=values[i]
-        pvalues.append(pvalue)
-
-    #interp in vertical
-    for k, pzi in enumerate(pz.T):
-        for n in arange(nvrt):
-            z1,z2=zcor[:,min(nvrt-1,n+1)],zcor[:,n]
-            if n==(nvrt-1):
-                fpz=pzi==z1; ratz=zeros(sum(fpz))
-            else:
-                fpz=(pzi>z1)*(pzi<=z2); ratz=(pzi[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-            if sum(fpz)==0: continue
-
-            for i,[value,ds,ndim,ip,iz] in enumerate(zip(values,dims,ndims,pind,zind)):
-                if ip==-1 or iz==-1: continue
-                v1,v2=value[fpz,min(nvrt-1,n+1)],value[fpz,n]; rat=ratz.copy()
-                for m in arange(ndim-2):rat=expand_dims(rat,axis=1)
-                pvalues[i][fpz,k]=v1*(1-rat)+v2*rat
-
-    #restore dimension order
-    for i,[pvalue,sind] in enumerate(zip(pvalues,tind)):
-        if sind is None: continue
-        sinds=argsort(sind); pvalues[i]=pvalues[i].transpose(sinds)
-    if ilst==0: pvalues=pvalues[0]
-
-    return pvalues
-
-def getglob(dirpath='.',fmt=0):
-    '''
-    get global information about schism run (ne,ns,np,nvrt,nproc,ntracers,ntrs)
-    dirpath: run directory or outputs directory
-    fmt=0: default is 0; fmt(!=0) are for eariler schism versions
-    '''
-
-    rstr,bdir=srank(0,dirpath=dirpath,fmt=1)
-    fname='{}/local_to_global_{}'.format(bdir,rstr) #local_to_global_0000 or local_to_global_000000
-
-    #get info
-    S=zdata()
-    S.info=array(open(fname,'r').readline().strip().split()).astype('int')
-    if fmt==0:
-       S.ns,S.ne,S.np,S.nvrt,S.nproc,S.ntracers=S.info[:6]
-       S.ntrs=S.info[6:]
-    else:
-       sys.exit('fmt unknown')
-    return S
-
-def srank(rank=0,dirpath='.',fmt=0):
-    '''
-    return string of schism rank number ('0032', or '000032')
-    dirpath: run directory, or RUN*/outputs
-    fmt=0: return rank string; fmt=1: return rank string and the location dir.
-    '''
-    bdir=None;str_rank=''
-
-    #old format with 4 digits
-    if os.path.exists('{}/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:04}'.format(rank)
-    if os.path.exists('{}/outputs/local_to_global_0000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:04}'.format(rank)
-
-    #new format with 6 digits
-    if os.path.exists('{}/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath(dirpath); str_rank='{:06}'.format(rank)
-    if os.path.exists('{}/outputs/local_to_global_000000'.format(dirpath)): bdir=os.path.abspath('{}/outputs/'.format(dirpath)); str_rank='{:06}'.format(rank)
-
-    if fmt==0:
-       return str_rank
-    elif fmt==1:
-       return [str_rank,bdir]
 
 def read_schism_local_to_global(fname):
     '''
@@ -2112,1159 +2166,38 @@ def grd2sms(grd,sms):
     #save grid save *2dm format
     gd.grd2sms(sms)
 
-def scatter_to_schism_grid(xyz,angle_min=None,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None):
-    '''
-    create schism grid from scatter pts
-        xyz: c_[x,y] or c_[x,y,z]
-        angle_min: remove element with internal_angle < angle_min
-        area_max:  remove element with element_area   > area_max
-        side_min:  remove element with side_length    < side_min
-        side_max:  remove element with side_length    > side_max
-        reg_in:    ACE/xgredit region file. remove elements in region if reg_in is provided
-        reg_out:   ACE/xgredit region file. remove elements outside of region if reg_out is provided
-    '''
-
-    #get xyz
-    x,y=xyz.T[:2]; np=len(x)
-    z=xyz[:,2] if xyz.shape[1]>=3 else zeros(np)
-
-    #triangulate scatter
-    tr=mpl.tri.Triangulation(x,y); gd=schism_grid()
-    gd.np,gd.ne=np,len(tr.triangles); gd.x,gd.y,gd.dp=x,y,z
-    gd.elnode=c_[tr.triangles,-2*ones([gd.ne,1])].astype('int'); gd.i34=3*ones(gd.ne).astype('int')
-
-    #clean mesh
-    gd=delete_schism_grid_element(gd,angle_min=angle_min,area_max=area_max,side_min=side_min,side_max=side_max,reg_in=reg_in,reg_out=reg_out)
-    return gd
-
-def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_max=None,reg_in=None,reg_out=None,method=0):
-    '''
-    delete schism grid's elements
-        grd: schism_grid object
-        angle_min: remove element with internal_angle < angle_min
-        area_max:  remove element with element_area   > area_max
-        side_min:  remove element with side_length    < side_min
-        side_max:  remove element with side_length    > side_max
-        reg_in:    ACE/xgredit region file. remove elements in region if reg_in is provided
-        reg_out:   ACE/xgredit region file. remove elements outside of region if reg_out is provided
-        method=0: use side_max for dangling pts; method=1: use angle_min for dangling pts
-    '''
-
-    #find max/min side or angle values
-    angles,sides=[],[];  fp3=gd.i34==3; fp4=gd.i34==4
-    id1,id2,id3=ones([3,gd.ne]).astype('int'); sid=arange(gd.ne)
-    for i in arange(4):
-        id1[fp3]=i%3; id2[fp3]=(i+1)%3; id3[fp3]=(i+2)%3
-        id1[fp4]=i%4; id2[fp4]=(i+1)%4; id3[fp4]=(i+2)%4
-        x1=gd.x[gd.elnode[sid,id1]]; x2=gd.x[gd.elnode[sid,id2]]; x3=gd.x[gd.elnode[sid,id3]]
-        y1=gd.y[gd.elnode[sid,id1]]; y2=gd.y[gd.elnode[sid,id2]]; y3=gd.y[gd.elnode[sid,id3]]
-        ai=abs(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))*180/pi; angles.append(ai)
-        si=abs((x1+1j*y1)-(x2+1j*y2)); sides.append(si)
-    angles=array(angles).T; sides=array(sides)
-    mangle=angles.min(axis=1); sidemin=sides.min(axis=0); sidemax=sides.max(axis=0)
-
-    #filter illegal elements
-    gd.compute_area(); gd.compute_ctr()
-    fangle=nonzero(mangle<angle_min)[0] if (angle_min is not None) else array([])
-    farea=nonzero(gd.area>area_max)[0] if (area_max is not None) else array([])
-    fside_max=nonzero(sidemax>side_max)[0] if (side_max is not None) else array([])
-    fside_min=nonzero(sidemin<side_min)[0] if (side_min is not None) else array([])
-    sindp=r_[fangle,farea,fside_max,fside_min].astype('int')
-
-    #filter elements inside region
-    if (reg_in is not None) and len(sindp)!=0:
-        if isinstance(reg_in,str): bp=read_schism_bpfile(reg_in,fmt=1); reg_in=c_[bp.x,bp.y]
-        print(reg_in.shape); sys.exit()
-        fpr=inside_polygon(c_[gd.xctr[sindp],gd.yctr[sindp]],reg_in[:,0],reg_in[:,1])==1; sindp=sindp[fpr]
-
-    #filter elements outside region
-    if reg_out is not None:
-        if isinstance(reg_out,str): bp=read_schism_bpfile(reg_out,fmt=1); reg_out=c_[bp.x,bp.y]
-        sindo=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],reg_out[:,0],reg_out[:,1])==0)[0]; sindp=r_[sindp,sindo]
-
-    sind=setdiff1d(arange(gd.ne),sindp)
-
-    #add back elements with dangling pts
-    ips=setdiff1d(arange(gd.np),unique(gd.elnode[sind].ravel()))
-    if len(ips)!=0:
-        gd.compute_nne(); sinde=[]
-        for ip in ips:
-            ies=gd.indel[ip]
-            if method==0: ai=sidemax[ies]; sinde.append(ies[nonzero(ai==min(ai))[0][0]])
-            if method==1: ai=mangle[ies]; sinde.append(ies[nonzero(ai==max(ai))[0][0]])
-        sind=sort(r_[sind,array(sinde)])
-
-    #delete elements
-    gd.ne,gd.i34,gd.elnode=len(sind),gd.i34[sind],gd.elnode[sind]
-    gd.area,gd.xctr,gd.yctr,gd.dpe=gd.area[sind],gd.xctr[sind],gd.yctr[sind],gd.dpe[sind]
-    return gd
-
-def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
-    '''
-    combine schism-icm station outputs
-      rundir: run directory
-      sname: save name for combined output
-      fmt=1: copy subdomain output file, and then read
-      outfmt=0: float32;  outfmt=1: float64
-    '''
-    from time import time as gettime
-    from glob import glob
-
-    outdir=rundir+'/outputs/'
-    bp=read_schism_bpfile(rundir+'/istation.in')
-    fid=Dataset(outdir+sname,'w',format='NETCDF4'); fvar=fid.variables; fdim=fid.dimensions
-
-    #get fnames information
-    fnames=glob(outdir+'icm_*.nc'); mts=[]
-    if fmt==1: [copyfile(i,i+'.copy') for i in fnames]; fnames=[i+'.copy' for i in fnames] #copy output files
-    for i in fnames: C=ReadNC(i,1); mts.append(array(C.variables['time'])); C.close() #time length
-    t1=min([i.min() for i in mts]); t2=max([i[abs(i)<1e15].max() for i in mts]); dt=min([i[1]-i[0] for i in mts])
-    mti=arange(t1,t2+dt,dt); nt=mti.size #; sindt=[intersect1d(i,mti,return_indices=True)[1:] for i in mts]
-
-    #combine station output
-    for n,fname in enumerate(fnames):
-        C=ReadNC(fname,1); cvar=C.variables; cdim=C.dimensions; t0=gettime()
-        sind=array(cvar['istation'][:])-1; itc,itf=intersect1d(mts[n],mti,return_indices=True)[1:]
-        if n==0:
-           #def dim
-           for dn in cdim:
-               if dn=='nstation':
-                  fid.createDimension(dn,bp.nsta)
-               elif dn=='time':
-                  fid.createDimension(dn,nt)
-               else:
-                  fid.createDimension(dn,cdim[dn].size)
-
-           #def variables
-           for i,cn in enumerate(cvar):
-               cdn=[*cvar[cn].dimensions]
-               cdn=(cdn[1:] if cdn[0]=='dim_01' else [cdn[1],cdn[0],cdn[2]]) if len(cdn)==3 else cdn
-               if len(cdn)>=2 and outfmt==0:
-                  fid.createVariable(cn,np.float32,cdn,fill_value=-99999)
-               else:
-                  fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=-99999)
-           fid.createVariable('station',str,['nstation'],fill_value=False)
-           fvar['time'][:]=array(mti)/86400 #set time
-
-        #set variables
-        for i,cn in enumerate(cvar):
-            cdn=[*cvar[cn].dimensions]; cds=[cdim[k].size for k in cdn]
-            if cdn[0]=='nstation': fvar[cn][sind]=array(cvar[cn][:])
-            if len(cds)==3 and cds[0]==1: fvar[cn][sind,itf]=array(cvar[cn][0])[:,itc]
-            if len(cds)==3 and cds[0]!=1: fvar[cn][sind,:,itf]=array(cvar[cn])[...,itc].transpose([1,0,2])
-
-        fvar['station'][:]=bp.station
-        C.close(); dt=gettime()-t0
-        if dt>1: print('finish combining {}/{}: {}, {:0.1f}'.format(n+1,len(fnames),fname,dt))
-        if fmt==1: os.remove(fname)
-    fid.close()
-
-def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
-    '''
-    combine schism hotstart
-       outdir: schism output directory
-       fmt=0: combine the last hotstart; fmt=1: combine all hotstart
-       irec: step number of hotstrat (fmt is disabled when irec is set)
-    '''
-
-    #get all hotstart records
-    irecs=sort([int(i[:-3].split('_')[-1]) for i in os.listdir(outdir) if i.startswith('hotstart_000000_')])
-    if fmt==0: irecs=irecs[-1:]
-    if irec is not None: irecs=[irec]
-
-    #get subdomain information
-    S=get_schism_output_info(outdir,fmt=2); dname=['nResident_node','nResident_elem','nResident_side']
-    dnn=['node','elem','side']; dsn=[S.npg,S.neg,S.nsg] #global dim
-
-    fnames=[]
-    for m,irec in enumerate(irecs):
-        fname='hotstart.nc_{}'.format(irec); fnames.append(fname)
-        fid=Dataset(outdir+'/'+fname,'w',format='NETCDF4');  #open file
-        for n in arange(S.nproc):  #assemble subdomain information
-            C=ReadNC('{}/hotstart_{:06}_{}.nc'.format(outdir,n,irec),1)
-            cvar=C.variables; cdim=C.dimensions
-
-            #def dimension and variables
-            if n==0:
-               dn=[*cdim]; ds=[cdim[i].size for i in dn]                    #dim. name and size
-               for dni in dname: k=dn.index(dni); dn[k],ds[k]=dnn[k],dsn[k] #change dimension
-               for dni,dsi in zip(dn,ds): fid.createDimension(dni,dsi)      #def dims
-               sids=tile(-1,len(cvar)) #save index for node/elem/side
-               for i,cn in enumerate(cvar): #def variables
-                   cdn=[*cvar[cn].dimensions]
-                   if cdn[0] in dname: k=dname.index(cdn[0]); cdn[0]=dnn[k]; sids[i]=k
-                   fid.createVariable(cn,cvar[cn].dtype,cdn,fill_value=False)
-
-            #set variables
-            for i,cn in enumerate(cvar):
-               if sids[i]==-1:
-                  if n==0: fid.variables[cn][:]=array(cvar[cn][:])
-               else:
-                  sind=S.ips[n] if sids[i]==0 else (S.ies[n] if sids[i]==1 else S.iss[n])
-                  fid.variables[cn][sind]=cvar[cn][:]
-            C.close()
-        fid.renameVariable('it','iths'); fid.close()
-    return fnames
-
-def get_schism_grid_subdomain(grd,xy):
-   '''
-   compute indice for sub-domian
-     grd: SCHISM grid ("grid.npz", "hgrid.gr3", or schism_grid object)
-     xy:  subdomin region (c_[x,y], or reg file)
-   '''
-   #read grid, and region
-   gd=(loadz(grd).hgrid if grd.endswith('npz') else read_schism_hgrid(grd)) if isinstance(grd,str) else grd
-   gd.compute_ctr(); gd.compute_side(1)
-   if isinstance(xy,str): bp=read_schism_reg(xy); xy=c_[bp.x,bp.y]
-
-   #get subdomin information for node,elem. and elnode
-   ie=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],xy[:,0],xy[:,1])==1)[0]
-   el0=gd.elnode[ie]; ip=unique(el0.ravel())[1:]; ne,np=len(ie),len(ip)
-   pid=zeros(gd.np); pid[ip]=arange(np); el=pid[el0].astype('int'); el[el0==-2]=-2
-
-   #create new grid for sub-domain, and compute index for side
-   gn=schism_grid(); gn.ne,gn.np,gn.x,gn.y,gn.dp,gn.elnode,gn.i34=ne,np,gd.x[ip],gd.y[ip],gd.dp[ip],el,gd.i34[ie]
-   gn.compute_ctr(); gn.compute_side(1); sn=sort(ip[gn.isidenode],axis=1); s0=sort(gd.isidenode,axis=1)
-   iA,iB=intersect1d(sn[:,0]+1j*sn[:,1],s0[:,0]+1j*s0[:,1],return_indices=True)[1:]; isd=iB[argsort(iA)]
-   gn.sindp,gn.sinde,gn.sinds=ip,ie,isd #save indices of node,elem. and side for subset
-   return gn
-
-def get_schism_output_subset(fname,sname,xy=None,grd=None):
-   '''
-   compute subset of SCHIMS outputs
-     fname: original schism outputs (*.nc)
-     sname: subset of schism outputs (*.nc)
-     xy:    subdomin region (c_[x,y], or reg file)
-     grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
-   '''
-   #get subset index
-   if (grd is None) and (xy is None): sys.exit('both grd and xy are None')
-   if grd is None:
-      C=ReadNC(fname,1); cvar=C.variables; gd=schism_grid()
-      gd.x=array(cvar['SCHISM_hgrid_node_x'][:]); gd.y=array(cvar['SCHISM_hgrid_node_y'][:])
-      gd.dp=array(cvar['depth'][:]); gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'][:])-1; C.close()
-      gd.np,gd.ne=len(gd.dp),len(gd.elnode); gd.i34=4*ones(gd.ne).astype('int'); gd.i34[gd.elnode[:,-1]<0]=3
-   else:
-      gd=(loadz(grd).hgrid if grd.endswith('npz') else read_schism_hgrid(grd)) if isinstance(grd,str) else grd
-   if (not hasattr(gd,'sindp')) or (not hasattr(gd,'sinde')) or (not hasattr(gd,'sinds')): gd=get_schism_grid_subdomain(gd,xy)
-
-   #get subset data
-   sd={'nSCHISM_hgrid_node':gd.np,'nSCHISM_hgrid_face':gd.ne,'nSCHISM_hgrid_edge':gd.ns}
-   sv={'nSCHISM_hgrid_node':gd.sindp,'nSCHISM_hgrid_face':gd.sinde,'nSCHISM_hgrid_edge':gd.sinds}
-   def _subset(dname,ds,fmt=0):
-       #fmt=0: change dim;  fmt=1: get output subset
-       if dname in sd: ds=sd[dname] if fmt==0 else ds[sv[dname]]
-       return ds
-
-   #create subset file
-   C=ReadNC(fname,1); cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
-   fid=Dataset(sname,'w',format=C.file_format)     #open file
-   fid.setncattr('file_format',C.file_format)      #set file_format
-   for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
-   for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else \
-                  fid.createDimension(i,_subset(i,cdim[i].size)) #set dims
-   for i in cvar: #set vars
-       vd=cvar[i].dimensions #;  print(i,vd)
-       vid=fid.createVariable(i,cvar[i].dtype,vd,fill_value=True)
-       [vid.setncattr(k,cvar[i].getncattr(k)) for k in cvar[i].ncattrs() if (k not in ['_FillValue'])]
-       if i=='SCHISM_hgrid_face_nodes':
-          fid.variables[i][:]=gd.elnode+1
-       elif i=='SCHISM_hgrid_edge_nodes':
-          fid.variables[i][:]=gd.isidenode+1
-       elif i=='time':
-          fid.variables[i][:]=cvar[i][:]
-       else:
-          if vd[0]=='time' and len(vd)>1:
-             for n,k in enumerate(cvar[i][:]): fid.variables[i][n]=_subset(vd[1],k,1)
-          else:
-             fid.variables[i][:]=_subset(vd[0],cvar[i][:],1)
-   fid.close(); C.close()
-   return gd
-
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,grid=None,fmt=0,extend=0,prj=None):
-    '''
-    extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
-       run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
-       varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
-       xyz:     c_[x,y,z], or bpfile, or c_[x,y]
-       fmt:     (optional) 0: read time series @xyz;     1: read transect @xy
-       stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
-       ifs=0:   (optional) extract results @xyz refers to free surface (default); ifs=1: refer to fixed levels
-       nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
-       sname:   (optional) variable name for save
-       fname:   (optional) save the results as fname.npz
-       grid:    (optional) grid=read_schism_hgrid('hgrid.gr3'); grid.compute_all(); used to speed up
-       extend:  (optional) 0: extend bottom value beyond;  1: assign nan for value beyond bottom
-       prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
-    '''
-
-    #get schism outputs information
-    bdir=run+'/outputs'; modules,outfmt,dstacks,dvars,dvars_2d =get_schism_output_info(bdir,1)
-
-    #variables
-    if isinstance(varname,str): varname=[varname]
-    if isinstance(sname,str): sname=[sname]
-
-    #read grid
-    if grid is not None: gd=grid
-    if (grid is None) and os.path.exists(run+'/grid.npz'): gd=loadz(run+'/grid.npz').hgrid
-    if (grid is None) and (not os.path.exists(run+'/grid.npz')): gd=read_schism_hgrid(run+'/hgrid.gr3')
-
-    #read station coordinates (xyz)
-    if isinstance(xyz,str): bp=read_schism_bpfile(xyz); xyz=c_[bp.x,bp.y,bp.z]
-    if array(xyz).ndim==1: xyz=array(xyz)[None,:]
-    lx,ly=xyz.T[:2]; npt=len(lx); lz=xyz.T[2] if xyz.shape[1]==3 else zeros(npt)
-    if prj is not None: lx,ly=proj_pts(lx,ly,prj[0],prj[1])
-    pie,pip,pacor=gd.compute_acor(c_[lx,ly]); pip,pacor=pip.T,pacor.T; P=zdata()
-    def _sindex(): #for output@side
-        if not hasattr(gd,'nns'): gd.compute_side(fmt=2)
-        if not hasattr(P,'nns'): P.nns,P.ins=gd.nns[pip],gd.ins[pip]; P.ds=P.ins.shape; P.fp=P.ins!=0
-
-    #extract time series@xyz
-    S=zdata(); mtime=[]; mdata=[[] for i in varname]
-    stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
-    for istack in stacks:
-        print('reading stack: {}'.format(istack))
-        if outfmt==0:
-           if fmt==0: Z0=ReadNC('{}/zCoordinates_{}.nc'.format(bdir,istack),1); Z=Z0.variables['zCoordinates']
-           C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1)
-        else:
-           C0=ReadNC('{}/schout_{}.nc'.format(bdir,istack),1); Z=C0.variables['zcor']
-        mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti)
-        if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
-        zii=None
-
-        for m,varnamei in enumerate(varname):
-            vs=[]; svars=get_schism_var_info(varnamei,modules,fmt=outfmt) #get variable information
-            for n,[vari,svar] in enumerate(svars):
-                if svar in dvars_2d: #2D
-                    C=C0.variables[svar]; np=C.shape[1]
-                    if np==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
-                    if np==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
-                    if np==gd.ns: _sindex(); vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in arange(0,nt,nspool)])
-                    vs.append(vi)
-                else: #3D
-                    #read zcoor,and extend zcoor downward
-                    if (zii is None) and fmt==0:
-                       if n==0: zii=(array([[array(Z[i,:,k])[pip] for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2).transpose([1,0,2])
-                       for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8]
-                       if ifs==0: zii=zii-zii[-1][None,...]
-
-                    #read data for the whole vertical
-                    C1=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1) if outfmt==0 else C0
-                    C=C1.variables[svar]; np=C.shape[1]; nd=C.ndim
-                    if np==gd.np and nd==3: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...]).sum(axis=2)
-                    if np==gd.np and nd==4: vii=(array([[array(C[i,:,k])[pip]  for k in arange(nvrt)] for i in arange(0,nt,nspool)])*pacor[None,None,...,None]).sum(axis=2)
-                    if np==gd.ne: vii=array([[C[i,pie,k] for k in arange(nvrt)] for i in arange(0,nt,nspool)])
-                    if np==gd.ns: _sindex(); vii=array([[(sum(array(C[i,P.ins.ravel(),k]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for k in arange(nvrt)] for i in arange(0,nt,nspool)])
-                    vii=vii.transpose([1,0,2]) if nd==3 else vii.transpose([1,0,2,3])
-                    if extend==0:
-                       for k in arange(nvrt-1): z1=vii[nvrt-k-2]; z2=vii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8] #extend value at bottom
-                    else:
-                       fpn=abs(vii)>1e8; vii[fpn]=nan
-                    if outfmt==0: C1.close()
-
-                    #interp in the vertical
-                    if fmt==0: #time series
-                       for ivs in arange(2):
-                           if ivs==1 and nd==3: continue
-                           viii=vii if nd==3 else vii[:,:,:,ivs]
-                           vi=ones([nrec,npt]); zm=-tile(lz,[nrec,1]); dz=1e-10
-                           ziii=zii[-1]-dz; fpz=zm>ziii; zm[fpz]=ziii[fpz]
-                           ziii=zii[0] +dz; fpz=zm<ziii; zm[fpz]=ziii[fpz]
-                           for k in arange(nvrt-1):
-                               z1=zii[k]; z2=zii[k+1]; v1=viii[k]; v2=viii[k+1]; fpz=(zm>z1)*(zm<=z2)
-                               if sum(fpz)!=0: vi[fpz]=v1[fpz]+(v2[fpz]-v1[fpz])*(zm[fpz]-z1[fpz])/(z2[fpz]-z1[fpz])
-                           vs.append(vi)
-                    else: #transect
-                       if nd==3: vs.append(vii)
-                       if nd==4: vs.append(vii[...,0]); vs.append(vii[...,1])
-            mdata[m].extend(array(vs).transpose([1,2,0])) if (fmt==0 or (svar in dvars_2d)) else mdata[m].extend(array(vs).transpose([2,3,1,0]))
-        C0.close()
-        if fmt==0 and outfmt==0: Z0.close()
-
-    #save data
-    if sname is None: sname=varname
-    for m,k in enumerate(sname):
-        if array(mdata[m]).ndim==3: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2]))
-        if array(mdata[m]).ndim==4: S.__dict__[k]=squeeze(array(mdata[m]).transpose([1,0,2,3]))
-    S.time=array(mtime)
-    if fname is not None: savez(fname,S)
-    return S
-
-def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None):
-    '''
-    extract slabs of SCHISM results (works for scribe IO and combined oldIO)
-       run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
-       varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
-       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level) 
-       stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
-       nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
-       mdt:     (optional) time window (day) for averaging output
-       sname:   (optional) variable name for save
-       fname:   (optional) save the results as fname.npz
-    '''
-    #proc
-    bdir=run+'/outputs'; modules,outfmt,dstacks,dvars,dvars_2d =get_schism_output_info(bdir,1)
-    if isinstance(varname,str): varname=[varname]
-    if sname is None: sname=varname
-    if stacks is None: stacks=dstacks
-    if outfmt==1: sys.exit('OLDIO not supported yet')
-    
-    #read output
-    S=zdata(); sdict=S.__dict__; sdict['time']=[]; S.levels=array(levels)
-    for i in sname: sdict[i]=[]
-    for istack in [*unique(stacks).ravel()]:
-        if outfmt==0:
-           C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
-           #np=C0.dimensions['nSCHISM_hgrid_node'].size; ne=C0.dimensions['nSCHISM_hgrid_face'].size
-           mt=array(C0.variables['time'][:])/86400; nt=len(mt); sdict['time'].extend(mt[::nspool])
-    
-        for snamei,varnamei in zip(sname,varname):
-            svars=get_schism_var_info(varnamei,modules,fmt=outfmt); nvar=len(svars)
-            for m,[vari,svar] in enumerate(svars):
-                if svar in dvars_2d:  #2D
-                   A=array([array(C0.variables[svar][i]).astype('float32') for i in arange(nt) if i%nspool==0])
-                else:   #3D
-                   C=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1); A=[]
-                   for n,k in enumerate(levels):
-                       if ('kbp' not in locals()) and (k>nvrt): #get bottom index
-                          grd=run+'grid.npz'; vd=loadz(grd,['vgrid']).vgrid if os.path.exists(grd) else read_schism_vgrid(run+'/vgrid.in')
-                          sindp=arange(vd.np); kbp=vd.kbp
-                       if k>nvrt:
-                          a=array([array(C.variables[svar][i][sindp,kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
-                       else:
-                          a=array([array(C.variables[svar][i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
-                       A.append(a)
-                   A=A[0] if len(levels)==1 else array(A).transpose([1,0,2]); C.close()
-                datai=A if m==0 else c_[datai[...,None],A[...,None]]
-            S.__dict__[snamei].extend(datai)
-        C0.close()
-    sind=argsort(array(S.time))
-    for i in ['time',*sname]: sdict[i]=array(sdict[i])[sind]
-
-    #average data
-    if mdt is not None:
-       M=zdata(); mdict=M.__dict__
-       for i in ['time',*sname]: mdict[i]=[]
-       for ti in arange(S.time[0],S.time[-1],mdt):
-           fpt=(S.time>=ti)*(S.time<(ti+mdt))
-           for i in ['time',*sname]: mdict[i].append(sdict[i][fpt].mean(axis=0))
-       for i in ['time',*sname]: mdict[i]=array(mdict[i])
-       S=M
-
-    #save data
-    if fname is not None: savez(fname,S)
-    return S
-
-def get_schism_output_info(run,fmt=0):
-    '''
-    get info. about SCHISM ["modules", "output format", "stacks", "output variables", "output 2D variables"]
-    Inputs:
-        run:  SCHISM outputs directory
-        fmt=0: remove schsim default variables related to grid; fmt=1: not remove
-
-    Outputs:
-        fmt=0/1: [modules,outfmt,stacks,svars,svars_2d]
-        fmt=2: information about domain-decomposition
-    '''
-
-    if fmt in [0,1]:
-       #default variables to be excluded
-       dvars=('out2d','schout','time','minimum_depth','SCHISM_hgrid','crs','SCHISM_hgrid_node_x','SCHISM_hgrid_node_y',
-              'depth','bottom_index_node','SCHISM_hgrid_face_x','SCHISM_hgrid_face_y','SCHISM_hgrid_edge_x',
-              'SCHISM_hgrid_edge_y','SCHISM_hgrid_face_nodes','SCHISM_hgrid_edge_nodes','dryFlagNode','Cs',
-              'coordinate_system_flag','dry_value_flag','edge_bottom_index','ele_bottom_index','node_bottom_index',
-              'sigma','sigma_h_c','sigma_maxdepth','sigma_theta_b','sigma_theta_f','wetdry_elem','wetdry_node',
-              'wetdry_side','dryFlagElement', 'dryFlagSide')
-       if fmt==1: dvars=('out2d','schout','time')
-
-       #get SCHISM variables
-       ovars=unique([i[:i.rfind('_')] for i in os.listdir(run) if (i.endswith('.nc') \
-             and (not i.startswith('hotstart_')) and i.rfind('_')!=-1)])
-       outfmt=0 if ('out2d' in ovars) else 1 #output format: newIO or oldIO
-
-       #get additional SCHISM variables
-       if outfmt==0:
-          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('out2d_') and i.endswith('.nc'))])
-          C=ReadNC(run+'/out2d_{}.nc'.format(stacks[0]),1); svars_2d=setdiff1d(array([*C.variables]),dvars); C.close()
-          svars=setdiff1d(r_[ovars,svars_2d],dvars)
-       else:
-          stacks=unique([int(i[:-3].split('_')[-1]) for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('.nc'))])
-          fname=[i for i in os.listdir(run) if (i.startswith('schout_') and i.endswith('_{}.nc'.format(stacks[0])))][0]
-          C=ReadNC(run+'/{}'.format(fname),1); svars=setdiff1d(array([*C.variables]),dvars)
-          svars_2d=array([i for i in svars if C.variables[i].ndim==2]); C.close()
-
-       #get SCHISM modules
-       M=get_schism_var_info(fmt=outfmt).__dict__
-       modules=array([k for k in M if len(intersect1d([*M[k].values()],svars))!=0])
-       return [modules,outfmt,stacks,svars,svars_2d]
-    else:
-       nes=[]; nps=[]; nss=[]; ies=[]; ips=[]; iss=[]
-       nsg,neg,npg,nvrt,nproc,ntr=[int(i) for i in open(run+'/local_to_global_000000','r').readline().split()[:6]]
-       for n in arange(nproc):
-           lines=open('{}/local_to_global_{:06}'.format(run,n),'r').readlines()[2:]
-           ne=int(lines[0].strip()); np=int(lines[ne+1].strip()); ns=int(lines[ne+np+2].strip())
-           iei=array([i.split()[1] for i in lines[1:(ne+1)]]).astype('int')-1
-           ipi=array([i.split()[1] for i in lines[(ne+2):(ne+np+2)]]).astype('int')-1
-           isi=array([i.split()[1] for i in lines[(ne+np+3):(ne+np+ns+3)]]).astype('int')-1
-           nes.append(ne); nps.append(np); nss.append(ns); ies.append(iei); ips.append(ipi); iss.append(isi)
-       S=zdata(); S.nsg,S.neg,S.npg,S.nvrt,S.nproc,S.ntr=nsg,neg,npg,nvrt,nproc,ntr
-       S.nes,S.nps,S.nss,S.ies,S.ips,S.iss=array(nes),array(nps),array(nss),ies,ips,iss
-       return S
-
-def get_schism_var_info(svar=None,modules=None,fmt=0):
-    '''
-      usage:
-         svar: variable name (either short and long names)
-         modules: modules that svar may belong to
-         fmt=0: scribe IO;   fmt=1: OLDIO (schout_*.nc)
-
-         1. get_schism_var_info(): return all module information
-         2. varname,fullname=get_schism_var_info('elev')
-            or varname,fullname=get_schism_var_info('elev',['Hydro',]): get SCHISM output variable information
-    '''
-
-    #dicts for SCHISM output variables
-    oHydro={'elev':'elev','apres':'air_pressure','atemp':'air_temperature',
-           'shum':'specific_humidity','srad':'solar_radiation','heat_sen':'sensible_flux',
-           'heat_lat':'latent_heat','rad_up':'upward_longwave','rad_down':'downward_longwave',
-           'heat_tot':'total_heat_flux','evap':'evaporation','prec':'precipitation',
-           'tau_bot':'bottom_stress','wind':'wind_speed','tau_wind':'wind_stress','dahv':'dahv',
-           'zvel':'vertical_velocity','temp':'temp','salt':'salt','rho':'water_density',
-           'diff':'diffusivity','vis':'viscosity','TKE':'TKE','ML':'mixing_length',
-           'zcor':'zCoordinates','hvel':'hvel', 'hvel_side':'hvel_side','zvel_elem':'wvel_elem',
-           'temp_elem':'temp_elem','salt_elem':'salt_elem','pres':'pressure_gradient'}
-
-    Hydro={'elev':'elevation','apres':'airPressure','atemp':'airTemperature',
-           'shum':'specificHumidity','srad':'solarRadiation','heat_sen':'sensibleHeat',
-           'heat_lat':'latentHeat','rad_up':'upwardLongwave','rad_down':'downwardLongwave',
-           'heat_tot':'totalHeat','evap':'evaporationRate','prec':'precipitationRate',
-           'tau_bot_x':'bottomStressX','tau_bot_y':'bottomStressY','wind_x':'windSpeedX','wind_y':'windSpeedY',
-           'tau_wind_x':'windStressX','tau_wind_y':'windStressY','dahv_x':'depthAverageVelX','dahv_y':'depthAverageVelY',
-           'zvel':'verticalVelocity','temp':'temperature','salt':'salinity','rho':'waterDensity',
-           'diff':'diffusivity','vis':'viscosity','TKE':'turbulentKineticEner','ML':'mixingLength',
-           'zcor':'zCoordinates','hvel_x':'horizontalVelX','hvel_y':'horizontalVelY',
-           'hvel_side_x':'horizontalSideVelX','hvel_side_y':'horizontalSideVelY',
-           'zvel_elem':'verticalVelAtElement','temp_elem':'temperatureAtElement','salt_elem':'salinityAtElement',
-           'pres_x':'barotropicPresGradX','pres_y':'barotropicPresGradY'}
-
-    ICM={'PB1':'ICM_PB1','PB2':'ICM_PB2','PB3':'ICM_PB3',  #core: phytoplankton
-        'RPOC':'ICM_RPOC','LPOC':'ICM_LPOC','DOC':'ICM_DOC', #core: carbon
-        'RPON':'ICM_RPON','LPON':'ICM_LPON','DON':'ICM_DON','NH4':'ICM_NH4','NO3':'ICM_NO3', #core: nitrogen
-        'RPOP':'ICM_RPOP','LPOP':'ICM_LPOP','DOP':'ICM_DOP','PO4':'ICM_PO4', #core: phosphorus
-        'COD':'ICM_COD','DO':'ICM_DOX', #core: COD and DO
-        'SU':'ICM_SU','SA':'ICM_SA', #silica
-        'ZB1':'ICM_ZB1','ZB2':'ICM_ZB2', #zooplankton
-        'TIC':'ICM_TIC','ALK':'ICM_ALK','CA':'ICM_CA','CACO3':'ICM_CACO3', #pH
-        'sleaf':'ICM_sleaf','sstem':'ICM_sstem','sroot':'ICM_sroot', #sav: leaf/stem/root
-        'stleaf':'ICM_stleaf','ststem':'ICM_ststem','stroot':'ICM_stroot','sht':'ICM_sht', #sav: total leaf/stem/root, height
-        'vtleaf1':'ICM_vtleaf1','vtleaf2':'ICM_vtleaf2','vtleaf3':'ICM_vtleaf3', #veg: leaf
-        'vtstem1':'ICM_vtstem1','vtstem2':'ICM_vtstem2','vtstem3':'ICM_vtstem3', #veg: stem
-        'vtroot1':'ICM_vtroot1','vtroot2':'ICM_vtroot2','vtroot3':'ICM_vtroot3', #veg: root
-        'vht1':'ICM_vht1','vht2':'ICM_vht2','vht3':'ICM_vht3',                   #veg: vht
-        'bPOC1':'ICM_bPOC1','bPOC2':'ICM_bPOC2','bPOC3':'ICM_bPOC3','bPON1':'ICM_bPON1', #SFM
-        'bPON2':'ICM_bPON2','bPON3':'ICM_bPON3','bPOP1':'ICM_bPOP1','bPOP2':'ICM_bPOP2', #SFM
-        'bPOP3':'ICM_bPOP3','bNH4':'ICM_bNH4','bNO3':'ICM_bNO3','bPO4':'ICM_bPO4','bH2S':'ICM_bH2S', #SFM
-        'bCH4':'ICM_bCH4','bPOS':'ICM_bPOS','bSA':'ICM_bSA','bstc':'ICM_bstc','bSTR':'ICM_bSTR', #SFM
-        'bThp':'ICM_bThp','bTox':'ICM_bTox','SOD':'ICM_SOD','JNH4':'ICM_JNH4','JNO3':'ICM_JNO3', #SFM
-        'JPO4':'ICM_JPO4','JSA':'ICM_JSA','JCOD':'ICM_JCOD','BA':'ICM_BA'} #SFM
-
-    COS={'NO3':'COS_NO3','SiO4':'COS_SiO4','NH4':'COS_NH4','S1':'COS_S1','S2':'COS_S2','Z1':'COS_Z1',
-         'Z2':'COS_Z2','DN':'COS_DN','DSi':'COS_DSi','PO4':'COS_PO4','DO':'COS_DOX','CO2':'COS_CO2'}
-
-    SED={'sed_dp':'sedBedThickness','sed_str':'sedBedStress','sed_rough':'sedBedRoughness',
-         'sed_por':'sedPorocity','sed_eflux':'sedErosionalFlux','sed_dflux':'sedDepositionalFlux',
-         'sed_frac1':'sedBedFraction_1','sed_frac2':'sedBedFraction_2','sed_frac3':'sedBedFraction_3','sed_frac4':'sedBedFraction_4',
-         'sed_conc1':'sedConcentration_1','sed_conc2':'sedConcentration_2','sed_conc3':'sedConcentration_3','sed_conc4':'sedConcentration_4',
-         'sed_tconc':'totalSuspendedLoad'}
-    WWM={'wwm_WVHT':'sigWaveHeight','wwm_DPD':'dominantDirection','wwm_Tp':'peakPeriod'}
-
-    if fmt==1: Hydro=oHydro
-    mdict={'Hydro':Hydro,'ICM':ICM,'COS':COS,'SED':SED,'WWM':WWM}; S=zdata(); C=[]
-    if (modules is not None) and isinstance(modules,str): modules=[modules,]
-    if svar is None: #get all module info
-       for n,m in mdict.items(): S.__dict__[n]=m
-       return S
-    else: #get variable info
-       for n,m in mdict.items():
-           if (modules is not None) and (n not in modules): continue
-           for key,value in m.items():
-               if svar in [key,value]: C.append((key,value))
-               if key.endswith('_x') or key.endswith('_y'):
-                  if svar in [key[:-2],value[:-2]]: C.append((key,value))
-       if len(C)==0: C=[(svar,svar)]
-       return C
-
-class schism_view:
-    def __init__(self, run='.'):
-        #note: p is a capsule including all information about a figure
-        self.figs=[]; self.fns=[]; self._nf=0 #list of figure objects
-        self.run_info(run)
-        self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization: '+self.run)
-        self.hold='off'  #animation
-        self.play='off'  #animation
-        self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
-        self.window.mainloop()
-        #todo: 1). for cases that out2d*.nc not exist
-
-    def init_plot(self,fmt=0):
-        w=self.wp; fn=w.fn.get()
-        if fn=='add': #new figure
-            if fmt==1: return #return if entry from control window
-            p=zdata(); self.get_param(p); p.xm,p.ym=self.xm,self.ym; p.hf=figure(figsize=p.figsize,num=self.nf())
-            cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
-        else: #old figure
-            cid=self.fns.index(fn); p=self.figs[cid]
-            if not fignum_exists(p.hf.number): p.hf=figure(figsize=p.figsize,num=p.hf.number) #restore closed figure
-            if fmt==0: #modify current figure
-                self.get_param(p); self.fns[cid]=self.fns[cid][:3]+p.var; p.hf.clear(); p.bm=None
-            elif fmt==1: #restore old figure setting
-                self.update_panel('old',p)
-        w._fn['values']=['add',*self.fns]; w.fn.set(self.fns[cid])
-        self.fig=p; figure(p.hf) #bring figure to front
-        return p
-
-    def schism_plot(self,fmt=0):
-        if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
-        if self.play=='on' and fmt==1: self.play='off'; self.hold='off'; return
-        if self.hold=='on': return #add hold to avoid freeze when user press too frequently
-        w=self.wp; gd=self.hgrid
-        p=self.init_plot(0) if fmt==0 else self.init_plot(1)
-        if p is None: return
-        if fmt==2: p.it=max(p.it-p.ns,0)
-        if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
-        if fmt==4: p.it=0
-        if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
-
-        #plot figure and save the backgroud
-        self.hold='on'
-        if fmt==0:
-           p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
-           if p.var!='none':
-               v=self.get_data(p)
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
-           if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=2,scale_units='inches',width=0.001,zorder=3)]
-           if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
-           if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
-           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
-
-           #add pts for time series
-           m=20; n=p.npt; x=array([*p.px,*tile(0.0,m-n)]); y=array([*p.py,*tile(nan,m-n)])
-           fpn=nonzero(~((x[:n]>p.xm[0])*(x[:n]<p.xm[1])*(y[:n]>p.ym[0])*(y[:n]<p.ym[1])))[0]; x[fpn]=0.0; y[fpn]=nan
-           p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim)
-           for i in arange(m):
-               [xi,yi,k]=[x[i],y[i],str(i+1)] if (i<n and (i not in fpn)) else [0,0,'']
-               p.hpt.append(text(xi,yi,k,color='r',animated=anim))
-           setp(gca(),xlim=p.xm,ylim=p.ym); gcf().tight_layout(); p.ax=gca(); pause(0.05)
-
-           #associcate with actions
-           p.hf.canvas.mpl_connect("draw_event", self.update_panel)
-           p.hf.canvas.mpl_connect("button_press_event", self.onclick)
-           #p.hf.canvas.mpl_connect('motion_notify_event', self.onmove) #todo: this fun is not ready yet, as it cause screen freeze
-           if p.med==0: p.bm=blit_manager([p.ht,*p.hp,*p.hg,*p.hb,*p.hv,*p.hpt],p.hf); p.bm.update()
-           self.update_panel('it',p)
-
-        #animation
-        if fmt!=0 and (p.var not in ['depth','none'] or p.vvar!='none'):
-            if fmt==1: w.player['text']='stop'; self.window.update(); self.play='on'; it0=p.it; its=arange(it0+p.ns,p.it2,p.ns)
-            if fmt in [2,3,4,5]: its=[p.it]; self.play='on'
-            if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #savefig for animation
-            for p.it in its:
-                if self.play=='off': break
-                if p.var not in ['depth','none']: # contourf
-                    v=self.get_data(p)
-                    if p.med==0:
-                        if v.size==gd.np: v=gd.interp_node_to_elem(value=v)
-                        p.hp[0].set_array(r_[v,v[self.fp4]])
-                    else:
-                        for i in arange(len(p.ax.collections)): p.ax.collections.pop()
-                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,ticks=11,cmap='jet',cb=False,zorder=1)
-                if p.vvar!='none':  #vector
-                   u,v=self.get_vdata(p)
-                   if p.med==0: p.hv[0].set_UVC(u,v)
-                   if p.med==1: p.hv=[quiver(p.vx,p.vy,u,v,scale=2,scale_units='inches',width=0.001,zorder=3)]
-                p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
-                self.update_panel('it',p); self.window.update()
-                if p.med==0: p.bm.update()
-                if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
-                if p.med==1: pause(0.1)
-                if hasattr(p,'pause'): pause(max(p.pause,0.0001))
-                if self.play=='off': break
-                if fmt in [2,3,4,5]: self.play='off'
-            if fmt==1: w.player['text']='play'; self.window.update()
-            if p.anim!=None:
-               from PIL import Image
-               ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
-               fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
-               [os.remove(i) for i in ims]
-        self.hold='off'
-
-    def plotts(self):
-        import threading
-        #function to extract data
-        def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
-            w.curve['text']='wait'; ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
-            for ik in arange(ik1,ik2+1):
-                fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
-                C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]; t00=time.time()
-                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],c_[gd.x,gd.y]) if npt==gd.np else near_pts(c_[x,y],c_[gd.xctr,gd.yctr]) #compute index
-                if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
-                if svar in self.vars_2d:
-                    data=array(C.variables[svar][:,sindp])
-                else:
-                    ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size))
-                    data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
-                if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
-                ts.mys.extend(data); nt=nt+nt0; print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
-            ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
-            print('done in extracting'); w.curve['text']='curve'
-
-        def update_xts(event):
-            if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
-            t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=nonzero(dt1==dt1.min())[0][0]; i2=nonzero(dt2==dt2.min())[0][0]
-            ns=max(int(floor((i2-i1+1)/5)),1); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
-            if hasattr(self,'StartT'): mlsi=[i[:10]+'\n'+i[11:] for i in mlsi]
-            s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi)
-
-        #prepare info. about time sereis
-        if not hasattr(self,'fig'): return
-        p=self.fig; w=self.wp; gd=self.hgrid; gd.compute_ctr()
-        svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
-        if svar=='depth' or len(x)==0: return
-        ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
-        fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
-        if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)).start(); return
-
-        #plot time series
-        s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5],num=self.nf()); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
-        for n,my in enumerate(s.mys):
-            plot(mt,my,color=cs[n%7],ls=ss[int(n/7)]); lstr.append('pt_{}'.format(n+1))
-        s.ax=gca(); ym=ylim(); plot(mt,zeros(mt.size),'k:',lw=0.3,alpha=0.5)
-        setp(s.ax,xticks=mt[:2],xticklabels=mls[:2],xlim=[mt.min(),mt.max()],ylim=ym); s.ax.xaxis.grid('on')
-        title('{}, layer={}, ({}, {})'.format(s.var,s.layer,mls[0][:10],mls[-1][:10]))
-        legend(lstr); s.hf.tight_layout(); show(block=False)
-        update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
-
-    def plotsc(self):
-        print('profile function not available yet'); return
-
-    def query(self):
-        print('query function not available yet'); return
-
-    def onclick(self,sp):
-        if sp.button is None: return
-        if not fignum_exists(self.fig.hf.number): return
-        p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==1 and btn==1: #animation on and off
-            if self.play=='on':
-                self.play='off'
-            else:
-                self.schism_plot(1)
-        elif dlk==1 and btn==3: #add pts
-            hp=p.hpt[0]; x,y=hp.get_xdata(),hp.get_ydata(); x[p.npt]=bx; y[p.npt]=by; hp.set_xdata(x); hp.set_ydata(y)
-            ht=p.hpt[p.npt+1]; ht.set_x(bx); ht.set_y(by); ht.set_text(str(p.npt+1))
-            p.px.append(bx); p.py.append(by); p.npt=p.npt+1
-        elif dlk==1 and btn==2: #remove pts
-            if p.npt==0: return
-            p.npt=p.npt-1; p.px.pop(); p.py.pop()
-            hp=p.hpt[0]; y=hp.get_ydata(); y[p.npt]=nan; hp.set_ydata(y); p.hpt[p.npt+1].set_text('')
-        if p.med==0: p.bm.update()
-        if p.med==1: p.hf.canvas.draw()
-
-    def onmove(self,sp): #move pts
-        if sp.button is None: return
-        p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
-        if dlk==0 and btn==2 and p.npt!=0:
-            x=array(p.px); y=array(p.py); distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
-            hp=p.hpt[0]; x,y=hp.get_xdata(),hp.get_ydata(); x[sid]=bx; y[sid]=by; hp.set_xdata(x); hp.set_ydata(y)
-            p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by); p.px[sid]=bx; p.py[sid]=by
-        if p.med==0: p.bm.update(); pause(0.001)
-        if p.med==1: p.hf.canvas.draw()
-
-    def get_data(self,p):  #slab data
-        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
-        if p.var=='depth': return gd.dp
-        C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,istack))
-        if svar in self.vars_2d:
-            data=array(C.variables[svar][irec])
-        else:
-            if layer=='bottom':
-                npt=C.variables[svar].shape[1]
-                if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
-                if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
-            else:
-                layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
-        data[abs(data)>1e20]=nan
-        return data
-
-    def get_vdata(self,p): #get vector data
-        svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
-        if svar+'X' in self.vars_2d:
-            C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack)); npt=C.variables[svar+'X'].shape[1]; fmt=0
-        else:
-            C=[self.fid('{}/{}X_{}.nc'.format(self.outputs,svar,istack)),self.fid('{}/{}Y_{}.nc'.format(self.outputs,svar,istack))]; npt=C[0].variables[svar+'X'].shape[1]; fmt=1
-        if npt==gd.ne and (not hasattr(gd,'xctr')): gd.compute_ctr()
-        if npt==gd.ns and (not hasattr(gd,'xcj')):  gd.compute_side(fmt=2)
-        if npt==gd.ns and (not hasattr(self,'kbs')): self.kbs=gd.compute_kb(self.kbp,fmt=1)
-        if p.sindv is None: #get xy coordinate and indices
-           x,y=[gd.x,gd.y] if npt==gd.np else [gd.xctr,gd.yctr] if npt==gd.ne else [gd.xcj,gd.ycj]
-           p.sindv=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; p.vx=x[p.sindv]; p.vy=y[p.sindv]
-
-        sind=p.sindv #read record of vector variables
-        if fmt==0:
-            u=array(C.variables[svar+'X'][irec][sind]); v=array(C.variables[svar+'Y'][irec][sind])
-        else:
-            if layer=='bottom':
-                kb=(self.kbp if npt==gd.np else self.kbe if npt==gd.ne else self.kbs)[sind]
-                u=array(C[0].variables[svar+'X'][irec][sind,kb]); v=array(C[1].variables[svar+'Y'][irec][sind,kb])
-            else:
-                layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer][sind]),array(C[1].variables[svar+'Y'][irec,:,-layer][sind])
-        return [u,v]
-
-    def update_panel(self,event,p=None):  #update control panel
-        w=self.wp
-        if event in ['time','stack','julian','it','it2']: #set time variables
-            mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.stacks
-            if event=='it':
-                if w.time.get()=='stack': mls=self.istack
-                w.StartT.set(mls[p.it]); p.StartT=mls[p.it]
-            elif event=='it2':
-                w.EndT.set(mls[-1]); p.EndT=mls[-1]
-            else:
-                w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; w._StartT['width']=6; w._EndT['width']=6
-                if event=='time': w._StartT['width']=18; w._EndT['width']=18
-        elif event=='vm': #reset data limit
-            if not hasattr(self,'hgrid'): return
-            p=self.get_param()
-            if p.var!='none': data=self.get_data(p); w.vmin.set(data.min()); w.vmax.set(data.max())
-        elif event=='old': #reset all panel variables from a previous figure
-            w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
-            w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
-            w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
-            w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.med.set(p.med)
-        elif type(event)==mpl.backend_bases.DrawEvent:
-            if not fignum_exists(self.fig.hf.number): return
-            p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
-            w=self.wp; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
-            p.figsize=[p.hf.get_figwidth(),p.hf.get_figheight()]
-        self.window.update()
-
-    def get_param(self,p=None):
-        if p is None: p=zdata()
-        w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
-        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
-        p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
-        p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get()
-        p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
-        if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
-
-        #get time index
-        if p.time=='time':
-            p.it=self.mls.index(p.StartT); p.it2=self.mls.index(p.EndT)+1
-        elif p.time=='julian':
-            p.it=self.julian.index(float(p.StartT)); p.it2=self.julian.index(float(p.EndT))+1
-        else: #stacks
-            p.it=self.istack.index(int(p.StartT)); p.it2=len(self.istack)-self.istack[::-1].index(int(p.EndT))
-        return p
-
-    def fid(self,fname): #output chanenl
-        if not hasattr(self,'_fid'): self._fid={}
-        if fname not in self._fid: self._fid[fname]=ReadNC(fname,1)
-        return self._fid[fname]
-
-    def nf(self): #get a new figure number
-        self._nf=self._nf+1
-        return self._nf
-
-    def window_exit(self):
-        if hasattr(self,'_fid'):
-            for i in self._fid: self._fid[i].close()
-        close('all'); self.window.destroy()
-
-    @property
-    def VINFO(self):
-        return get_VINFO(self)
-
-    def run_info(self,run):
-        from glob import glob
-        import threading,time
-
-        #check output
-        print('reading grid and output info.')
-        fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); iout=1
-        self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]; self.run=os.path.basename(os.path.abspath(run))
-        if len(fnames)!=0:
-           [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
-           iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
-           self.vvars=[i[:-1] for i in self.vars if (i[-1]=='X') and (i[:-1]+'Y' in self.vars)]
-        else:
-           self.vars=[]; self.svars_2d=[]; self.vvars=[]; iout=0; cvar=None
-           print('schism outputs dir. not found')
-
-        #read grid and param
-        grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
-        if os.path.exists(par): p=read_schism_param(par,3); self.param=p; self.StartT=datenum(p.start_year,p.start_month,p.start_day,p.start_hour)
-        def _read_grid():
-           gd=loadz(grd).hgrid if os.path.exists(grd) else read_schism_hgrid(gr3) if os.path.exists(gr3) else None
-           vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
-           if gd==None: #create hgrid
-              if cvar==None: return
-              gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
-              gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1); gd.ns=cvar['SCHISM_hgrid_edge_x'].size
-           self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
-           self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
-           while not hasattr(self,'wp'): time.sleep(0.01)
-           w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
-           w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
-        self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1] 
-        threading.Thread(target=_read_grid).start()
-
-        #read available time
-        if iout==0: self.stacks=[0]; self.julian=[0]; self.istack=[0]; self.irec=[0]; self.mls=['0']; return
-        self.stacks=[]; self.julian=[]; self.istack=[]; self.irec=[]
-        ti=array(cvar['time'])/86400; nt=len(ti); t0=ti[0]  #assume all stacks have the same number of records
-        if (not hasattr(self,'StartT')) and hasattr(C.variables['time'],'base_date'):
-           self.StartT=datenum(*[int(float(i)) for i in C.variables['time'].base_date.split()])
-        if len(iks)>1 and nt==1:
-            C1=self.fid('{}/out2d_{}.nc'.format(self.outputs,iks[1])); ti1=array(C1.variables['time'])/86400; dt=ti1-ti[0]
-        else:
-            dt=0 if nt==0 else ti[1]-ti[0]
-        for ik in iks:
-            fn='{}{}out2d_{}.nc'.format(self.outputs,os.path.sep,ik); nt1=nt
-            if fn not in fnames: continue
-            if ik==iks[-1]:
-               try:
-                   C=self.fid(fn); nt1=C.dimensions['time'].size
-                   if nt1==0: continue
-               except:
-                   pass
-            self.julian.extend(t0+(ik-ik0)*nt*dt+arange(nt1)*dt); self.irec.extend(arange(nt1))
-            self.stacks.append(ik); self.istack.extend(tile(ik,nt1))
-
-        self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
-        if hasattr(self,'StartT'): #get time_string
-           def _set_time():
-               self.mls=[i.strftime('%Y-%m-%d, %H:%M') for i in num2date(self.mts)]
-               while not hasattr(self,'wp'): time.sleep(0.01)
-               self.wp._StartT['values']=self.mls; self.wp._EndT['values']=self.mls
-           self.mts=[*(array(self.mts)+self.StartT)]
-           self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d, %H:%M')
-           self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d, %H:%M')
-           threading.Thread(target=_set_time).start()
-
-    def cmd_window(self):
-        import tkinter as tk
-        from tkinter import ttk
-        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
-        cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
-        txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
-        rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
-        cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
-        if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
-        cw.geometry('{}x{}'.format(xm,ym)); cw.update()
-
-    def cmd_exec(self,cmd):
-        self.cmd=cmd
-        if hasattr(self,'fig'): #get figure handles
-           p=self.fig; fig, hf, ax, hp, hv, hg, hb, hpt = p, p.hf, p.ax, p.hp, p.hv, p.hg, p.hb, p.hpt
-           hp=None if len(hp)==0 else hp[0]; hv=None if len(hv)==0 else hv[0]; hb=None if len(hb)==0 else hb[0]
-        for i in cmd.strip().split('\n'): #run command
-            if i=='': continue
-            try:
-               print('run: '+i); exec(i)
-            except:
-               print('fail: '+i)
-        if hasattr(self,'fig'): self.fig.hf.canvas.draw()
-        self.window.update()
-
-    def anim_window(self):
-        import tkinter as tk
-        from tkinter import ttk
-        if not hasattr(self,'fig'): return
-        p=self.fig; p._anim=tk.StringVar(self.window)
-        cw=tk.Toplevel(self.window); cw.geometry("300x30"); cw.title('animation')
-        fm=tk.Frame(master=cw); fm.grid(row=0,column=0)
-        ttk.Label(master=fm,text='name').grid(row=0,column=0)
-        ttk.Entry(master=fm,textvariable=p._anim,width=20).grid(row=0,column=1,pady=5,padx=3)
-        rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
-        cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
-
-    def show_node(self):
-        p=self.fig; gd=self.hgrid
-        if hasattr(p,'hns'):
-           for i in arange(len(p.hns)): p.hns.pop().remove()
-           delattr(p,'hns'); p.hf.canvas.draw()
-        else:
-           xm=xlim(); ym=ylim(); p.hns=[]
-           if not hasattr(gd,'xctr'): gd.compute_ctr()
-           sind=nonzero((gd.x>=xm[0])*(gd.x<=xm[1])*(gd.y>=ym[0])*(gd.y<=ym[1]))[0]
-           for i in sind: ht=text(gd.x[i],gd.y[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
-           sind=nonzero((gd.xctr>=xm[0])*(gd.xctr<=xm[1])*(gd.yctr>=ym[0])*(gd.yctr<=ym[1]))[0]
-           for i in sind: ht=text(gd.xctr[i],gd.yctr[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
-           p.hf.canvas.draw()
-        return
-
-    def anim_exec(self):
-        p=self.fig; anim=self.fig._anim.get()
-        p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
-        self.play='off'; self.schism_plot(1); p.anim=None
-
-    def init_window(self):
-        #open an window
-        import tkinter as tk
-        from tkinter import ttk
-
-        wd=tk.Tk(); fms=[]
-        wd.title("SCHSIM Visualization")
-        wd.rowconfigure([0,1,2], minsize=5, weight=1)
-        wd.columnconfigure(0, minsize=20, weight=1)
-        w=zdata() #capsule used to store parameters
-
-        #frame 1
-        fm=ttk.Frame(master=wd); fm.grid(row=0,column=0,sticky='NW',pady=10); fms.append(fm)
-
-        #variable
-        w.var=tk.StringVar(wd); w.var.set('depth')
-        ttk.Label(master=fm,text='  variable').grid(row=0,column=0,sticky='W',pady=4)
-        svar=ttk.Combobox(fm,textvariable=w.var,values=['none','depth',*self.vars],width=15,); svar.grid(row=0,column=1)
-        svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm'))
-
-        #figure
-        sfm=ttk.Frame(master=fm); sfm.grid(row=0,column=2,sticky='E',padx=5)
-        ttk.Label(master=sfm,text='        figure').grid(row=0,column=0,sticky='E',padx=2)
-        w.fn=tk.StringVar(wd); w.fn.set('add')
-        w._fn=ttk.Combobox(sfm,textvariable=w.fn,values=['add'],width=10); w._fn.grid(row=0,column=1)
-        w._fn.bind("<<ComboboxSelected>>",lambda x: self.init_plot(1))
-
-        #layer
-        w.layer=tk.StringVar(wd); w.layer.set('surface')
-        ttk.Label(master=fm,text='  layer').grid(row=1,column=0,sticky='W',pady=4)
-        w._layer=ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15); w._layer.grid(row=1,column=1)
-
-        #grid, bnd, method
-        sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
-        w.grid=tk.IntVar(wd); w.grid.set(0); w.bnd=tk.IntVar(wd); w.bnd.set(0); w.med=tk.IntVar(wd); w.med.set(0)
-        tk.Checkbutton(master=sfm2,text='grid',variable=w.grid,onvalue=1,offvalue=0).grid(row=0,column=0)
-        tk.Checkbutton(master=sfm2,text='bnd',variable=w.bnd,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
-        tk.Checkbutton(master=sfm2,text='ctr',variable=w.med,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
-
-        #time
-        w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
-        ttk.OptionMenu(fm,w.time,'time','time','stack','julian',command=self.update_panel).grid(row=2,column=0,sticky='W',pady=4)
-        w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=18); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
-        w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=18); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
-
-        #limit
-        w.vmin=tk.DoubleVar(wd); w.vmax=tk.DoubleVar(wd); w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1])
-        ttk.Label(master=fm,text='  limit').grid(row=3,column=0,sticky='W')
-        ttk.Entry(fm,textvariable=w.vmin,width=10).grid(row=3,column=1,sticky='W',padx=2)
-        ttk.Entry(fm,textvariable=w.vmax,width=10).grid(row=3,column=2,sticky='W')
-
-        #frame2: vector, time_series
-        fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW'); fms.append(fm)
-
-        #vector
-        w.vvar=tk.StringVar(wd); w.vvar.set('none')
-        fm3=ttk.Frame(master=fm); fm3.grid(row=0,column=0,sticky='W')
-        ttk.Label(master=fm3,text='  vector ').grid(row=1,column=0,sticky='W',pady=4)
-        vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
-
-        #time series
-        fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
-        w.curve=ttk.Button(master=fm0,text='curve',command=self.plotts,width=5); w.curve.grid(row=0,column=1)
-        tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=2,padx=1,pady=2)
-        tk.Button(master=fm0,text='query',bg='darkgray',command=self.query,width=5).grid(row=0,column=3,padx=1,pady=2)
-
-        #xlim, ylim
-        w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
-        w.ymin=tk.DoubleVar(wd); w.ymax=tk.DoubleVar(wd); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
-        fm1=ttk.Frame(master=fm); fm1.grid(row=2,column=0); fm2=ttk.Frame(master=fm); fm2.grid(row=2,column=1,padx=10)
-        ttk.Label(fm1,text='  xlim',width=6).grid(row=0,column=0,sticky='E')
-        ttk.Entry(fm1,textvariable=w.xmin,width=11).grid(row=0,column=1,sticky='W')
-        ttk.Entry(fm1,textvariable=w.xmax,width=11).grid(row=0,column=2,sticky='W',padx=2)
-        ttk.Label(fm2,text='ylim',width=4).grid(row=0,column=0,sticky='E')
-        ttk.Entry(fm2,textvariable=w.ymin,width=11).grid(row=0,column=1,sticky='W')
-        ttk.Entry(fm2,textvariable=w.ymax,width=11).grid(row=0,column=2,sticky='W',padx=2)
-
-        #frame 3: control
-        fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='W',pady=2); fms.append(fm)
-        sfm0=ttk.Frame(master=fm); sfm0.pack(side=tk.LEFT)
-        ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
-        mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
-        menu=tk.Menu(mbar,tearoff=0)
-        menu.add_command(label="command", command=self.cmd_window)
-        menu.add_command(label="save animation", command=self.anim_window)
-        menu.add_command(label="show node/element", command=self.show_node)
-        mbar['menu']=menu; mbar['direction']='below'
-
-        sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
-        L1=ttk.Label(master=sfm,text=''); L1.grid(row=0,column=0,sticky='W')
-        ttk.Button(master=sfm,text='|<',width=3, command=lambda: self.schism_plot(4)).grid(row=0,column=1,sticky='W',padx=1)
-        ttk.Button(master=sfm,text='<',width=3, command=lambda: self.schism_plot(2)).grid(row=0,column=2,sticky='W',padx=1)
-        w.player=ttk.Button(master=sfm,text='play',width=5,command=lambda: self.schism_plot(1)); w.player.grid(row=0,column=3,sticky='W',padx=1)
-        ttk.Button(master=sfm,text='>',width=3,command=lambda: self.schism_plot(3)).grid(row=0,column=4,sticky='W',padx=1)
-        ttk.Button(master=sfm,text='>|',width=3,command=lambda: self.schism_plot(5)).grid(row=0,column=5,sticky='W',padx=1)
-        ttk.Label(master=sfm,text='  skip:',width=6).grid(row=0,column=6,sticky='E')
-        ttk.Entry(sfm,textvariable=w.ns,width=3).grid(row=0,column=7,sticky='W')
-        L2=ttk.Label(master=sfm,text=''); L2.grid(row=0,column=8,sticky='W')
-        ttk.Button(master=fm,text='draw',width=4,command=lambda: self.schism_plot(0)).pack(side=tk.RIGHT,padx=1)
-
-        #resize window
-        wd.geometry('600x180'); wd.update(); xm=max([i.winfo_width() for i in fms])
-        for i in arange(0,100,3):
-            L1['text']=' '*i; L2['text']=' '*i; wd.update(); xs=fms[-1].winfo_width()
-            if xs>xm: wd.geometry('{}x210'.format(xs)); wd.update(); break
-        return wd,w
 
 # ---------------------experimental functions and classes-------------------------------------
-def read_schism_hgrid_cached(fname, overwrite_cache=False):
-    gd_fname = Path(fname).absolute()  # force pathlib.Path and absolute path
-    gd_original_fname = gd_fname.resolve()
 
-    gd = None
-    if overwrite_cache:
-        for cache_name in [f'{gd_original_fname}.pkl', f'{gd_fname}.pkl']:
-            Path(cache_name).unlink(missing_ok=True)
+def cread_schism_hgrid(fname):
+    '''
+    A wrapper function to read SCHISM hgrid.gr3 file using c++ binding,
+    then copy the data to pylib's grid object.
+    Usefull when the grid is large and the python reading is slow.
+    '''
+    import hgrid_pybind
 
-    # try to read from cache: original file location first, then present location
-    for cache_name in [f'{gd_original_fname}.pkl', f'{gd_fname}.pkl']:
-        try:
-            with open(cache_name, 'rb') as file:
-                print(f'Try reading from cache: {cache_name}.')
-                gd = pickle.load(file)
-        except Exception as e:
-            print(f'{e}\nError reading from original cache: {cache_name}.')
-        finally:
-            if gd is not None:
-                return gd  # success, return gd based on cache
+    hgrid_obj = hgrid_pybind.HGrid(fname, True)  # read c++ HGrid object from file and optionally get side information
 
-    # if cache read is not successful, read from file and update cache
-    for filename in [gd_original_fname, gd_fname]:
-        try:
-            print(f'Try reading from {filename}.')
-            gd = schism_grid(str(filename))
-            gd.source_file = filename
-        except Exception as e:
-            print(f'{e}\nError reading from original file: {filename}.')
-        finally:
-            if gd is not None:
-                break
+    gd=schism_grid()  # initialize empty pylib's grid object
+    gd.source_file = str(fname)
 
-    if gd is None:
-        raise Exception(f'Error reading {filename}.')
-
-    # write to cache
-    for cache_fname in [f'{gd_original_fname}.pkl', f'{gd_fname}.pkl']:
-        try:
-            with open(cache_fname, 'wb') as file:
-                pickle.dump(gd, file)
-        except Exception as e:
-            print(f'{e}\nError writing cache file {cache_fname}.')  
-
-    if gd.source_file is None:
-        gd.source_file = gd_fname
+    # copy the member variables from the c++ HGrid object to pylib's grid object
+    gd.np = hgrid_obj.np
+    gd.ne = hgrid_obj.ne
+    gd.x = hgrid_obj.x
+    gd.y = hgrid_obj.y
+    gd.dp = hgrid_obj.z
+    gd.elnode = hgrid_obj.elements
+    gd.i34 = hgrid_obj.i34
+    gd.iobn = np.array(hgrid_obj.openBoundaryNodes, dtype=object)
+    gd.nobn = np.array(hgrid_obj.nobn)
+    gd.nob = np.array(hgrid_obj.nob)
+    gd.ilbn = np.array(hgrid_obj.landBoundaryNodes, dtype=object)
+    gd.nlbn = np.array(hgrid_obj.nlbn)
+    gd.nlb = np.array(hgrid_obj.nlb)
+    gd.island = np.array(hgrid_obj.island)
+    gd.ns = hgrid_obj.ns
 
     return gd
 
@@ -3297,7 +2230,7 @@ def combine_dataframes(A, B, weights=[1.0, 1.0]):
         print('In the interpolated B, NaN will be filled for the time period that is not covered by B')
         print('and the NaN in the interpolated B will be treated as 0 when summing up')
 
-    # Interpolate B to A's index 
+    # Interpolate B to A's index
     B_interpolated = B.reindex(A.index).interpolate(method='time')
 
     # Find the columns that are in B but not in A
@@ -3349,20 +2282,20 @@ class TimeHistory:
     @property
     def n_time(self):
         return self.df.shape[0]
-    
+
     @property
     def n_station(self):
         return self.df.shape[1]
-    
+
     @property
     def stations(self):
         return self.df.columns.values.tolist()
-    
+
     @property
     def data(self):
         # original data excluding time
         return self.df.values
-    
+
 
     def __init__(self, start_time_str="2000-01-01 00:00:00", data_array=None, columns=None, th_unit='seconds'):
         """
@@ -3420,7 +2353,7 @@ class TimeHistory:
         """
         data = np.loadtxt(file_name)
         return cls(data_array=data, th_unit=th_unit, start_time_str=start_time_str, columns=columns)
-    
+
     def __getitem__(self, selector):
         """Subset the TimeHistory object by column names"""
 
@@ -3449,6 +2382,12 @@ class TimeHistory:
             subset_data = self.data[row_idx, col_idx]
             subset_time_str = self.df.index[row_idx]
             subset_time = self.time[row_idx]
+        elif isinstance(selector, slice):  # subset by row index only, i.e., by time
+            subset_df = self.df.loc[selector]
+            subset_data = subset_df.values
+            subset_time_str = subset_df.index
+            subset_time = np.array(subset_df.index - subset_df.index[0]).astype('timedelta64[s]').astype(float) / self.sec_per_time_unit
+            col_idx = range(len(self.df.columns))
 
             # if isinstance(row_idx, slice) or isinstance(col_idx, slice):
             #     # Handle slices here
@@ -3468,7 +2407,7 @@ class TimeHistory:
             )
         else:
             raise IndexError("Unknown type of index")
-    
+
     def __add__(self, other, weights=[1.0, 1.0]):
         """
         Add two TimeHistory objects together
@@ -3489,7 +2428,7 @@ class TimeHistory:
         A.df = combine_dataframes(A.df, B.df, weights=weights)
 
         return A
-    
+
     def __eq__(self, other) -> bool:
         """Check if two TimeHistory objects are equal"""
         for att in ['sec_per_time_unit']:
@@ -3505,7 +2444,7 @@ class TimeHistory:
             print('column labels are not equal')
             return False
         return np.allclose(self.df, other.df, rtol=0.001, atol=0.0001)
-    
+
     def writer(self, file_name, np_savetxt_args={'fmt':'%.4f', 'delimiter':' ', 'newline':'\n'}):
         # assemble data array in *.th format and write to file
         np.savetxt(file_name, np.c_[self.time, self.data], **np_savetxt_args)
@@ -3514,7 +2453,7 @@ class TimeHistory:
 class SourceSinkIn():
     def __init__(self, ele_groups=[[], []]):
         self.ele_groups = ele_groups  # 0: source; 1: sink
-    
+
     @property
     def n_group(self):
         return len(self.ele_groups)
@@ -3526,11 +2465,11 @@ class SourceSinkIn():
     @property
     def ip_group(self):
         return [np.array(x) for x in self.ele_groups]
-    
+
     @property
     def n_source(self):
         return self.np_group[0]
-    
+
     @property
     def n_sink(self):
         return self.np_group[1]
@@ -3550,7 +2489,7 @@ class SourceSinkIn():
         source_sink_in.print_info()
 
         return source_sink_in
-    
+
     def print_info(self):
         print(f"nsource: {self.n_source}")
         if self.n_source > 0:
@@ -3596,15 +2535,15 @@ class source_sink:
     @property
     def source_eles(self):  # element index starts from 1
         return self.source_sink_in.ele_groups[0]
-    
+
     @property
     def sink_eles(self):  # element index starts from 1
         return self.source_sink_in.ele_groups[1]
-    
+
     @property
     def nsource(self):
         return self.source_sink_in.n_source
-    
+
     @property
     def nsink(self):
         return self.source_sink_in.n_sink
@@ -3614,10 +2553,10 @@ class source_sink:
         vsource: TimeHistory object for volume source
         vsink: TimeHistory object for volume sink
         msource: list of TimeHistory objects for mass source
-        
+
         Note that msource is different from SCHISM's native msource.th
-        because saving all tracers in one array is not convenient for 
-        subsequent processing; instead, each tracer is saved in a separate 
+        because saving all tracers in one array is not convenient for
+        subsequent processing; instead, each tracer is saved in a separate
         TimeHistory object in a list
         """
 
@@ -3627,7 +2566,7 @@ class source_sink:
         self.msource = msource
         self.ntracers = None
         self.source_sink_in = None
-                        
+
         # if vsource, vsink, and msources are properly set,
         # then ntracers and source_sink_in can be decided without additional inputs
         if vsource is not None:
@@ -3729,11 +2668,30 @@ class source_sink:
                 start_time_str=start_time_str,
                 columns=source_sink_in.ele_groups[1]
             )
-        
+
         source_sink = cls(vsource, vsink, msource)
         source_sink.sanity_check()
         return source_sink
-    
+
+    def subset_by_time(self, start_time_str, end_time_str):
+        '''
+        Subset source/sink files by time.
+        '''
+        time_slice = slice(start_time_str, end_time_str)
+        if self.vsource is not None:
+            subset_vsource = self.vsource[time_slice]
+            subset_msource = [x[time_slice] for x in self.msource]
+        else:
+            subset_vsource = None
+            subset_msource = None
+
+        if self.vsink is not None:
+            subset_vsink = self.vsink[time_slice]
+        else:
+            subset_vsink = None
+
+        return source_sink(subset_vsource, subset_vsink, subset_msource)
+
     def subset_by_idx(self, source_idx, sink_idx):
         '''
         Subset source/sink files by index.
@@ -3744,14 +2702,14 @@ class source_sink:
         else:
             subset_vsource = None
             subset_msource = None
-            
+
         if self.vsink is not None:
             subset_vsink = self.vsink[:, sink_idx]
         else:
             subset_vsink = None
 
         return source_sink(subset_vsource, subset_vsink, subset_msource)
-    
+
     def subset_by_ele(self, source_eles=[], sink_eles=[]):
         '''subset source/sink files by element ids (index starts from 1)'''
         if self.vsource is not None:
@@ -3764,7 +2722,7 @@ class source_sink:
         else:
             subset_vsource = None
             subset_msource = None
-        
+
         if self.vsink is not None:
             if sink_eles == []:
                 subset_vsink = self.vsink  # no subsetting
@@ -3775,7 +2733,7 @@ class source_sink:
 
         return source_sink(subset_vsource, subset_vsink, subset_msource)
 
-    
+
     def clip_by_polygons(self, hgrid, polygons_xy=[]):
         '''
         Select source/sink elements by polygons.
@@ -3793,12 +2751,12 @@ class source_sink:
 
             ele_xy = np.c_[hgrid.xctr[self.sink_eles-1], hgrid.yctr[self.sink_eles-1]]
             inside_sink += inside_polygon(ele_xy, polygon_xy[:, 0], polygon_xy[:, 1]).astype(bool)
-        
+
         inside_ss = self.subset_by_idx(inside_source, inside_sink)
         outside_ss = self.subset_by_idx(~inside_source, ~inside_sink)
 
         return inside_ss, outside_ss
-    
+
     def writer(self, output_dir):
         '''
         Write source/sink files to the output_dir.
@@ -3817,10 +2775,10 @@ class source_sink:
 
         if self.vsink is not None:
             self.vsink.writer(f"{output_dir}/vsink.th")
-        
+
         # additional outputs in *.nc format
         self.nc_writer(output_dir=output_dir)
-    
+
     def diag_writer(self, hgrid, output_dir):
         '''writer for diagnostic files'''
         hgrid.compute_ctr()
@@ -3874,14 +2832,14 @@ class source_sink:
         C.vars.extend(['sink_elem','vsink'])
         vi=zdata(); vi.dimname=('nsinks',); vi.val=vsink.df.columns.values.astype(int); C.sink_elem=vi
         vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink.data; C.vsink=vi
-        
+
         C.vars.extend(['time_step_vsource','time_step_msource','time_step_vsink'])
         vi=zdata(); vi.dimname=('one',); vi.val=vsource.delta_t; C.time_step_vsource=vi
         vi=zdata(); vi.dimname=('one',); vi.val=msource[0].delta_t; C.time_step_msource=vi
         vi=zdata(); vi.dimname=('one',); vi.val=vsink.delta_t; C.time_step_vsink=vi
 
         WriteNC(f'{output_dir}/source.nc', C)
-        
+
     def sanity_check(self):
         # check consistency of source_sink_in and vsource/vsink/msource
         if self.vsource is None and self.vsink is None:
@@ -3896,13 +2854,13 @@ class source_sink:
                 raise Exception('inconsistent number of vsource stations')
             if np.min(self.vsource.df.values, axis=None) < 0:
                 raise Exception('vsource must be non-negative')
-        
+
         if self.vsink is not None:
             if self.nsink != self.vsink.n_station:
-                raise Exception('inconsistent number of sink stations')  
+                raise Exception('inconsistent number of sink stations')
             if np.max(self.vsink.df.values, axis=None) > 0:
                 raise Exception('vsink must be non-positive')
-    
+
     def __add__(self, other):
         '''
         Add source/sink other to source/sink self,
@@ -3930,7 +2888,7 @@ class source_sink:
             msource = [None] * A.ntracers
             for i in range(A.ntracers):  # also using TimeHistory.__add__, but with weights
                 msource[i] = A.msource[i].__add__(B.msource[i], weights=[A.vsource, B.vsource])
-        
+
         # most cases are trivial unless both A and B have sink
         if A.nsink == 0 and B.nsink == 0:  # neither has sink
             vsink = None
