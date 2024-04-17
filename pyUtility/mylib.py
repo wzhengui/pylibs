@@ -2647,38 +2647,43 @@ def subdomain_index(x,y,xm,ym):
     Inputs:
        x(ny,nx): x coordinate
        y(ny,nx): y coordinate
-       xm:  sub-domain range: [-75, -70]  #e.g. lon
-       ym:  sub-domain range: [35, 40]    #e.g. lat
+       xm:  x-range: [-75, -70],  or x-array (eg. gd.x)
+       ym:  y-range: [35, 40],    or y-array (eg. gd.y)
     Output:  ix1,ix2,iy1,iy2
     '''
-    ny,nx=x.shape; sind=near_pts(c_[mean(xm),mean(ym)],c_[x.ravel(),y.ravel()]);
+    #pre-proc
+    if len(xm)==2: xm=array([*xm,xm[1],xm[0]]); ym=array([ym[0],ym[0],ym[1],ym[1]])
+    xc=xm.mean(); yc=xm.mean(); x1,x2,y1,y2=xm.min(),xm.max(),ym.min(),ym.max()
+    ny,nx=x.shape; sind=near_pts(c_[xc,yc],c_[x.ravel(),y.ravel()])
     iy,ix=[i[0] for i in unravel_index(sind,[ny,nx])]; ix1,ix2,iy1,iy2=ix,ix+1,iy,iy+1
 
     #find initial box
     while True:
         ix1i=ix1; ix2i=ix2; iy1i=iy1; iy2i=iy2
-        if x[iy1:iy2,ix1].max()>xm[0]: ix1=max(0,ix1-1)
-        if x[iy1:iy2,ix2-1].min()<xm[1]: ix2=min(nx,ix2+1)
-        if y[iy1,ix1:ix2].max()>ym[0]: iy1=max(0,iy1-1)
-        if y[iy2-1,ix1:ix2].min()<ym[1]: iy2=min(ny,iy2+1)
+        if x[iy1:iy2,ix1].max()>x1: ix1=max(0,ix1-1)
+        if x[iy1:iy2,ix2-1].min()<x2: ix2=min(nx,ix2+1)
+        if y[iy1,ix1:ix2].max()>y1: iy1=max(0,iy1-1)
+        if y[iy2-1,ix1:ix2].min()<y2: iy2=min(ny,iy2+1)
         if (ix1i==ix1)*(ix2i==ix2)*(iy1i==iy1)*(iy2i==iy2): break
 
     #shrink the box
-    for n in arange(4):
-        while True:
-            if n==0: ix1=ix1+1
-            if n==1: ix2=ix2-1
-            if n==2: iy1=iy1+1
-            if n==3: iy2=iy2-1
-            px=r_[x[iy1:iy2,ix1],x[iy2-1,(ix1+1):(ix2-1)],x[iy1:iy2,ix2-1][::-1],x[iy1,(ix1+1):(ix2-1)][::-1]]
-            py=r_[y[iy1:iy2,ix1],y[iy2-1,(ix1+1):(ix2-1)],y[iy1:iy2,ix2-1][::-1],y[iy1,(ix1+1):(ix2-1)][::-1]]
-            x1,x2=xm; y1,y2=ym; pts=c_[array([x1,x2,x2,x1]),array([y1,y1,y2,y2])]
-            if inside_polygon(pts,px,py).sum()!=4:
-               if n==0: ix1=ix1-1
-               if n==1: ix2=ix2+1
-               if n==2: iy1=iy1-1
-               if n==3: iy2=iy2+1
-               break
+    for m in arange(2):
+        if m==1 and len(xm)==2: continue
+        pxy=c_[array([x1,x2,x2,x1]),array([y1,y1,y2,y2])] if m==0 else c_[xm,ym]
+        for n in arange(4):
+            while True:
+                if n==0: ix1=ix1+1
+                if n==1: ix2=ix2-1
+                if n==2: iy1=iy1+1
+                if n==3: iy2=iy2-1
+                xs=r_[x[iy1:iy2,ix1],x[iy2-1,(ix1+1):(ix2-1)],x[iy1:iy2,ix2-1][::-1],x[iy1,(ix1+1):(ix2-1)][::-1]]
+                ys=r_[y[iy1:iy2,ix1],y[iy2-1,(ix1+1):(ix2-1)],y[iy1:iy2,ix2-1][::-1],y[iy1,(ix1+1):(ix2-1)][::-1]]
+                if inside_polygon(pxy,xs,ys).min()==0:
+                   if n==0: ix1=ix1-1
+                   if n==1: ix2=ix2+1
+                   if n==2: iy1=iy1-1
+                   if n==3: iy2=iy2+1
+                   break
     return ix1,ix2,iy1,iy2
 
 def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
