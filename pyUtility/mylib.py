@@ -1745,7 +1745,9 @@ def fig_IFNO(hf=None,ax=None):
     if ax is None: ax=gca()
     f='figure(figsize=[{},{}])'.format(hf.get_figwidth(),hf.get_figheight())
     a='xm={}; ym={}'.format(ax.get_xlim(),ax.get_ylim())
-    print('\n'+f+'\n\n'+a)
+    b='setp(gca(),xticks=[],yticks=[],xlim=xm,ylim=ym)'
+    c='gcf().tight_layout()'; d='show(block=False); mvfig()'
+    print('\n'.join([f,a,b,c,d]))
 
 def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
