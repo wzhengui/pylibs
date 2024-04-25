@@ -347,11 +347,17 @@ class schism_grid:
            self.xctr[fp4],self.yctr[fp4],self.dpe[fp4]=c_[self.x,self.y,self.dp][self.elnode[fp4]].mean(axis=1).T
         return self.dpe
 
-    def compute_area(self):
+    def compute_area(self,fmt=0):
+        '''
+        compute element area
+        fmt=0: return element area
+        fmt=1: return element area, 1st triangle area, and 2nd triangle area
+        '''
         x1,x2,x3,x4=self.x[self.elnode].T; y1,y2,y3,y4=self.y[self.elnode].T
-        fp=self.elnode[:,-1]<0; x4[fp]=x1[fp]; y4[fp]=y1[fp]
-        self.area=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)+(x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
-        return self.area
+        #fp=self.elnode[:,-1]<0; x4[fp]=x1[fp]; y4[fp]=y1[fp]
+        fp=self.i34==3; x4[fp]=x1[fp]; y4[fp]=y1[fp]
+        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2;  self.area=a1+a2
+        return self.area if fmt==0 else [self.area, a1, a2]
 
     def compute_gradient(self,fmt=0,value=None,outfmt=0,cpp=None,lon0=None,lat0=None):
         '''
@@ -376,19 +382,16 @@ class schism_grid:
         v0=self.dp if value is None else value
         if len(v0)==self.ne: v0=self.interp_elem_to_node(value=v0)
 
-        #get pts
-        x1,x2,x3,x4=x[self.elnode].T; y1,y2,y3,y4=y[self.elnode].T; v1,v2,v3,v4=v0[self.elnode].T
-        fp=self.elnode[:,-1]<0; fpn=~fp; x4[fp],y4[fp],v4[fp]=x1[fp],y1[fp],v1[fp]
-        a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2
-
         #compute gradients
-        dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
-        dpedy=((x3-x2)*v1+(x1-x3)*v2+(x2-x1)*v3)/(2*a1)
+        x1,x2,x3,x4=x[self.elnode].T; y1,y2,y3,y4=y[self.elnode].T; v1,v2,v3,v4=v0[self.elnode].T
+        a1, a2=self.compute_area(fmt=1)[1:]
+        dpedx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1); dpedy=((x3-x2)*v1+(x1-x3)*v2+(x2-x1)*v3)/(2*a1)
 
-        #for quads
-        dpedx2=(v1[fpn]*(y3[fpn]-y4[fpn])+v3[fpn]*(y4[fpn]-y1[fpn])+v4[fpn]*(y1[fpn]-y3[fpn]))/(2*a2[fpn])
-        dpedy2=((x4[fpn]-x3[fpn])*v1[fpn]+(x1[fpn]-x4[fpn])*v3[fpn]+(x3[fpn]-x1[fpn])*v4[fpn])/(2*a2[fpn])
-        dpedx[fpn]=(dpedx[fpn]+dpedx2)/2;  dpedy[fpn]=(dpedy[fpn]+dpedy2)/2
+        #for quads, average 2 triangles
+        fpn=self.i34==4
+        if sum(fpn)!=0:
+           dpedx[fpn]=(dpedx[fpn]+(v1*(y3-y4)+v3*(y4-y1)+v4*(y1-y3))[fpn]/(2*a2[fpn]))/2
+           dpedy[fpn]=(dpedy[fpn]+((x4-x3)*v1+(x1-x4)*v3+(x3-x1)*v4)[fpn]/(2*a2[fpn]))/2
 
         #interp to node
         dpedxy=sqrt(dpedx**2+dpedy**2)
@@ -946,6 +949,38 @@ class schism_grid:
            v=v*value[:,1:]
         
         return v if fmt==0 else v.sum(axis=1) if fmt==1 else v.sum()
+
+    def compute_CFL(self,dt=120, u=0):
+        '''
+        compute CFL number
+        dt: time step (second);  u: flow velocity (m/s)
+        '''
+        if not hasattr(self,'area'): self.compute_area()
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        self.cfl=0.5*dt*(abs(u)+sqrt(9.81*self.dpe))/sqrt(self.area/pi); fp4=self.i34==4
+        self.cfl[fp4]=self.cfl[fp4]*sqrt(2)
+        return self.cfl
+
+    def compute_curl(self,u,v):
+        '''
+        compute curl of vector filed (u, v):  curl=dv/dx-du/dy
+        note: the rotation rate of eddy flow field is: omiga=0.5*curl (radian/second)
+        '''
+        #pre-proc
+        if u.shape[0]==self.ne: u=self.interp_elem_to_node(u); v=self.interp_elem_to_node(v)
+        x1,x2,x3,x4=self.x[self.elnode].T; y1,y2,y3,y4=self.y[self.elnode].T
+        u1,u2,u3,u4=u[self.elnode].T; v1,v2,v3,v4=v[self.elnode].T;  a1, a2=self.compute_area(fmt=1)[1:]
+
+        #compute gradient
+        dvdx=(v1*(y2-y3)+v2*(y3-y1)+v3*(y1-y2))/(2*a1)
+        dudy=((x3-x2)*u1+(x1-x3)*u2+(x2-x1)*u3)/(2*a1)
+
+        #for quads, average 2 triangles
+        fpn=self.i34==4
+        if sum(fpn)!=0:
+           dvdx[fpn]=(dvdx[fpn]+(v1*(y3-y4)+v3*(y4-y1)+v4*(y1-y3))[fpn]/(2*a2[fpn]))/2
+           dudy[fpn]=(dudy[fpn]+((x4-x3)*u1+(x1-x4)*u3+(x3-x1)*u4)[fpn]/(2*a2[fpn]))/2
+        return dvdx-dudy
 
     def compute_contour(self,levels,value=None):
         '''
