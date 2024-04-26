@@ -1516,6 +1516,8 @@ class schism_grid:
 
         acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
         abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
+        if hasattr(self,'hqt'): delattr(self,'hqt')
+        if hasattr(self,'hqp'): delattr(self,'hqp')
         #if not abp.isCheckable(): abp.setCheckable(True)
         abp.triggered.connect(connect_actions)
 
