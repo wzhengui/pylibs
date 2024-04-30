@@ -47,8 +47,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    try:
       from mpi4py import MPI
    except:
-      from pyUtility.mylib import parallel_jobs
-      MPI=parallel_jobs()
+      pass
+      #from pyUtility.mylib import parallel_jobs
+      #MPI=parallel_jobs()
 
    #url download
    try:

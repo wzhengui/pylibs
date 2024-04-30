@@ -361,6 +361,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        #for run parallel jobs
        if qnode in ['femto','cyclops','kuro',]:
           scmd="srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
+          if qnode=='kuro' and ename!='run_schism': scmd='srun --export=PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format('/sciclone/data10/wangzg/mambaforge/envs/kuro/bin/',bdir,nproc,code,scrout)
        elif qnode in ['grace',]:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
           if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
