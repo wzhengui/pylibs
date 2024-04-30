@@ -1845,7 +1845,7 @@ def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918',**args):
     px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y,**args)
     return [px,py]
 
-def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection\prj_files'):
+def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection\prj_files',fname=None):
     '''
     return projection name or entire database (dict)
         fmt=0: get one projection
@@ -1875,27 +1875,14 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
         S=loadz('{}/../pyScripts/prj.npz'.format(bdir))
         return S.prj
     elif fmt==-1:
-        #dir of *.prj files
-        #prj_dir=r'D:\Work\Database\projection\prj_files'
-
-        #---processing all prj files-------------------------------------------
-        fnames=os.listdir(prj_dir)
-
-        prj=dict()
-        for fname in fnames:
-            import re
-            R=re.match('epsg.(\d+).prj',fname);
-            if not R: continue
-            prj_num=int(R.groups()[0])
-            with open('{}/{}'.format(prj_dir,fname),'r') as fid:
-                line=fid.readline().strip();
-                prj['epsg:{}'.format(prj_num)]=line
-
-        # #save prj file as a database
-        # S=zdata();
-        # S.prj=prj
-        # savez('{}/prj'.format(bdir),S)
-        return prj
+         if not os.path.exists(prj_dir): return
+         pnames=glob('{}/*.prj'.format(prj_dir)); prj={}
+         for pname in pnames:
+             line=open(pname,'r').readline().strip()
+             pn=os.path.basename(pname)[:-4].replace('.',':').lower()
+             prj[pn]=line
+         if fname is not None: C=zdata(); C.prj=prj; C.save(fname)
+         return prj
     else:
         sys.exit('unknow fmt')
 
