@@ -943,6 +943,7 @@ def datenum(*args,fmt=0):
     usage: datenum(*args,fmt=[0,1])
        datenum(2001,1,1,10,23,0)       or datenum([[2001,1,1],[2002,1,5]])
        datenum('2001-01-01, 10:23:00') or datenum(['2001-01-1','2002-01-05'])
+       datenum(datetime.datetime(2000, 1, 1, 0, 0)) or datenum([datetime.datetime(2000,...), datetime.datetime(2000,...)])
        fmt=0: output num; fmt==1: output date
     '''
     import datetime
@@ -954,8 +955,10 @@ def datenum(*args,fmt=0):
        #single time string
        dnum=datestr2num(args)
        if fmt!=0: dnum=num2date(dnum)
+    elif isinstance(args,datetime.datetime):
+       dnum=mpl.dates.date2num(args) if fmt==0 else args
     elif hasattr(args,"__len__"):
-       if isinstance(args[0],str)|hasattr(args[0],"__len__"):
+       if isinstance(args[0],str)|hasattr(args[0],"__len__")|isinstance(args[0],datetime.datetime):
           #array of time string or time array
           dnum=array([datenum(i,fmt=fmt) for i in args])
        else:
