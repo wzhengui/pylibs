@@ -2314,7 +2314,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     else:
         sys.exit('wrong fmt')
 
-def WriteNC(fname,data,fmt=0,order=0,**args):
+def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
     '''
     write zdata to netcdf file
         fname: file name
@@ -2323,58 +2323,41 @@ def WriteNC(fname,data,fmt=0,order=0,**args):
         fmt=1, data has netcdf.Dataset format
         order=0: variable dimension order written not changed for python format
         order=1: variable dimension order written reversed follwoing in matlab/fortran format
+        vars: list of variables that will be only saved
     '''
     from netCDF4 import Dataset
 
     if fmt==0: #write NC files for zdata
-        #--------------------------------------------------------------------
-        # pre-processing zdata format
-        #--------------------------------------------------------------------
+        #pre-processing
         if not fname.endswith('.nc'): fname=fname+'.nc'
         if not hasattr(data,'file_format'): data.file_format='NETCDF4'
-        S=data.__dict__
-        #check variables
-        if not hasattr(data,'vars'):
-           svars=[i for i,vi in S.items() if isinstance(vi,zdata) or isinstance(vi,np.ndarray)] 
-        else:
-           svars=data.vars
-        for svar in svars:  #change np.array to zdata
-            if isinstance(S[svar],np.ndarray): fvi=zdata(); fvi.val=S[svar]; S[svar]=fvi
 
-        #check global dimensions
-        if not hasattr(data,'dims'):  
-           dims=[]; [dims.extend(S[svar].val.shape) for svar in svars]; dims=unique(array(dims)) 
-           dimname=['dim_{}'.format(i) for i in dims]
-        else:
-           dims,dimname=array(data.dims),data.dimname
-        if (not hasattr(data,'dim_unlimited')) or (len(data.dim_unlimited)!=len(data.dims)):
-           dim_unlimited=[False for i in dims]
-        else: 
-           dim_unlimited=data.dim_unlimited
-
-        #check variable dimensions and attributes
-        for svar in svars:
-            if not hasattr(S[svar],'dimname'): S[svar].dimname=[dimname[nonzero(dims==i)[0][0]] for i in S[svar].val.shape]
-            if not hasattr(S[svar],'attrs'): S[svar].attrs=[i for i in S[svar].__dict__ if i!='val']
-
-        #check global attribute
-        if not hasattr(data,'attrs'):  
-           attrs=[i for i in S if i not in svars]
-        else:
-           attrs=data.attrs
+        #check variables, dimensions, attrs
+        sdict=data.__dict__; svars=[]; vdms=[]; vtypes=[]; vattrs=[]
+        svars=[i for i,v in sdict.items() if (isinstance(v,zdata) or isinstance(v,np.ndarray)) and i!='vars'] if (vars is None) else vars
+        dims=unique(concatenate([sdict[i].val.shape if hasattr(sdict[i],'val') else sdict[i].shape for i in svars]))
+        dnames=['dim_{}'.format(i) for i in dims]; dtypes=[False for i in dims]; dims=list(dims)
+        for i,dim in enumerate(dims):
+          k=list(data.dims).index(dim) if (dim in data.dims) else -1
+          if hasattr(data,'dims') and k!=-1: dnames[i]=data.dimname[k]
+          if hasattr(data,'dim_unlimited') and k!=-1: dtypes[i]=data.dim_unlimited[k]
+        for i in svars:
+          vdms.append(sdict[i].dimname if hasattr(sdict[i],'dimname') else [dnames[dims.index(k)] for k in sdict[i].shape])
+          vtypes.append(sdict[i].val.dtype if isinstance(sdict[i],zdata) else sdict[i].dtype)
+          vattrs.append([k if k!='_FillValue' else '_fillvalue' for k in sdict[i].attrs] if hasattr(sdict[i],'attrs') else [])
+        attrs=data.attrs if hasattr(data,'attrs') else []
 
         #write zdata as netcdf file
         fid=Dataset(fname,'w',format=data.file_format)   #open file
         fid.setncattr('file_format',data.file_format)    #set file_format
-        for i in attrs: fid.setncattr(i,S[i])            #set attrs
-        for ds,dn,dF in zip(dims,dimname,dim_unlimited): #set dimension
-            fid.createDimension(dn,None) if (dF is True) else fid.createDimension(dn,ds)
-        for svar in svars:  #set variable
-            vi=S[svar]; nm=vi.val.ndim; vdm=vi.dimname
-            vid=fid.createVariable(svar,vi.val.dtype,vdm,**args) if order==0 else fid.createVariable(svar,vi.val.dtype,vdm[::-1],**args)
-            if hasattr(vi,'attrs'):
-               [vid.setncattr(i,vi.__dict__[i]) if i!='_FillValue' else vid.setncattr('_fillvalue',vi.__dict__[i]) for i in vi.attrs]
-            fid.variables[svar][:]=vi.val if order==0 else vi.val.T
+        for i in attrs: fid.setncattr(i,sdict[i])        #set global attrs
+        for ds,dn,dt in zip(dims,dnames,dtypes): #set dimension
+            fid.createDimension(dn,None) if (dt is True) else fid.createDimension(dn,ds)
+        for i,svar in enumerate(svars):  #set variables
+            vid=fid.createVariable(svar,vtypes[i],vdms[i] if order==0 else vdms[i][::-1] ,**args)
+            [vid.setncattr(k,sdict[svar][k]) for k in vattrs[i] if k!='val']
+            v=sdict[svar].val if isinstance(sdict[svar],zdata) else sdict[svar];
+            fid.variables[svar][:]=v if order==0 else v.T
         fid.close()
     elif fmt==1: #write netcdf.Dateset as netcdf file
         C=data; cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
@@ -2383,6 +2366,7 @@ def WriteNC(fname,data,fmt=0,order=0,**args):
         for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
         for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else fid.createDimension(i,cdim[i].size) #set dims
         for i in cvar: #set vars
+            if (vars is not None) and (i not in vars): continue
             vdim=cvar[i].dimensions
             vid=fid.createVariable(i,cvar[i].dtype,vdim) if order==0 else fid.createVariable(i,cvar[i].dtype,vdim[::-1])
             for k in cvar[i].ncattrs(): vid.setncattr(k,cvar[i].getncattr(k))
