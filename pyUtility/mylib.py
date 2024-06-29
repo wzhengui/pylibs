@@ -2282,7 +2282,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
             F.dim_unlimited.append(C.dimensions[i].isunlimited())
 
         #read attrbutes
-        ncattrs=C.ncattrs(); F.attrs=ncattrs
+        ncattrs=list(setdiff1d(C.ncattrs(),['dims','dimname'])); F.attrs=ncattrs
         for i in ncattrs: F.__dict__[i]=C.getncattr(i)
 
         ncvars=[*C.variables]; F.vars=array(ncvars)
@@ -2334,13 +2334,14 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
 
         #check variables, dimensions, attrs
         sdict=data.__dict__; svars=[]; vdms=[]; vtypes=[]; vattrs=[]
-        svars=[i for i,v in sdict.items() if (isinstance(v,zdata) or isinstance(v,np.ndarray)) and i!='vars'] if (vars is None) else vars
-        dims=unique(concatenate([sdict[i].val.shape if hasattr(sdict[i],'val') else sdict[i].shape for i in svars]))
-        dnames=['dim_{}'.format(i) for i in dims]; dtypes=[False for i in dims]; dims=list(dims)
-        for i,dim in enumerate(dims):
-          k=list(data.dims).index(dim) if (dim in data.dims) else -1
-          if hasattr(data,'dims') and k!=-1: dnames[i]=data.dimname[k]
-          if hasattr(data,'dim_unlimited') and k!=-1: dtypes[i]=data.dim_unlimited[k]
+        svars=[i for i,v in sdict.items() if (isinstance(v,zdata) or isinstance(v,np.ndarray)) and (i not in ['vars','dims'])] if (vars is None) else vars
+        dims0=unique(concatenate([sdict[i].val.shape if hasattr(sdict[i],'val') else sdict[i].shape for i in svars]))
+        if hasattr(data,'dims'):
+           dims=list(data.dims); dnames=list(data.dimname)
+           dtypes=list(data.dim_unlimited) if hasattr(data,'dim_unlimited') else [False for i in dims]
+           for i in setdiff1d(dims0,dims): dims.append(i); dnames.append('dim_{}'.format(i)); dtypes.append(False)
+        else:
+           dims=dims0; dnames=['dim_{}'.format(i) for i in dims]; dtypes=[False for i in dims]; dims=list(dims)
         for i in svars:
           vdms.append(sdict[i].dimname if hasattr(sdict[i],'dimname') else [dnames[dims.index(k)] for k in sdict[i].shape])
           vtypes.append(sdict[i].val.dtype if isinstance(sdict[i],zdata) else sdict[i].dtype)
@@ -2355,7 +2356,7 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
             fid.createDimension(dn,None) if (dt is True) else fid.createDimension(dn,ds)
         for i,svar in enumerate(svars):  #set variables
             vid=fid.createVariable(svar,vtypes[i],vdms[i] if order==0 else vdms[i][::-1] ,**args)
-            [vid.setncattr(k,sdict[svar][k]) for k in vattrs[i] if k!='val']
+            [vid.setncattr(k,sdict[svar].__dict__[k]) for k in vattrs[i] if k!='val']
             v=sdict[svar].val if isinstance(sdict[svar],zdata) else sdict[svar];
             fid.variables[svar][:]=v if order==0 else v.T
         fid.close()
