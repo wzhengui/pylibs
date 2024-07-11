@@ -478,11 +478,11 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
 
     return S
 
-def load_bathymetry(x,y,fname,z=None,fmt=0):
+def load_dem(x,y,fname,z=None,fmt=0):
     '''
     load bathymetry data onto points(xy)
     Input:
-        fname: name of DEM file (format can be *.asc, *.npz, or schism grid "grid.npz" )
+        fname: name of DEM file (format can be *.asc, *.npz, *.tiff or schism grid "grid.npz" )
 
     Outpt:
         fmt=0: return dp; depth interpolated for all points
@@ -492,31 +492,14 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
     #input
     xi0=x.copy(); yi0=y.copy(); igrd=0
 
-    #read DEM
+    #read DEM lon, lat
     if fname.endswith('npz'):
         try:
           S=loadz(fname,['ne','np']); igrd=1 #unstructured schism grid
         except:
-          S=loadz(fname,['lon','lat'])
-          dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
-    elif fname.endswith('asc'):
-        S=zdata();
-        #read *.asc data
-        fid=open(fname,'r');
-        ncols=int(fid.readline().strip().split()[1])
-        nrows=int(fid.readline().strip().split()[1])
-        xn,xll=fid.readline().strip().split(); xll=float(xll)
-        yn,yll=fid.readline().strip().split(); yll=float(yll)
-        dxy=float(fid.readline().strip().split()[1]); dx=dxy; dy=dxy
-        nodata=float(fid.readline().strip().split()[1])
-        fid.close()
-
-        #shift half a cell if ll defined at corner
-        #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
-        if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2
-
-        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
-        S.nodata=nodata
+          S=loadz(fname,['lon','lat']); dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
+    elif fname.endswith('asc')or fname.endswith('.tif') or fname.endswith('.tiff'):
+        S=read_dem(fname,fmt=1); dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     else:
         sys.exit('wrong format of DEM')
 
@@ -537,12 +520,12 @@ def load_bathymetry(x,y,fname,z=None,fmt=0):
           sys.exit('wrong fmt')
 
     if igrd==0: #raster file
-       #load DEMs
+       #load DEM data
        if fname.endswith('npz'):
            S=loadz(fname)
-           if not hasattr(S,'nodata'): S.nodata=None
-       elif fname.endswith('asc'):
-           S.elev=loadtxt(fname,skiprows=6)
+       else:
+           S=read_dem(fname)
+       if not hasattr(S,'nodata'): S.nodata=None
 
        #change y direction
        if mean(diff(S.lat))<0: S.lat=flipud(S.lat); S.elev=flipud(S.elev)
@@ -721,46 +704,42 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
     #write new line
     fid=open(fname,'w+'); fid.writelines(slines); fid.close()
 
-def convert_dem_format(fname,sname=None,fmt=None):
+def read_dem(fname,sname=None,fmt=0):
     '''
-    fname: name of source DEM file
+    fname: name of source DEM (*.asc, *.tif, *.tiff) file
     sname (optional): name of file to be saved if value is provided 
-    fmt=0 : convert DEM file in *.asc format to *.npz format
-    fmt=1 : convert DEM file in *.tif or *.tiff format to *.npz format
 
-    Note: fmt is optional if fname endswith *.asc, *.tif or *.tiff
+    fmt=0: read all the DEM data
+    fmt=1: only read domain information (lon, lat)
     '''
-    #check fname format
-    if fmt==None and (fname.endswith('.tif') or fname.endswith('.tiff')): fmt=1 
-    if fmt==None: fmt=0 
 
     #read dem data
-    if fmt==0:
+    if fname.endswith('.tif') or fname.endswith('.tiff'):
+       import tifffile as tiff
+       from PIL import Image
+       ginfo=tiff.TiffFile(fname).geotiff_metadata; sinfo=Image.open(fname); S=zdata()
+       dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
+       xll=xll+dx/2; yll=yll-dy/2 #assuming (xll,yll) is the coordinate in the upper-left corner
+       nrows=sinfo.height; ncols=sinfo.width; lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
+       if fmt==0: elev=tiff.imread(fname).astype('float32'); elev[abs(elev)>=9999]=-9999.0; S.elev=elev
+       S.lon=lon; S.lat=lat; S.nodata=-9999.0
+    else: #must be *.asc format
         if not fname.endswith('.asc'): fname=fname+'.asc'
         #read file
-        fid=open(fname,'r');
+        fid=open(fname,'r'); S=zdata()
         ncols=int(fid.readline().strip().split()[1])
         nrows=int(fid.readline().strip().split()[1])
         xn,xll=fid.readline().strip().split(); xll=float(xll)
         yn,yll=fid.readline().strip().split(); yll=float(yll)
         dxy=float(fid.readline().strip().split()[1])
-        nodata=float(fid.readline().strip().split()[1])
-        elev=loadtxt(fname,skiprows=6)
+        S.nodata=float(fid.readline().strip().split()[1])
+        if fmt==0: S.elev=loadtxt(fname,skiprows=6).astype('float32')
         fid.close()
 
         #shift half a cell if ll defined at corner
         #if xn.lower()=='xllcenter' and yn.lower()=='yllcenter': xll=xll+dxy/2; yll=yll+dxy/2;
         if xn.lower()=='xllcorner' and yn.lower()=='yllcorner': xll=xll+dxy/2; yll=yll+dxy/2;
-
-        lon=xll+dxy*arange(ncols); lat=yll-dxy*arange(nrows)+(nrows-1)*dxy; elev=elev.astype('float32')
-        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev; S.nodata=nodata
-    elif fmt==1:
-        import tifffile as tiff
-        elev=tiff.imread(fname).astype('float32'); nrows,ncols=elev.shape
-        ginfo=tiff.TiffFile(fname).geotiff_metadata
-        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
-        lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows); elev[abs(elev)>=9999]=-9999.0
-        S=zdata(); S.lon=lon; S.lat=lat; S.elev=elev; S.nodata=-9999.0
+        S.lon=xll+dxy*arange(ncols); S.lat=yll-dxy*arange(nrows)+(nrows-1)*dxy
 
     #save data
     if sname is not None: savez(sname,S)

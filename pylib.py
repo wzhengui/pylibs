@@ -101,8 +101,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,interp_vertical,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,
-        get_stat,get_subplot_position,get_subplot_position2,load_bathymetry,plot_taylor_diagram,
-        convert_dem_format,get_hpc_command,least_square_fit,read_yaml,read_excel,
+        get_stat,get_subplot_position,get_subplot_position2,load_dem,plot_taylor_diagram,
+        read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel,
         write_excel,rtext,mklink,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index)
 
@@ -138,7 +138,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
    from pyUtility.mylib import convert_matfile as mat2npz
    from pyUtility.mylib import convert_matfile as loadm
-   from pyUtility.mylib import convert_dem_format as read_dem
+   from pyUtility.mylib import read_dem as convert_dem_format
+   from pyUtility.mylib import load_dem as load_bathymetry
    from pyUtility.mylib import read_shapefile_data as read_shp
    from pyUtility.mylib import write_shapefile_data as write_shp
    from pyUtility.schism_file import read_schism_hgrid as read_grd
