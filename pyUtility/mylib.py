@@ -704,13 +704,16 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
     #write new line
     fid=open(fname,'w+'); fid.writelines(slines); fid.close()
 
-def read_dem(fname,sname=None,fmt=0):
+def read_dem(fname,sname=None,fmt=0,position='center'):
     '''
     fname: name of source DEM (*.asc, *.tif, *.tiff) file
     sname (optional): name of file to be saved if value is provided 
-
     fmt=0: read all the DEM data
     fmt=1: only read domain information (lon, lat)
+
+    Note: for *.tif and *.tiff files:
+      position='center': elevation is defined at cell center
+      position='corner': elevation is defined at cell corner; coordinates will be shifted by half a cell.
     '''
 
     #read dem data
@@ -719,7 +722,7 @@ def read_dem(fname,sname=None,fmt=0):
        from PIL import Image
        ginfo=tiff.TiffFile(fname).geotiff_metadata; sinfo=Image.open(fname); S=zdata()
        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
-       xll=xll+dx/2; yll=yll-dy/2 #assuming (xll,yll) is the coordinate in the upper-left corner
+       if position=='corner': xll=xll+dx/2; yll=yll-dy/2
        nrows=sinfo.height; ncols=sinfo.width; lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
        if fmt==0: elev=tiff.imread(fname).astype('float32'); elev[abs(elev)>=9999]=-9999.0; S.elev=elev
        S.lon=lon; S.lat=lat; S.nodata=-9999.0
