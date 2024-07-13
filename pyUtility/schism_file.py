@@ -16,6 +16,7 @@ class schism_grid:
         else:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
+        bkn=mpl.get_backend().lower(); self.backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
 
     @property
     def INFO(self):
@@ -103,13 +104,7 @@ class schism_grid:
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
         if ylim is not None: setp(ax,ylim=ylim)
-        if mpl.get_backend().lower() in ['qt5agg','qtagg']:
-           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-           if 'bp' not in ats: self.bp=schism_bpfile()
-           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
-           if 'query' not in ats: self.query_pt()
-           if 'bnd' not in ats: self.create_bnd()
-           if 'node' not in ats: self.show_node()
+        self.add_actions()
         return hg
 
         #-------------------------------------------------
@@ -216,14 +211,19 @@ class schism_grid:
            hb=plot(r_[bx1,nan,bx2],r_[by1,nan,by2],c,lw=lw,**args); self.hb=hb
         else:
           hb1=plot(bx1,by1,c[0],lw=lw,**args); hb2=plot(bx2,by2,c[-1],lw=lw,**args); self.hb=[hb1,hb2]
-        if mpl.get_backend().lower() in ['qt5agg','qtagg']:
-           acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-           if 'bp' not in ats: self.bp=schism_bpfile()
-           if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
-           if 'query' not in ats: self.query_pt()
-           if 'bnd' not in ats: self.create_bnd()
-           if 'node' not in ats: self.show_node()
+        self.add_actions()
         return self.hb
+
+    def add_actions(self):
+        self.toolbar=gcf().canvas.toolbar
+        if self.backend==0: return
+        if self.backend==1: ats=array([i.iconText() for i in self.toolbar.actions()])
+        if self.backend==2: ats=[i[0] for i in self.toolbar.toolitems]
+        if 'bp' not in ats: self.bp=schism_bpfile()
+        if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
+        if 'query' not in ats: self.query_pt()
+        if 'bnd' not in ats: self.create_bnd()
+        if 'node' not in ats: self.show_node()
 
     def read_hgrid(self,fname,*args):
         #attribute tracking the file originally read, mainly used for savez and save_pkl
@@ -1390,8 +1390,9 @@ class schism_grid:
             self.cidbnd=gcf().canvas.mpl_connect('button_press_event', onclick)
             if not hasattr(S,'nb'): self.compute_bnd()
             if not hasattr(S,'hb0'): S.hb0=[plot(self.x[r_[i,i[0]]],self.y[r_[i,i[0]]],'b',lw=0.5) for i in S.ibn]
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-            if not ac.isChecked(): ac.trigger()
+            if self.backend==1:
+               ac=[i for i in self.toolbar.actions() if i.iconText()=='Pan'][0]
+               if not ac.isChecked(): ac.trigger()
             gcf().canvas.draw()
 
         def onclick(sp):
@@ -1418,8 +1419,9 @@ class schism_grid:
 
                #finish
                gcf().canvas.mpl_disconnect(self.cidbnd)
-               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); ac=acs[nonzero(ats=='Pan')[0][0]]
-               if ac.isChecked(): ac.trigger()
+               if self.backend==1:
+                  ac=[i for i in self.toolbar.actions() if i.iconText()=='Pan'][0]
+                  if ac.isChecked(): ac.trigger()
                gcf().canvas.draw()
 
         def add_pt(x,y):
@@ -1471,17 +1473,24 @@ class schism_grid:
                if S.ihb[-1]==0 and S.ilbn[-1][-1]!=S.pt[-1]: S.hb[-1][0].remove(); S.hb.pop(); S.ihb.pop(); S.ilbn.pop(); S.nlb=S.nlb-1
             gcf().canvas.draw()
 
-        #add bnd icon
-        if mpl._pylab_helpers.Gcf.get_active() is None: self.plot()
-        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-        abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else gcf().canvas.toolbar.addAction('bnd')
-
         #add bndinfo capsule
         if not hasattr(self,'bndinfo'): self.bndinfo=zdata()
         S=self.bndinfo; S.hp=[]; S.hb=[]; S.ihb=[]; S.nob=0; S.iobn=[]; S.nlb=0; S.ilbn=[]; S.npt=0; S.pt=[]; S.bid=[]
 
-        #connect to actions
-        abn.triggered.connect(connect_actions)
+        #add bnd icon
+        if mpl._pylab_helpers.Gcf.get_active() is None: self.plot()
+        if self.backend==1:
+           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else self.toolbar.addAction('bnd')
+           abn.triggered.connect(connect_actions) #connect to actions
+        elif self.backend==2:
+            acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
+            if 'bnd' in ats:
+               ac=acs[ats.index('bnd')][1]
+            else:
+               import tkinter as tk
+               ac=tk.Button(gcf().canvas.toolbar,text='bnd', command=connect_actions); ac.pack(side=tk.LEFT)
+               gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('bnd',ac))
         gcf().canvas.draw()
 
     def query_pt(self):
@@ -1494,7 +1503,9 @@ class schism_grid:
         def onclick(sp):
             dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata; pz=0
             if dlk==0 and btn==3:
-               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
+               #acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
+               if self.backend==1: ac=[i for i in self.toolbar.actions() if i.iconText()=='bp'][0]
+               if self.backend==2: ac=[i[1] for i in self.toolbar.toolitems if i[0]=='bp'][0]
                if hasattr(ac,'bp'):
                   if ac.bp.nsta==0: return
                   distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
@@ -1514,12 +1525,20 @@ class schism_grid:
                self.hqt.set_x(px); self.hqt.set_y(py); self.hqt.set_text(' {}'.format(pz[0]))
                self.hqp.set_xdata(px); self.hqp.set_ydata(py); gcf().canvas.draw()
 
-        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-        abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else gcf().canvas.toolbar.addAction('query')
         if hasattr(self,'hqt'): delattr(self,'hqt')
         if hasattr(self,'hqp'): delattr(self,'hqp')
-        #if not abp.isCheckable(): abp.setCheckable(True)
-        abp.triggered.connect(connect_actions)
+        if self.backend==1:
+           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else self.toolbar.addAction('query')
+           abp.triggered.connect(connect_actions)
+        elif self.backend==2:
+            acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
+            if 'query' in ats:
+               ac=acs[ats.index('query')][1]
+            else:
+               import tkinter as tk
+               ac=tk.Button(gcf().canvas.toolbar,text='query', command=connect_actions); ac.pack(side=tk.LEFT)
+               gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('query',ac))
 
     def show_node(self):
         '''
@@ -1536,9 +1555,18 @@ class schism_grid:
             else:
                for i in arange(len(self.hts)): self.hts.pop().remove()
             gcf().canvas.draw()
-        acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
-        abp=acs[nonzero(ats=='node')[0][0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
-        abp.triggered.connect(_show_node)
+        if self.backend==1:
+           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
+           abp=acs[nonzero(ats=='node')[0][0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
+           abp.triggered.connect(_show_node)
+        else:
+           acs=self.toolbar.toolitems; ats=[i[0] for i in acs]; self.hts=[]
+           if 'node' in ats:
+              ac=acs[ats.index('node')][1]
+           else:
+              import tkinter as tk
+              ac=tk.Button(gcf().canvas.toolbar,text='node', command=_show_node); ac.pack(side=tk.LEFT)
+              gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('node',ac))
 
 class schism_bpfile:
     def __init__(self,x=None,y=None,z=None,station=None,fmt=0):
@@ -1548,6 +1576,7 @@ class schism_bpfile:
         if y is not None: self.y=y
         if z is not None: self.z=z
         if station is not None: self.station=station
+        bkn=mpl.get_backend().lower(); self.backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
         self.check(); self.edit()
 
     @property
@@ -1708,6 +1737,7 @@ class schism_bpfile:
            if npt!=0: xs=r_[xs,xs[0]]; ys=r_[ys,ys[0]] #close polygon
         if len(self.hp)!=0: self.hp[0].set_xdata(xs); self.hp[0].set_ydata(ys)
         if len(self.hp)==0: self.hp=plot(xs,ys,marker=marker,markersize=markersize,color=color,linestyle=ls,**args)
+        self.toolbar=gcf().canvas.toolbar
         gcf().canvas.draw()
 
     def compute_acor(self,gd):
@@ -1718,8 +1748,9 @@ class schism_bpfile:
     def disconnect_edit(self):
         if hasattr(self,'cidpress'): gcf().canvas.mpl_disconnect(self.cidpress)
         if hasattr(self,'cidmove'):  gcf().canvas.mpl_disconnect(self.cidmove)
-        acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]; ap=acs[ats.index('Pan')]
-        if ap.isChecked(): ap.trigger()
+        if self.backend==1:
+           acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]; ap=acs[ats.index('Pan')]
+           if ap.isChecked(): ap.trigger()
         gcf().canvas.draw()
 
     def edit(self):
@@ -1727,9 +1758,13 @@ class schism_bpfile:
             self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', onmove)
             self.cidpress=gcf().canvas.mpl_connect('button_press_event', onclick)
             if self.nsta!=0 and len(self.hp)==0: self.plot_station()
-            acs=gcf().canvas.toolbar.actions(); ats=[i.iconText() for i in acs]
-            ap=acs[ats.index('Pan')]; ab=acs[ats.index('reg' if self.fmt==0 else 'bp')]
-            if not ap.isChecked(): ap.trigger()
+            at='reg' if self.fmt==0 else 'bp'
+            if self.backend==1:
+               ap=[i for i in gcf().canvas.toolbar.actions() if i.iconText()=='Pan'][0]
+               ab=[i for i in gcf().canvas.toolbar.actions() if i.iconText()==at][0]
+               if not ap.isChecked(): ap.trigger()
+            elif self.backend==2:
+               ab=[i[1] for i in gcf().canvas.toolbar.toolitems if i[0]==at][0]
             if hasattr(ab,'bp'): ab.bp.disconnect_edit()
             gcf().canvas.draw()
             print('double click: left=add pt, right=remove pt; middle=finish edit')
@@ -1761,21 +1796,31 @@ class schism_bpfile:
             self.x[sid]=xi; self.y[sid]=yi; self.plot()
 
         if mpl._pylab_helpers.Gcf.get_active() is not None:
-            acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]); at='bp' if self.fmt==0 else 'reg'
-            abp=acs[nonzero(ats==at)[0][0]] if at in ats else gcf().canvas.toolbar.addAction(at)
-            #if not abp.isCheckable(): abp.setCheckable(True)
+            at='bp' if self.fmt==0 else 'reg'
+            if self.backend==1:
+               acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
+               abp=acs[nonzero(ats==at)[0][0]] if at in ats else gcf().canvas.toolbar.addAction(at)
+            elif self.backend==2:
+               acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
+               if at in ats:
+                  abp=acs[ats.index(at)][1]
+               else:
+                  import tkinter as tk
+                  abp=tk.Button(gcf().canvas.toolbar,text =at, command=connect_actions); abp.pack(side=tk.LEFT)
+                  gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,(at,abp))
+            if self.backend!=0:
+               #disconnect and clean previous bpfile
+               if hasattr(abp,at):
+                  if self is not abp.bp:
+                     nhp=len(abp.bp.hp)
+                     for i in arange(nhp):
+                         abp.bp.hp[-1][0].remove(); abp.bp.ht[-1].remove()
+                         del abp.bp.hp[-1],abp.bp.ht[-1]
+                  if self.backend==1: abp.triggered.disconnect()
 
-            #disconnect and clean previous bpfile
-            if hasattr(abp,at):
-               if self is not abp.bp:
-                  nhp=len(abp.bp.hp)
-                  for i in arange(nhp):
-                      abp.bp.hp[-1][0].remove(); abp.bp.ht[-1].remove()
-                      del abp.bp.hp[-1],abp.bp.ht[-1]
-               abp.triggered.disconnect()
-
-            #connect to new object
-            abp.triggered.connect(connect_actions); abp.bp=self
+               #connect to new object
+               if self.backend==1: abp.triggered.connect(connect_actions)
+               abp.bp=self
             gcf().canvas.draw()
 
 def read_schism_hgrid(fname):
