@@ -16,6 +16,9 @@ class schism_grid:
         else:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
+        self.get_backend()
+
+    def get_backend(self):
         bkn=mpl.get_backend().lower(); self.backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
 
     @property
@@ -216,6 +219,7 @@ class schism_grid:
 
     def add_actions(self):
         self.toolbar=gcf().canvas.toolbar
+        if not hasattr(self,'backend'): self.get_backend()
         if self.backend==0: return
         if self.backend==1: ats=array([i.iconText() for i in self.toolbar.actions()])
         if self.backend==2: ats=[i[0] for i in self.toolbar.toolitems]
