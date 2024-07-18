@@ -8,24 +8,24 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-grd='hgrid.ll'  #grid name
+grd='hgrid.gr3'  #grid name
 grdout='hgrid.ll.new' #grid name with depth loaded
 
 #parameter
-#regions=("min_5m_ll.reg","SabinePass.reg","BergenPoint.reg","Washington_3.reg") #regions for modifying depth
-#rvalues=(5,7,5,15) #minimum depth in regions
 regions=("min_5m_ll.reg","SabinePass.reg","BergenPoint.reg","Washington_3.reg",
          "Elk_river.reg","Hudson_river.reg","James_river.reg","NorthEast_river.reg",
          "Rappahannock_river.reg","Susquehanna_river.reg","York_river.reg",
          "Androscoggin_Kennebec_rivers.reg","Merrimack_river.reg","Patuxent_river.reg",
          "Penobscot_river.reg","Saco_river.reg","StCroix_river.reg") #regions for modifying depth
-rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions
-headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_Carolina_USGS_3m",
-         "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
-         "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2","cb_bay_dem_v3.1_ll")
+rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
+#headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_Carolina_USGS_3m",
+#         "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
+#         "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2","cb_bay_dem_v3.1_ll") #FOR STOFS3D
+headers=('Bayonne','New_Arthur','CT_River','NY_TACC','Hudson_River','Long_Island','Raritan_Bay_River','MA_TACC','Toms_River')
 
-sdir=r'/sciclone/data10/wangzg/DEM/npz'  #directory of DEM data
-reverse_sign=1  #invert depth sign
+sdir=r'./DEM'    #directory of DEM data
+format_dem='tif' #format of DEM data
+reverse_sign=1   #invert depth sign
 
 #resource requst 
 walltime='00:10:00'; nnode=1;  ppn=4
@@ -60,7 +60,7 @@ if myrank==0: t0=time.time()
 #do MPI work on each core
 #-----------------------------------------------------------------------------
 #get all DEM files and distribute jobs
-fnames0=array([i for i in os.listdir(sdir) if i.endswith('.npz')])
+fnames0=array([i for i in os.listdir(sdir) if i.endswith('.'+format_dem)])
 
 #filter with headers, and sort by id numbers
 fnames_sort=[]
@@ -69,20 +69,12 @@ for header in headers:
     if len(fnames_sub)==1: fnames_sort.extend(fnames_sub); continue
 
     #get id number 
-    fid=array([i.replace('tif.','').replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
-    sind=argsort(fid); fnames_sub=fnames_sub[sind]; fnames_sort.extend(fnames_sub)
+    if format_dem=='npz':
+       fid=array([i.replace('tif.','').replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
+    elif format_dem=='tif':
+       fid=[k for i,k in enumerate(fnames_sub)] #can add order number in the DEM name to sort it
+    fnames_sort.extend(fnames_sub[argsort(fid)])
 fnames_sort=array(fnames_sort)
-
-#to exactly match the order to old method
-#switch the order of (db_ll_1.npz and db_ll1.npz), ('cdem13_DE_navd88_2016' and 'cdem13_PA_navd88_2010')
-#dn1='db_ll1.npz'; dn2='db_ll_1.npz'
-#if (dn1 in fnames_sort)*(dn2 in fnames_sort):
-#    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
-#    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
-#dn1='cdem13_PA_navd88_2010.npz'; dn2='cdem13_DE_navd88_2016.npz'
-#if (dn1 in fnames_sort)*(dn2 in fnames_sort):
-#    fid1=nonzero(fnames_sort==dn1)[0][0]; fid2=nonzero(fnames_sort==dn2)[0][0]
-#    fnames_sort[fid1]=dn2; fnames_sort[fid2]=dn1
 
 #distribute jobs
 fnames=[]; inum=[]
@@ -106,7 +98,7 @@ for m,fname in enumerate(fnames):
     #interpolate depth
     while(True):
         try:
-           dpi,sindi=load_bathymetry(gd.x,gd.y,'{}/{}'.format(sdir,fname),fmt=1)
+           dpi,sindi=load_dem(gd.x,gd.y,'{}/{}'.format(sdir,fname),fmt=1)
            break
         except:
             time.sleep(15)
