@@ -8,26 +8,29 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-grd='hgrid.gr3'  #grid name
+grd='hgrid.ll'  #grid name
 grdout='hgrid.ll.new' #grid name with depth loaded
 
+#DEM informat
+sdir=r'./DEM'    #directory of DEM data
+format_dem='tif' #format of DEM data (npz, tif, tiff); positions are not needed for *.npz files 
+reverse_sign=1   #invert depth sign
+
 #parameter
-regions=("min_5m_ll.reg","SabinePass.reg","BergenPoint.reg","Washington_3.reg",
-         "Elk_river.reg","Hudson_river.reg","James_river.reg","NorthEast_river.reg",
-         "Rappahannock_river.reg","Susquehanna_river.reg","York_river.reg",
-         "Androscoggin_Kennebec_rivers.reg","Merrimack_river.reg","Patuxent_river.reg",
-         "Penobscot_river.reg","Saco_river.reg","StCroix_river.reg") #regions for modifying depth
-rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
+headers=('Bayonne','New_Arthur','CT_River','NY_TACC','Hudson_River','Long_Island','Raritan_Bay_River','MA_TACC','Toms_River')
+positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corder for DEM file
 #headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_Carolina_USGS_3m",
 #         "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
 #         "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2","cb_bay_dem_v3.1_ll") #FOR STOFS3D
-headers=('Bayonne','New_Arthur','CT_River','NY_TACC','Hudson_River','Long_Island','Raritan_Bay_River','MA_TACC','Toms_River')
-
-sdir=r'./DEM'    #directory of DEM data
-format_dem='tif' #format of DEM data
-reverse_sign=1   #invert depth sign
+#regions=("min_5m_ll.reg","SabinePass.reg","BergenPoint.reg","Washington_3.reg",
+#         "Elk_river.reg","Hudson_river.reg","James_river.reg","NorthEast_river.reg",
+#         "Rappahannock_river.reg","Susquehanna_river.reg","York_river.reg",
+#         "Androscoggin_Kennebec_rivers.reg","Merrimack_river.reg","Patuxent_river.reg",
+#         "Penobscot_river.reg","Saco_river.reg","StCroix_river.reg") #regions for modifying depth
+#rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
 
 #resource requst 
+ibatch=0     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
 walltime='00:10:00'; nnode=1;  ppn=4
 #hpc: femto, hurricane, bora, vortex, potomac, james, frontera, levante, stampede2
 #ppn:   32,       8,     8,    12,       12,     20,     56,      128,      48
@@ -37,8 +40,7 @@ qname   ='compute'         #partition name
 account ='TG-OCE140024'    #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028 
 qnode   =None              #specify node name, or default qnode based on HOST will be used
 
-jname='load_dem' #job name
-ibatch=1; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
+jname='load_dem'; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
@@ -56,6 +58,8 @@ bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
+if 'regions' not in locals(): regions=None; rvalues=None
+if format_dem!='npz' and len(headers)!=len(positions): sys.exit('different size: headers, positions') 
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
@@ -63,24 +67,24 @@ if myrank==0: t0=time.time()
 fnames0=array([i for i in os.listdir(sdir) if i.endswith('.'+format_dem)])
 
 #filter with headers, and sort by id numbers
-fnames_sort=[]
-for header in headers:
-    fnames_sub=array([i for i in fnames0 if i.startswith(header)])
-    if len(fnames_sub)==1: fnames_sort.extend(fnames_sub); continue
+fnames_sort=[]; ps0=[]
+for header,position in zip(headers,positions):
+    fnames_sub=array([i for i in fnames0 if i.startswith(header)]); psi='center' if position==0 else 'corner'
+    if len(fnames_sub)==1: fnames_sort.extend(fnames_sub); ps0.append(psi); continue
 
     #get id number 
     if format_dem=='npz':
        fid=array([i.replace('tif.','').replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
     elif format_dem=='tif':
-       fid=[k for i,k in enumerate(fnames_sub)] #can add order number in the DEM name to sort it
-    fnames_sort.extend(fnames_sub[argsort(fid)])
-fnames_sort=array(fnames_sort)
+       fid=[i for i,k in enumerate(fnames_sub)] #can add order number in the DEM name to sort it
+    fnames_sort.extend(fnames_sub[argsort(fid)]); ps0.extend(tile(psi,len(fid)))
+fnames_sort=array(fnames_sort); ps0=array(ps0)
 
 #distribute jobs
-fnames=[]; inum=[]
-for m,fname in enumerate(fnames_sort):
-    if m%nproc==myrank: fnames.append(fname); inum.append(m)
-fnames=array(fnames)
+fnames=[]; inum=[]; ps=[]
+for m,[fname,psi] in enumerate(zip(fnames_sort,ps0)):
+    if m%nproc==myrank: fnames.append(fname); inum.append(m); ps.append(psi)
+fnames=array(fnames); ps=array(ps)
 
 #read hgrid 
 if grd.endswith('npz'):
@@ -92,13 +96,13 @@ else:
 
 #load bathymetry on each core
 S=zdata(); S.dp=dict(); S.sind=dict()
-for m,fname in enumerate(fnames):
+for m,[fname,psi] in enumerate(zip(fnames,ps)):
     bname=fname.split('.')[0]
 
     #interpolate depth
     while(True):
         try:
-           dpi,sindi=load_dem(gd.x,gd.y,'{}/{}'.format(sdir,fname),fmt=1)
+           dpi,sindi=load_dem(gd.x,gd.y,'{}/{}'.format(sdir,fname),fmt=1,position=psi)
            break
         except:
             time.sleep(15)
@@ -134,6 +138,7 @@ if myrank==0:
 
    #applying minimum depth
    if regions is not None:
+      if len(regions)!=len(rvalues): sys.exit('differet size: regions, rvalues') 
       for i, region in enumerate(regions):
           if not os.path.exists(region): continue
           depth_min=rvalues[i]
