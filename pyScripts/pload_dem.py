@@ -76,7 +76,7 @@ for header,position in zip(headers,positions):
     if format_dem=='npz':
        fid=array([i.replace('tif.','').replace('.','_')[len(header):].split('_')[-2] for i in fnames_sub]).astype('int')
     elif format_dem=='tif':
-       fid=[i for i,k in enumerate(fnames_sub)] #can add order number in the DEM name to sort it
+       fid=[i for i in fnames_sub] #can add order number in the DEM name to sort it
     fnames_sort.extend(fnames_sub[argsort(fid)]); ps0.extend(tile(psi,len(fid)))
 fnames_sort=array(fnames_sort); ps0=array(ps0)
 
