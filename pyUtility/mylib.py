@@ -478,7 +478,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
 
     return S
 
-def load_dem(x,y,fname,z=None,fmt=0):
+def load_dem(x,y,fname,z=None,fmt=0,position='center'):
     '''
     load bathymetry data onto points(xy)
     Input:
@@ -499,7 +499,7 @@ def load_dem(x,y,fname,z=None,fmt=0):
         except:
           S=loadz(fname,['lon','lat']); dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     elif fname.endswith('asc')or fname.endswith('.tif') or fname.endswith('.tiff'):
-        S=read_dem(fname,fmt=1); dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
+        S=read_dem(fname,fmt=1,position=position); dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
     else:
         sys.exit('wrong format of DEM')
 
@@ -524,7 +524,7 @@ def load_dem(x,y,fname,z=None,fmt=0):
        if fname.endswith('npz'):
            S=loadz(fname)
        else:
-           S=read_dem(fname)
+           S=read_dem(fname,position=position)
        if not hasattr(S,'nodata'): S.nodata=None
 
        #change y direction
@@ -719,11 +719,16 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
     #read dem data
     if fname.endswith('.tif') or fname.endswith('.tiff'):
        import tifffile as tiff
-       from PIL import Image
-       ginfo=tiff.TiffFile(fname).geotiff_metadata; sinfo=Image.open(fname); S=zdata()
+       ginfo=tiff.TiffFile(fname).geotiff_metadata; S=zdata()
        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
-       nrows=sinfo.height; ncols=sinfo.width; lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
+       try:
+          from PIL import Image
+          sinfo=Image.open(fname)
+          nrows=sinfo.height; ncols=sinfo.width
+       except:
+          nrows,ncols=tiff.imread(fname).shape
+       lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
        if fmt==0: elev=tiff.imread(fname).astype('float32'); elev[abs(elev)>=9999]=-9999.0; S.elev=elev
        S.lon=lon; S.lat=lat; S.nodata=-9999.0
     else: #must be *.asc format
