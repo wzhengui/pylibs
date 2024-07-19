@@ -47,7 +47,8 @@ if os.getenv('job_on_node')==None:
 #on computation node
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
-comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==0: nproc=1; myrank=0
+if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 #-----------------------------------------------------------------------------
@@ -105,13 +106,15 @@ for istack in stacks:
             flx=((sin(angle)*u-cos(angle)*v)*dz*ds*tr).sum(axis=0).sum(axis=1); S.tflux[n][m].extend(flx)
     S.time.extend(C.time); C=None
     print('reading stack {} on rank {}: {:0.2f}'.format(istack,myrank,time.time()-t00)); sys.stdout.flush()
-S.time,S.flux,S.tflux=array(S.time),array(S.flux).T,array(S.tflux).T
+S.time,S.flux,S.tflux=array(S.time),array(S.flux).T,array(S.tflux).T; S.save('.schism_flux_{}'.format(myrank))
 
 #gather flux for all ranks
-data=comm.gather(S,root=0)
+if ibatch==1: comm.Barrier() 
 C=zdata(); C.nps=array(nps); C.xy=pxy; C.xy0=txy; C.time,C.flux=[],[]; tflux=[]
 if myrank==0:
-   for i in data: C.time.extend(i.time); C.flux.extend(i.flux); tflux.extend(i.tflux)
+   for i in arange(nproc):
+       fname='.schism_flux_{}.npz'.format(i); s=read(fname)
+       C.time.extend(s.time); C.flux.extend(s.flux); tflux.extend(s.tflux); os.remove(fname)
    it=argsort(C.time); C.time=array(C.time)[it]; C.flux=array(C.flux)[it].T.astype('float32')
    for i,rvar in enumerate(rvars): C.__dict__['flux_'+rvar]=array(tflux)[it][...,i].T.astype('float32')
 
@@ -123,6 +126,6 @@ if myrank==0:
 #-----------------------------------------------------------------------------
 #finish MPI jobs
 #-----------------------------------------------------------------------------
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
 sys.exit(0) if qnode in ['bora'] else os._exit(0)

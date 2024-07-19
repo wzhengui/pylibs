@@ -22,7 +22,6 @@ fmt=0                   #fmt=0: output as *.npz format; fmt=1: output as ASCII
 
 #optional
 grid=run+'/grid.npz'  #saved grid info, to speed up; use hgrid.gr3 and vgrid.in if not exist
-igather=1             #igather=1: save data on each rank,then combine; igather=0: use MPI  
 
 #resource requst 
 walltime='00:10:00'; nnode=1;  ppn=4
@@ -50,7 +49,8 @@ if os.getenv('job_on_node')==None:
 #on computation node
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
-comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==0: nproc=1; myrank=0
+if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 #-----------------------------------------------------------------------------
@@ -192,12 +192,10 @@ for i in svars: exec('S.{}=array(S.{})'.format(i,i))
 #-----------------------------------------------------------------------------
 #combine results from all ranks
 #-----------------------------------------------------------------------------
-if igather==1 and myrank<nproc: savez('{}_{}'.format(sname,myrank),S)
-comm.Barrier()
-if igather==0: sdata=comm.gather(S,root=0)
-if igather==1 and myrank==0: sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
-
+if myrank<nproc: savez('{}_{}'.format(sname,myrank),S)
+if ibatch==1: comm.Barrier()
 if myrank==0: 
+   sdata=[loadz('{}_{}.npz'.format(sname,i)) for i in arange(nproc)]
    S=zdata(); S.time=[]; S.bp=bp; sinde=[]
    for i in svars: exec('S.{}=[]'.format(i))
    for i in arange(nproc):
@@ -218,11 +216,11 @@ if myrank==0:
           for svar in svars: exec('datai.extend(S.{}[{}].ravel())'.format(svar,i))
           fid.write(('{:12.6f}'+' {:10.6f}'*len(datai)+'\n').format(ti,*datai))
       fid.close()
-   if igather==1: [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)] #clean
+   [os.remove('{}_{}.npz'.format(sname,i)) for i in arange(nproc)] #clean
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs
 #-----------------------------------------------------------------------------
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
 sys.exit(0) if qnode in ['bora'] else os._exit(0)

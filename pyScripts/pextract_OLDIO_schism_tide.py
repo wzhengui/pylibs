@@ -72,9 +72,7 @@ if os.getenv('job_on_node')==None:
 os.chdir('{}/{}'.format(bdir,run))
 
 #----get nproc and myrank--------
-comm=MPI.COMM_WORLD
-nproc=comm.Get_size()
-myrank=comm.Get_rank()
+comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 
 t0=time.time()
 #----distribute work--------------------------

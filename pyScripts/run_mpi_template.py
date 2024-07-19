@@ -33,7 +33,8 @@ if os.getenv('job_on_node')==None:
 #on computation node
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
-comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==0: nproc=1; myrank=0
+if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 #-----------------------------------------------------------------------------
@@ -44,6 +45,6 @@ print('myrank={}, nproc={}, host={}'.format(myrank,nproc,os.getenv('HOST'))); sy
 #-----------------------------------------------------------------------------
 #finish MPI jobs
 #-----------------------------------------------------------------------------
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
 sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)

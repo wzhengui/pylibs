@@ -30,7 +30,7 @@ positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corder for DEM file
 #rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
 
 #resource requst 
-ibatch=0     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
+ibatch=1     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
 walltime='00:10:00'; nnode=1;  ppn=4
 #hpc: femto, hurricane, bora, vortex, potomac, james, frontera, levante, stampede2
 #ppn:   32,       8,     8,    12,       12,     20,     56,      128,      48
@@ -55,7 +55,8 @@ if os.getenv('job_on_node')==None:
 #on computation node
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
-comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==0: nproc=1; myrank=0
+if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 if 'regions' not in locals(): regions=None; rvalues=None
@@ -110,17 +111,16 @@ for m,[fname,psi] in enumerate(zip(fnames,ps)):
     #save results
     S.dp[bname]=dpi; S.sind[bname]=sindi
     print('finished reading {},: {}, myrank={}'.format(fname,inum[m],myrank)); sys.stdout.flush()
-#savez('S_{}'.format(myrank),S)
+savez('.load_dem_{}'.format(myrank),S)
 
-#gather results
-comm.Barrier()
-sdata=comm.gather(S,root=0)
-
+#combine results
+if ibatch==1: comm.Barrier()
 if myrank==0:
    #combine
    S=zdata(); S.dp=dict(); S.sind=dict()
    for i in arange(nproc):
-       Si=sdata[i]
+       sname='.load_dem_{}.npz'.format(i)
+       Si=read(sname); os.remove(sname)
        S.dp={**S.dp,**Si.dp}
        S.sind={**S.sind,**Si.sind}
 
@@ -158,6 +158,6 @@ if myrank==0:
 #-----------------------------------------------------------------------------
 #finish MPI jobs
 #-----------------------------------------------------------------------------
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
 sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)

@@ -46,7 +46,8 @@ if os.getenv('job_on_node')==None:
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 odir=os.path.dirname(os.path.abspath(sname))
-comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==0: nproc=1; myrank=0
+if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 
@@ -73,7 +74,7 @@ for svar in svars:
           dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
 
 #combine results
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0:
    S=zdata(); S.time=[]; fnames=[]
    for i,[k,m] in enumerate(zip(svars,rvars)):
@@ -90,6 +91,6 @@ if myrank==0:
 #-----------------------------------------------------------------------------
 #finish MPI jobs
 #-----------------------------------------------------------------------------
-comm.Barrier()
+if ibatch==1: comm.Barrier()
 if myrank==0: dt=time.time()-t0; print('total time used: {} s'.format(dt)); sys.stdout.flush()
 sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)
