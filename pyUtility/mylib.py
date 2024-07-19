@@ -1200,7 +1200,7 @@ def loadz(fname,svars=None):
     elif fname.endswith('.pkl'):
        import pickle
        from copy import deepcopy as dcopy
-       vdata=zdata(); fid=open(fname,'rb')
+       vdata=zdata(); fid=open(fname,'rb'); fmt=0
        data=pickle.load(fid)
        vdata.__dict__=dcopy(data).__dict__.copy()
        fid.close()
