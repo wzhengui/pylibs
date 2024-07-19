@@ -30,7 +30,7 @@ positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corder for DEM file
 #rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
 
 #resource requst 
-ibatch=1     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
+ibatch=0     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
 walltime='00:10:00'; nnode=1;  ppn=4
 #hpc: femto, hurricane, bora, vortex, potomac, james, frontera, levante, stampede2
 #ppn:   32,       8,     8,    12,       12,     20,     56,      128,      48
