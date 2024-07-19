@@ -71,7 +71,7 @@ class schism_grid:
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
            if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
-           if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max((vm[1]-vm[0])*1e-10,1e-10)
+           if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
            #plot
            if fmt==1 and method==1:  #tripcolor
@@ -906,7 +906,7 @@ class schism_grid:
             #find dist maxtrix, get weight and value, and assign average value at node
             ds=pid.size*eid.size; nloop=int(ceil(ds/ms)); dsb=int(ceil(pid.size/nloop))
             for n in arange(nloop):
-                pidi=pid[arange((dsb*n),min(dsb*(n+1),pid.size)).astype('int')]
+                pidi=pid[arange((dsb*n),min([dsb*(n+1),pid.size])).astype('int')]
                 pdist=cdist(c_[x[pidi],y[pidi]],c_[x[eid],y[eid]]); fpd=pdist>dist
                 ew=tile(w[eid],[pidi.size,1]); ev=tile(v[eid],[pidi.size,1]); ew[fpd]=0; ev[fpd]=0
                 pv[pidi]=ev.sum(axis=1)/ew.sum(axis=1)
@@ -2178,7 +2178,7 @@ def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
     #interp in vertical
     for k, pzi in enumerate(pz.T):
         for n in arange(nvrt):
-            z1,z2=zcor[:,min(nvrt-1,n+1)],zcor[:,n]
+            z1,z2=zcor[:,min([nvrt-1,n+1])],zcor[:,n]
             if n==(nvrt-1):
                 fpz=pzi==z1; ratz=zeros(sum(fpz))
             else:
@@ -2187,7 +2187,7 @@ def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
 
             for i,[value,ds,ndim,ip,iz] in enumerate(zip(values,dims,ndims,pind,zind)):
                 if ip==-1 or iz==-1: continue
-                v1,v2=value[fpz,min(nvrt-1,n+1)],value[fpz,n]; rat=ratz.copy()
+                v1,v2=value[fpz,min([nvrt-1,n+1])],value[fpz,n]; rat=ratz.copy()
                 for m in arange(ndim-2):rat=expand_dims(rat,axis=1)
                 pvalues[i][fpz,k]=v1*(1-rat)+v2*rat
 
@@ -2336,7 +2336,7 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
     if param is not None:
        lines=slines[:]; slines=[]
        for line in lines:
-          if line[:max(line.find('='),0)].strip()==param:
+          if line[:max([line.find('='),0])].strip()==param:
              slines.append(_newline(line,param,value))
           else:
              slines.append(line)
@@ -3129,8 +3129,8 @@ class schism_view:
         w=self.wp; gd=self.hgrid
         p=self.init_plot(0) if fmt==0 else self.init_plot(1)
         if p is None: return
-        if fmt==2: p.it=max(p.it-p.ns,0)
-        if fmt==3: p.it=min(p.it+p.ns,len(self.irec)-1)
+        if fmt==2: p.it=max([p.it-p.ns,0])
+        if fmt==3: p.it=min([p.it+p.ns,len(self.irec)-1])
         if fmt==4: p.it=0
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
@@ -3189,13 +3189,13 @@ class schism_view:
                 if p.med==0: p.bm.update()
                 if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
                 if p.med==1: pause(0.1)
-                if hasattr(p,'pause'): pause(max(p.pause,0.0001))
+                if hasattr(p,'pause'): pause(max([p.pause,0.0001]))
                 if self.play=='off': break
                 if fmt in [2,3,4,5]: self.play='off'
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
                from PIL import Image
-               ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max(p.pause*1e3,50) if hasattr(p,'pause') else 200
+               ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max([p.pause*1e3,50]) if hasattr(p,'pause') else 200
                fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
                [os.remove(i) for i in ims]
         self.hold='off'
@@ -3223,7 +3223,7 @@ class schism_view:
         def update_xts(event):
             if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
             t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=nonzero(dt1==dt1.min())[0][0]; i2=nonzero(dt2==dt2.min())[0][0]
-            ns=max(int(floor((i2-i1+1)/5)),1); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
+            ns=max([int(floor((i2-i1+1)/5)),1]); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
             if hasattr(self,'StartT'): mlsi=[i[:10]+'\n'+i[11:] for i in mlsi]
             s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi)
 
@@ -3488,7 +3488,7 @@ class schism_view:
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
         rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
-        cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
+        cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
         if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
@@ -3891,8 +3891,8 @@ class schism_check(zdata):
        ap.stop=0 if fmt in [3,5] else 1  #used to stop the animation
        if fmt==1: ts=[ds[iv0],]   #first record
        if fmt==7: ts=[ds[-1], ]   #last  record
-       if fmt==2: ts=[ds[max(iv-ns,iv0)],]  #back one
-       if fmt==6: ts=[ds[min(iv+ns,nrec-1)],] #forward one
+       if fmt==2: ts=[ds[max([iv-ns,iv0])],]  #back one
+       if fmt==6: ts=[ds[min([iv+ns,nrec-1])],] #forward one
        if fmt==3: ts=ds[iv0:(iv+1)][::-1]  #loop backward
        if fmt==5: ts=ds[iv:-1]    #loop backward
 
@@ -3998,7 +3998,7 @@ class schism_check(zdata):
             #legend
             if p.ctr.get()==0:
                v1,v2=data.min(),data.max();  m1,m2=int(log10(v1)),int(log10(v2))
-               m1=max(0,m1) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
+               m1=max([0,m1]) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
                if len(ms)==0:
                   hl=legend(*hg.legend_elements("sizes", num=[(v1+v2)/2])) #legend
                else:
@@ -4068,7 +4068,7 @@ class schism_check(zdata):
        if method==1: #modify axes range
           if hasattr(p,'fmt') and p.fmt==fmt:
              if hasattr(p,'xm'): setp(p.hp,xlim=p.xm)
-             if hasattr(p,'ym'): y1,y2=p.ym; y2=y1+max(y2-y1,1e-10); setp(p.hp,ylim=[y1,y2])
+             if hasattr(p,'ym'): y1,y2=p.ym; y2=y1+max([y2-y1,1e-10]); setp(p.hp,ylim=[y1,y2])
           else:
              p.fmt=int(fmt)
              if hasattr(p,'xm'): delattr(p,'xm')
@@ -4233,7 +4233,7 @@ class schism_check(zdata):
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
         rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
-        cw.update(); xm=max(txt.winfo_width(),rbn.winfo_width()); ym=txt.winfo_height()+rbn.winfo_height()+12
+        cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
         if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
         print('control vars: [fname,p,fid,hf,ax,gd]')

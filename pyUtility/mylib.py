@@ -417,17 +417,17 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
 
     #divide domain
     ndx=len(x); ndy=len(y)
-    ixs=[]; i1=0; i2=min(nx,ndx)
+    ixs=[]; i1=0; i2=min([nx,ndx])
     while True:
         ixs.append([i1,i2])
         if i2>=ndx: break
-        i1=i1+nx; i2=min(i2+nx,ndx)
+        i1=i1+nx; i2=min([i2+nx,ndx])
 
-    iys=[]; i1=0; i2=min(ny,ndy)
+    iys=[]; i1=0; i2=min([ny,ndy])
     while True:
         iys.append([i1,i2])
         if i2>=ndy: break
-        i1=i1+ny; i2=min(i2+ny,ndy)
+        i1=i1+ny; i2=min([i2+ny,ndy])
 
     #extract contours for subdomains
     for m,[ix1,ix2] in enumerate(ixs):
@@ -953,7 +953,7 @@ def datenum(*args,fmt=0):
           #if month >12: convert
           if dargs[1]>12:
              dargs[0]=dargs[0]+int(dargs[1]/12)
-             dargs[1]=max(1,dargs[1]%12)
+             dargs[1]=max([1,dargs[1]%12])
 
           #time array (e.g. [2002,1,1])
           dnum=datetime.datetime(*dargs)
@@ -1295,12 +1295,12 @@ def near_pts(pts,pts0,method=0,N=100):
         #     ps.append(psi); ds.append(dsi); inds.append(nonzero(fp)[0])
         #     if mds==mval: break
 
-        N=min(N,len(p));
+        N=min([N,len(p)]);
         #--divide pts into subgroups based on dist, each group size is about N---------
         ps0=[]; ps=[]; ds=[]; inds=[]; inum=arange(len(p))
         while(True):
             if len(inum)==0: break
-            dist=abs(p[inum]-p[inum[0]]); sind=argsort(dist); inum=inum[sind]; dist=dist[sind]; sN=min(N,len(inum))
+            dist=abs(p[inum]-p[inum[0]]); sind=argsort(dist); inum=inum[sind]; dist=dist[sind]; sN=min([N,len(inum)])
             ps0.append(p[inum[0]]); ps.append(p[inum[:sN]]); ds.append(dist[sN-1]); inds.append(inum[:sN])
             inum=inum[sN:]
 
@@ -1332,7 +1332,7 @@ def near_pts(pts,pts0,method=0,N=100):
         sind=pind0[ind]
     elif method==2:
         n=pts.shape[0]; n0=pts0.shape[0]
-        N=max(min(1e7//n0,n),1e2)
+        N=max([min([1e7//n0,n]),1e2])
         print('total pts: {}'.format(n));
 
         i0=int(0); i1=int(N);
@@ -1352,7 +1352,7 @@ def near_pts(pts,pts0,method=0,N=100):
             else:
                 ind=r_[ind,squeeze(array(indi))];
             #next step
-            i0=int(i0+N); i1=int(min(i1+N,n))
+            i0=int(i0+N); i1=int(min([i1+N,n]))
             if i0>=n: break
         sind=ind
 
@@ -1612,8 +1612,8 @@ def bpfilt(data,delta_t,band_f):
 
     #design filter
     filt=ones(N)
-    k1=int(floor(band_f[0]*N*delta_t))-1; k1=max(min(k1,N//2),1)
-    k2=int(ceil(band_f[1]*N*delta_t))+1;  k2=max(min(k2,N//2),1)
+    k1=int(floor(band_f[0]*N*delta_t))-1; k1=max([min([k1,N//2]),1])
+    k2=int(ceil(band_f[1]*N*delta_t))+1;  k2=max([min([k2,N//2]),1])
     filt[:k1]=0; filt[-k1:]=0; filt[k2:N-k2]=0
     filt=(ones([*ones(data.ndim).astype('int')])*filt).T
 
@@ -2625,10 +2625,10 @@ def subdomain_index(x,y,xm,ym):
     #find initial box
     while True:
         ix1i=ix1; ix2i=ix2; iy1i=iy1; iy2i=iy2
-        if x[iy1:iy2,ix1].max()>x1: ix1=max(0,ix1-1)
-        if x[iy1:iy2,ix2-1].min()<x2: ix2=min(nx,ix2+1)
-        if y[iy1,ix1:ix2].max()>y1: iy1=max(0,iy1-1)
-        if y[iy2-1,ix1:ix2].min()<y2: iy2=min(ny,iy2+1)
+        if x[iy1:iy2,ix1].max()>x1: ix1=max([0,ix1-1])
+        if x[iy1:iy2,ix2-1].min()<x2: ix2=min([nx,ix2+1])
+        if y[iy1,ix1:ix2].max()>y1: iy1=max([0,iy1-1])
+        if y[iy2-1,ix1:ix2].min()<y2: iy2=min([ny,iy2+1])
         if (ix1i==ix1)*(ix2i==ix2)*(iy1i==iy1)*(iy2i==iy2): break
 
     #shrink the box
