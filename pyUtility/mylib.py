@@ -223,9 +223,12 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        fmt=2: only replace sheet, but keep other sheets of excel file
        fmt=3: insert image (data should be the path of image,and figsize=[w,h] is used to resize the figure)
     '''
-    import openpyxl
-    import pandas as pd
-    #import xlsxwriter as xw
+    try: 
+       import openpyxl
+       import pandas as pd
+       #import xlsxwriter as xw
+    except:
+       sys.exit('install openpyxl pandas')
 
     #open fname
     if not fname.endswith('.xlsx'): fname=fname+'.xlsx'
@@ -312,14 +315,13 @@ def get_qnode(qnode=None):
     if host is None: sys.exit('set HOST environment variable HOST')
     if host in ['femto.sciclone.wm.edu','viz']: qnode='femto'
     if host in ['kuro.sciclone.wm.edu']: qnode='kuro'
-    if host in ['hurricane.sciclone.wm.edu']: qnode='x5672'
+    if host in ['gulf.sciclone.wm.edu']: qnode='gulf'
     if host in ['bora.sciclone.wm.edu']: qnode='bora'
-    if host in ['vortex.sciclone.wm.edu']: qnode='vortex'
     if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
     return qnode
 
 def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',
-                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,mem='4G',reservation=None):
+                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,reservation=None,mem='4G'):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -329,20 +331,24 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        qnode: hpc node name
        nnode,ppn,wtime: request node number, core per node, and walltime
        mem: meomory; needed on cluster grace
-       reservation: get request debug node on kuro
+       reservation: HPC reservation information
        fmt=0: command for submitting batch jobs; fmt=1: command for run parallel jobs
     '''
-  
+
+    #pre-proc
     qnode0=qnode; qnode=os.getenv('qnode') if qnode is None else qnode; nproc=nnode*ppn
+    rinfo='' if (reservation is None) else '--reservation='+reservation
+    if ename=='run_schism': ename='schism' #old parameter support
+
     if fmt==0:
-       os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code))
+       os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code)); os.environ['run_schism']=os.getenv(ename)
        #for submit jobs
-       if qnode in ['femto','cyclops','kuro']:
+       if qnode in ['femto','gulf','kuro']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
-          scmd='sbatch --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
-          if qnode=='kuro' and (reservation is not None): scmd='sbatch --reservation=debug --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,nnode,ppn,wtime,code)
-       elif qnode in ['grace',]:
-          scmd='sbatch --export=ALL -J {} -N {} --mem={} --ntasks-per-node {} -t {} {}'.format(jname,nnode,mem,ppn,wtime,code)
+          scmd='sbatch {} --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(rinfo,jname,nnode,ppn,wtime,code)
+       elif qnode in ['c18x','potomac','james','bora']:
+          scmd='qsub {} {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,'-V' if qnode0 is None else '', ename,bdir,code,jname,nnode,qnode,ppn,wtime)
+          if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
        elif qnode in ['frontera',]:
           #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
           scmd='sbatch --export=ALL -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,nnode,ppn,wtime,code)
@@ -350,45 +356,46 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
           scmd='sbatch --export=ALL --exclusive -J {} -p {} --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,account,nnode,ppn,wtime,code)
        elif qnode in ['stampede2',]:
           scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
-       elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
-          scmd='qsub {} {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,'-V' if qnode0 is None else '', ename,bdir,code,jname,nnode,qnode,ppn,wtime)
-          if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
        elif qnode in ['eagle','deception']:
           scmd='sbatch --export=ALL -A {} -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(account,jname,qname,nnode,ppn,wtime,code)
+       elif qnode in ['grace',]:
+          scmd='sbatch --export=ALL -J {} -N {} --mem={} --ntasks-per-node {} -t {} {}'.format(jname,nnode,mem,ppn,wtime,code)
        else:
-          sys.exit('unknow qnode: {},tag=1'.format(qnode))
+          sys.exit('unknown qnode: {},tag=1'.format(qnode))
     elif fmt==1:
        #for run parallel jobs
-       if qnode in ['femto','cyclops','kuro',]:
-          scmd="srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          if qnode=='kuro' and ename!='run_schism': scmd='srun --export=PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format('/sciclone/data10/wangzg/mambaforge/envs/kuro/bin/',bdir,nproc,code,scrout)
-       elif qnode in ['grace',]:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
-          if ename=='run_schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
-       elif qnode in ['frontera']:
-          scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
-          if ename=='run_schism': scmd="ibrun {} >& {}".format(code,scrout)
-       elif qnode in ['stampede2',]:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
-          if ename=='run_schism': scmd="ibrun {} >& {}".format(code,scrout)
-       elif qnode in ['levante','hercules']:
-          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
-          if ename=='run_schism':
-             scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
-             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
-          if qnode=='hercules' and ename=='run_schism':
-             scmd="set -e; ulimit -s unlimited; source /home/yjzhang/modules.hercules;"
-             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-       elif qnode in ['x5672','vortex','vortexa','c18x','potomac','james','bora']:
+       if qnode in ['femto','gulf','kuro',]:
+          scmd='srun --export=PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
+          #if ename=='schism': scmd='srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}'.format(bdir,nproc,code,scrout)
+       elif qnode in ['c18x','potomac','james','bora']:
           code=os.path.abspath(code)
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          if qnode=='bora': scmd="mvp2run -v -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
+          if qnode=='bora': 
+             PATH='/sciclone/data10/wangzg/mambaforge/envs/bora/bin:'+os.getenv('PATH')
+             scmd="mvp2run -v -a -e PATH={} -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(PATH,bdir,nproc,code,scrout)
           if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          #if qnode=='james' and ename=='run_schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
+          #if qnode=='james' and ename=='schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
+       elif qnode in ['frontera']:
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
+          if ename=='schism': scmd="ibrun {} >& {}".format(code,scrout)
+       elif qnode in ['stampede2',]:
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
+          if ename=='schism': scmd="ibrun {} >& {}".format(code,scrout)
+       elif qnode in ['levante','hercules']:
+          scmd="mpiexec -envall -genv job_on_node 1 -genv bdir '{}' -genv nproc {} -n {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
+          if ename=='schism':
+             scmd="ulimit -s unlimited; ulimit -c 0; source /home/g/g260135/intel_tool; export UCX_UNIFIED_MODE=y;"
+             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={} -l --cpu_bind=verbose --hint=nomultithread --distribution=block:cyclic {} >& {}".format(bdir,code,scrout)
+          if qnode=='hercules' and ename=='schism':
+             scmd="set -e; ulimit -s unlimited; source /home/yjzhang/modules.hercules;"
+             scmd=scmd+"srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}".format(bdir,nproc,code,scrout)
        elif qnode in ['eagle','deception']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -{} {} {} >& {}".format(bdir,'n' if qnode=='eagle' else 'np',nproc,code,scrout)
+       elif qnode in ['grace',]:
+          scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
+          if ename=='schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
        else:
-          sys.exit('unknow qnode: {},tag=2'.format(qnode))
+          sys.exit('unknown qnode: {},tag=2'.format(qnode))
 
     return scmd
 
@@ -718,7 +725,10 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
 
     #read dem data
     if fname.endswith('.tif') or fname.endswith('.tiff'):
-       import tifffile as tiff
+       try:
+          import tifffile as tiff
+       except:
+          sys.exit('install tifffile=2022.5.4')
        ginfo=tiff.TiffFile(fname).geotiff_metadata; S=zdata()
        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
