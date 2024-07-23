@@ -33,6 +33,6 @@ with open("README.md", "r", encoding="utf-8") as fh:
           'eof': ['eofs>=1.4.0'],
           'cloudpickle': ['cloudpickle==2.2.1'],
           'tiff': ['tifffile=2022.5.4'],
-          'urllib':['urllib3'==2.2.1]
+          'urllib':['urllib3=2.2.1']
         }
     )
