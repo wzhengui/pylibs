@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 '''
   atuo script to submit SCHISM batch jobs on sciclone/james
-  note: environmental variables "run_schism" is used to load correct modules 
+  note: environmental variables "schism" is used to load correct modules 
 '''
 from pylib import *
 import time,signal
@@ -9,41 +9,35 @@ import subprocess as sbp
 
 #-----------------------------------------------------------------------------
 #Input
+#hpc: kuro, femto, bora, potomac, james, frontera, levante, stampede2
+#ppn:  64,   32,    20,    12,     20,     56,      128,      48
 #-----------------------------------------------------------------------------
-code='pschism_LEVANTE_INTEL_ICM_TVD-VL.13b36381 24'
-runs=[]  #used to submit multiple jobs
+code='pschism_KURO_ICM_BLD_STANDALONE_TVD-VL.451ceb84 32'
+walltime='00:30:00'; nnode=2; ppn=64
 
-#resource requst 
-walltime='72:00:00'
-#qnode='x5672'; nnode=2; ppn=8       #hurricane, ppn=8
-#qnode='bora'; nnode=15; ppn=20      #bora, ppn=20
-#qnode='vortex'; nnode=2; ppn=12    #vortex, ppn=12
-qnode='femto'; nnode=2; ppn=32     #femto,ppn=32
-#qnode='potomac'; nnode=4; ppn=8    #ches, ppn=12
-#qnode='james'; nnode=5; ppn=20     #james, ppn=20
-#qnode='frontera'; nnode=1; ppn=56  #frontera, ppn=56 (flex,normal)
-#qnode='levante'; nnode=6; ppn=80   #levante, ppn=128
-#qnode='stampede2'; nnode=1; ppn=48 #stampede2, ppn=48 (skx-normal,skx-dev,normal,etc)
+#optional:  frontera,levante,stampede2,kuro,etc.
+qnode=None              #specify node name, or default qnode based on HOST will be used
+qname=None              #partition name
+account=None            #account name
+reservation=None        #reservation information
+ihot=0                  #submit hotstart run (0: NO,  1: YES)
+runs=[]                 #used to submit multiple jobs
+scrout='screen.out'     #fname for outout and error
 
-#additional information:  frontera,levante,stampede2
-qname='compute'    #partition name
-account='gg0028'   #stampede2: NOAA_CSDL_NWI,TG-OCE140024; levante: gg0028
-ihot=0             #submit hotstart run
-
-scrout='screen.out'; bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir)
 #-----------------------------------------------------------------------------
-#submit jobs first (qsub)
+#submit jobs
 #-----------------------------------------------------------------------------
-if os.getenv('run_schism')==None: 
-   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'run_schism',qname=qname,account=account)
+bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir); qnode=get_qnode(qnode)
+if os.getenv('schism')==None: 
+   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'schism',qname,account,reservation)
    print(scode); os.system(scode); os._exit(0)
 
 #-----------------------------------------------------------------------------
-#running parallel jobs (mpirun) 
+#running parallel jobs
 #-----------------------------------------------------------------------------
-if os.getenv('run_schism')!=None: 
-   fmt=1; bdir=os.getenv('run_schism').split()[0]; os.chdir(bdir)
-   scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'run_schism')
+if os.getenv('schism')!=None: 
+   fmt=1; bdir=os.getenv('schism').split()[0]; os.chdir(bdir)
+   scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'schism')
 
    if len(runs)==0: #single jobs 
       if ihot==0:
@@ -62,7 +56,7 @@ if os.getenv('run_schism')!=None:
             if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
             os.symlink('outputs/'+fname,'hotstart.nc'); change_schism_param('param.nml','ihot','2')
             os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
-            os.environ.pop('run_schism'); sbp.run('./run.schism')
+            os.environ.pop('schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)

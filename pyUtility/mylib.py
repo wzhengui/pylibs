@@ -309,6 +309,7 @@ def get_qnode(qnode=None):
     '''
     return hpc node name based on system's environment variable $HOST
     '''
+    import re
     if qnode is not None: return qnode  #used other node names
 
     host=os.getenv('HOST')
@@ -316,7 +317,7 @@ def get_qnode(qnode=None):
     if host in ['femto.sciclone.wm.edu','viz']: qnode='femto'
     if host in ['kuro.sciclone.wm.edu']: qnode='kuro'
     if host in ['gulf.sciclone.wm.edu']: qnode='gulf'
-    if host in ['bora.sciclone.wm.edu']: qnode='bora'
+    if re.match('bo\w+.sciclone.wm.edu',host)!=None: qnode='bora'
     if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
     return qnode
 
