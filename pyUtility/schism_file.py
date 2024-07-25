@@ -3123,6 +3123,7 @@ class schism_view:
         return p
 
     def schism_plot(self,fmt=0):
+        if self.wp.var.get() not in self.pvars: print(self.wp.var.get()+' not exist'); return
         if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
         if self.play=='on' and fmt==1: self.play='off'; self.hold='off'; return
         if self.hold=='on': return #add hold to avoid freeze when user press too frequently
@@ -3430,6 +3431,7 @@ class schism_view:
         else:
            self.vars=[]; self.svars_2d=[]; self.vvars=[]; iout=0; cvar=None
            print('schism outputs dir. not found')
+        self.pvars=['none','depth',*self.vars,*self.gr3]
 
         #read grid and param
         grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
@@ -3569,7 +3571,7 @@ class schism_view:
         #variable
         w.var=tk.StringVar(wd); w.var.set('depth')
         ttk.Label(master=fm,text='  variable').grid(row=0,column=0,sticky='W',pady=4)
-        svar=ttk.Combobox(fm,textvariable=w.var,values=['none','depth',*self.vars,*self.gr3],width=15,); svar.grid(row=0,column=1)
+        svar=ttk.Combobox(fm,textvariable=w.var,values=self.pvars,width=15,); svar.grid(row=0,column=1)
         svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm'))
 
         #figure
