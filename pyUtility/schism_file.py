@@ -16,10 +16,11 @@ class schism_grid:
         else:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
-        self.get_backend()
 
-    def get_backend(self):
-        bkn=mpl.get_backend().lower(); self.backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
+    @property
+    def backend(self):
+        bkn=mpl.get_backend().lower(); backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
+        return backend
 
     @property
     def INFO(self):
@@ -479,6 +480,7 @@ class schism_grid:
            for i in ibnx:
                #find all nodes in the nodal ball, and compute the angles
                if not hasattr(self,'xctr'): self.compute_ctr()
+               if not hasattr(self,'indel'): self.compute_nne()
                ips=unique(self.elnode[self.indel[i]]); ips=setdiff1d(ips[1:] if ips[0]<0 else ips,i); nps=len(ips)
                A=angle((self.x[ips]-self.x[i])+1j*(self.y[ips]-self.y[i])); iA=argsort(A); A,ips=A[iA],ips[iA]
                cA=angle((self.xctr[self.indel[i]]-self.x[i])+1j*(self.yctr[self.indel[i]]-self.y[i])) #angle for element center
