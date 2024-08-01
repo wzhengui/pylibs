@@ -1526,10 +1526,10 @@ class schism_grid:
             if dlk==0 and (btn in [1,3]) and pz==1:
                pz=self.interp(c_[px,py],value=self.data if hasattr(self,'data') else self.dp)
                if not hasattr(self,'hqp'):
-                  self.hqp=plot(px,py,'g^',ms=6,alpha=1)[0]
-                  self.hqt=text(px,py,'',color='orangered',fontsize=12,bbox=dict(facecolor='w',alpha=0.75))
+                  self.hqp=plot(px,py,'r^',ms=6,alpha=1)[0]
+                  self.hqt=text(px,py,'',color='orangered',fontsize=12,bbox=dict(facecolor='w',alpha=0.5))
                self.hqt.set_x(px); self.hqt.set_y(py); self.hqt.set_text(' {}'.format(pz[0]))
-               self.hqp.set_xdata(px); self.hqp.set_ydata(py); gcf().canvas.draw()
+               self.hqp.set_xdata([px]); self.hqp.set_ydata([py]); gcf().canvas.draw()
 
         if hasattr(self,'hqt'): delattr(self,'hqt')
         if hasattr(self,'hqp'): delattr(self,'hqp')
