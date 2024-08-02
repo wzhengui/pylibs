@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 #show difference between SCHISM param.in files
 # usage: Dparam.py param.in_1 param.in_2
-#        Dparam.py -d param.in_1 param.in_2 (only show common varibles all files have)
+#        Dparam.py -c param.in_1 param.in_2 (only show common varibles all files have)
+#        Dparam.py -d param.in_1 param.in_2 (only show different varibles that are missing in some files)
+#        Dparam.py -e param.in_1 param.in_2 (only show different varibles that are missing in some files,but sorted)
 
 #import os, sys
 #from read_schism_file import read_schism_param
@@ -15,8 +17,19 @@ else:
    for vi in sys.argv[1:]:
       if vi[0]!='-':
          files.append(vi)
-      elif vi=='-d':
+      elif vi=='-c':
          flagd=1
+      elif vi=='-d':
+         flagd=2
+      elif vi=='-e':
+         flagd=3
+      elif vi=='-h':
+         print('''
+               1. Dparam f1.nml f2.nml
+               2. Dparam -c f1.nml f2.nml (common variables)
+               3. Dparam -d f1.nml f2.nml (missing variables)
+               4. Dparam -e f1.nml f2.nml (sorted missing variables)
+               '''); sys.exit()
 
 Par=[]; Key=[]; Val=[];
 for i,fname in enumerate(files):
@@ -33,12 +46,15 @@ for i,fname in enumerate(files):
       [AKey.add(ki) for ki in Key[i]]
 
 print("{:20s}:    ".format('Parameters')+', '.join("{:10s}".format(vi) for vi in files))
-AKey=sorted(list(AKey)); 
+AKey=sorted(list(AKey)); lines=[]; vs=[]; slines=[]
 for ki in AKey:
     v=[p[ki] if (ki in k) else 'N/A' for k, p in zip(Key,Par)]  
     v=[str(i) if isinstance(i,list) else i for i in v]
     if len(unique(v))!=1:
-       if flagd==1 and 'N/A' in v:
-          pass
-       else:
-          print("{:20s}:    ".format(ki)+', '.join("{:10s}".format(str(vi)) for vi in v))
+       line="{:20s}:    ".format(ki)+', '.join("{:10s}".format(str(vi)) for vi in v)
+       if flagd==1 and ('N/A' in v): continue
+       if (flagd in [2,3]) and ('N/A' not in v): continue
+       lines.append(line); vs.append(v)
+if flagd==3: [[slines.append(i) for i,v in zip(lines,vs) if v[n]=='N/A'] for n,k in enumerate(files)]; lines=slines   #sort comparison
+print('\n'.join(lines)) #outputs difference
+
