@@ -1764,6 +1764,7 @@ class schism_bpfile:
             self.cidmove=gcf().canvas.mpl_connect('motion_notify_event', onmove)
             self.cidpress=gcf().canvas.mpl_connect('button_press_event', onclick)
             if self.nsta!=0 and len(self.hp)==0: self.plot_station()
+            #stop other bp/reg edit mode
             at='reg' if self.fmt==0 else 'bp'
             if self.backend==1:
                ap=[i for i in gcf().canvas.toolbar.actions() if i.iconText()=='Pan'][0]
@@ -1818,10 +1819,9 @@ class schism_bpfile:
                #disconnect and clean previous bpfile
                if hasattr(abp,at):
                   if self is not abp.bp:
-                     nhp=len(abp.bp.hp)
-                     for i in arange(nhp):
-                         abp.bp.hp[-1][0].remove(); abp.bp.ht[-1].remove()
-                         del abp.bp.hp[-1],abp.bp.ht[-1]
+                     for i in abp.bp.ht: i.remove()
+                     for i in abp.bp.hp: i.remove()
+                     abp.bp.ht=[]; abp.bp.hp=[]
                   if self.backend==1: abp.triggered.disconnect()
 
                #connect to new object
