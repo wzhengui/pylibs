@@ -718,6 +718,7 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
     sname (optional): name of file to be saved if value is provided 
     fmt=0: read all the DEM data
     fmt=1: only read domain information (lon, lat)
+    fmt=2: return geotiff_metadata
 
     Note: for *.tif and *.tiff files:
       position='center': elevation is defined at cell center
@@ -731,6 +732,7 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
        except:
           sys.exit('install tifffile=2022.5.4')
        ginfo=tiff.TiffFile(fname).geotiff_metadata; S=zdata()
+       if fmt==2: return ginfo
        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
        try:
