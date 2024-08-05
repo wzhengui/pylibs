@@ -1492,7 +1492,8 @@ def mdist(xy1,xy2,fmt=0,outfmt=0):
         if outfmt==0:
             pid=near_pts(xy,xy0); dist=abs((xy[:,0]+1j*xy[:,1])-(xy0[pid,0]+1j*xy0[pid,1]))
         else:
-            dist=abs((xy[:,0]+1j*xy[:,1])[:,None]-(xy0[pid,0]+1j*xy0[pid,1])[None,:])
+            #dist=abs((xy[:,0]+1j*xy[:,1])[:,None]-(xy0[pid,0]+1j*xy0[pid,1])[None,:])
+            dist=abs((xy[:,0]+1j*xy[:,1])[:,None]-(xy0[:,0]+1j*xy0[:,1])[None,:])
         return dist
 
     def pts_lines(xy,lxy,outfmt=0):
