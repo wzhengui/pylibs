@@ -1858,6 +1858,17 @@ def read_schism_prop(fname):
     pvalue=pdata[:,1] if pdata.ndim==2 else pdata[None,:][:,1]
     return pvalue
 
+def read_schism_th(fname,StartT=0,fmt=0):
+    '''
+    read schism *th file
+    fmt=0: convert time (second) to day; fmt=1: not convert
+    StartT=0: add starting date for the time
+    '''
+    C=zdata(); f=loadtxt(fname); C.time,C.data=f[:,0],f[:,1:]
+    if fmt==0: C.time=C.time/86400
+    C.time=C.time+StartT
+    return C
+
 def save_schism_grid(fmt=0,path='.',method=0):
     '''
     save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
