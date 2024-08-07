@@ -1927,7 +1927,7 @@ def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection
 #            print('convert flag is %d: %s\n' % (eflag, fn));
 #            fid.write('convert flag is %d: %s\n' % (eflag,fn))
 #            continue
-#        convert_matfile(fnz,fnv7)
+#        read_mat(fnz,fnv7)
 #        os.remove(fnv7+'.mat')
 #    fid.close()
 #    os.chdir(cdir)
@@ -1946,14 +1946,14 @@ def npz2mat(npz_data,fname):
     if isinstance(npz_data,str): npz_data=loadz(npz_data)
     sp.io.savemat(fname,npz_data.__dict__)
 
-def convert_matfile(matfile,fname=None):
+def read_mat(matfile,fname=None):
     '''
     Convert Matlab *.mat file to Python *.npz file (alias: mat2npz)
     Inputs:
       matfile: name of matlab file ('name.mat' or 'name')
       fname: name of *.npz file to be saved  ('name.npz' or 'name')
 
-    Examples: (mat2npz is alias to convert_matfile)
+    Examples: (mat2npz is alias to read_mat)
       1. mat2npz('A.mat','A.npz')
     '''
     from scipy import io
@@ -2380,6 +2380,10 @@ def read(fname,*args0,**args):
     generic function in read files with standard suffixs
     suffix supported:  npz, pkl, gr3, ll, ic, vgrid.in, bp, reg, prop, xlsx, nc, shp, nml, asc, tif, tiff,mat
                        yaml,th
+    for *.npz and *.nc file:
+        read(fname,'IO'): return file channel
+        read(fname,'vars'): return all variables
+        read(fname,'INFO'): return all variables information
     '''
     from .schism_file import (read_schism_hgrid, read_schism_vgrid, read_schism_bpfile, read_schism_reg,
                               read_schism_prop, read_schism_param,read_schism_th)
@@ -2399,16 +2403,37 @@ def read(fname,*args0,**args):
     if fname.endswith('.th'):   F=read_schism_th
     if fname.endswith('.shp'):  F=read_shapefile_data
     if fname.endswith('.nml'):  F=read_schism_param
-    if fname.endswith('.mat'):  F=convert_matfile
+    if fname.endswith('.mat'):  F=read_mat
     if F is None: sys.exit('unknown type of file: '+fname)
 
-    if (fname.endswith('.npz') or fname.endswith('.nc')) and ('IO' in args0):
+    if fname.endswith('.npz') or fname.endswith('.nc'):
        def fid_npz(svar):
            return loadz(fname,svar)
        def fid_nc(svar):
            fid=ReadNC(fname,1); f=fid.variables; data=[*f] if svar=='vars' else array(f[svar][:]); fid.close()
            return data
-       return fid_npz if fname.endswith('.npz') else fid_nc
+       fid=fid_npz if fname.endswith('.npz') else fid_nc
+
+       #return information about npz or netcdf file
+       if 'IO' in args0:
+          return fid
+       elif 'vars' in args0:
+          return array([i for i in fid('vars') if not (i.startswith('_') and i.endswith('_variables'))])
+       elif ('INFO' in args0) or ('VINFO' in args0):
+          vs=fid('vars'); ms=min([6,max([len(i) for i in vs])]); fs0='{:'+str(ms)+'s}: '
+          lines=[]; dt=''; ds=''
+          for i in vs:
+              if i.startswith('_') and i.endswith('_variables'): continue
+              v=fid(i); t=type(v); line=''
+              if t is list: line=fs0.format(i)+'list({})'.format(len(v))
+              if t is dict: line=fs0.format(i)+'dict({})'.format(len(v))
+              if t is str:  line=fs0.format(i)+v[:30]+',string'
+              if t is np.ndarray: line=fs0.format(i)+'array{},{}'.format(v.shape,v.dtype)
+              if line=='': line=fs0.format(i)+str(t)
+              lines.append(line)
+          return lines
+       else:
+          return F(fname,*args0,**args)
     else:
         return F(fname,*args0,**args)
 

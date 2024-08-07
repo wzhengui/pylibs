@@ -96,7 +96,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import pyUtility.mylib as mylib
    sys.modules['mylib'] = mylib
    from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
-        get_INFO,loadz,zdata,savez,find_cs,npz2mat,convert_matfile,
+        get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,
         smooth,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,
         inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,interp_vertical,read_shapefile_data,write_shapefile_data,
@@ -136,8 +136,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import move_figure as mvfig
    from pyUtility.mylib import modify_figure as mfig
    from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
-   from pyUtility.mylib import convert_matfile as mat2npz
-   from pyUtility.mylib import convert_matfile as loadm
+   from pyUtility.mylib import read_mat as mat2npz
+   from pyUtility.mylib import read_mat as convert_matfile
    from pyUtility.mylib import read_dem as convert_dem_format
    from pyUtility.mylib import load_dem as load_bathymetry
    from pyUtility.mylib import read_shapefile_data as read_shp
