@@ -103,7 +103,10 @@ class schism_grid:
            if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
            iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
            x3,y3=x[iqd],y[iqd]; x3[5::6]=nan; y3[5::6]=nan
-           hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
+           if sum(fp3)!=0:
+              hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
+           else:
+              hg0=[plot(x3,y3,lw=lw[1],color=ec[1],**args),]
 
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)

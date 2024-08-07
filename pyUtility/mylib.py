@@ -2379,14 +2379,14 @@ def read(fname,*args0,**args):
     '''
     generic function in read files with standard suffixs
     suffix supported:  npz, pkl, gr3, ll, ic, vgrid.in, bp, reg, prop, xlsx, nc, shp, nml, asc, tif, tiff,mat
-                       yaml,th
+                       yaml,th,2dm
     for *.npz and *.nc file:
         read(fname,'IO'): return file channel
         read(fname,'vars'): return all variables
         read(fname,'INFO'): return all variables information
     '''
     from .schism_file import (read_schism_hgrid, read_schism_vgrid, read_schism_bpfile, read_schism_reg,
-                              read_schism_prop, read_schism_param,read_schism_th)
+                              read_schism_prop, read_schism_param,read_schism_th,sms2grd)
 
     #determine read function
     F=None
@@ -2402,6 +2402,7 @@ def read(fname,*args0,**args):
     if fname.endswith('.yaml'): F=read_yaml
     if fname.endswith('.th'):   F=read_schism_th
     if fname.endswith('.shp'):  F=read_shapefile_data
+    if fname.endswith('.2dm'):  F=sms2grd
     if fname.endswith('.nml'):  F=read_schism_param
     if fname.endswith('.mat'):  F=read_mat
     if F is None: sys.exit('unknown type of file: '+fname)
