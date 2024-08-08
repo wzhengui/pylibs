@@ -80,8 +80,8 @@ class schism_grid:
               if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
               if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
            else:  #contourf or contour
-              if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
+              if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
               if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
@@ -309,27 +309,22 @@ class schism_grid:
         '''
         #element values
         if not hasattr(self,'nne'): self.compute_nne()
-        if (value is None) and (not hasattr(self,'dpe')): self.compute_ctr()
+        if ((value is None) or fmt==1) and (not hasattr(self,'dpe')): self.compute_ctr()
         v0=self.dpe if (value is None) else value
 
         #interpolation
-        vs=v0[self.ine]
+        vs=v0[self.ine]; fpn=(self.ine==-1)|isnan(vs); fpv=~fpn; vs[fpn]=0; v=zeros(self.np)*nan
         if fmt==0:
            if not hasattr(self,'area'): self.compute_area()
-           fpn=self.ine!=-1; a=self.area[self.ine]
-           ta=sum(a*fpn,axis=1); tv=sum(a*vs*fpn,axis=1)
-           fpz=ta!=0; v=zeros(self.np)*nan; v[fpz]=tv[fpz]/ta[fpz]
+           a=self.area[self.ine]; ta=sum(a*fpv,axis=1); tv=sum(a*vs,axis=1)
+           fp=ta!=0; v[fp]=tv[fp]/ta[fp]
         if fmt==1:
               dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
-              w=1/(dist**p); w[self.ine==-1]=0; tw=w.sum(axis=1); v=(w*vs).sum(axis=1)/tw
-        if fmt==2: vs[self.ine==-1]=v0.min()-1; v=vs.max(axis=1)
-        if fmt==3: vs[self.ine==-1]=v0.max()+1; v=vs.min(axis=1)
+              w=1/(dist**p); w[fpn]=0; tw=w.sum(axis=1); fp=tw!=0; v[fp]=(w*vs).sum(axis=1)[fp]/tw[fp]
+        if fmt==2: fp=sum(fpv,axis=1)!=0; vs[fpn]=-np.Inf; v[fp]=vs.max(axis=1)[fp]
+        if fmt==3: fp=sum(fpv,axis=1)!=0; vs[fpn]=np.Inf;  v[fp]=vs.min(axis=1)[fp]
         if fmt==4:
-           w=self.ine!=-1; tw=w.sum(axis=1)
-           if sum(isnan(v0))!=0:
-              vs[~w]=0; v=vs.sum(axis=1)/tw
-           else:
-              v=(w*vs).sum(axis=1)/tw
+           w=fpv; tw=w.sum(axis=1); fp=tw!=0; v[fp]=vs.sum(axis=1)[fp]/tw[fp]
         return v
 
     def compute_all(self,fmt=0):
