@@ -485,6 +485,7 @@ class schism_grid:
                if not hasattr(self,'xctr'): self.compute_ctr()
                if not hasattr(self,'indel'): self.compute_nne()
                ips=unique(self.elnode[self.indel[i]]); ips=setdiff1d(ips[1:] if ips[0]<0 else ips,i); nps=len(ips)
+               if self.i34[self.indel[i]].max()==4: ips=array([*n1[n2==i],*n2[n1==i]]); nps=len(ips) #check quads
                A=angle((self.x[ips]-self.x[i])+1j*(self.y[ips]-self.y[i])); iA=argsort(A); A,ips=A[iA],ips[iA]
                cA=angle((self.xctr[self.indel[i]]-self.x[i])+1j*(self.yctr[self.indel[i]]-self.y[i])) #angle for element center
 
