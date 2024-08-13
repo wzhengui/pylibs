@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+from pylib import *
+
+v=sys.argv
+if len(v)!=7:
+   sys.exit('''Convert the projections from fname1 to fname2
+   Usage: proj fname1 fmt1 prj1 fname2 fmt2 prj2
+   fname: file name
+   fmt: 0: SCHISM gr3 file; 1: SCHISM bp file; 2: xyz file; 3: xyz file with line number
+   prj: projection name (e.g. 'epsg:26918', 'epsg:4326'), or projection string (e.g. prj0=get_prj_file('epsg:4326')) 
+  
+   Example: proj hgrid.gr3 0 'epsg:26918' hgrid.ll 0 'epsg:4326' ''')
+else:
+   proj(v[1],int(v[2]),str(v[3]),v[4],int(v[5]),str(v[6]))
