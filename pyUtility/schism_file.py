@@ -1688,13 +1688,14 @@ class schism_bpfile:
         if fmt==0: self.x,self.y=px,py
         return [px,py]
 
-    def inside(self,xy,fmt=0):
+    def inside(self,xy,fmt=0,prj=None):
         '''
         check whether pts c_[x,y] are inside the polygon of bp points.
         fmt=0: return indices of pts inside; fmt=1: return boolean flag
         fmt=2: return indices of pts outside region; fmt=3: return boolean flag outside
+        prj=['prj1','prj2']: convert xy from prj1 to prj2
         '''
-
+        if prj is not None: xy=c_[proj_pts(*xy.T,*prj)].T
         fp=inside_polygon(xy,self.x,self.y)==1
         return nonzero(fp)[0] if fmt==0 else fp if fmt==1 else nonzero(~fp)[0] if fmt==2 else ~fp
     def outside(self,xy,fmt=2):
