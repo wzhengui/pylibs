@@ -33,6 +33,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
           'eof': ['eofs>=1.4.0'],
           'cloudpickle': ['cloudpickle==2.2.1'],
           'tiff': ['tifffile==2022.5.4','imagecodecs==2024.6.1'],
-          'urllib': ['urllib3==2.2.1']
+          'urllib': ['urllib3==2.2.1'],
+          'basemap': ['basemap==1.4.1','basemap-data-hires==1.3.2'],
+          'all': ['mpi4py>=3.0.0','pyshp>=2.1.0','pyproj>=3.0.0','eofs>=1.4.0','cloudpickle==2.2.1',
+                  'tifffile==2022.5.4','imagecodecs==2024.6.1','urllib3==2.2.1','basemap==1.4.1','basemap-data-hires==1.3.2']
         }
     )

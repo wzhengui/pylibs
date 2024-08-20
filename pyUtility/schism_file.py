@@ -3121,7 +3121,8 @@ class schism_view:
         w=self.wp; fn=w.fn.get()
         if fn=='add': #new figure
             if fmt==1: return #return if entry from control window
-            p=zdata(); self.get_param(p); p.xm,p.ym=self.xm,self.ym; p.hf=figure(figsize=p.figsize,num=self.nf())
+            p=zdata(); self.get_param(p); #p.xm,p.ym=[self.xm,self.ym] if p.map=='none' else [self.xml,self.yml]
+            p.hf=figure(figsize=p.figsize,num=self.nf())
             cid=len(self.fns); self.figs.append(p); self.fns.append('{}: {}'.format(len(self.fns)+1,p.var))
         else: #old figure
             cid=self.fns.index(fn); p=self.figs[cid]
@@ -3159,6 +3160,7 @@ class schism_view:
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
+           if p.map!='none': sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; add_basemap(p.xm,p.ym,dpi=1000,service=sd[p.map]) 
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
 
            #add pts for time series
@@ -3374,7 +3376,7 @@ class schism_view:
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
-            w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1])
+            w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1]); w.map.set(p.map)
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
             if not fignum_exists(self.fig.hf.number): return
@@ -3387,7 +3389,7 @@ class schism_view:
         if p is None: p=zdata()
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
         p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
-        p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get()
+        p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get(); p.map=w.map.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.zoom=w.zoom.get()
         p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
@@ -3400,6 +3402,17 @@ class schism_view:
         else: #stacks
             p.it=self.istack.index(int(p.StartT)); p.it2=len(self.istack)-self.istack[::-1].index(int(p.EndT))
         return p
+
+    def update_xy(self):
+        w=self.wp; gd=self.hgrid; mp=w.map.get()
+        if gd.ics==1:
+           gd.x,gd.y,xm,ym=[gd.x0,gd.y0,self.xm,self.ym] if mp=='none' else [gd.lon,gd.lat,self.xml,self.yml]
+           if hasattr(self,'fig'):
+              p=self.fig
+              if int(p.map=='none') +int(mp=='none')==1: w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1]); p.xm=xm; p.ym=ym
+              p.map=mp
+           else:
+              w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
 
     def fid(self,fname): #output chanenl
         if not hasattr(self,'_fid'): self._fid={}
@@ -3446,19 +3459,31 @@ class schism_view:
         self.pvars=['none','depth',*self.vars,*self.gr3]
 
         #read grid and param
-        grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; vrd=run+'/vgrid.in'; par=run+'/param.nml'
+        grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; grl=run+'/hgrid.ll'; vrd=run+'/vgrid.in'; par=run+'/param.nml'; fexist=os.path.exists; fpath=os.path.abspath
         if os.path.exists(par): p=read_schism_param(par,3); self.param=p; self.StartT=datenum(p.start_year,p.start_month,p.start_day,p.start_hour)
         def _read_grid():
-           gd=loadz(grd).hgrid if os.path.exists(grd) else read_schism_hgrid(gr3) if os.path.exists(gr3) else None
-           vd=loadz(grd).vgrid if os.path.exists(grd) else read_schism_vgrid(vrd) if os.path.exists(vrd) else None
+           def _read_hgrid():
+               gd0=read_schism_hgrid(gr3); gd2=read_schism_hgrid(grl) if (fexist(grl) and fpath(gr3)!=fpath(grl)) else gd0; gd0.lon,gd0.lat=gd2.x,gd2.y
+               return gd0
+           gd=loadz(grd).hgrid if fexist(grd) else _read_hgrid() if fexist(gr3) else None
+           vd=loadz(grd).vgrid if fexist(grd) else read_schism_vgrid(vrd) if fexist(vrd) else None
            if gd==None: #create hgrid
               if cvar==None: return
               gd=get_schism_output_info(self.outputs,4)
-           self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
+           if not hasattr(gd,'x0'): gd.x0,gd.y0=[gd.x,gd.y]
+           if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
+           gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
+           self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
+           self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
+           if gd.lon.min()<-180 or gd.lon.max()>180 or gd.lat.min()<-90 or gd.lat.max()>90: w._map['values']=['none',]
+           try:
+             from mpl_toolkits.basemap import Basemap
+           except:
+             w._map['values']=['none',]
         self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1]
         threading.Thread(target=_read_grid).start()
 
@@ -3601,9 +3626,13 @@ class schism_view:
         #grid, bnd, method
         sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
         w.grid=tk.IntVar(wd); w.grid.set(0); w.bnd=tk.IntVar(wd); w.bnd.set(0); w.med=tk.IntVar(wd); w.med.set(0)
+        w.map=tk.StringVar(wd); w.map.set('none')
         tk.Checkbutton(master=sfm2,text='grid',variable=w.grid,onvalue=1,offvalue=0).grid(row=0,column=0)
         tk.Checkbutton(master=sfm2,text='bnd',variable=w.bnd,onvalue=1,offvalue=0).grid(row=0,column=1,sticky='W')
         tk.Checkbutton(master=sfm2,text='ctr',variable=w.med,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
+        ttk.Label(master=sfm2,text=', map').grid(row=0,column=3,sticky='W')
+        w._map=ttk.Combobox(master=sfm2,textvariable=w.map,values=['none','Image','Topo','Street'],width=6); w._map.grid(row=0,column=4,sticky='W')
+        w._map.bind("<<ComboboxSelected>>",lambda x: self.update_xy())
 
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])

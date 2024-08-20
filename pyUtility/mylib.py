@@ -90,6 +90,47 @@ class blit_manager:
         self.hf.canvas.blit(self.hf.bbox)
         self.hf.canvas.flush_events()
 
+def add_basemap(xm=None,ym=None,fmt=0,dpi=300,service='World_Imagery',resolution='h',prj='epsg:4326',scale=1,color='0.8',**args):
+    '''
+    add basemaps in Lon&Lat projection, and it needs packages of "basemap" and "basemap-data-hires"
+    For more information about Basemap, refer to https://matplotlib.org/basemap/stable/users/geography.html
+
+    xm: longitude range;  ym: latitude range
+    prj: only a few projecitons are supported (see Basemap doc)
+
+    fmt=0: arcgis map service
+       dpi: resolution for arcgis map
+       service: arcgis service (World_Imagery, World_Topo_Map, World_Street_Map, USA_Topo_Maps,etc.)
+                (https://doc.arcgis.com/en/data-appliance/7.2/maps/world-topographic-map.htm)
+
+    fmt>1: other basemaps (works better for larger region)
+       fmt=1: costal line;  2: rivers;  3: lands;  4: US states;  5: etopo;   6: shadedrelief;  7:bluemarble
+       resolution: (c,l,i,h,f) for other maps
+       scale: downsample parameter for some basemaps
+       color: color for fillcontinents
+    '''
+    #pre-proc
+    try:
+      from mpl_toolkits.basemap import Basemap
+    except:
+      sys.exit('install basemap')
+    if xm is None: xm=xlim()
+    if ym is None: ym=ylim()
+    if not hasattr(fmt,'__len__'): fmt=[fmt]
+
+    #get basemap
+    bm=Basemap(llcrnrlon=xm[0],urcrnrlon=xm[1],llcrnrlat=ym[0],urcrnrlat=ym[1],epsg=prj.split(':')[-1],resolution=resolution,**args)
+    for i in fmt:
+        if i==0: bm.arcgisimage(xpixels=dpi,service=service)
+        if i==1: bm.drawcoastlines()
+        if i==2: bm.drawrivers()
+        if i==3: bm.fillcontinents(color=color)
+        if i==4: bm.drawstates()
+        if i==5: bm.etopo(scale=scale)
+        if i==6: bm.shadedrelief(scale=scale)
+        if i==7: bm.bluemarble(scale=scale)
+    return bm
+
 class _COMM_WORLD:
       def __init__(self):
           self.pid=os.getpid()
