@@ -3160,7 +3160,7 @@ class schism_view:
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
-           if p.map!='none': sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; add_basemap(p.xm,p.ym,dpi=1000,service=sd[p.map]) 
+           if p.map!='none': self.add_map()
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
 
            #add pts for time series
@@ -3263,6 +3263,15 @@ class schism_view:
 
     def plotsc(self):
         print('profile function not available yet'); return
+
+    def add_map(self):
+        if hasattr(self,'mp'):
+           mp=self.mp; sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; p=self.fig
+           mp.llcrnrlon=p.xm[0]; mp.urcrnrlon=p.xm[1]; mp.llcrnrlat=p.ym[0]; mp.urcrnrlat=p.ym[1]
+           mp.arcgisimage(xpixels=1500,service=sd[p.map],cachedir=self.runpath)
+        else:
+           from mpl_toolkits.basemap import Basemap
+           xm,ym=self.xml,self.yml; self.mp=Basemap(llcrnrlon=xm[0],urcrnrlon=xm[1],llcrnrlat=ym[0],urcrnrlat=ym[1],epsg=4326); self.add_map()
 
     def query(self,sp=None):
         if not (hasattr(self,'fig') and hasattr(self.fig,'hpt') and hasattr(self.fig,'hf')): return
@@ -3433,6 +3442,7 @@ class schism_view:
                pass
         if os.path.exists(os.curdir+os.sep+'.schism_check'): os.remove(os.curdir+os.sep+'.schism_check')
         if os.path.exists(os.curdir+os.sep+'.schism_compare'): os.remove(os.curdir+os.sep+'.schism_compare')
+        for i in glob(self.runpath+os.sep+'World_*.png'): os.remove(i)
         close('all'); self.window.destroy()
 
     @property
