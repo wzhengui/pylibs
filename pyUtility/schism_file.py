@@ -2872,18 +2872,20 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
         for ivar, varnamei in enumerate(varname):
             svars=get_schism_var_info(varnamei,modules,fmt=outfmt)
             for m,[vari,svar] in enumerate(svars):
-                C=C0 if (svar in dvars_2d) else read('{}/{}_{}.nc'.format(bdir,svar,istack),1); cvar=C.variables[svar]; vi=[]
+                C=C0 if (svar in dvars_2d) else read('{}/{}_{}.nc'.format(bdir,svar,istack),1); cvar=C.variables[svar]; vi=[]; npt=cvar.shape[1]
                 if svar in dvars_2d:  #2D
                    vi=array([array(cvar[i]).astype('float32') for i in arange(nt) if i%nspool==0])
-                   if reg is not None: npt=cvar.shape[1]; vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
+                   if reg is not None: vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                 else:   #3D
                    for n,k in enumerate(zs):
                        if k>nvrt:
-                          if not hasattr(P,'kbp'): vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sindp,P.kbp=arange(np),vd.kbp
-                          vii=array([array(cvar[i][P.sindp,P.kbp]).astype('float32') for i in arange(nt) if i%nspool==0])
+                          if (not hasattr(P,'kbp')) and npt==np: vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sindp,P.kbp=arange(np),vd.kbp
+                          if (not hasattr(P,'kbe')) and npt==ne: vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sinde,P.kbe=arange(ne),gd.compute_kb(vd.kbp)
+                          sindi,kbi=[P.sindp,P.kbp] if npt==np else [P.sinde,P.kbe]
+                          vii=array([array(cvar[i][sindi,kbi]).astype('float32') for i in arange(nt) if i%nspool==0])
                        else:
                           vii=array([array(cvar[i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
-                       if reg is not None: npt=cvar.shape[1]; vii=vii[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
+                       if reg is not None: vii=vii[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                        vi.append(vii)
                    vi=vi[0] if len(zs)==1 else array(vi).transpose([1,0,2]); C.close()
                 vs=vi if m==0 else c_[vs[...,None],vi[...,None]]
