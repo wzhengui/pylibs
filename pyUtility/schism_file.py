@@ -808,7 +808,8 @@ class schism_grid:
         fmt=0: compute bottom element indices
         fmt=1: compute bottom side indices
         '''
-        if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=-1; kb=kb.max(axis=1)
+        #if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=-1; kb=kb.max(axis=1)
+        if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=10000; kb=kb.min(axis=1)+1
         if fmt==1:
            if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
            kb=kbp[self.isidenode].max(axis=1)
