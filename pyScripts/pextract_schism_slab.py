@@ -71,8 +71,11 @@ for svar in svars:
    for istack in stacks:
        fname='{}_{}_{}_slab'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
-          read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fname,reg=reg)
-          dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
+          try:
+             read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fname,reg=reg)
+             dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
+          except:
+             pass
 
 #combine results
 if ibatch==1: comm.Barrier()
