@@ -44,7 +44,7 @@ class schism_grid:
         return self.dps
 
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,
-             xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,**args):
+             xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours
@@ -59,6 +59,7 @@ class schism_grid:
         cb_aspect: adjust colorbar width
         shading: only used for method=1, and value.size=gd.np
         xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
+        nodata: change value==nodata to nan for plotting
         '''
 
         if ec is None: ec='None'
@@ -71,10 +72,12 @@ class schism_grid:
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
+           if nodata is not None: fpnd=value==nodata; value[fpnd]=nan
            if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
            if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
            #plot
+           value0=value #save original data
            if fmt==1 and method==1:  #tripcolor
               if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
               if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
@@ -85,7 +88,8 @@ class schism_grid:
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
               if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
-           self.data=value
+           if nodata is not None: value0[fpnd]=nodata
+           self.data=value0
 
            #add colobar
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
