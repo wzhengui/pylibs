@@ -3158,13 +3158,13 @@ class schism_view:
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
-        self.hold='on'
+        self.hold='on'; nodata=None if p._nan=='none' else p.nan
         if fmt==0:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                self.get_data(p); v=self.data
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
+               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,nodata=nodata,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
+               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
@@ -3199,11 +3199,13 @@ class schism_view:
                 if self.play=='off': break
                 if p.var not in ['depth','none']: # contourf
                     self.get_data(p); v=self.data; self.query(1)
+                    if nodata is not None: fpnd=v==nodata; v[fpnd]=nan
                     if p.med==0:
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[self.fp4]])
                     else:
-                        for i in arange(len(p.ax.collections)): p.ax.collections.pop()
-                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,ticks=11,cmap='jet',cb=False,zorder=1)
+                        [i.remove() for i in p.ax.collections] 
+                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap='jet',cb=False,zorder=1)
+                    if nodata is not None: v[fpnd]=nodata
                 if p.vvar!='none':  #vector
                    u,v=self.get_vdata(p)
                    if p.med==0: p.hv[0].set_UVC(u,v)
@@ -3391,9 +3393,13 @@ class schism_view:
             if not hasattr(self,'hgrid'): return
             p=self.get_param()
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
+            w._nan.set('none'); self.update_panel('nan')
+        elif event=='nan': #set nodata
+            w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='nan' else w.sfm.grid_forget()
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
+            w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('nan')
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1]); w.map.set(p.map)
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
@@ -3406,7 +3412,7 @@ class schism_view:
     def get_param(self,p=None):
         if p is None: p=zdata()
         w=self.wp; p.var=w.var.get(); p.fn=w.fn.get(); p.layer=w.layer.get(); p.time=w.time.get()
-        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]
+        p.StartT=w.StartT.get(); p.EndT=w.EndT.get(); p.vm=[w.vmin.get(),w.vmax.get()]; p._nan=w._nan.get(); p.nan=w.nan.get()
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get(); p.map=w.map.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.zoom=w.zoom.get()
         p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
@@ -3660,10 +3666,14 @@ class schism_view:
         w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=18); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
 
         #limit
+        sfm3=ttk.Frame(master=fm); sfm3.grid(row=3,column=2,sticky='W')
         w.vmin=tk.DoubleVar(wd); w.vmax=tk.DoubleVar(wd); w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1])
         ttk.Label(master=fm,text='  limit').grid(row=3,column=0,sticky='W')
         ttk.Entry(fm,textvariable=w.vmin,width=10).grid(row=3,column=1,sticky='W',padx=2)
-        ttk.Entry(fm,textvariable=w.vmax,width=10).grid(row=3,column=2,sticky='W')
+        ttk.Entry(sfm3,textvariable=w.vmax,width=10).grid(row=0,column=0,sticky='W',padx=0)
+        w._nan=tk.StringVar(wd); w.nan=tk.DoubleVar(wd); w._nan.set('none'); w.nan.set(0)
+        ttk.OptionMenu(sfm3,w._nan,'','none','nan',command=lambda x: self.update_panel('nan')).grid(row=0,column=1,padx=5,sticky='W')
+        sfm4=ttk.Frame(master=sfm3); ttk.Entry(sfm4,textvariable=w.nan,width=5).grid(row=0,column=0,sticky='W'); w.sfm=sfm4
 
         #frame2: vector, time_series
         fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW'); fms.append(fm)
