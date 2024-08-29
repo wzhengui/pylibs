@@ -3014,11 +3014,12 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
            'zvel_elem':'verticalVelAtElement','temp_elem':'temperatureAtElement','salt_elem':'salinityAtElement',
            'pres_x':'barotropicPresGradX','pres_y':'barotropicPresGradY'}
 
-    ICM={'PB1':'ICM_PB1','PB2':'ICM_PB2','PB3':'ICM_PB3',  #core: phytoplankton
+    ICM={'PB1':'ICM_PB1','PB2':'ICM_PB2','PB3':'ICM_PB3','CHLA':'ICM_CHLA',  #core: phytoplankton
         'RPOC':'ICM_RPOC','LPOC':'ICM_LPOC','DOC':'ICM_DOC', #core: carbon
         'RPON':'ICM_RPON','LPON':'ICM_LPON','DON':'ICM_DON','NH4':'ICM_NH4','NO3':'ICM_NO3', #core: nitrogen
         'RPOP':'ICM_RPOP','LPOP':'ICM_LPOP','DOP':'ICM_DOP','PO4':'ICM_PO4', #core: phosphorus
         'COD':'ICM_COD','DO':'ICM_DOX', #core: COD and DO
+        'SRPOC':'ICM_SRPOC','SRPON':'ICM_SRPON','SRPOP':'ICM_SRPOP','PIP':'ICM_PIP', #SRM module
         'SU':'ICM_SU','SA':'ICM_SA', #silica
         'ZB1':'ICM_ZB1','ZB2':'ICM_ZB2', #zooplankton
         'TIC':'ICM_TIC','ALK':'ICM_ALK','CA':'ICM_CA','CACO3':'ICM_CACO3', #pH
