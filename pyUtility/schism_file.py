@@ -701,6 +701,28 @@ class schism_grid:
 
         return self.nne
 
+    def compute_nee(self):
+        '''
+        compute element ball:
+          mnee:  maximum number of elements in element ball (exclude itself)
+          nee:   number of elements in element ball
+          ielel: indices for each element ball
+          iee:   indices for each element ball, but in maxtrix " shape=[ne,max(nee)]"
+        '''
+        if not hasattr(self,'nne'): self.compute_nne()
+        nee=zeros(self.ne).astype('int'); iee=arange(self.ne).astype('int')[:,None]
+        for m in arange(4):
+            ies=self.ine[self.elnode[:,m]].T; ies[:,self.elnode[:,m]==-2]=-1
+            for n in arange(self.mnei):
+                ie=ies[n]; mnee=iee.shape[1]; fp=ie!=-1
+                for k in arange(mnee): fp=fp*(ie!=iee[:,k])
+                if sum(fp)==0: continue
+                nee[fp]=nee[fp]+1 #add new elem
+                if nee.max()>=mnee: iee=c_[iee,-ones(self.ne).astype('int')[:,None]]
+                iee[nonzero(fp)[0],nee[fp]]=ie[fp]
+        self.nee=nee; self.iee=iee[:,1:]; self.mnee=self.iee.shape[1]; self.ielel=array([k[:i] for i,k in zip(nee,self.iee)],dtype='O')
+        return self.nee
+
     def compute_ic3(self):
         '''
         compute element-to-side table, where
