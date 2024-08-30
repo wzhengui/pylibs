@@ -43,8 +43,8 @@ class schism_grid:
         if not hasattr(self,'zcj'): self.compute_side(2)
         return self.dps
 
-    def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,
-             xlim=None,ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,**args):
+    def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
+             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours
@@ -59,7 +59,8 @@ class schism_grid:
         cb_aspect: adjust colorbar width
         shading: only used for method=1, and value.size=gd.np
         xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
-        nodata: change value==nodata to nan for plotting
+        nodata: change value to nan for plotting. 1). nodata=number: fp=value==nodata;  2). nodata=[vmin,vmax]: fp=(value<vmin)|(value>vmax)
+        bnd=1: plots grid boundary; bnd=0: not plot
         '''
 
         if ec is None: ec='None'
@@ -72,7 +73,11 @@ class schism_grid:
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
-           if nodata is not None: fpnd=value==nodata; value[fpnd]=nan
+           if nodata is not None:
+              if isinstance(nodata,list):
+                 fpnd=(value<nodata[0])|(value>nodata[1]); nodata=value[fpnd]; value[fpnd]=nan
+              else:
+                 fpnd=value==nodata; value[fpnd]=nan
            if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
            if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
@@ -112,6 +117,7 @@ class schism_grid:
            else:
               hg0=[plot(x3,y3,lw=lw[1],color=ec[1],**args),]
 
+        if bnd!=0: self.plot_bnd()
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
         if ylim is not None: setp(ax,ylim=ylim)
