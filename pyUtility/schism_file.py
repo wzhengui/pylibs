@@ -760,7 +760,7 @@ class schism_grid:
         self.ic3[self.elside==-1]=-1
         return self.ic3,self.elside
 
-    def compute_acor(self,pxy,fmt=0):
+    def compute_acor(self,pxy,fmt=0,out=0):
         '''
         compute acor coodinate for points pxy[npt,2]
 
@@ -771,6 +771,7 @@ class schism_grid:
                acor: the area coordinate
                fmt=0: (default) faster method by searching the neighbors of elements and nodes
                fmt=1: slower method using point-wise comparison
+               out=0: use nearest node if points outside grid domain; out=1: interp using nearest boundary element
 
                Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
@@ -811,6 +812,14 @@ class schism_grid:
            #use point-wise method for the remain pts
            sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid(pxy[sindp])==1]
            if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor(pxy[sindp],fmt=1)
+
+           #interp on nearest side for points outside of domain
+           if out==1:
+              sindp=nonzero(pie==-1)[0]
+              if sum(sindp)!=0:
+                 if not hasattr(self,'xcj'): self.compute_side(fmt=2)
+                 sinds=pindex(self.isdel[:,1]==-1); pie[sindp]=self.isdel[sinds[near_pts(pxy[sindp],c_[self.xcj[sinds],self.ycj[sinds]])],0]
+                 fps,sip,sacor=self.inside_elem(pxy[sindp],pie[sindp],out=1); pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
 
         elif fmt==1:
             #check 1st triangle
@@ -859,19 +868,20 @@ class schism_grid:
         self.angles=array(angles).T
         return self.angles
 
-    def interp(self,pxy,value=None,fmt=0):
+    def interp(self,pxy,value=None,fmt=0,out=0):
         '''
         interpolate to get value at pxy
           pxy: c_[x,y]
           value=None: gd.dp is used; value: array of [np,] or [ne,]
           fmt=0: (default) faster method by searching the neighbors of elements and nodes
           fmt=1: slower method using point-wise comparison
+          out=0: use nearest node if points outside grid domain; out=1: interp using nearest element
 
           Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
 
         vi=self.dp if value is None else value; npt=len(vi) #get value
-        pie,pip,pacor=self.compute_acor(pxy,fmt=fmt)        #get interp coeff
+        pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out)        #get interp coeff
 
         #interp
         if npt==self.np:
@@ -1311,32 +1321,40 @@ class schism_grid:
         if fname is not None: C=schism_bpfile(); C.x,C.y,C.z=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]; C.save(fname)
         return sindw
 
-    def inside_elem(self,pxy,ie):
+    def inside_elem(self,pxy,ie,out=0):
         '''
         check whether pts are inside elements, then compute area coordinates for pts in elements
            pxy: c_[x,y]
            ie: array of element indices corresponding to each pt
+           out=0: omit points outside of elements: out=1: include points even if they are outside of elements
         '''
-        sind=[]; pip=[]; pacor=[]
-        for i in arange(self.i34.max()-2):
+        sind=[]; pip=[]; pacor=[]; nloop=self.i34[ie].max()-2; fp4=self.i34[ie]==4
+        for i in arange(nloop):
             #get pts and element info
-            if i==0: ip=self.elnode[ie,:3]; x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy.T
-            if i==1:
-                fpr=(~fps)*(self.i34[ie]==4); sindr=nonzero(fpr)[0];
-                ip=self.elnode[ie[fpr]][:,array([0,2,3])]; x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy[fpr].T
+            sindp=arange(len(pxy)) if i==0 else nonzero((~fps)*fp4 if out==0 else fp4)[0]
+            if len(sindp)==0: continue
+            ip=self.elnode[ie[sindp]][:,array([0,1,2] if i==0 else [0,2,3])]
+            x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy[sindp].T
 
             #compute area coordinates
-            A0=signa(c_[x1,x2,x3],c_[y1,y2,y3]); A1=signa(c_[xi,x2,x3],c_[yi,y2,y3])
-            A2=signa(c_[x1,xi,x3],c_[y1,yi,y3]); A3=signa(c_[x1,x2,xi],c_[y1,y2,yi])
-            fps=(A1>=0)*(A2>=0)*(A3>=0); ac1=A1[fps]/A0[fps]; ac2=A2[fps]/A0[fps]
-            if not isinstance(fps,np.ndarray): fps=array([fps])
+            A1=signa(c_[xi,x2,x3],c_[yi,y2,y3]); A2=signa(c_[x1,xi,x3],c_[y1,yi,y3]); A3=signa(c_[x1,x2,xi],c_[y1,y2,yi])
+            if out==0:
+               A0=signa(c_[x1,x2,x3],c_[y1,y2,y3]); fps=(A1>=0)*(A2>=0)*(A3>=0)
+            else: #include points outside
+               A1=abs(A1); A2=abs(A2); A3=abs(A3); A0=A1+A2+A3; fps=A0>=0
+               if i==0: Am=c_[A1,A2,A3][fp4].min(axis=1)
+            ac1=A1[fps]/A0[fps]; ac2=A2[fps]/A0[fps]; ac3=1-ac1-ac2
+            fpn=ac3<0; ac2[fpn]=1-ac1[fpn]; ac3[fpn]=0
+            #if not isinstance(fps,np.ndarray): fps=array([fps])
 
-            #get index of pts
-            if i==0: sind.extend(nonzero(fps)[0])
-            if i==1: sind.extend(sindr[fps])
-            ac3=1-ac1-ac2; fpn=ac3<0; ac2[fpn]=1-ac1[fpn]; ac3[fpn]=0
-            pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,ac3])
-        return array(sind),array(pip),array(pacor)
+            #save results
+            if i==1 and out==1:
+               pip=array(pip); pacor=array(pacor)
+               fpn=c_[A1,A2,A3].min(axis=1)<Am; pip[sindp[fpn]]=ip[fpn]; pacor[sindp[fpn]]=array(c_[ac1,ac2,ac3][fpn])
+            else:
+               sind.extend(sindp[fps]); pip.extend(ip[fps]); pacor.extend(c_[ac1,ac2,ac3])
+        fps=argsort(sind)
+        return array(sind)[fps],array(pip)[fps],array(pacor)[fps]
 
     def inside_grid(self,pxy):
         '''

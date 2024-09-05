@@ -2015,6 +2015,12 @@ def read_mat(matfile,fname=None):
     if fname is not None: savez(fname,S)
     return S
 
+def pindex(fp):
+    '''
+    return Ture indices of boolean array
+    '''
+    return nonzero(fp)[0]
+
 def cindex(index,shape):
     '''
     convert array index: same as unravel_index and ravel_multi_index
