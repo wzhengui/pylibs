@@ -636,7 +636,7 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
 
     elif igrd==1: #schism grid (unstrucured data)
        sind=pindex((xi0>=xm[0])*(xi0<=xm[1])*(yi0>=ym[0])*(yi0<=ym[1]))
-       pie,pip,pacor=gd.compute_acor(c_[xi0[sind],yi0[sind]]); fp=pie!=-1
+       pie,pip,pacor=gd.compute_acor(c_[xi0[sind],yi0[sind]],out=0); fp=pie!=-1
        if sum(fp)!=0:
           sindp=sind[fp]; dp=-(gd.dp[pip[fp]]*pacor[fp]).sum(axis=1)
        else:

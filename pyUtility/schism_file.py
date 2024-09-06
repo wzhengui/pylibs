@@ -760,7 +760,7 @@ class schism_grid:
         self.ic3[self.elside==-1]=-1
         return self.ic3,self.elside
 
-    def compute_acor(self,pxy,fmt=0,out=0):
+    def compute_acor(self,pxy,fmt=0,out=1):
         '''
         compute acor coodinate for points pxy[npt,2]
 
@@ -868,7 +868,7 @@ class schism_grid:
         self.angles=array(angles).T
         return self.angles
 
-    def interp(self,pxy,value=None,fmt=0,out=0):
+    def interp(self,pxy,value=None,fmt=0,out=1):
         '''
         interpolate to get value at pxy
           pxy: c_[x,y]
@@ -2812,7 +2812,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
            if not hasattr(P,'nns'): P.nns,P.ins=gd.nns[pip],gd.ins[pip]; P.ds=P.ins.shape; P.fp=P.ins!=0
         else:
            if isinstance(sgrid,int): sgrid=gd.scatter_to_grid(fmt=2)
-           if not hasattr(P,'pie'): P.pie,P.pip,P.pacor=sgrid.compute_acor(c_[lx,ly])
+           if not hasattr(P,'pie'): P.pie,P.pip,P.pacor=sgrid.compute_acor(c_[lx,ly],out=0)
 
     #extract time series@xyz or transect@xy
     mtime=[]; mdata=[[] for i in varname]
