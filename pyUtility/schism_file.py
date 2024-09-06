@@ -43,6 +43,20 @@ class schism_grid:
         if not hasattr(self,'zcj'): self.compute_side(2)
         return self.dps
 
+    @property
+    def pxy(self):
+        return c_[self.x,self.y]
+
+    @property
+    def exy(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return c_[self.xctr,self.yctr]
+
+    @property
+    def sxy(self):
+        if not hasattr(self,'xcj'): self.compute_side(2)
+        return c_[self.xcj,self.ycj]
+
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
              ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,**args):
         '''
@@ -782,7 +796,7 @@ class schism_grid:
            #search element ctr
            if not hasattr(self,'xctr'): self.compute_ctr()
            #if hasattr(self,'bndinfo'): sindp=sindp[self.inside_grid(pxy)==1]
-           sinde=near_pts(pxy[sindp],c_[self.xctr,self.yctr]); fps,sip,sacor=self.inside_elem(pxy[sindp],sinde)
+           sinde=near_pts(pxy[sindp],self.exy); fps,sip,sacor=self.inside_elem(pxy[sindp],sinde)
            if len(fps)!=0: pie[sindp[fps]]=sinde[fps]; pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
 
            #search the direct neighbors of element ctr
@@ -914,7 +928,7 @@ class schism_grid:
         if fmt==0: xyz=c_[self.x,self.y,self.z]
         if fmt==1:
            if not hasattr(self,'dpe'): self.compute_ctr()
-           xyz=c_[self.xctr,self.yctr,self.dpe]
+           xyz=c_[self.exy,self.dpe]
         if fmt==2:
            if not hasattr(self,'dps'): self.compute_side(fmt=2)
            xyz=c_[self.xcj,self.ycj,self.dps]
@@ -1244,7 +1258,7 @@ class schism_grid:
         self.index_bad_quad=qind[pindex(fp)]
 
         #output bad_quad location as bp file
-        sbp=schism_bpfile(); sbp.x,sbp.y=c_[self.xctr,self.yctr][self.index_bad_quad].T; sbp.save(fname)
+        sbp=schism_bpfile(); sbp.x,sbp.y=self.exy[self.index_bad_quad].T; sbp.save(fname)
         return self.index_bad_quad
 
     def plot_bad_quads(self,color='r',ms=12,*args):
@@ -1380,6 +1394,83 @@ class schism_grid:
         xy:  subdomin region (c_[x,y], or reg file)
         '''
         return get_schism_grid_subdomain(self,xy)
+
+    def subgrid(self,nsub=2,reg=None):
+        '''
+        return a subgrid with elements refined
+           nsub: number of segment each side divided; each element will be divided to nsub*nsub parts
+           reg:  only refine element inside region;  1). string; 2). xy of region.  3). array of element indices
+        '''
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        if not hasattr(self,'elside'): self.compute_ic3()
+        if reg is None:
+           sinde=arange(self.ne)
+        elif isinstance(reg,str):
+           sinde=read(reg).inside(self.exy)
+        elif isinstance(reg,np.ndarray):
+           if reg.ndim==1: sinde=reg
+           if reg.ndim==2: sinde=pindex(inside_polygon(gd.exy,*rxy.T),1)
+
+        nsb=nsub; nsp=nsub+1; xn=[]; yn=[]; zn=[]; iep=[]; npa=self.np #additional nodes
+        #get the side information, and then divide them into nsb sections
+        sinds=unique(self.elside[sinde]); sinds=sinds[sinds!=-1] #triangles, and all sides
+        ne,ns=len(sinde),len(sinds); sdict=-ones(self.ns,'int'); sdict[sinds]=arange(ns) #side dict
+        ds=[nsp,ns]; xs,ys,zs=zeros(ds),zeros(ds),zeros(ds); isd=zeros(ds,'int') #the sub-node information
+        sindp=self.isidenode[sinds].T; x1,x2=self.x[sindp]; y1,y2=self.y[sindp]; z1,z2=self.z[sindp]
+        xs[0]=x1; xs[-1]=x2; ys[0]=y1; ys[-1]=y2; isd[0]=sindp[0]; isd[-1]=sindp[1]
+        for i in arange(1,nsb): xs[i]=((nsb-i)*x1+i*x2)/nsb; ys[i]=((nsb-i)*y1+i*y2)/nsb; zs[i]=((nsb-i)*z1+i*z2)/nsb
+        isd[1:nsb]=arange(ns*(nsb-1),dtype='int').reshape([nsb-1,ns])+npa;
+        xn.extend(xs[1:nsb].ravel()); yn.extend(ys[1:nsb].ravel()); zn.extend(zs[1:nsb].ravel());  npa=npa+ns*(nsb-1)
+
+        #form matrix for each element to store (x,y,index)
+        ds=[ne,nsp,nsp]; inode=zeros(ds,'int'); xb=zeros(ds); yb=zeros(ds); i34=self.i34[sinde]; fp3=i34==3; fp4=~fp3; ipp=[]
+        for i in arange(4): #create outer part of matrix
+            sid=self.elside[sinde,i%i34]; m=sdict[sid]; xi,yi,isi=xs[:,m],ys[:,m],isd[:,m]
+            fp=self.elnode[sinde,(i+1)%i34]==self.isidenode[sid,1]; xi[:,fp]=xi[::-1,fp]; yi[:,fp]=yi[::-1,fp]; isi[:,fp]=isi[::-1,fp]
+            for k in arange(nsb):
+                if i<=2: #for triangles
+                    i1,i2=[k,nsb-k] if i==0 else [nsb-k,0] if i==1 else [0,k]; fp=fp3
+                    inode[fp,i1,i2]=isi[k,fp]; xb[fp,i1,i2]=xi[k,fp]; yb[fp,i1,i2]=yi[k,fp]
+                i1,i2=[k,nsb] if i==0 else [nsb,nsb-k] if i==1 else [nsb-k,0] if i==2 else [0,k]; fp=fp4
+                inode[fp,i1,i2]=isi[k,fp]; xb[fp,i1,i2]=xi[k,fp]; yb[fp,i1,i2]=yi[k,fp]
+        for i in arange(1,nsb):   #fill the maxtrix
+            for k in arange(2):
+                [fp,dx]=[fp3,i] if k==0 else [fp4,0]; ix=arange(1,nsb-dx); ixa=ix[None,:]; nx=len(ix)
+                xbi=(xb[fp,i,0][:,None]*(nsb-dx-ixa)+xb[fp,i,nsb-dx][:,None]*ixa)/(nsb-dx)
+                ybi=(yb[fp,i,0][:,None]*(nsb-dx-ixa)+yb[fp,i,nsb-dx][:,None]*ixa)/(nsb-dx)
+                inodei=arange(sum(fp)*nx,dtype='int').reshape([sum(fp),nx])+npa
+                for n,ixi in enumerate(ix): xb[fp,i,ixi]=xbi[:,n]; yb[fp,i,ixi]=ybi[:,n]; inode[fp,i,ixi]=inodei[:,n]
+                xn.extend(xbi.ravel()); yn.extend(ybi.ravel()); ipp.extend(tile(sinde[fp],[nx,1]).T.ravel()); npa=npa+sum(fp)*nx
+        npp=len(ipp); fps,sip,sacor=self.inside_elem(c_[array(xn)[-npp:],array(yn)[-npp:]],array(ipp)); zn.extend((self.dp[sip]*sacor).sum(axis=1)[argsort(fps)])
+
+        #collect new element
+        elnode=-2*ones([ne,nsb*nsb,4],'int'); ie=0
+        for i in arange(nsb): #for triangles
+            m=arange(nsb-i,dtype='int'); n=i*ones(len(m),'int')
+            i1=c_[r_[n,n[1:]],r_[n,n[1:]+1],r_[n+1,n[1:]+1]]; i2=c_[r_[m,m[1:]], r_[m+1,m[1:]],r_[m,m[:-1]]]; inodei=inode[:,i1,i2][fp3]
+            for n in arange(len(i1)): elnode[fp3,ie,:3]=inodei[:,n]; ie=ie+1; iep.extend(sinde[fp3])
+        #for quads
+        elnode[fp4]=c_[inode[fp4,:nsb,:nsb][...,None],inode[fp4,:nsb,1:nsp][...,None],inode[fp4,1:nsp,1:nsp][...,None],inode[fp4,1:nsp,:nsb][...,None]].reshape([sum(fp4),nsb*nsb,4])
+        iep.extend(tile(sinde[fp4],[nsb*nsb]).T.ravel())
+
+        #prepare for new grid
+        xn=r_[self.x,xn]; yn=r_[self.y,yn]; zn=r_[self.z,zn]; elnode=elnode.reshape([prod(elnode.shape[:2]),4])
+
+        #for transition zone
+        pinde=setdiff1d(self.isdel[sinds].ravel(),sinde); pinde=pinde[pinde!=-1]; trs=[]
+        for ie in pinde:
+            s=self.elside[ie,:self.i34[ie]]; ip0=[self.isidenode[i] for i in s if sdict[i]==-1]; ip1=[isd[:,sdict[i]] for i in s if sdict[i]!=-1]
+            ips=[]; [ips.extend(i) for i in [*ip0,*ip1]]; ips=unique(ips); T=mpl.tri.Triangulation(xn[ips],yn[ips]); tr=ips[unique(T.triangles,axis=0)]; flag=ones(len(tr))
+            for i,tri in enumerate(tr):
+                for ip in ip1:
+                    if len(setdiff1d(tri,ip))==0: flag[i]=0
+            fp=flag==1; trs.extend(array(tr)[fp]); iep.extend(tile(ie,sum(fp)))
+        elnode=r_[elnode,resize(array(trs,'int'),[len(trs),4],-2)]
+
+        #construct a new grid
+        gdn=schism_grid(); gdn.np,gdn.x,gdn.y,gdn.dp=npa,xn,yn,zn; dinde=setdiff1d(arange(self.ne),r_[sinde,pinde])
+        gdn.elnode=r_[self.elnode[dinde],elnode]; gdn.ne=len(gdn.elnode); gdn.i34=sum(gdn.elnode!=-2,axis=1); gdn.iep=iep
+        return gdn
 
     def write_shp(self,fname,fmt=0,prj='epsg:4326'):
         '''
@@ -2560,7 +2651,7 @@ def delete_schism_grid_element(gd,angle_min=5,area_max=None,side_min=None,side_m
             if isinstance(regs,str) or array(regs[0]).ndim==1: regs=[regs]
             for n,rxy in enumerate(regs):
                 if isinstance(rxy,str): bp=read(rxy); rxy=c_[bp.x,bp.y]
-                fpe=fpe*(inside_polygon(c_[gd.xctr,gd.yctr], rxy[:,0],rxy[:,1])==(0 if m==0 else 1))
+                fpe=fpe*(inside_polygon(gd.exy,rxy[:,0],rxy[:,1])==(0 if m==0 else 1))
 
     #add back one element if nodal is zero
     ip=unique(gd.elnode[fpe])[1:]
@@ -2702,7 +2793,7 @@ def get_schism_grid_subdomain(grd,xy):
    if isinstance(xy,str): bp=read_schism_reg(xy); xy=c_[bp.x,bp.y]
 
    #get subdomin information for node,elem. and elnode
-   ie=pindex(inside_polygon(c_[gd.xctr,gd.yctr],xy[:,0],xy[:,1]),1)
+   ie=pindex(inside_polygon(gd.exy,xy[:,0],xy[:,1]),1)
    el0=gd.elnode[ie]; ip=unique(el0.ravel())[1:]; ne,np=len(ie),len(ip)
    pid=zeros(gd.np); pid[ip]=arange(np); el=pid[el0].astype('int'); el[el0==-2]=-2
 
@@ -3280,7 +3371,7 @@ class schism_view:
             for ik in arange(ik1,ik2+1):
                 fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
                 C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]; t00=time.time()
-                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],c_[gd.x,gd.y]) if npt==gd.np else near_pts(c_[x,y],c_[gd.xctr,gd.yctr]) #compute index
+                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.pxy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
                 if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
                 if svar in self.vars_2d:
                     data=array(C.variables[svar][:,sindp])
@@ -3409,7 +3500,7 @@ class schism_view:
         if npt==gd.ns and (not hasattr(gd,'xcj')):  gd.compute_side(fmt=2)
         if npt==gd.ns and (not hasattr(self,'kbs')): self.kbs=gd.compute_kb(self.kbp,fmt=1)
         if p.sindv is None: #get xy coordinate and indices
-           x,y=[gd.x,gd.y] if npt==gd.np else [gd.xctr,gd.yctr] if npt==gd.ne else [gd.xcj,gd.ycj]
+           x,y=(gd.pxy if npt==gd.np else gd.exy if npt==gd.ne else gd.sxy).T
            p.sindv=pindex((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1])); p.vx=x[p.sindv]; p.vy=y[p.sindv]
 
         sind=p.sindv #read record of vector variables
