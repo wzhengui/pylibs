@@ -502,7 +502,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
                         xi=r_[xi,xii,NaN];
                         yi=r_[yi,yii,NaN];
                 #collect contour in each subdomain
-                sindc=nonzero(levels==levels_sub[k])[0][0]
+                sindc=pindex(levels,levels_sub[k])[0]
                 S.xy[sindc].extend(c_[xi,yi])
     for i in arange(len(levels)): S.xy[i]=array(S.xy[i])
 
@@ -589,7 +589,7 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
        fpn=(yi0>=lat2)*(yi0<=(lat2+dy/2)); yi0[fpn]=lat2-dy*1e-6
 
        #get (x,y) inside dem domain
-       sindp=nonzero((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))[0]
+       sindp=pindex((xi0>=lon1)*(xi0<=lon2)*(yi0>=lat1)*(yi0<=lat2))
        xi=xi0[sindp]; yi=yi0[sindp]
 
        #compute index of (x,y)
@@ -597,17 +597,17 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
        idy=floor((yi-lat[0])/dy).astype('int')
 
        #make sure lon[idx]<=xi
-       sind=nonzero((lon[idx]-xi)>0)[0]
+       sind=pindex((lon[idx]-xi)>0)
        while len(sind)!=0:
            idx[sind]=idx[sind]-1
-           fps=nonzero((lon[idx[sind]]-xi[sind])>0)[0]
+           fps=pindex((lon[idx[sind]]-xi[sind])>0)
            sind=sind[fps]
 
        #make sure lat[idy]<=yi
-       sind=nonzero((lat[idy]-yi)>0)[0]
+       sind=pindex((lat[idy]-yi)>0)
        while len(sind)!=0:
            idy[sind]=idy[sind]-1
-           fps=nonzero((lat[idy[sind]]-yi[sind])>0)[0]
+           fps=pindex((lat[idy[sind]]-yi[sind])>0)
            sind=sind[fps]
 
        #compute xrat and yrat
@@ -635,7 +635,7 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
            fpz=~isnan(dp); sindp=sindp[fpz]; dp=dp[fpz]
 
     elif igrd==1: #schism grid (unstrucured data)
-       sind=nonzero((xi0>=xm[0])*(xi0<=xm[1])*(yi0>=ym[0])*(yi0<=ym[1]))[0]
+       sind=pindex((xi0>=xm[0])*(xi0<=xm[1])*(yi0>=ym[0])*(yi0<=ym[1]))
        pie,pip,pacor=gd.compute_acor(c_[xi0[sind],yi0[sind]]); fp=pie!=-1
        if sum(fp)!=0:
           sindp=sind[fp]; dp=-(gd.dp[pip[fp]]*pacor[fp]).sum(axis=1)
@@ -853,7 +853,7 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
         hl=plot(xii[fpn],yii[fpn],ls='--',lw=lw_inner,color=cRMSD)
 
         #text
-        xiii=abs(xii-(sm-0.85*i)/sm); sid=nonzero(xiii==min(xiii))[0][0]
+        xiii=abs(xii-(sm-0.85*i)/sm); sid=pindex(xiii==min(xiii))[0]
         text(1.02*xii[sid],1.02*yii[sid],'{}'.format(i),color=cRMSD,fontsize=8,rotation=15)
 
         S.hp_RMSD.append(hl)
@@ -963,7 +963,7 @@ def find_cs(xi,dx):
       slen,glen: lens for each section or gap 
       msection,mgap: maximum section/gap
     '''
-    sind=nonzero(diff(xi)>dx)[0]; sections=[]; gaps,glen,mgap=[],[],[]
+    sind=pindex(diff(xi)>dx); sections=[]; gaps,glen,mgap=[],[],[]
     if len(sind)==0:
        sx=[xi[0],xi[-1]]; sections.append(sx)
     else:
@@ -974,8 +974,8 @@ def find_cs(xi,dx):
        sx=[xi[sind[-1]+1],xi[-1]]; sections.append(sx)
        gx=[xi[sind[-1]],xi[sind[-1]+1]]; gaps.append(gx)
     sections=array(sections); gaps=array(gaps)
-    slen=diff(sections,axis=1); msection=sections[nonzero(slen==slen.max())[0][0]]
-    if len(gaps)!=0: glen=diff(gaps,axis=1); mgap=gaps[nonzero(glen==glen.max())[0][0]]
+    slen=diff(sections,axis=1); msection=sections[pindex(slen,slen.max())[0]]
+    if len(gaps)!=0: glen=diff(gaps,axis=1); mgap=gaps[pindex(glen,glen.max())[0]]
     S=zdata(); S.bind,S.sections,S.msection,S.slen,S.gaps,S.mgap,S.glen=sind,sections,msection,slen,gaps,mgap,glen
     return S
 
@@ -1346,7 +1346,7 @@ def near_pts(pts,pts0,method=0,N=100):
         #     dist=abs(p-p[i0]); dist[pflag]=mval;
         #     ind=argsort(dist); sdist=dist[ind]; mds=sdist[N]; i0=ind[N]
         #     fp=dist<mds; psi=p[fp]; dsi=max(dist[fp]); pflag[fp]=True;
-        #     ps.append(psi); ds.append(dsi); inds.append(nonzero(fp)[0])
+        #     ps.append(psi); ds.append(dsi); inds.append(pindex(fp))
         #     if mds==mval: break
 
         N=min([N,len(p)]);
@@ -1371,7 +1371,7 @@ def near_pts(pts,pts0,method=0,N=100):
                 else:
                     dsm=dsm+dsi;
             #-----subgroup pts of p0---------------------------------
-            fp=dist<=(dsm+2*dsi); ind0=nonzero(fp)[0]; p0i=p0[ind0];
+            fp=dist<=(dsm+2*dsi); ind0=pindex(fp); p0i=p0[ind0];
             psii=psi[:,None]; p0ii=p0i[None,:]
             dist=abs(psii-p0ii); indi=dist.argmin(axis=1);
             inds0.append(ind0[indi]);
@@ -1399,7 +1399,7 @@ def near_pts(pts,pts0,method=0,N=100):
             indi=[];
             for i in arange(x.shape[0]):
                 disti=dist[:,i];
-                indi.append(nonzero(disti==min(disti))[0][0])
+                indi.append(pindex(disti,min(disti))[0])
 
             if i0==0:
                 ind=array(indi);
@@ -1447,7 +1447,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
        sind=[];
        for i in arange(npt):
            pxi=pts[i,0]; pyi=pts[i,1]
-           sindp=nonzero((pxi>=px1)*(pxi<=px2)*(pyi>=py1)*(pyi<=py2))[0]; npy=len(sindp)
+           sindp=pindex((pxi>=px1)*(pxi<=px2)*(pyi>=py1)*(pyi<=py2)); npy=len(sindp)
            if npy==0:
                sind.append(-1)
            else:
@@ -1457,7 +1457,7 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                    yi=c_[ones(npy)*pyi,py[m,sindp],py[mod(m+1,nv),sindp]]
                    area=signa(xi,yi)
                    fp=area<0; isum[fp]=0;
-               sindi=nonzero(isum!=0)[0]
+               sindi=pindex(isum!=0)
 
                if len(sindi)==0:
                    sind.append(-1)
@@ -2015,11 +2015,27 @@ def read_mat(matfile,fname=None):
     if fname is not None: savez(fname,S)
     return S
 
-def pindex(fp):
+def pindex(data,value=None,inverse=0):
     '''
-    return Ture indices of boolean array
+    return True indices of boolean array
+        data: array of boolean values or numeric values (need to compare with value)
+        value: comparison criteria that can be nan, numerics, or string
+        inverse=1: return the False indices
+
+        Examples:  1). pindex(fp);  2). pindex(x,nan); 3). pindex(x,3.0); 4). pindex(x,'>3.0'); 5). pindex(x,'a')
     '''
-    return nonzero(fp)[0]
+    if value is None:
+       fp=data
+    elif isinstance(value,str):
+       fp=eval('data'+value) if (value[0] in ['>','<','=']) else data==value
+    elif isnan(value):
+       fp=isnan(data)
+    else:
+       fp=data==value
+    return nonzero(fp if inverse==0 else ~fp)[0]
+
+def nindex(data,value=None):
+    return pindex(data,value,1)
 
 def cindex(index,shape):
     '''
@@ -2143,7 +2159,7 @@ def read_shapefile_data(fname):
             xyi=array(C.shape(i).points);
             parti=array(C.shape(i).parts,dtype='int');
             #insert nan for delimiter
-            #to get original index: ind=nonzero(isnan(xyi[:,0]))[0]-arange(len(parti));
+            #to get original index: ind=pindex(xyi[:,0],nan)-arange(len(parti));
             S.xy.append(insert(xyi,parti,nan,axis=0))
         S.xy=squeeze(array(S.xy,dtype='O'))
 
@@ -2267,12 +2283,12 @@ def delete_shapefile_nan(xi,iloop=0):
         i1=0; i2=xi.shape[0]
         if isnan(xi[0]): i1=1
         if isnan(xi[-1]): i2=i2-1
-        yi=xi[i1:i2]; ind=nonzero(isnan(yi))[0]
+        yi=xi[i1:i2]; ind=pindex(yi,nan)
     elif xi.ndim==2:
         i1=0; i2=xi.shape[0]
         if isnan(xi[0,0]): i1=1
         if isnan(xi[-1,0]): i2=i2-1
-        yi=xi[i1:i2]; ind=nonzero(isnan(yi[:,0]))[0]
+        yi=xi[i1:i2]; ind=pindex(yi[:,0],nan)
 
     #------reorganize-----------
     if len(ind)==0:
@@ -2810,8 +2826,8 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             clati=array(C.lat.val);
 
             #------define data region extracted
-            ind_lon=nonzero((cloni<=max(loni)+0.1)*(cloni>=min(loni)-0.1))[0];
-            ind_lat=nonzero((clati<=max(lati)+0.1)*(clati>=min(lati)-0.1))[0];
+            ind_lon=pindex((cloni<=max(loni)+0.1)*(cloni>=min(loni)-0.1))
+            ind_lat=pindex((clati<=max(lati)+0.1)*(clati>=min(lati)-0.1))
             i1_lon=ind_lon.min(); i2_lon=i1_lon+len(ind_lon)
             i1_lat=ind_lat.min(); i2_lat=i1_lat+len(ind_lat)
 
@@ -2840,7 +2856,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             else:
                 #------define data region extracted for depth
                 cdepi=array(C.depth.val)
-                ind_dep=nonzero((cdepi<=depi.max()+1000)*(cdepi>=depi.min()-100))[0];
+                ind_dep=pindex((cdepi<=depi.max()+1000)*(cdepi>=depi.min()-100))
                 i1_dep=ind_dep.min(); i2_dep=i1_dep+len(ind_dep)
                 cdepi=cdepi[i1_dep:i2_dep];
 

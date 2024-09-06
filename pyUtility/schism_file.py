@@ -163,7 +163,7 @@ class schism_grid:
 
         #   # apply mask
         #   if mask is not None: xy4=xy4[mask]; value=value[mask]
-        #      #ind=nonzero(mask)[0]
+        #      #ind=pindex(mask)
         #      #xy4=xy4[ind];
         #      #value=value[ind]
 
@@ -495,7 +495,7 @@ class schism_grid:
                cA=angle((self.xctr[self.indel[i]]-self.x[i])+1j*(self.yctr[self.indel[i]]-self.y[i])) #angle for element center
 
                #get all boundary nodes
-               ib1=nonzero(n1==i)[0]; ip1=n2[ib1];  ib2=nonzero(n2==i)[0]; ip2=n1[ib2]; sinds[i]=[]
+               ib1=pindex(n1,i); ip1=n2[ib1];  ib2=pindex(n2,i); ip2=n1[ib2]; sinds[i]=[]
                for n in arange(nps):
                    i1=ips[n]; i2=ips[(n+1)%nps]; A1=A[n]; A2=A[(n+1)%nps]
                    if A2<A1: A2=A2%(2*pi); cA=cA%(2*pi)
@@ -546,7 +546,7 @@ class schism_grid:
            ids=list(sinds.keys()); ns=len(ids); sindf=dict(zip(ids,arange(ns))); ifb=ones(ns).astype('int'); nb=0; nbn=[]; ibn=[]
            while(sum(ifb)!=0):
                #start points
-               ib=nonzero(ifb==1)[0][0]; id0=ids[ib]; id=sinds[id0][-1]; ifb[sindf[id0]]=0; ibni=[id0,*sinds[id0]]; iloop=0
+               ib=pindex(ifb,1)[0]; id0=ids[ib]; id=sinds[id0][-1]; ifb[sindf[id0]]=0; ibni=[id0,*sinds[id0]]; iloop=0
 
                #search each segments
                while True:
@@ -560,7 +560,7 @@ class schism_grid:
             fpn=self.isdel[:,-1]==-1;  isn=self.isidenode[fpn]; be=self.isdel[fpn][:,0]; nbs=len(be)
 
             #sort isn
-            i2=ones(nbs).astype('int'); fp3=nonzero(self.i34[be]==3)[0]; fp4=nonzero(self.i34[be]==4)[0]
+            i2=ones(nbs).astype('int'); fp3=pindex(self.i34[be],3); fp4=pindex(self.i34[be],4)
             for i in arange(4):
                 if i==3:
                     i1=self.elnode[be[fp4],3]; i2=self.elnode[be[fp4],0]
@@ -575,7 +575,7 @@ class schism_grid:
 
             #find the nodes connecting to more than 2 sides
             ibnx,nbnx=unique(isn[:,0],return_counts=True); idx=[]; nbx=0
-            for i in ibnx[nbnx>1]: k=nonzero(isn[:,0]==i)[0]; idx.extend(k); nbx=nbx+len(k)
+            for i in ibnx[nbnx>1]: k=pindex(isn[:,0],i); idx.extend(k); nbx=nbx+len(k)
 
             #search boundary from other nodes
             while(sum(ifb)!=0):
@@ -583,7 +583,7 @@ class schism_grid:
                 if nbx>0:
                     nbx=nbx-1; id0,id=isn[idx[nbx]]; ifb[idx[nbx]]=0
                 else:
-                    id0=isn[nonzero(ifb==1)[0][0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
+                    id0=isn[pindex(ifb,1)[0],0]; id=isn[sinds[id0],1]; ifb[sinds[id0]]=0
                 ibni=[id0,id]; ifb[sinds[id]]=0; iloop=0
 
                 #search each segments
@@ -601,7 +601,7 @@ class schism_grid:
         #find the outline
         island=ones(nb).astype('int'); bid=[]
         for i in arange(nb):
-            px=self.x[ibn[i].astype('int')]; i0=nonzero(px==px.min())[0][0]
+            px=self.x[ibn[i].astype('int')]; i0=pindex(px,px.min())[0]
             sid=ibn[i][array([(i0-1)%nbn[i],i0,(i0+1)%nbn[i]])].astype('int')
             if signa(self.x[sid],self.y[sid])>0: island[i]=0; bid.append(i)
 
@@ -642,10 +642,10 @@ class schism_grid:
            #parse each segment for open boundaries
            self.nob=len(pxy); self.nobn=[]; self.iobn=[]; self.nlb=0; self.nlbn=[]; self.ilbn=[]; self.island=[]
            for m in sindb[sort(unique(sindb, return_index=True)[1])]:
-               sind=nonzero(sindb==m)[0];  sids=[]; bf=ones(S.nbn[m])
+               sind=pindex(sindb,m);  sids=[]; bf=ones(S.nbn[m])
                if len(sind)==0: continue
                for n,sindi in enumerate(sind): # add open bnd
-                   id1=nonzero(S.ibn[m]==p1[sindi])[0][0]; id2=nonzero(S.ibn[m]==p2[sindi])[0][0]; sids.extend([id1,id2])
+                   id1=pindex(S.ibn[m],p1[sindi])[0]; id2=pindex(S.ibn[m],p2[sindi])[0]; sids.extend([id1,id2])
                    itype=(((id1<id2) and (S.island[m]==0)) or ((id1>id2) and (S.island[m]==1)))
                    sid=arange(id1,id2+1) if (id1<id2) else r_[arange(id1,S.nbn[m]),arange(id2+1)]
                    self.nobn.append(sid.size); self.iobn.append(S.ibn[m][sid]); bf[sid]=0
@@ -656,7 +656,7 @@ class schism_grid:
                    if sum(bf[sid])!=0:
                       self.nlb=self.nlb+1; self.nlbn.append(sid.size); self.ilbn.append(S.ibn[m][sid]); self.island.append(0)
            for m in arange(S.nb): #add remaining land bnd
-               sind=nonzero(sindb==m)[0]
+               sind=pindex(sindb,m)
                if len(sind)!=0: continue
                self.nlb=self.nlb+1; self.nlbn.append(S.nbn[m]); self.ilbn.append(S.ibn[m]); self.island.append(S.island[m])
            self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
@@ -725,7 +725,7 @@ class schism_grid:
                 if sum(fp)==0: continue
                 nee[fp]=nee[fp]+1 #add new elem
                 if nee.max()>=mnee: iee=c_[iee,-ones(self.ne).astype('int')[:,None]]
-                iee[nonzero(fp)[0],nee[fp]]=ie[fp]
+                iee[pindex(fp),nee[fp]]=ie[fp]
         self.nee=nee; self.iee=iee[:,1:]; self.mnee=self.iee.shape[1]; self.ielel=array([k[:i] for i,k in zip(nee,self.iee)],dtype='O')
         return self.nee
 
@@ -744,7 +744,7 @@ class schism_grid:
         #build elside
         uelem,sind=unique(elem,return_index=True); self.elside=-ones([self.ne,4]).astype('int'); m34=self.i34.max()
         for i in arange(m34):
-            fps=nonzero(self.i34>i)[0]; i34=self.i34[fps]; sinds=sind[fps]+i
+            fps=pindex(self.i34>i); i34=self.i34[fps]; sinds=sind[fps]+i
             sd=side[sinds];  n1,n2=self.isidenode[sd].T
             for k in arange(m34): #sort order of sides
                 id1,id2=(k+1)%i34,(k+2)%i34
@@ -810,15 +810,15 @@ class schism_grid:
                    if len(sindp)==0: break
 
            #use point-wise method for the remain pts
-           sindp=nonzero(pie==-1)[0]; sindp=sindp[self.inside_grid(pxy[sindp])==1]
+           sindp=pindex(pie,-1); sindp=sindp[self.inside_grid(pxy[sindp])==1]
            if len(sindp)!=0: pie[sindp],pip[sindp],pacor[sindp]=self.compute_acor(pxy[sindp],fmt=1)
 
            #interp on nearest side for points outside of domain
            if out==1:
-              sindp=nonzero(pie==-1)[0]
+              sindp=pindex(pie,-1)
               if sum(sindp)!=0:
                  if not hasattr(self,'xcj'): self.compute_side(fmt=2)
-                 sinds=pindex(self.isdel[:,1]==-1); pie[sindp]=self.isdel[sinds[near_pts(pxy[sindp],c_[self.xcj[sinds],self.ycj[sinds]])],0]
+                 sinds=pindex(self.isdel[:,1],-1); pie[sindp]=self.isdel[sinds[near_pts(pxy[sindp],c_[self.xcj[sinds],self.ycj[sinds]])],0]
                  fps,sip,sacor=self.inside_elem(pxy[sindp],pie[sindp],out=1); pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
 
         elif fmt==1:
@@ -827,7 +827,7 @@ class schism_grid:
             fps=pie!=-1; pip[fps]=sindn.T[pie[fps]]
 
             #check 2nd triangle
-            sind4=nonzero(self.i34==4)[0]; sind2=nonzero(~fps)[0]
+            sind4=pindex(self.i34,4); sind2=nindex(fps)
             if len(sind2)!=0 and len(sind4)!=0:
                sindn=self.elnode[sind4].T[array([0,2,3])]; pie2=inside_polygon(pxy[sind2],self.x[sindn],self.y[sindn],fmt=1)
                fps=pie2!=-1; pie[sind2[fps]]=sind4[pie2[fps]]; pip[sind2[fps]]=sindn.T[pie2[fps]]
@@ -944,7 +944,7 @@ class schism_grid:
         while sindp.size!=0:
             #print(sindp.size,self.ne,sindp.size/self.ne)
             fpc=abs(pxy-pxy[0])<=dist; pid=sindp[fpc] #node inside circle of dc
-            eid=sinde[nonzero(abs(exy-pxy[0])<=(2*dist))[0]]; #elem. inside circle of 2*dc
+            eid=sinde[pindex(abs(exy-pxy[0])<=(2*dist))] #elem. inside circle of 2*dc
             if eid.size==1: pv[pid]=value[eid]
 
             #find dist maxtrix, get weight and value, and assign average value at node
@@ -1237,11 +1237,11 @@ class schism_grid:
         if not hasattr(self,'xctr'): self.compute_ctr()
 
         #check violation
-        qind=nonzero(self.i34==4)[0]; A=self.angles[qind]; fp=qind==-999
+        qind=pindex(self.i34,4); A=self.angles[qind]; fp=qind==-999
         if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<angle_ratio)
         if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
         if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
-        self.index_bad_quad=qind[nonzero(fp)[0]]
+        self.index_bad_quad=qind[pindex(fp)]
 
         #output bad_quad location as bp file
         sbp=schism_bpfile(); sbp.x,sbp.y=c_[self.xctr,self.yctr][self.index_bad_quad].T; sbp.save(fname)
@@ -1262,7 +1262,7 @@ class schism_grid:
         '''
         split quads for WWM model, and output "hgrid_WWM.gr3"
         '''
-        sid=nonzero(self.i34==4)[0]; ne,nea=self.ne,len(sid); self.elnode=resize(self.elnode,[ne+nea,4])
+        sid=pindex(self.i34,4); ne,nea=self.ne,len(sid); self.elnode=resize(self.elnode,[ne+nea,4])
         self.elnode[ne:,:3]=self.elnode[sid][:,array([0,2,3])] #add new elements
         self.ne=ne+nea; self.elnode[sid,-1]=-2; self.i34=tile(3,ne+nea)
         self.save(fname)
@@ -1310,11 +1310,11 @@ class schism_grid:
            if not hasattr(self,'area'):   self.compute_area()
            distj=self.distj[self.elside]; distj[self.elside==-1]=0  #side length
            srat=distj.max(axis=1)/sqrt(maximum(self.area/pi,sys.float_info.epsilon)) #ratio
-           sindw=nonzero(srat>threshold)[0]
+           sindw=pindex(srat>threshold)
 
         if angle_min is not None: #check minimum angle
            if not hasattr(self,'angles'): self.compute_angle()
-           a=self.angles; a[a<0]=999; sindw=nonzero(a.min(axis=1)<=angle_min)[0]
+           a=self.angles; a[a<0]=999; sindw=pindex(a.min(axis=1)<=angle_min)
 
         #combine and save
         sindw=array(sindw)
@@ -1331,7 +1331,7 @@ class schism_grid:
         sind=[]; pip=[]; pacor=[]; nloop=self.i34[ie].max()-2; fp4=self.i34[ie]==4
         for i in arange(nloop):
             #get pts and element info
-            sindp=arange(len(pxy)) if i==0 else nonzero((~fps)*fp4 if out==0 else fp4)[0]
+            sindp=arange(len(pxy)) if i==0 else pindex((~fps)*fp4 if out==0 else fp4)
             if len(sindp)==0: continue
             ip=self.elnode[ie[sindp]][:,array([0,1,2] if i==0 else [0,2,3])]
             x1,x2,x3=self.x[ip].T; y1,y2,y3=self.y[ip].T; xi,yi=pxy[sindp].T
@@ -1463,7 +1463,7 @@ class schism_grid:
                bid=S.bid[-1]; ip=S.pt[-1]
                #if S.nlb<S.nob:
                if S.ibn[bid][0]!=ip:
-                  bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
+                  bid=S.bid[-1]; pid=pindex(S.ibn[bid],S.pt[-1])[0]
                   S.nlb=S.nlb+1; ibni=r_[S.ibn[bid][pid:],S.ibn[bid][0]]; S.ilbn.append(ibni)
                   hlb=plot(self.x[ibni],self.y[ibni],'g-'); S.hb.append(hlb); S.ihb.append(0)
 
@@ -1481,10 +1481,10 @@ class schism_grid:
                gcf().canvas.draw()
 
         def add_pt(x,y):
-            distp=squeeze(abs((S.x-x)+1j*(S.y-y))); sid=nonzero(distp==distp.min())[0][0]
-            ip=S.ip[sid]; bid=S.sind[sid]; pid=nonzero(S.ibn[bid]==ip)[0][0]
+            distp=squeeze(abs((S.x-x)+1j*(S.y-y))); sid=pindex(distp,distp.min())[0]
+            ip=S.ip[sid]; bid=S.sind[sid]; pid=pindex(S.ibn[bid],ip)[0]
             if S.npt!=0:
-               bid0=S.bid[-1]; pid0=nonzero(S.ibn[bid0]==S.pt[-1])[0][0]
+               bid0=S.bid[-1]; pid0=pindex(S.ibn[bid0],S.pt[-1])[0]
                if S.npt%2==1 and bid!=bid0: return  #two pts are not on the same boundary
                if S.npt%2==1 and (pid0>=pid and pid!=0): return  #the 2nd pt is ahead of the 1st pt (except open bnd to 1st node)
             if bid not in S.bid: S.ibn[bid]=r_[S.ibn[bid][pid:],S.ibn[bid][:pid]] #reorder boundary points
@@ -1511,7 +1511,7 @@ class schism_grid:
 
         def remove_pt(x,y):
             if S.npt==0: return
-            bid=S.bid[-1]; pid=nonzero(S.ibn[bid]==S.pt[-1])[0][0]
+            bid=S.bid[-1]; pid=pindex(S.ibn[bid],S.pt[-1])[0]
 
             #remove 1st land bnd
             if len(S.hb)!=0:
@@ -1537,7 +1537,7 @@ class schism_grid:
         if mpl._pylab_helpers.Gcf.get_active() is None: self.plot()
         if self.backend==1:
            acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs])
-           abn=acs[nonzero(ats=='bnd')[0][0]] if 'bnd' in ats else self.toolbar.addAction('bnd')
+           abn=acs[pindex(ats,'bnd')[0]] if 'bnd' in ats else self.toolbar.addAction('bnd')
            abn.triggered.connect(connect_actions) #connect to actions
         elif self.backend==2:
             acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
@@ -1559,12 +1559,12 @@ class schism_grid:
         def onclick(sp):
             dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata; pz=0
             if dlk==0 and btn==3:
-               #acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[nonzero(ats=='bp')[0][0]]
+               #acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs]);ac=acs[pindex(ats,'bp')[0]]
                if self.backend==1: ac=[i for i in self.toolbar.actions() if i.iconText()=='bp'][0]
                if self.backend==2: ac=[i[1] for i in self.toolbar.toolitems if i[0]=='bp'][0]
                if hasattr(ac,'bp'):
                   if ac.bp.nsta==0: return
-                  distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=nonzero(distp==distp.min())[0][0]
+                  distp=squeeze(abs((ac.bp.x-bx)+1j*(ac.bp.y-by))); sid=pindex(distp,distp.min())[0]
                   px=ac.bp.x[sid]; py=ac.bp.y[sid]; pz=1
             elif dlk==0 and btn==1:
                px=bx; py=by; pz=1
@@ -1585,7 +1585,7 @@ class schism_grid:
         if hasattr(self,'hqp'): delattr(self,'hqp')
         if self.backend==1:
            acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs])
-           abp=acs[nonzero(ats=='query')[0][0]] if 'query' in ats else self.toolbar.addAction('query')
+           abp=acs[pindex(ats,'query')[0]] if 'query' in ats else self.toolbar.addAction('query')
            abp.triggered.connect(connect_actions)
         elif self.backend==2:
             acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
@@ -1604,16 +1604,16 @@ class schism_grid:
             if not hasattr(self,'dpe'): self.compute_ctr()
             if len(self.hts)==0:
                xm=xlim(); ym=ylim()
-               sind=nonzero((self.x>=xm[0])*(self.x<=xm[1])*(self.y>=ym[0])*(self.y<=ym[1]))[0]
+               sind=pindex((self.x>=xm[0])*(self.x<=xm[1])*(self.y>=ym[0])*(self.y<=ym[1]))
                for i in sind: ht=text(self.x[i],self.y[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
-               sind=nonzero((self.xctr>=xm[0])*(self.xctr<=xm[1])*(self.yctr>=ym[0])*(self.yctr<=ym[1]))[0]
+               sind=pindex((self.xctr>=xm[0])*(self.xctr<=xm[1])*(self.yctr>=ym[0])*(self.yctr<=ym[1]))
                for i in sind: ht=text(self.xctr[i],self.yctr[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
             else:
                for i in arange(len(self.hts)): self.hts.pop().remove()
             gcf().canvas.draw()
         if self.backend==1:
            acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
-           abp=acs[nonzero(ats=='node')[0][0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
+           abp=acs[pindex(ats,'node')[0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
            abp.triggered.connect(_show_node)
         else:
            acs=self.toolbar.toolitems; ats=[i[0] for i in acs]; self.hts=[]
@@ -1748,7 +1748,7 @@ class schism_bpfile:
         '''
         if prj is not None: xy=c_[proj_pts(*xy.T,*prj)].T
         fp=inside_polygon(xy,self.x,self.y)==1
-        return nonzero(fp)[0] if fmt==0 else fp if fmt==1 else nonzero(~fp)[0] if fmt==2 else ~fp
+        return pindex(fp) if fmt==0 else fp if fmt==1 else nindex(fp) if fmt==2 else ~fp
     def outside(self,xy,fmt=2):
         return self.inside(xy,fmt=fmt)
 
@@ -1846,18 +1846,18 @@ class schism_bpfile:
 
         def remove_pt(x,y):
             if self.nsta==0: return
-            distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=nonzero(distp==distp.min())[0][0]
+            distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=pindex(distp,distp.min())[0]
             self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; self.plot()
 
         def move_pt(xi,yi):
-            distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=nonzero(distp==distp.min())[0][0]
+            distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=pindex(distp,distp.min())[0]
             self.x[sid]=xi; self.y[sid]=yi; self.plot()
 
         if mpl._pylab_helpers.Gcf.get_active() is not None:
             at='bp' if self.fmt==0 else 'reg'
             if self.backend==1:
                acs=gcf().canvas.toolbar.actions(); ats=array([i.iconText() for i in acs])
-               abp=acs[nonzero(ats==at)[0][0]] if at in ats else gcf().canvas.toolbar.addAction(at)
+               abp=acs[pindex(ats,at)[0]] if at in ats else gcf().canvas.toolbar.addAction(at)
             elif self.backend==2:
                acs=gcf().canvas.toolbar.toolitems; ats=[i[0] for i in acs]
                if at in ats:
@@ -2082,7 +2082,7 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
 
         #get kbp
         if kbp is None:
-            kbp=array([nonzero(abs(i+1)<1e-10)[0][-1] for i in sigma])
+            kbp=array([pindex(abs(i+1)<1e-10)[-1] for i in sigma])
 
         #thickness of water column
         hw=dp+eta; hw[hw<0]=0
@@ -2114,14 +2114,14 @@ def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
             zcor[k,fps]=sigma[kin]*(htot)+eta[fps]
 
             #hmod>h_c
-            sindc=nonzero(~fps)[0]; fpc=eta[sindc]<=(-h_c-(hmod[sindc]-h_c)*theta_f/sinh(theta_f)); sindf=sindc[fpc]; sinds=sindc[~fpc]
+            sindc=nindex(fps); fpc=eta[sindc]<=(-h_c-(hmod[sindc]-h_c)*theta_f/sinh(theta_f)); sindf=sindc[fpc]; sinds=sindc[~fpc]
             if sum(fpc)>0 and ifix==0: sys.exit('Pls choose a larger h_c: {}'.format(h_c))
             if sum(fpc)>0 and ifix==1: zcor[k:,sindf]=(eta[sindf]+hmod[sindf])*sigma[kin]+eta[sindf]
             zcor[k,sinds]=eta[sinds]*(1+sigma[kin])+h_c*sigma[kin]+cs[kin]*(hmod[sinds]-h_c)
         zcor[:(kz-1),:]=nan if fmt==1 else zcor[kz-1,:][None,:] #extend
 
         #for z layer
-        kbp=zeros(np).astype('int'); fp=dp>h_s; sind=nonzero(fp)[0]; kbp[~fp]=kz-1
+        kbp=zeros(np).astype('int'); fp=dp>h_s; sind=pindex(fp); kbp[~fp]=kz-1
         for k in arange(kz-1):
             fpz=(-dp[sind]>=ztot[k])*(-dp[sind]<ztot[k+1]); sindz=sind[fpz]; kbp[sindz]=k
             zcor[:(k+1),sindz]=-dp[sindz][None,:]; zcor[(k+1):(kz-1),sindz]=ztot[(k+1):(kz-1),None]
@@ -2192,7 +2192,7 @@ def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
     #modify variables dimension, interp from elem to node, interp horizontally,
     tind=[]; w0=None; pvalues=[]
     for i,[value,ds,ndim] in enumerate(zip(values,dims,ndims)):
-        sindp=nonzero(ds==gd.np)[0]; sinde=nonzero(ds==gd.ne)[0]; sindk=nonzero(ds==nvrt)[0]
+        sindp=pindex(ds,gd.np); sinde=pindex(ds,gd.ne); sindk=pindex(ds,nvrt)
 
         #get index of ne or np
         if pind[i]!=-1:
@@ -2702,7 +2702,7 @@ def get_schism_grid_subdomain(grd,xy):
    if isinstance(xy,str): bp=read_schism_reg(xy); xy=c_[bp.x,bp.y]
 
    #get subdomin information for node,elem. and elnode
-   ie=nonzero(inside_polygon(c_[gd.xctr,gd.yctr],xy[:,0],xy[:,1])==1)[0]
+   ie=pindex(inside_polygon(c_[gd.xctr,gd.yctr],xy[:,0],xy[:,1]),1)
    el0=gd.elnode[ie]; ip=unique(el0.ravel())[1:]; ne,np=len(ie),len(ip)
    pid=zeros(gd.np); pid[ip]=arange(np); el=pid[el0].astype('int'); el[el0==-2]=-2
 
@@ -3220,7 +3220,7 @@ class schism_view:
 
            #add pts for time series
            m=20; n=p.npt; x=array([*p.px,*tile(0.0,m-n)]); y=array([*p.py,*tile(nan,m-n)])
-           fpn=nonzero(~((x[:n]>p.xm[0])*(x[:n]<p.xm[1])*(y[:n]>p.ym[0])*(y[:n]<p.ym[1])))[0]; x[fpn]=0.0; y[fpn]=nan
+           fpn=nindex((x[:n]>p.xm[0])*(x[:n]<p.xm[1])*(y[:n]>p.ym[0])*(y[:n]<p.ym[1])); x[fpn]=0.0; y[fpn]=nan
            p.hpt=plot(x,y,'r.',ms=6,alpha=0.75,animated=anim)
            for i in arange(m):
                [xi,yi,k]=[x[i],y[i],str(i+1)] if (i<n and (i not in fpn)) else [0,0,'']
@@ -3294,7 +3294,7 @@ class schism_view:
 
         def update_xts(event):
             if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
-            t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=nonzero(dt1==dt1.min())[0][0]; i2=nonzero(dt2==dt2.min())[0][0]
+            t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=pindex(dt1,dt1.min())[0]; i2=pindex(dt2,dt2.min())[0]
             ns=max([int(floor((i2-i1+1)/5)),1]); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
             if hasattr(self,'StartT'): mlsi=[i[:10]+'\n'+i[11:] for i in mlsi]
             s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi)
@@ -3376,7 +3376,7 @@ class schism_view:
         if sp.button is None: return
         p=self.fig; dlk=int(sp.dblclick); btn=int(sp.button); bx=sp.xdata; by=sp.ydata
         if dlk==0 and btn==2 and p.npt!=0:
-            x=array(p.px); y=array(p.py); distp=squeeze(abs((x-bx)+1j*(y-by))); sid=nonzero(distp==distp.min())[0][0]
+            x=array(p.px); y=array(p.py); distp=squeeze(abs((x-bx)+1j*(y-by))); sid=pindex(distp,distp.min())[0]
             hp=p.hpt[0]; x,y=hp.get_xdata(),hp.get_ydata(); x[sid]=bx; y[sid]=by; hp.set_xdata(x); hp.set_ydata(y)
             p.hpt[sid+1].set_x(bx); p.hpt[sid+1].set_y(by); p.px[sid]=bx; p.py[sid]=by
         if p.med==0: p.bm.update(); pause(0.001)
@@ -3410,7 +3410,7 @@ class schism_view:
         if npt==gd.ns and (not hasattr(self,'kbs')): self.kbs=gd.compute_kb(self.kbp,fmt=1)
         if p.sindv is None: #get xy coordinate and indices
            x,y=[gd.x,gd.y] if npt==gd.np else [gd.xctr,gd.yctr] if npt==gd.ne else [gd.xcj,gd.ycj]
-           p.sindv=nonzero((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1]))[0]; p.vx=x[p.sindv]; p.vy=y[p.sindv]
+           p.sindv=pindex((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1])); p.vx=x[p.sindv]; p.vy=y[p.sindv]
 
         sind=p.sindv #read record of vector variables
         if fmt==0:
@@ -3545,7 +3545,7 @@ class schism_view:
            if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
            gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
            self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
-           self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=nonzero(gd.i34==3)[0]; self.fp4=nonzero(gd.i34==4)[0]
+           self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=pindex(gd.i34,3); self.fp4=pindex(gd.i34,4)
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
@@ -3636,9 +3636,9 @@ class schism_view:
         else:
            xm=xlim(); ym=ylim(); p.hns=[]
            if not hasattr(gd,'xctr'): gd.compute_ctr()
-           sind=nonzero((gd.x>=xm[0])*(gd.x<=xm[1])*(gd.y>=ym[0])*(gd.y<=ym[1]))[0]
+           sind=pindex((gd.x>=xm[0])*(gd.x<=xm[1])*(gd.y>=ym[0])*(gd.y<=ym[1]))
            for i in sind: ht=text(gd.x[i],gd.y[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
-           sind=nonzero((gd.xctr>=xm[0])*(gd.xctr<=xm[1])*(gd.yctr>=ym[0])*(gd.yctr<=ym[1]))[0]
+           sind=pindex((gd.xctr>=xm[0])*(gd.xctr<=xm[1])*(gd.yctr>=ym[0])*(gd.yctr<=ym[1]))
            for i in sind: ht=text(gd.xctr[i],gd.yctr[i],'{}'.format(i+1),fontsize=6,zorder=3); p.hns.append(ht)
            p.hf.canvas.draw()
         return
