@@ -385,10 +385,10 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code)); os.environ['run_schism']=os.getenv(ename)
        #for submit jobs
-       if qnode in ['femto','gulf','kuro']:
+       if qnode in ['femto','gulf','kuro','bora']:
           #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
           scmd='sbatch {} --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(rinfo,jname,nnode,ppn,wtime,code)
-       elif qnode in ['c18x','potomac','james','bora']:
+       elif qnode in ['c18x','potomac','james']:
           scmd='qsub {} {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,'-V' if qnode0 is None else '', ename,bdir,code,jname,nnode,qnode,ppn,wtime)
           if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
        elif qnode in ['frontera',]:
@@ -406,15 +406,15 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
           sys.exit('unknown qnode: {},tag=1'.format(qnode))
     elif fmt==1:
        #for run parallel jobs
-       if qnode in ['femto','gulf','kuro',]:
+       if qnode in ['femto','gulf','kuro','bora']:
           scmd='srun --export=PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
           #if ename=='schism': scmd='srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}'.format(bdir,nproc,code,scrout)
-       elif qnode in ['c18x','potomac','james','bora']:
+       elif qnode in ['c18x','potomac','james',]:
           code=os.path.abspath(code)
           scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          if qnode=='bora': 
-             PATH='/sciclone/data10/wangzg/mambaforge/envs/bora/bin:'+os.getenv('PATH')
-             scmd="mvp2run -v -a -e PATH={} -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(PATH,bdir,nproc,code,scrout)
+          #if qnode=='bora': 
+          #   PATH='/sciclone/data10/wangzg/mambaforge/envs/bora/bin:'+os.getenv('PATH')
+          #   scmd="mvp2run -v -a -e PATH={} -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(PATH,bdir,nproc,code,scrout)
           if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
           #if qnode=='james' and ename=='schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
        elif qnode in ['frontera']:

@@ -1469,7 +1469,7 @@ class schism_grid:
 
         #construct a new grid
         gdn=schism_grid(); gdn.np,gdn.x,gdn.y,gdn.dp=npa,xn,yn,zn; dinde=setdiff1d(arange(self.ne),r_[sinde,pinde])
-        gdn.elnode=r_[self.elnode[dinde],elnode]; gdn.ne=len(gdn.elnode); gdn.i34=sum(gdn.elnode!=-2,axis=1); gdn.iep=iep
+        gdn.elnode=r_[self.elnode[dinde],elnode]; gdn.ne=len(gdn.elnode); gdn.i34=sum(gdn.elnode!=-2,axis=1); gdn.iep=r_[dinde,iep]
         return gdn
 
     def write_shp(self,fname,fmt=0,prj='epsg:4326'):
@@ -2105,7 +2105,7 @@ class schism_vgrid:
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
-    def save(self,fname=None,fmt=0,**args):
+    def save(self,fname='vgrid.in',fmt=0,**args):
         '''
         alias to write_vgrid
         '''
