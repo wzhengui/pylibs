@@ -1441,17 +1441,20 @@ class schism_grid:
                 inodei=arange(sum(fp)*nx,dtype='int').reshape([sum(fp),nx])+npa
                 for n,ixi in enumerate(ix): xb[fp,i,ixi]=xbi[:,n]; yb[fp,i,ixi]=ybi[:,n]; inode[fp,i,ixi]=inodei[:,n]
                 xn.extend(xbi.ravel()); yn.extend(ybi.ravel()); ipp.extend(tile(sinde[fp],[nx,1]).T.ravel()); npa=npa+sum(fp)*nx
-        npp=len(ipp); fps,sip,sacor=self.inside_elem(c_[array(xn)[-npp:],array(yn)[-npp:]],array(ipp)); zn.extend((self.dp[sip]*sacor).sum(axis=1)[argsort(fps)])
+        if len(ipp)!=0: #get the new node depth
+           npp=len(ipp); fps,sip,sacor=self.inside_elem(c_[array(xn)[-npp:],array(yn)[-npp:]],array(ipp))
+           zn.extend((self.dp[sip]*sacor).sum(axis=1)[argsort(fps)])
 
         #collect new element
-        elnode=-2*ones([ne,nsb*nsb,4],'int'); ie=0
+        elnode=-2*ones([ne,nsb*nsb,4],'int'); ie=0; iepi=[]
         for i in arange(nsb): #for triangles
             m=arange(nsb-i,dtype='int'); n=i*ones(len(m),'int')
             i1=c_[r_[n,n[1:]],r_[n,n[1:]+1],r_[n+1,n[1:]+1]]; i2=c_[r_[m,m[1:]], r_[m+1,m[1:]],r_[m,m[:-1]]]; inodei=inode[:,i1,i2][fp3]
-            for n in arange(len(i1)): elnode[fp3,ie,:3]=inodei[:,n]; ie=ie+1; iep.extend(sinde[fp3])
+            for n in arange(len(i1)): elnode[fp3,ie,:3]=inodei[:,n]; ie=ie+1; iepi.append(sinde[fp3])
+        iep.extend(array(iepi).T.ravel())
         #for quads
         elnode[fp4]=c_[inode[fp4,:nsb,:nsb][...,None],inode[fp4,:nsb,1:nsp][...,None],inode[fp4,1:nsp,1:nsp][...,None],inode[fp4,1:nsp,:nsb][...,None]].reshape([sum(fp4),nsb*nsb,4])
-        iep.extend(tile(sinde[fp4],[nsb*nsb]).T.ravel())
+        iep.extend(tile(sinde[fp4],[nsb*nsb,1]).T.ravel())
 
         #prepare for new grid
         xn=r_[self.x,xn]; yn=r_[self.y,yn]; zn=r_[self.z,zn]; elnode=elnode.reshape([prod(elnode.shape[:2]),4])
