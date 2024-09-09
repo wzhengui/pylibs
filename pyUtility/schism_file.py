@@ -1450,10 +1450,10 @@ class schism_grid:
         for i in arange(nsb): #for triangles
             m=arange(nsb-i,dtype='int'); n=i*ones(len(m),'int')
             i1=c_[r_[n,n[1:]],r_[n,n[1:]+1],r_[n+1,n[1:]+1]]; i2=c_[r_[m,m[1:]], r_[m+1,m[1:]],r_[m,m[:-1]]]; inodei=inode[:,i1,i2][fp3]
-            for n in arange(len(i1)): elnode[fp3,ie,:3]=inodei[:,n]; ie=ie+1; iepi.append(sinde[fp3])
+            for n in arange(len(i1)): elnode[:sum(fp3),ie,:3]=inodei[:,n]; ie=ie+1; iepi.append(sinde[fp3])
         iep.extend(array(iepi).T.ravel())
         #for quads
-        elnode[fp4]=c_[inode[fp4,:nsb,:nsb][...,None],inode[fp4,:nsb,1:nsp][...,None],inode[fp4,1:nsp,1:nsp][...,None],inode[fp4,1:nsp,:nsb][...,None]].reshape([sum(fp4),nsb*nsb,4])
+        elnode[sum(fp3):]=c_[inode[fp4,:nsb,:nsb][...,None],inode[fp4,:nsb,1:nsp][...,None],inode[fp4,1:nsp,1:nsp][...,None],inode[fp4,1:nsp,:nsb][...,None]].reshape([sum(fp4),nsb*nsb,4])
         iep.extend(tile(sinde[fp4],[nsb*nsb,1]).T.ravel())
 
         #prepare for new grid
