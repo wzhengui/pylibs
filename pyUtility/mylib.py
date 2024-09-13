@@ -1636,9 +1636,8 @@ def signa(x,y):
     if x.ndim==1:
         area=((x[0]-x[2])*(y[1]-y[2])-(x[1]-x[2])*(y[0]-y[2]))/2
     elif x.ndim==2:
-        # area=((x[:,0]-x[:,2])*(y[:,1]-y[:,2])-(x[:,1]-x[:,2])*(y[:,0]-y[:,2]))/2
         area=((x[...,0]-x[...,2])*(y[...,1]-y[...,2])-(x[...,1]-x[...,2])*(y[...,0]-y[...,2]))/2
-    area=np.squeeze(area)
+    #area=np.squeeze(area)
     return area
 
 def mdivide(A,B):
