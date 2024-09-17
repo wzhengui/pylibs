@@ -1409,7 +1409,7 @@ class schism_grid:
            sinde=read(reg).inside(self.exy)
         elif isinstance(reg,np.ndarray):
            if reg.ndim==1: sinde=reg
-           if reg.ndim==2: sinde=pindex(inside_polygon(gd.exy,*rxy.T),1)
+           if reg.ndim==2: sinde=pindex(inside_polygon(self.exy,*rxy.T),1)
 
         nsb=nsub; nsp=nsub+1; xn=[]; yn=[]; zn=[]; iep=[]; npa=self.np #additional nodes
         #get the side information, and then divide them into nsb sections
@@ -1458,20 +1458,32 @@ class schism_grid:
 
         #prepare for new grid
         xn=r_[self.x,xn]; yn=r_[self.y,yn]; zn=r_[self.z,zn]; elnode=elnode.reshape([prod(elnode.shape[:2]),4])
+        tinde=setdiff1d(self.isdel[sinds].ravel(),sinde); tinde=tinde[tinde!=-1] #elements in transition zone
+        fps=self.elside[tinde]; tinds=sdict[fps]; tinds[fps==-1]=-1 #sides in transition zone
 
-        #for transition zone
-        pinde=setdiff1d(self.isdel[sinds].ravel(),sinde); pinde=pinde[pinde!=-1]; trs=[]
-        for ie in pinde:
-            s=self.elside[ie,:self.i34[ie]]; ip0=[self.isidenode[i] for i in s if sdict[i]==-1]; ip1=[isd[:,sdict[i]] for i in s if sdict[i]!=-1]
-            ips=[]; [ips.extend(i) for i in [*ip0,*ip1]]; ips=unique(ips); T=mpl.tri.Triangulation(xn[ips],yn[ips]); tr=ips[unique(T.triangles,axis=0)]; flag=ones(len(tr))
-            for i,tri in enumerate(tr):
-                for ip in ip1:
-                    if len(setdiff1d(tri,ip))==0: flag[i]=0
+        #for transition zone, find triangles (rinde,rinds) with only 1 side divided
+        fpe=(self.i34[tinde]==3)*(sum(tinds!=-1,axis=1)==1); rinde=tinde[fpe]
+        rinds=sort(tinds[fpe],axis=1)[:,-1]; isn=isd[:,rinds]; in0=zeros(len(rinde),'int')
+        for i in arange(3): #find all nodes
+            n1=self.elnode[rinde,(i+1)%3]; n2=self.elnode[rinde,(i+2)%3]
+            fp1=(n1==isn[0])*(n2==isn[-1]); fp2=(n1==isn[-1])*(n2==isn[0]); fp=fp1|fp2
+            in0[fp]=self.elnode[rinde[fp],i]; isn[:,fp2]=flipud(flipud(isn[:,fp2]))
+        for i in arange(nsb): elnode=r_[elnode,c_[in0,isn[i:(i+2),:].T,-2*ones([len(rinde),1],'int')]]; iep.extend(rinde)  #add divided triangles
+
+        #for transition zone, with multipe side divided
+        fp=((self.i34[tinde]==3)*(sum(tinds!=-1,axis=1)!=1))|(self.i34[tinde]==4); pinde=tinde[fp]; pinds=tinds[fp]; trs=[]
+        for ie,ps in zip(pinde,pinds):
+            isn=isd[:,ps[ps!=-1]]; ips=r_[self.elnode[ie,:self.i34[ie]],isn[1:-1].ravel()]
+            T=mpl.tri.Triangulation(xn[ips],yn[ips]); tr=ips[unique(T.triangles,axis=0)]; flag=ones(len(tr))
+            for isni in isn.T: #remove invalid triangles
+                sd=dict(zip(ips,zeros(len(ips),'int')))
+                for i in isni: sd[i]=1
+                flag[array([sd[i] for i in tr.ravel()]).reshape(tr.shape).sum(axis=1)==3]=0
             fp=flag==1; trs.extend(array(tr)[fp]); iep.extend(tile(ie,sum(fp)))
         elnode=r_[elnode,resize(array(trs,'int'),[len(trs),4],-2)]
 
         #construct a new grid
-        gdn=schism_grid(); gdn.np,gdn.x,gdn.y,gdn.dp=npa,xn,yn,zn; dinde=setdiff1d(arange(self.ne),r_[sinde,pinde])
+        gdn=schism_grid(); gdn.np,gdn.x,gdn.y,gdn.dp=npa,xn,yn,zn; dinde=setdiff1d(arange(self.ne),r_[sinde,tinde])
         gdn.elnode=r_[self.elnode[dinde],elnode]; gdn.ne=len(gdn.elnode); gdn.i34=sum(gdn.elnode!=-2,axis=1); gdn.iep=r_[dinde,iep]
         return gdn
 
