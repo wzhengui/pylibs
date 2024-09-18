@@ -2369,6 +2369,15 @@ def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
 
     return pvalues
 
+def check_schism_ihot(dirpath='.'):
+    '''
+    check schism run setup with ihot=2, and abort when outputs/flux.out missing
+    '''
+    bdir=os.path.abspath(dirpath); fname=bdir+'/param.nml'; odir=bdir+'/outputs'
+    if not (os.path.exists(fname) and os.path.exists(odir)): return
+    ihot=read_schism_param(fname,3).ihot
+    if ihot==2 and (not os.path.exists(odir+'/flux.out')): sys.exit('wrong setup: flux.out missig for ihot={}'.format(ihot))
+
 def getglob(dirpath='.',fmt=0):
     '''
     get global information about schism run (ne,ns,np,nvrt,nproc,ntracers,ntrs)

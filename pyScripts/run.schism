@@ -27,7 +27,7 @@ scrout='screen.out'     #fname for outout and error
 #-----------------------------------------------------------------------------
 #submit jobs
 #-----------------------------------------------------------------------------
-bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir); qnode=get_qnode(qnode)
+bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir); qnode=get_qnode(qnode); check_schism_ihot(bdir)
 if os.getenv('schism')==None: 
    scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'schism',qname,account,reservation)
    print(scode); os.system(scode); os._exit(0)
