@@ -2976,7 +2976,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     if np==gd.ne: vii=array([C[i][pie] for i in arange(0,nt,nspool)])
                     if (np==gd.ns) and (sgrid is None): vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in arange(0,nt,nspool)])
                     if (np==gd.ns) and (sgrid is not None): vii=array([sum(C[i][P.pip]*P.pacor[...,None],axis=1) for i in arange(0,nt,nspool)])
-                    vii=vii.transpose([2,0,1]) if nd==3 else vii.tranpose([2,0,1,3]) #from (nt,npt,nvrt) to (nvrt,nt,npt)
+                    vii=vii.transpose([2,0,1]) if nd==3 else vii.transpose([2,0,1,3]) #from (nt,npt,nvrt) to (nvrt,nt,npt)
                     if extend==0:
                        for k in arange(nvrt-1)[::-1]: z1=vii[k]; z2=vii[k+1]; fpn=abs(z1)>1e8; z1[fpn]=z2[fpn] #extend value at bottom
                     else:
@@ -3159,7 +3159,7 @@ def get_schism_var_info(svar=None,modules=None,fmt=0):
            'tau_bot':'bottom_stress','wind':'wind_speed','tau_wind':'wind_stress','dahv':'dahv',
            'zvel':'vertical_velocity','temp':'temp','salt':'salt','rho':'water_density',
            'diff':'diffusivity','vis':'viscosity','TKE':'TKE','ML':'mixing_length',
-           'zcor':'zCoordinates','hvel':'hvel', 'hvel_side':'hvel_side','zvel_elem':'wvel_elem',
+           'zcor':'zcor','hvel':'hvel', 'hvel_side':'hvel_side','zvel_elem':'wvel_elem',
            'temp_elem':'temp_elem','salt_elem':'salt_elem','pres':'pressure_gradient'}
 
     Hydro={'elev':'elevation','apres':'airPressure','atemp':'airTemperature',
