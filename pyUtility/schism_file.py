@@ -3919,7 +3919,7 @@ class schism_check(zdata):
        if fname not in fmts:
            if fname.split('.')[-1] in ['gr3','ll','ic','prop']: fmts[fname]=0
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
-           if fname.startswith('hotstart.nc') or fname=='ICM_param.nc': fmts[fname]=2
+           if fname.startswith('hotstart.nc') or fname in ['ICM_param.nc','surface_restore.nc']: fmts[fname]=2
            if fname=='source.nc': fmts[fname]=3
            if fname=='source_input':
               sname='.source.nc'; fmts[fname]=3
@@ -4445,6 +4445,7 @@ class schism_check(zdata):
        [fnames.append(i) for i in snames if i.endswith('D.th.nc')]  #3D bnd
        [fnames.append(i) for i in snames if i.endswith('_nu.nc')]   #3D nudge
        [fnames.append(i) for i in snames if i=='source.nc']         #source.nc
+       [fnames.append(i) for i in snames if i=='surface_restore.nc']  #surface_restore.nc
        [fnames.append('source_input') for i in snames if i=='source_sink.in']           #source_input
        [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source_input
        snames=[i for i in snames if not i.startswith('vsource.')]                                        #remove vsource.th
