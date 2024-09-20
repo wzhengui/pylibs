@@ -1,6 +1,13 @@
 #!/usr/bin/evn python3
 from pylib import *
 
+def sort_all(t,*args):
+    '''
+    sort all variables based on the 1st input
+    '''
+    sind=argsort(t); t=t[sind]; args=[i[sind] for i in args]
+    return [t,*args]
+
 def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%S',ax=None,fig=None):
     '''
     add dynamic xtick labels with x-axis being datenum
@@ -58,6 +65,53 @@ def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%
 
     #connect actions
     fig.canvas.mpl_connect('button_release_event', onclick)
+
+def cmean(mtime,data,n=13):
+    '''
+    compute climatological pattern by using running smooth method for computing
+       mtime, data: time and data
+       n: number of points in a year
+    '''
+    t0=doy(mtime) if mtime.max()>365 else mtime; y0=data; t=linspace(0,365,n); dt=t[1]-t[0]
+    fmean=lambda x: nan if len(x)==0 else x.mean()
+    y=array([fmean(y0[abs(t0-i)<=dt/2]) for i in t]); fpn=~isnan(y); t,y=t[fpn],y[fpn]
+    return t,y
+
+def interp(x0,y0,x,fmt=0,kind='linear',axis=-1,fill_value=nan):
+    '''
+    1D interpolator with different options for outliers; The engine in scipy.interpolate.interp1d.
+      x0,y0: orignal data
+      x: coordindate that data will be evaluated
+      kind: 'linear', 'linear', 'nearest', 'nearest-up', 'zero', 'slinear', 'quadratic', 'cubic', 'previous', 'next'
+      axis: interpolation performed along certain dimension of y0
+
+    Options for points outside the range of x0
+      fmt=0: use nearest point
+      fmt=1: simple linear extrapolate
+      fmt=2: (x0,x) represents time; use nearest year for outlier interpolation
+      fmt=3: (x0,x) represents time; compute climatological pattern for outlier interpolation
+
+      note: fmt=3 only works for 1D data
+    '''
+    f=interpolate.interp1d; x1=x0.min(); x2=x0.max(); x=array(x).copy(); t0=x0; t1=x1; t2=x2; t=x
+
+    #different options for points out of range
+    if fmt==0: x[x<x1]=x1; x[x>x2]=x2
+    if fmt==1: fill_value='extrapolate'
+    if fmt==2:
+       d1=doy(t1); d2=doy(t2); t10=t1-d1; t20=t2-d2 #minimum and maximum dates
+       fpt=t<t1; d=doy(t[fpt]); tm=t10+d; fp=d<d1; tm[fp]=tm[fp]+365; t[fpt]=tm
+       fpt=t>t2; d=doy(t[fpt]); tm=t20+d; fp=d>d2; tm[fp]=tm[fp]-365; t[fpt]=tm
+    if fmt==3:
+       fp=(t>=t1)*(t<=t2); fpn=~fp; ym=nan*ones(len(t))
+       ym[fp]=f(x0,y0,kind=kind,axis=axis,fill_value=fill_value)(t[fp])
+       if sum(fpn)!=0:
+          ct,cy=cmean(t0,y0,int(t0.size/10)); npt=ct.size; ct=r_[ct-365,ct,ct+365]; cy=r_[cy,cy,cy]
+          if npt>13: cy=smooth(cy,2+int(npt/13))
+          ym[fpn]=interp(ct,cy,doy(t[fpn]))
+    #interp
+    y=ym if fmt==3 else f(x0,y0,kind=kind,axis=axis,fill_value=fill_value)(x)
+    return y
 
 class blit_manager:
     def __init__(self,hgs,hf=None):
@@ -1017,6 +1071,13 @@ def datenum(*args,fmt=0):
 
     return dnum
 
+def doy(daynum):
+    '''
+    return day of the year for datenum
+    '''
+    t0=array([datenum(num2date(i).year,1,1) for i in daynum]) if hasattr(daynum,'__len__') else datenum(num2date(daynum).year,1,1)
+    return daynum-t0
+
 def quickdatenum(times):
     '''
     To quickly process time stamps, suitable for data with continuously increasing time. It will save
@@ -1262,15 +1323,19 @@ def loadz(fname,svars=None):
        sys.exit('unknown format: {}'.format(fname))
     return vdata if fmt==0 else vdata.__dict__[svars[0]]
 
-def least_square_fit(X,Y):
+def least_square_fit(X,Y,order=None):
     '''
     perform least square fit
     usage: CC,fit_data=least_square_fit(X,Y)
         X: data maxtrix (npt,n)
         Y: data to be fitted (npt)
+        order: if X is 1D array, create polynomial maxtrix [npt,order]
     where CC(n) is coefficient, fit_data is data fitted
     '''
     if X.shape[0]!=len(Y): X=X.T
+    if X.ndim==1 and (order is not None):
+       X=array([X**i for i in arange(order)]).T
+       print(X.shape)
     CC=inv(X.T@X)@(X.T@Y); fy=X@CC
 
     return [CC,fy]

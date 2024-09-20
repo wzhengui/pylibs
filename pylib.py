@@ -96,15 +96,15 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    import pyUtility.mylib as mylib
    sys.modules['mylib'] = mylib
    from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
-        add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,
-        smooth,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,
+        add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,sort_all,
+        cmean,smooth,doy,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,
         inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,interp_vertical,read_shapefile_data,write_shapefile_data,
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,
         get_stat,get_subplot_position,get_subplot_position2,load_dem,plot_taylor_diagram,
-        read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel,
-        write_excel,rtext,mklink,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
-        get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index)
+        read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
+        mklink,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
+        get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp)
 
    import pyUtility.schism_file as schism_file
    sys.modules['schism_file'] = schism_file
