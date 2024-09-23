@@ -17,6 +17,9 @@ class schism_grid:
             raise Exception('hgrid file format {} not recognized'.format(fname))
         self.source_file = fname
 
+    #------------------------------------------------------------------------------------------------
+    #alias for grid properties
+    #------------------------------------------------------------------------------------------------
     @property
     def backend(self):
         bkn=mpl.get_backend().lower(); backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
@@ -34,28 +37,76 @@ class schism_grid:
         return self.dp
 
     @property
-    def zctr(self):
+    def xe(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return self.xctr
+    @property
+    def ye(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return self.yctr
+    @property
+    def ze(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
         return self.dpe
 
     @property
-    def zcj(self):
-        if not hasattr(self,'zcj'): self.compute_side(2)
+    def xs(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
+        return self.xcj
+    @property
+    def ys(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
+        return self.ycj
+    @property
+    def zs(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
         return self.dps
 
     @property
-    def pxy(self):
+    def zctr(self):
+        return self.ze
+    @property
+    def zcj(self):
+        return self.zs
+
+    @property
+    def xy(self):
         return c_[self.x,self.y]
+    @property
+    def xyz(self):
+        return c_[self.x,self.y,self.z]
+    @property
+    def cxy(self):
+        return self.x+1j*self.y
 
     @property
     def exy(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
         return c_[self.xctr,self.yctr]
+    @property
+    def exyz(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return c_[self.xctr,self.yctr,self.zctr]
+    @property
+    def ecxy(self):
+        if not hasattr(self,'dpe'): self.compute_ctr()
+        return self.xctr+1j*self.yctr
 
     @property
     def sxy(self):
         if not hasattr(self,'xcj'): self.compute_side(2)
         return c_[self.xcj,self.ycj]
+    @property
+    def sxyz(self):
+        if not hasattr(self,'xcj'): self.compute_side(2)
+        return c_[self.xcj,self.ycj,self.zcj]
+    @property
+    def scxy(self):
+        if not hasattr(self,'xcj'): self.compute_side(2)
+        return self.xcj+1j*self.ycj
+    #------------------------------------------------------------------------------------------------
+    #alias for grid properties
+    #------------------------------------------------------------------------------------------------
 
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
              ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,**args):
@@ -1748,6 +1799,18 @@ class schism_bpfile:
     def VINFO(self):
         return get_INFO(self)
 
+    @property
+    def xyz(self):
+        return c_[self.x,self.y,self.z]
+
+    @property
+    def xy(self):
+        return c_[self.x,self.y]
+
+    @property
+    def cxy(self):
+        return self.x+1j*self.y
+
     def read_reg(self,*args0,**args):
         self.read(fname,*args0,**args)
 
@@ -3395,7 +3458,7 @@ class schism_view:
             for ik in arange(ik1,ik2+1):
                 fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
                 C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]; t00=time.time()
-                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.pxy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
+                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
                 if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
                 if svar in self.vars_2d:
                     data=array(C.variables[svar][:,sindp])
@@ -3524,7 +3587,7 @@ class schism_view:
         if npt==gd.ns and (not hasattr(gd,'xcj')):  gd.compute_side(fmt=2)
         if npt==gd.ns and (not hasattr(self,'kbs')): self.kbs=gd.compute_kb(self.kbp,fmt=1)
         if p.sindv is None: #get xy coordinate and indices
-           x,y=(gd.pxy if npt==gd.np else gd.exy if npt==gd.ne else gd.sxy).T
+           x,y=(gd.xy if npt==gd.np else gd.exy if npt==gd.ne else gd.sxy).T
            p.sindv=pindex((x>=p.xm[0])*(x<=p.xm[1])*(y>=p.ym[0])*(y<=p.ym[1])); p.vx=x[p.sindv]; p.vy=y[p.sindv]
 
         sind=p.sindv #read record of vector variables
@@ -3919,12 +3982,17 @@ class schism_check(zdata):
        if fname not in fmts:
            if fname.split('.')[-1] in ['gr3','ll','ic','prop']: fmts[fname]=0
            if fname.endswith('D.th.nc') or fname.endswith('_nu.nc'): fmts[fname]=1
-           if fname.startswith('hotstart.nc') or fname in ['ICM_param.nc','surface_restore.nc']: fmts[fname]=2
+           if fname.startswith('hotstart.nc'): fmts[fname]=2
            if fname=='source.nc': fmts[fname]=3
            if fname=='source_input':
               sname='.source.nc'; fmts[fname]=3
               if not os.path.exists(self.run+sname): print('convert schism source_sink format: '+sname); convert_schism_source(self.run,sname)
            if fname=='*.th': fmts[fname]=4
+           if fname not in fmts:
+              if fname.endswith('.nc'):
+                 fmts[fname]=2
+              else:
+                 sys.exit('unknown format: {}'.format(fname))
            self.fmt=fmts[fname]; self.read_input_info()
        self.fmt=fmts[fname]; p=params[fname]
 
@@ -4031,12 +4099,11 @@ class schism_check(zdata):
               if dn=='nVert': dn='layer'
               if dn=='nsources': dn='source'
               if dn=='nsinks': dn='sink'
-              if fname=='ICM_param.nc':
+              if self.fmt==2 and dn.startswith('dim_'):
                  if not hasattr(self,'hgrid'): self.read_hgrid()
-                 if ds==self.hgrid.ne or ds==self.hgrid.np:
-                    dn='node/elem'; dvar.set('all')
-                 else:
-                    dn='d{}'.format(n)
+                 if ds==self.hgrid.np: dn='node'; dvar.set('all')
+                 if ds==self.hgrid.ne: dn='elem'; dvar.set('all')
+                 if ds!=self.hgrid.np and ds!=self.hgrid.ne: dn='D{}'.format(n)
               sfm11=ttk.Frame(master=sfm1); sfm11.grid(row=0,column=n,sticky='W',pady=5)
               ttk.Label(master=sfm11,text='  '+dn).grid(row=0,column=0,sticky='W'); p.dnames[n]=dn
               mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W')
@@ -4449,13 +4516,13 @@ class schism_check(zdata):
        [fnames.append('source_input') for i in snames if i=='source_sink.in']           #source_input
        [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source_input
        snames=[i for i in snames if not i.startswith('vsource.')]                                        #remove vsource.th
+       [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_'))]  #other nc files
        fnames.extend(unique(['*.th' for i in snames if i.endswith('.th')]))          #*.th
        [fnames.append(i) for i in snames if i.endswith('.ll')]                       #hgrid.gr3
        [fnames.append(i) for i in snames if i.endswith('.gr3') and (i not in fnames)]#gr3
        [fnames.append(i) for i in snames if i.endswith('.prop')]                     #prop
        mc=[i for i in snames if i.endswith('.ic') and ('hvar' in i)]                 #ic files
        [fnames.append(i) for i in snames if i.endswith('.ic') and (i not in mc)]; fnames.extend(mc)   #ic
-       [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_'))]  #other nc files
        self.fnames=fnames; self.thfiles=[i for i in snames if i.endswith('.th')]     #*.th
        self.sflux=[i[:-3] for i in os.listdir(self.run+'sflux') if i.endswith('nc')] if fexist(self.run+'sflux') else None
        # self.StartT=0 #update this later
