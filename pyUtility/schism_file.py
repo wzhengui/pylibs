@@ -3617,13 +3617,13 @@ class schism_view:
             if not hasattr(self,'hgrid'): return
             p=self.get_param()
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
-            w._nan.set('none'); self.update_panel('nan')
-        elif event=='nan': #set nodata
-            w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='nan' else w.sfm.grid_forget()
+            w._nan.set('none'); self.update_panel('mask')
+        elif event=='mask': #set nodata
+            w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
-            w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('nan')
+            w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('mask')
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1]); w.map.set(p.map)
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
         elif type(event)==mpl.backend_bases.DrawEvent:
@@ -3896,7 +3896,7 @@ class schism_view:
         ttk.Entry(fm,textvariable=w.vmin,width=10).grid(row=3,column=1,sticky='W',padx=2)
         ttk.Entry(sfm3,textvariable=w.vmax,width=10).grid(row=0,column=0,sticky='W',padx=0)
         w._nan=tk.StringVar(wd); w.nan=tk.DoubleVar(wd); w._nan.set('none'); w.nan.set(0)
-        ttk.OptionMenu(sfm3,w._nan,'','none','nan',command=lambda x: self.update_panel('nan')).grid(row=0,column=1,padx=5,sticky='W')
+        ttk.OptionMenu(sfm3,w._nan,'','none','mask',command=lambda x: self.update_panel('mask')).grid(row=0,column=1,padx=5,sticky='W')
         sfm4=ttk.Frame(master=sfm3); ttk.Entry(sfm4,textvariable=w.nan,width=5).grid(row=0,column=0,sticky='W'); w.sfm=sfm4
 
         #frame2: vector, time_series
@@ -4003,6 +4003,7 @@ class schism_check(zdata):
           if p.init==0:
              p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.ctr=tk.IntVar(wd); p.grid.set(0); p.bnd.set(0); p.ctr.set(1)
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.sflux=tk.StringVar(wd); p.vmin.set(0); p.vmax.set(0); p.sflux.set('None')
+             p._nan=tk.StringVar(wd); p.nan=tk.DoubleVar(wd); p._nan.set('none'); p.nan.set(0)
 
           #update plot options
           self.var.set('z'); self.vars['values']='z'; p.dnames=[]; p.dvars=[]
@@ -4020,10 +4021,13 @@ class schism_check(zdata):
           ttk.Label(master=sfm,text='  limit').grid(row=0,column=0,sticky='W')
           ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
+          ttk.OptionMenu(sfm,p._nan,'','none','mask',command=lambda x: self.update_panel('mask')).grid(row=0,column=3,padx=5,sticky='W')
+          sfm2=ttk.Frame(master=sfm); ttk.Entry(sfm2,textvariable=p.nan,width=5).grid(row=0,column=0,sticky='W'); p.sfm=sfm2
+          if option=='mask': p.sfm.grid(row=0,column=4,sticky='W') if p._nan.get()=='mask' else p.sfm.grid_forget()
        elif self.fmt==1: # *D.th.nc or _nu.nc
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0)
-             p.transpose=tk.IntVar(wd); p.transpose.set(0)
+             p.transpose=tk.IntVar(wd); p.transpose.set(0); p._nan=tk.StringVar(wd); p.nan=tk.DoubleVar(wd); p._nan.set('none'); p.nan.set(0)
              if fname.endswith('_nu.nc') or fname=='uv3D.th.nc':
                 p.ctr=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.scale=tk.DoubleVar(wd)
                 p.ctr.set(0); p.grid.set(0); p.bnd.set(0); p.scale.set(1.0)
@@ -4051,6 +4055,10 @@ class schism_check(zdata):
           ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
           ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
+          if fname.endswith('_nu.nc'):
+             ttk.OptionMenu(sfm,p._nan,'','none','mask',command=lambda x: self.update_panel('mask')).grid(row=0,column=4,padx=5,sticky='W')
+             sfm2=ttk.Frame(master=sfm); ttk.Entry(sfm2,textvariable=p.nan,width=5).grid(row=0,column=0,sticky='W'); p.sfm=sfm2
+             if option=='mask': p.sfm.grid(row=0,column=5,sticky='W') if p._nan.get()=='mask' else p.sfm.grid_forget()
 
           #add gd.plot for *_nu.nc
           if fname.endswith('_nu.nc') or fname=='uv3D.th.nc':
@@ -4064,12 +4072,13 @@ class schism_check(zdata):
                 ttk.Label(master=sfm,text='   zoom').grid(row=0,column=3,sticky='W')
                 ttk.Entry(sfm,textvariable=p.scale,width=5).grid(row=0,column=4,sticky='W')
        elif self.fmt in [2,3]:  #hotstart.nc or source.nc
-          if p.init==1 and option==1: #save parameter
+          if p.init==1 and (option in [1,'mask']): #save parameter
              p0=zdata(); p0.dvars=[i.get() for i in p.dvars]; p0.vmin=p.vmin.get(); p0.vmax=p.vmax.get(); p0.scale=p.scale.get()
              p0.transpose=p.transpose.get(); p0.grid=p.grid.get(); p0.bnd=p.bnd.get(); p0.dims=[*p.dims]
           if p.init==0:
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.scale=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0); p.scale.set(1)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
+             p._nan=tk.StringVar(wd); p.nan=tk.DoubleVar(wd); p._nan.set('none'); p.nan.set(0)
              if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.id=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0); p.id.set(0)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
 
@@ -4081,8 +4090,10 @@ class schism_check(zdata):
           p.dvars=[tk.StringVar(wd) for i in p.dims];
           p.xs=[*p.dims] if self.fmt==2 else [[*arange(i)] for i in p.dims]
 
-          sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5)
+          sfm1=ttk.Frame(master=fm); sfm1.grid(row=0,column=0,sticky='W',pady=5); inode=0
+          if not hasattr(self,'hgrid'): self.read_hgrid()
           for n,[dn,ds,dvar] in enumerate(zip(p.dnames,p.dims,p.dvars)):
+              if ds in [self.hgrid.np,self.hgrid.ne]: inode=1
               if ds==1:
                  dvar.set(0); vs=[0]; dw=2
                  if dn=='uv': vs=['all','mean','min','max','sum',0]; dw=5
@@ -4100,7 +4111,6 @@ class schism_check(zdata):
               if dn=='nsources': dn='source'
               if dn=='nsinks': dn='sink'
               if self.fmt==2 and dn.startswith('dim_'):
-                 if not hasattr(self,'hgrid'): self.read_hgrid()
                  if ds==self.hgrid.np: dn='node'; dvar.set('all')
                  if ds==self.hgrid.ne: dn='elem'; dvar.set('all')
                  if ds!=self.hgrid.np and ds!=self.hgrid.ne: dn='D{}'.format(n)
@@ -4109,15 +4119,22 @@ class schism_check(zdata):
               mm=ttk.Combobox(sfm11,textvariable=dvar,values=vs,width=dw,); mm.grid(row=0,column=1,sticky='W')
               mm.bind("<<ComboboxSelected>>",lambda x: self.set_anim()); ap.dns.append(mm)
 
-          if self.fmt==2 and p.var in ['su2','sv2']:
-             ttk.Label(master=sfm1,text='  zoom').grid(row=0,column=len(p.dims)+1,sticky='W')
-             ttk.Entry(sfm1,textvariable=p.scale,width=5).grid(row=0,column=len(p.dims)+2,sticky='W',padx=2)
+          if self.fmt==2:
+             if p.var in ['su2','sv2']:
+                ttk.Label(master=sfm1,text='  zoom').grid(row=0,column=len(p.dims)+1,sticky='W')
+                ttk.Entry(sfm1,textvariable=p.scale,width=5).grid(row=0,column=len(p.dims)+2,sticky='W',padx=2)
+             else:
+                if inode==1:
+                  ttk.OptionMenu(sfm1,p._nan,'','none','mask',command=lambda x: self.update_panel('mask')).grid(row=0,column=len(p.dims)+2,padx=5,sticky='W')
+                  sfm2=ttk.Frame(master=sfm1); ttk.Entry(sfm2,textvariable=p.nan,width=5).grid(row=0,column=0,sticky='W'); p.sfm=sfm2
+                  if option=='mask': p.sfm.grid(row=0,column=len(p.dims)+3,sticky='W') if p._nan.get()=='mask' else p.sfm.grid_forget()
+                  wd.geometry('420x185')
 
           #add limit panel
           sfm=ttk.Frame(master=fm); sfm.grid(row=1,column=0,sticky='W')
           ttk.Label(master=sfm,text='  limit').grid(row=0,column=0,sticky='W')
-          ttk.Entry(sfm,textvariable=p.vmin,width=10).grid(row=0,column=1,sticky='W',padx=2)
-          ttk.Entry(sfm,textvariable=p.vmax,width=10).grid(row=0,column=2,sticky='W')
+          ttk.Entry(sfm,textvariable=p.vmin,width=6).grid(row=0,column=1,sticky='W',padx=2)
+          ttk.Entry(sfm,textvariable=p.vmax,width=6).grid(row=0,column=2,sticky='W')
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
           if self.fmt==2:
              tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
@@ -4136,7 +4153,7 @@ class schism_check(zdata):
              wd.geometry('400x185')
 
           #restore parameters if dims are the same
-          if p.init==1 and option==1 and array_equal(array(p0.dims),array(p.dims)):
+          if p.init==1 and (option in [1,'mask']) and array_equal(array(p0.dims),array(p.dims)):
              [i.set(k) for i,k in zip(p.dvars,p0.dvars)]; p.vmin.set(p0.vmin); p.vmax.set(p0.vmax); p.scale.set(p0.scale)
              p.transpose.set(p0.transpose); p.grid.set(p0.grid); p.bnd.set(p0.bnd)
        elif self.fmt==4: #*.th file
@@ -4240,14 +4257,14 @@ class schism_check(zdata):
            if v is not None: p.vm0=[v.min(),v.max()]
 
        if self.fmt==0:  #gr3 files
-          gd=self.hgrid; p=self.params[fname]; data=fids[fname]; pfmt=0; fxy=0
+          gd=self.hgrid; p=self.params[fname]; data=fids[fname]; pfmt=0; fxy=0; nodata=None if p._nan.get()=='none' else p.nan.get()
           if p.sflux.get()!='None':
              if not hasattr(gd,'lon'): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
              sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
              for i,k in zip(sx,sy): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1); fxy=1
              for i,k in zip(sx.T,sy.T): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1)
              if abs(gd.lon-gd.x).mean()>1: pfmt=-1; slimit(gd.lon,gd.lat,data)
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1,xy=fxy,zorder=0)
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1,xy=fxy,zorder=0)
           if p.grid.get()==1: gd.plot(xy=fxy,zorder=2)
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1,xy=fxy,zorder=2)
           p.hp=gca(); slimit(gd.x,gd.y,data)
@@ -4313,16 +4330,16 @@ class schism_check(zdata):
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
               if not hasattr(self,'hgrid'):self.read_hgrid()
               if fname.endswith('_nu.nc') and xn=='node' and p.ctr.get()==1:
-                  gd=self.hgrid
+                  gd=self.hgrid; nodata=None if p._nan.get()=='none' else p.nan.get()
                   if not hasattr(p,'sindn'): p.sindn=array(read(self.run+os.path.sep+fname,1).variables['map_to_global_node'])-1
                   vi=zeros(gd.np); vi[p.sindn]=p.data
-                  gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+                  gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
                   pfmt=6; slimit(gd.x,gd.y,p.data)
               elif self.fmt==2 and (xn in ['node', 'elem','node/elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
-                  gd=self.hgrid
-                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],ticks=11,cmap='jet',method=1); p.hp=gca()
+                  gd=self.hgrid; nodata=None if p._nan.get()=='none' else p.nan.get()
+                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
                   pfmt=3; slimit(gd.x,gd.y,p.data)
