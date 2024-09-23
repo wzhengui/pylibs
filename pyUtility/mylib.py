@@ -416,8 +416,8 @@ def get_qnode(qnode=None):
     if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
     return qnode
 
-def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',
-                    scrout='screen.out',fmt=0,ename='param',qname='flex',account=None,reservation=None,mem='4G'):
+def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',scrout='screen.out',
+                    fmt=0,ename='param',qname=None,account=None,reservation=None,mem=None,exclusive=0):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -433,44 +433,29 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
 
     #pre-proc
     qnode0=qnode; qnode=os.getenv('qnode') if qnode is None else qnode; nproc=nnode*ppn
-    rinfo='' if (reservation is None) else '--reservation='+reservation
     if ename=='run_schism': ename='schism' #old parameter support
+
+    #combine commands for slurm system (abandon pbs system)
+    jname='-J '+jname; nnode='-N {}'.format(nnode);  ppn='--ntasks-per-node {}'.format(ppn); wtime='-t '+wtime #necessary
+    qname='' if qname==None else '-p '+qname
+    account='' if account==None else '-A '+account
+    reservation='' if reservation==None else '--reservation='+reservation
+    mem='' if mem==None else '--mem='+mem
+    exclusive='' if exclusive==0 else '--exclusive' #'levante','hercules'
 
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code)); os.environ['run_schism']=os.getenv(ename)
        #for submit jobs
-       if qnode in ['femto','gulf','kuro','bora']:
-          #scmd='sbatch --export=ALL --constraint=femto --exclusive -J {} -N {} -n {} -t {} {}'.format(jname,nnode,nproc,wtime,code)
-          scmd='sbatch {} --export=ALL -J {} -N {} --ntasks-per-node {} -t {} {}'.format(rinfo,jname,nnode,ppn,wtime,code)
-       elif qnode in ['c18x','potomac','james']:
-          scmd='qsub {} {} -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,'-V' if qnode0 is None else '', ename,bdir,code,jname,nnode,qnode,ppn,wtime)
-          if qnode=='james': scmd='qsub {} -V -v {}="{} {}", -N {} -j oe -l nodes={}:{}:ppn={} -l walltime={}'.format(code,ename,bdir,code,jname,nnode,qnode,ppn,wtime)
-       elif qnode in ['frontera',]:
-          #scmd='sbatch --export=ALL,{}="{} {}" -J {} -p {} -N {} -n {} -t {} {}'.format(ename,bdir,code,jname,qname,nnode,nproc,wtime,code)
-          scmd='sbatch --export=ALL -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,nnode,ppn,wtime,code)
-       elif qnode in ['levante','hercules']:
-          scmd='sbatch --export=ALL --exclusive -J {} -p {} --account={} -N {} --ntasks-per-node {} -t {} {}'.format(jname,qname,account,nnode,ppn,wtime,code)
-       elif qnode in ['stampede2',]:
-          scmd='sbatch "--export=ALL" -J {} -p {} -A {} -N {} -n {} -t {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
-       elif qnode in ['eagle','deception']:
-          scmd='sbatch --export=ALL -A {} -J {} -p {} -N {} --ntasks-per-node {} -t {} {}'.format(account,jname,qname,nnode,ppn,wtime,code)
-       elif qnode in ['grace',]:
-          scmd='sbatch --export=ALL -J {} -N {} --mem={} --ntasks-per-node {} -t {} {}'.format(jname,nnode,mem,ppn,wtime,code)
+       if qnode in ['femto','gulf','kuro','bora','frontera','levante','hercules','eagle','deception','grace','stampede2']:
+          scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
        else:
           sys.exit('unknown qnode: {},tag=1'.format(qnode))
+       #if qnode in ['stampede2',]: scmd='sbatch "--export=ALL" {} {} {} {} -n {} {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
     elif fmt==1:
        #for run parallel jobs
        if qnode in ['femto','gulf','kuro','bora']:
           scmd='srun --export=PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
           #if ename=='schism': scmd='srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}'.format(bdir,nproc,code,scrout)
-       elif qnode in ['c18x','potomac','james',]:
-          code=os.path.abspath(code)
-          scmd="mvp2run -v -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          #if qnode=='bora': 
-          #   PATH='/sciclone/data10/wangzg/mambaforge/envs/bora/bin:'+os.getenv('PATH')
-          #   scmd="mvp2run -v -a -e PATH={} -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(PATH,bdir,nproc,code,scrout)
-          if qnode=='james': scmd="mvp2run -v -C 0.05 -a -e job_on_node=1 -e bdir='{}' -e nproc={} {} >& {}".format(bdir,nproc,code,scrout)
-          #if qnode=='james' and ename=='schism': scmd='mpiexec -np {} --bind-to socket {}/{} >& {}'.format(nproc,bdir,code,scrout)
        elif qnode in ['frontera']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
           if ename=='schism': scmd="ibrun {} >& {}".format(code,scrout)
