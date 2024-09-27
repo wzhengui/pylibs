@@ -78,6 +78,12 @@ class schism_grid:
     @property
     def cxy(self):
         return self.x+1j*self.y
+    @property
+    def xm(self):
+        return [self.x.min(),self.x.max()]
+    @property
+    def ym(self):
+        return [self.y.min(),self.y.max()]
 
     @property
     def exy(self):
@@ -3564,18 +3570,21 @@ class schism_view:
         svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
         if p.var=='depth': self.data=gd.dp; return
         if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
-        C=self.fid('{}/out2d_{}.nc'.format(self.outputs,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,istack))
-        if svar in self.vars_2d:
-            data=array(C.variables[svar][irec])
-        else:
-            if layer=='bottom':
-                npt=C.variables[svar].shape[1]
-                if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
-                if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
-            else:
-                layer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-layer])
-        data[abs(data)>1e20]=nan
-        self.data=data
+        def _get_data(output):
+           C=self.fid('{}/out2d_{}.nc'.format(output,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(output,svar,istack))
+           if svar in self.vars_2d:
+               data=array(C.variables[svar][irec])
+           else:
+               if layer=='bottom':
+                   npt=C.variables[svar].shape[1]
+                   if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
+                   if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
+               else:
+                   ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-ilayer])
+           data[abs(data)>1e20]=nan
+           return data
+        self.data=_get_data(self.outputs)
+        if self.wp.cmp.get()==1: self.data=self.data-_get_data(self.run0+os.path.sep+'outputs')
 
     def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -3679,8 +3688,6 @@ class schism_view:
                p.kill()
             except:
                pass
-        if os.path.exists(os.curdir+os.sep+'.schism_check'): os.remove(os.curdir+os.sep+'.schism_check')
-        if os.path.exists(os.curdir+os.sep+'.schism_compare'): os.remove(os.curdir+os.sep+'.schism_compare')
         for i in glob(self.runpath+os.sep+'World_*.png'): os.remove(i)
         close('all'); self.window.destroy()
 
@@ -3772,6 +3779,7 @@ class schism_view:
     def cmd_window(self):
         import tkinter as tk
         from tkinter import ttk
+        if hasattr(self,'fig'): p=self.fig; hf,ax=p.hf,p.ax; print('control vars: [self,p,hf,ax]')
         cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
@@ -3806,6 +3814,12 @@ class schism_view:
         rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
         cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
 
+    def reset_limit(self):
+        p,w,gd=self.fig,self.wp,self.hgrid
+        w.xmin.set(gd.xm[0]); w.xmax.set(gd.xm[1]); w.ymin.set(gd.ym[0]); w.ymax.set(gd.ym[1])
+        w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
+        self.schism_plot(0)
+
     def show_node(self):
         p=self.fig; gd=self.hgrid
         if hasattr(p,'hns'):
@@ -3826,19 +3840,23 @@ class schism_view:
         p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
         self.play='off'; self.schism_plot(1); p.anim=None
 
-    def schism_compare(self):
+    def schism_instance(self,event):
         from tkinter import filedialog
         import subprocess
-        crun=filedialog.askdirectory(initialdir = self.runpath,title = "choose run to compare")
-        cfile='.schism_compare'; fid=open(cfile,'w+'); os.chmod(cfile,0o777)
-        fid.write("#!/usr/bin/env python3\nfrom pylib import *\nmpl.use('TkAgg')\nschism_view('{}')".format(crun)); fid.close()
-        p=subprocess.Popen(os.curdir+os.sep+cfile); self.sbp.append(p)
 
-    def schism_check(self):
-        import subprocess
-        cfile='.schism_check'; fid=open(cfile,'w+'); os.chmod(cfile,0o777)
-        fid.write("#!/usr/bin/env python3\nfrom pylib import *\nmpl.use('TkAgg')\nschism_check('{}')".format(self.runpath)); fid.close()
-        p=subprocess.Popen(os.curdir+os.sep+cfile); self.sbp.append(p)
+        #get directory
+        if event=='compare':
+           icmp=self.wp.cmp.get(); sdir=self.run0 if hasattr(self,'run0') else self.runpath
+           if icmp==0: return
+        else:
+           sdir=self.runpath
+        crun=filedialog.askdirectory(initialdir=sdir, title = "choose run for "+ event)
+
+        if not (isinstance(crun,str) and os.path.exists(crun)): return
+        if event in ['schism_check','schism_view']: #open another window for schismview or schismcheck
+           p=subprocess.Popen('python3 -c "from pylib import *; {}(\'{}\')"'.format(event,crun),shell=True);  self.sbp.append(p)
+        else: #add base run
+           self.run0=os.path.abspath(crun)
 
     def init_window(self):
         #open an window
@@ -3931,12 +3949,14 @@ class schism_view:
         sfm0=ttk.Frame(master=fm); sfm0.pack(side=tk.LEFT)
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
-        menu=tk.Menu(mbar,tearoff=0)
+        menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd)
+        menu.add_command(label="reset",   command=self.reset_limit)
         menu.add_command(label="command", command=self.cmd_window)
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_command(label="show node/element", command=self.show_node)
-        menu.add_command(label="schismcheck", command=self.schism_check)
-        menu.add_command(label="compare", command=self.schism_compare)
+        menu.add_command(label="schism_check", command=lambda: self.schism_instance('schism_check'))
+        menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view'))
+        menu.add_checkbutton(label="schism_compare",onvalue=1,offvalue=0,variable=w.cmp,command=lambda: self.schism_instance('compare'))
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
