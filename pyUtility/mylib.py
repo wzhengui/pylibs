@@ -2452,6 +2452,7 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
         if hasattr(data,'dims'):
            dims=list(data.dims); dnames=list(data.dimname)
            dtypes=list(data.dim_unlimited) if hasattr(data,'dim_unlimited') else [False for i in dims]
+           if len(dtypes)<len(dims): dtypes=[*dtypes,*tile(False,len(dims)-len(dtypes))]
            for i in setdiff1d(dims0,dims): dims.append(i); dnames.append('dim_{}'.format(i)); dtypes.append(False)
         else:
            dims=dims0; dnames=['dim_{}'.format(i) for i in dims]; dtypes=[False for i in dims]; dims=list(dims)
