@@ -3350,6 +3350,7 @@ class schism_view:
         self.figs=[]; self.fns=[]; self._nf=0; self.sbp=[] #list of figure objects
         self.run_info(run)
         self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization : '+self.run+' (Author: Z. WANG)')
+        self.cmap='jet'
         self.hold='off'  #animation
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
@@ -3393,8 +3394,8 @@ class schism_view:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                self.get_data(p); v=self.data
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,nodata=nodata,ticks=11,animated=True,cmap='jet',zorder=1,cb_aspect=50)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap='jet',zorder=1,cb_aspect=50)]
+               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,nodata=nodata,ticks=11,animated=True,cmap=self.cmap,zorder=1,cb_aspect=50)]
+               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
@@ -3434,7 +3435,7 @@ class schism_view:
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[self.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
-                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap='jet',cb=False,zorder=1)
+                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,cb=False,zorder=1)
                     if nodata is not None: v[fpnd]=nodata
                 if p.vvar!='none':  #vector
                    u,v=self.get_vdata(p)
