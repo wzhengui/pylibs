@@ -3463,16 +3463,20 @@ class schism_view:
         def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
             w.curve['text']='wait'; ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
             for ik in arange(ik1,ik2+1):
-                fname='{}/out2d_{}.nc'.format(self.outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(self.outputs,svar,ik)
-                C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]; t00=time.time()
-                if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
-                if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
-                if svar in self.vars_2d:
-                    data=array(C.variables[svar][:,sindp])
-                else:
-                    ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size))
-                    data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
-                if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
+                def _ts(outputs):
+                   fname='{}/out2d_{}.nc'.format(outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(outputs,svar,ik)
+                   C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]
+                   if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
+                   if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
+                   if svar in self.vars_2d:
+                       data=array(C.variables[svar][:,sindp])
+                   else:
+                       ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size))
+                       data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
+                   if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
+                   return data,nt0,fname
+                t00=time.time(); data,nt0,fname=_ts(self.outputs)
+                if p.cmp==1: data=data-_ts(p.run0+os.path.sep+'outputs')[0]
                 ts.mys.extend(data); nt=nt+nt0; print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
             ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
             print('done in extracting'); w.curve['text']='curve'
@@ -3585,7 +3589,7 @@ class schism_view:
            data[abs(data)>1e20]=nan
            return data
         self.data=_get_data(self.outputs)
-        if self.wp.cmp.get()==1: self.data=self.data-_get_data(self.run0+os.path.sep+'outputs')
+        if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs')
 
     def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -3633,9 +3637,10 @@ class schism_view:
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
             w.StartT.set(p.StartT); w.EndT.set(p.EndT); w.vmin.set(p.vm[0]); w.vmax.set(p.vm[1])
-            w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('mask')
+            w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('mask'); w.cmp.set(p.cmp)
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1]); w.map.set(p.map)
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
+            if p.run0 is not None: self.run0=p.run0
         elif type(event)==mpl.backend_bases.DrawEvent:
             if not fignum_exists(self.fig.hf.number): return
             p=self.fig; ax=p.ax; xm=ax.get_xlim(); ym=ax.get_ylim(); p.xm=[*xm]; p.ym=[*ym]
@@ -3650,6 +3655,7 @@ class schism_view:
         p.xm=[w.xmin.get(),w.xmax.get()]; p.ym=[w.ymin.get(),w.ymax.get()]; p.med=w.med.get(); p.map=w.map.get()
         p.ns=w.ns.get(); p.grid=w.grid.get(); p.bnd=w.bnd.get(); p.vvar=w.vvar.get(); p.zoom=w.zoom.get()
         p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
+        p.cmp=w.cmp.get(); p.run0=self.run0 if hasattr(self,'run0') else None
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
 
         #get time index
