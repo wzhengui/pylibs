@@ -4297,13 +4297,13 @@ class schism_check(zdata):
              if abs(gd.lon-gd.x).mean()>1: pfmt=-1; slimit(gd.lon,gd.lat,data)
           if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1,xy=fxy,zorder=0)
           if p.grid.get()==1: gd.plot(xy=fxy,zorder=2)
-          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1,xy=fxy,zorder=2)
+          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5,xy=fxy,zorder=2)
           p.hp=gca(); slimit(gd.x,gd.y,data)
        elif ((self.fmt==2 and (p.var in ['su2','sv2'])) or (self.fmt==1 and fname=='uv3D.th.nc')) and p.data.ndim==2 and p.data.shape[1]==2: #vector (su2,sv2) in hotstart, or uv3d.th.nc
           if not hasattr(self,'hgrid'): self.read_hgrid()
           gd=self.hgrid
           if p.grid.get()==1: gd.plot()
-          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+          if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5)
           if self.fmt==1:
              bid=hstack(gd.iobn); hv=quiver(gd.x[bid],gd.y[bid],p.data[:,0],p.data[:,1],scale=1/p.scale.get(),width=0.001,scale_units='inches'); p.hp=gca()
           elif self.fmt==2:
@@ -4366,13 +4366,13 @@ class schism_check(zdata):
                   vi=zeros(gd.np); vi[p.sindn]=p.data
                   gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
-                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5)
                   pfmt=6; slimit(gd.x,gd.y,p.data)
               elif self.fmt==2 and (xn in ['node', 'elem','node/elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
                   gd=self.hgrid; nodata=None if p._nan.get()=='none' else p.nan.get()
                   gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
-                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=1)
+                  if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5)
                   pfmt=3; slimit(gd.x,gd.y,p.data)
               else: #1D line
                   if self.fmt==2: xi=arange(xi)
