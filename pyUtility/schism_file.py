@@ -3466,13 +3466,13 @@ class schism_view:
                 def _ts(outputs):
                    fname='{}/out2d_{}.nc'.format(outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(outputs,svar,ik)
                    C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]
-                   if ik==ik1 and self.curve_method==0: sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
-                   if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
+                   if ik==ik1 and self.curve_method==0: t.sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
+                   if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); t.sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
                    if svar in self.vars_2d:
-                       data=array(C.variables[svar][:,sindp])
+                       data=array(C.variables[svar][:,t.sindp])
                    else:
-                       ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size))
-                       data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
+                       ks=(self.kbp[t.sindp] if npt==gd.np else self.kbe[t.sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),t.sindp.size))
+                       data=array([C.variables[svar][:,i,k] for i,k in zip(t.sindp,ks)]).T
                    if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
                    return data,nt0,fname
                 t00=time.time(); data,nt0,fname=_ts(self.outputs)
@@ -3493,7 +3493,7 @@ class schism_view:
         p=self.fig; w=self.wp; gd=self.hgrid; gd.compute_ctr()
         svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
         if svar=='depth' or len(x)==0: return
-        ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2)
+        ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2); t=zdata()
         fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
         if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)).start(); return
 
