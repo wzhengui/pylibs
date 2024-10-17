@@ -953,9 +953,9 @@ class schism_grid:
         '''
         pxy=array(pxy); ndim=pxy.ndim; np=len(pxy)
         if ndim==1 and np==self.np:
-           return self.interp_node_to_elem(pxy,fmt=fmt,p=p)
+           return self.interp_node_to_elem(pxy)
         elif ndim==1 and np==self.ne:
-           return self.interp_elem_to_node(pxy)
+           return self.interp_elem_to_node(pxy,fmt=fmt,p=p)
         else: #interp to pts
            vi=self.dp if value is None else value; npt=len(vi)  #get value
            pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out) #get interp coeff
