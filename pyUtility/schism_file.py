@@ -115,7 +115,7 @@ class schism_grid:
     #------------------------------------------------------------------------------------------------
 
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
-             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,**args):
+             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,cmap='jet',**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours
@@ -155,15 +155,15 @@ class schism_grid:
            #plot
            value0=value #save original data
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,**args)
-              if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],**args)
-              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],**args)
+              if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,cmap=cmap,**args)
+              if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
+              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
            else:  #contourf or contour
               if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
-              if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,**args)
-              if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,**args)
+              if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
+              if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
            if nodata is not None: value0[fpnd]=nodata
            self.data=value0
 
