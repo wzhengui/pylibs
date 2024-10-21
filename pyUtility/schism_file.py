@@ -3664,7 +3664,8 @@ class schism_view:
 
         #get time index
         if p.time=='time':
-            p.it=self.mls.index(p.StartT); p.it2=self.mls.index(p.EndT)+1
+            p.it =self.mls.index(p.StartT) if p.StartT in self.mls else p.it if hasattr(p,'it') else 0
+            p.it2=self.mls.index(p.EndT)+1 if p.EndT in self.mls else p.it2 if hasattr(p,'it2') else len(self.mls)
         elif p.time=='julian':
             p.it=self.julian.index(float(p.StartT)); p.it2=self.julian.index(float(p.EndT))+1
         else: #stacks
