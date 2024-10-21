@@ -3718,8 +3718,12 @@ class schism_view:
         fns=glob(run+'/out2d_*.nc'); fns2=glob(run+'/outputs/out2d_*.nc'); self.gr3=[os.path.basename(i) for i in glob(run+'/*.gr3')]; iout=1
         self.outputs,fnames=[run,fns] if len(fns)!=0 else [run+'/outputs',fns2]; self.runpath=os.path.abspath(run); self.run=os.path.basename(self.runpath)
         if len(fnames)!=0:
-           [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]
-           iks=sort(iks); ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
+           [iks,self.vars,self.vars_2d]=get_schism_output_info(self.outputs)[2:]; iks=sort(iks)
+           try:
+             self.fid('{}/out2d_{}.nc'.format(self.outputs,iks[-1]))
+           except:
+             iks=iks[:-1]
+           ik0=iks[0]; C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables; cdim=C.dimensions
            self.vvars=[i[:-1] for i in self.vars if (i[-1]=='X') and (i[:-1]+'Y' in self.vars)]
         else:
            self.vars=[]; self.svars_2d=[]; self.vvars=[]; iout=0; cvar=None
