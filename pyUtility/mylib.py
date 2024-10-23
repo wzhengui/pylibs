@@ -1205,6 +1205,12 @@ class zdata:
     def VINFO(self):
         return self.INFO
 
+    def attr(self,svar,value=None):
+        if value is None:
+           return self.__dict__[svar]
+        else:
+           self.__dict__[svar]=value
+
     def save(self,fname,**args):
         '''
         save zdata in differnt format based on filename extension (*.npz,*.nc,*.shp)
