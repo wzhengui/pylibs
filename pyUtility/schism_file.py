@@ -3632,7 +3632,7 @@ class schism_view:
                 w.EndT.set(mls[-1]); p.EndT=mls[-1]
             else:
                 w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; #w._StartT['width']=6; w._EndT['width']=6
-                if event=='time': w._StartT['width']=21; w._EndT['width']=21
+                if event=='time': w._StartT['width']=20; w._EndT['width']=20
         elif event=='vm': #reset data limit
             if not hasattr(self,'hgrid'): return
             p=self.get_param()
@@ -3922,8 +3922,8 @@ class schism_view:
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
         ttk.OptionMenu(fm,w.time,'time','time','stack','julian',command=self.update_panel).grid(row=2,column=0,sticky='W',pady=4)
-        w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=21); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
-        w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=21); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
+        w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=20); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
+        w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=20); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
 
         #limit
         sfm3=ttk.Frame(master=fm); sfm3.grid(row=3,column=2,sticky='W')
