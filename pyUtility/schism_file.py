@@ -3578,7 +3578,7 @@ class schism_view:
         if p.med==1: p.hf.canvas.draw()
 
     def get_data(self,p):  #slab data
-        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
+        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; idry=self.wp.dry.get()
         if p.var=='depth': self.data=gd.dp; return
         if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
         def _get_data(output):
@@ -3593,6 +3593,9 @@ class schism_view:
                else:
                    ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-ilayer])
            data[abs(data)>1e20]=nan
+           if idry==1: #add wetting and drying mask
+              npt=len(data);  dvar='dryFlagNode' if npt==gd.np else 'dryFlagElement' if npt==gd.ne else 'dryFlagSide'
+              C=self.fid('{}/out2d_{}.nc'.format(output,istack)); mask=pindex(array(C.variables[dvar][irec]),1); data[mask]=nan
            return data
         self.data=_get_data(self.outputs)
         if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs')
@@ -3967,10 +3970,11 @@ class schism_view:
         sfm0=ttk.Frame(master=fm); sfm0.pack(side=tk.LEFT)
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
-        menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd)
+        menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd); w.dry=tk.IntVar(wd)
         menu.add_command(label="reset",   command=self.reset_limit)
         menu.add_command(label="command", command=self.cmd_window)
         menu.add_command(label="save animation", command=self.anim_window)
+        menu.add_checkbutton(label="wetting/drying",onvalue=1,offvalue=0,variable=w.dry)
         menu.add_command(label="show node/element", command=self.show_node)
         menu.add_command(label="schism_check", command=lambda: self.schism_instance('schism_check'))
         menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view'))
