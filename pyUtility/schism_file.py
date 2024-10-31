@@ -920,6 +920,7 @@ class schism_grid:
         fmt=0: compute bottom element indices
         fmt=1: compute bottom side indices
         '''
+        if isinstance(kbp,int) or len(kbp)==1: return kbp
         #if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=-1; kb=kb.max(axis=1)
         if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=10000; kb=kb.min(axis=1)+1
         if fmt==1:
@@ -2171,7 +2172,7 @@ class schism_vgrid:
             for i in arange(self.nsig):
                 irec=irec+1
                 self.sigma.append(lines[irec].strip().split()[1])
-            self.sigma=array(self.sigma).astype('float')
+            self.sigma=array(self.sigma).astype('float'); self.kbp=0
         return self.sigma
 
     def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None,ifix=0):
@@ -3394,6 +3395,7 @@ class schism_view:
 
         #plot figure and save the backgroud
         self.hold='on'; nodata=None if p._nan=='none' else p.nan
+        mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.stacks
         if fmt==0:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
@@ -3405,7 +3407,7 @@ class schism_view:
            if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            if p.map!='none': self.add_map()
-           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]),animated=anim)
+           p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]),animated=anim)
 
            #add pts for time series
            m=20; n=p.npt; x=array([*p.px,*tile(0.0,m-n)]); y=array([*p.py,*tile(nan,m-n)])
@@ -3445,7 +3447,7 @@ class schism_view:
                    u,v=self.get_vdata(p)
                    if p.med==0: p.hv[0].set_UVC(u,v)
                    if p.med==1: p.hv=[quiver(p.vx,p.vy,u,v,scale=1/p.zoom,scale_units='inches',width=0.001,zorder=3)]
-                p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,self.mls[p.it]))
+                p.ht.set_text('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]))
                 self.update_panel('it',p); self.window.update()
                 if p.med==0: p.bm.update()
                 if p.anim!=None: savefig('.{}_{:06}'.format(p.anim,p.it)) #save fig for animation
@@ -3629,8 +3631,8 @@ class schism_view:
             elif event=='it2':
                 w.EndT.set(mls[-1]); p.EndT=mls[-1]
             else:
-                w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; w._StartT['width']=6; w._EndT['width']=6
-                if event=='time': w._StartT['width']=18; w._EndT['width']=18
+                w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; #w._StartT['width']=6; w._EndT['width']=6
+                if event=='time': w._StartT['width']=21; w._EndT['width']=21
         elif event=='vm': #reset data limit
             if not hasattr(self,'hgrid'): return
             p=self.get_param()
@@ -3784,12 +3786,12 @@ class schism_view:
         self.mts=self.julian[:]; self.mls=['{}'.format(i) for i in self.mts]
         if hasattr(self,'StartT'): #get time_string
            def _set_time():
-               self.mls=[i.strftime('%Y-%m-%d, %H:%M') for i in num2date(self.mts)]
+               self.mls=[i.strftime('%Y-%m-%d,%H:%M:%S') for i in num2date(self.mts)]
                while not hasattr(self,'wp'): time.sleep(0.01)
                self.wp._StartT['values']=self.mls; self.wp._EndT['values']=self.mls
            self.mts=[*(array(self.mts)+self.StartT)]
-           self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d, %H:%M')
-           self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d, %H:%M')
+           self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d,%H:%M:%S')
+           self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d,%H:%M:%S')
            threading.Thread(target=_set_time).start()
 
     def cmd_window(self):
@@ -3920,8 +3922,8 @@ class schism_view:
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
         ttk.OptionMenu(fm,w.time,'time','time','stack','julian',command=self.update_panel).grid(row=2,column=0,sticky='W',pady=4)
-        w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=18); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
-        w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=18); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
+        w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=21); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
+        w._EndT=ttk.Combobox(master=fm,textvariable=w.EndT,values=self.mls,width=21); w._EndT.grid(row=2,column=2,sticky='W',padx=1)
 
         #limit
         sfm3=ttk.Frame(master=fm); sfm3.grid(row=3,column=2,sticky='W')
