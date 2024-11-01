@@ -32,10 +32,33 @@ class schism_grid:
     def VINFO(self):
         return get_INFO(self)
 
+    #node alias
     @property
     def z(self):
         return self.dp
+    @property
+    def xy(self):
+        return c_[self.x,self.y]
+    @property
+    def xyz(self):
+        return c_[self.x,self.y,self.z]
+    @property
+    def cxy(self):
+        return self.x+1j*self.y
+    @property
+    def lxy(self):
+        return c_[self.lon,self.lat] if hasattr(self,'lon') else self.xy
+    @property
+    def lxyz(self):
+        return c_[self.lon,self.lat,self.z] if hasattr(self,'lon') else self.xyz
+    @property
+    def xm(self):
+        return [self.x.min(),self.x.max()]
+    @property
+    def ym(self):
+        return [self.y.min(),self.y.max()]
 
+    #element alias
     @property
     def xe(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
@@ -48,43 +71,9 @@ class schism_grid:
     def ze(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
         return self.dpe
-
-    @property
-    def xs(self):
-        if not hasattr(self,'dps'): self.compute_side(2)
-        return self.xcj
-    @property
-    def ys(self):
-        if not hasattr(self,'dps'): self.compute_side(2)
-        return self.ycj
-    @property
-    def zs(self):
-        if not hasattr(self,'dps'): self.compute_side(2)
-        return self.dps
-
     @property
     def zctr(self):
         return self.ze
-    @property
-    def zcj(self):
-        return self.zs
-
-    @property
-    def xy(self):
-        return c_[self.x,self.y]
-    @property
-    def xyz(self):
-        return c_[self.x,self.y,self.z]
-    @property
-    def cxy(self):
-        return self.x+1j*self.y
-    @property
-    def xm(self):
-        return [self.x.min(),self.x.max()]
-    @property
-    def ym(self):
-        return [self.y.min(),self.y.max()]
-
     @property
     def exy(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
@@ -98,6 +87,22 @@ class schism_grid:
         if not hasattr(self,'dpe'): self.compute_ctr()
         return self.xctr+1j*self.yctr
 
+    #side alias
+    @property
+    def xs(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
+        return self.xcj
+    @property
+    def ys(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
+        return self.ycj
+    @property
+    def zs(self):
+        if not hasattr(self,'dps'): self.compute_side(2)
+        return self.dps
+    @property
+    def zcj(self):
+        return self.zs
     @property
     def sxy(self):
         if not hasattr(self,'xcj'): self.compute_side(2)
