@@ -1737,6 +1737,7 @@ class schism_grid:
             elif dlk==0 and btn==1:
                px=bx; py=by; pz=1
             elif dlk==0 and btn==2:
+               if not hasattr(self,'hqt'): return
                self.hqt.remove(); self.hqp.remove(); delattr(self,'hqt'); delattr(self,'hqp'); gcf().canvas.draw()
                gcf().canvas.mpl_disconnect(self.cidquery)
 
@@ -3541,6 +3542,7 @@ class schism_view:
                if not (dlk==0 and btn==2): return
                p.qxy=[bx,by,*gd.compute_acor(c_[bx,by])]
             #update query
+            if not hasattr(p,'qxy'): return
             bx,by,pie,pip,pacor=p.qxy
             x[-1]=bx; y[-1]=by; hp.set_xdata(x); hp.set_ydata(y); ht.set_x(bx); ht.set_y(by)
             pv=self.data[pie[0]] if self.data.size==gd.ne else sum(self.data[pip]*pacor,axis=1)[0]
