@@ -317,7 +317,9 @@ class schism_grid:
         if 'reg' not in ats: self.reg=schism_bpfile(fmt=1)
         if 'query' not in ats: self.query_pt()
         if 'bnd' not in ats: self.create_bnd()
-        if 'node' not in ats: self.show_node()
+        if 'node' not in ats: self.show_node_elem(fmt=0)
+        if 'elem' not in ats: self.show_node_elem(fmt=1)
+        if 'save' not in ats: self.save_item()
 
     def read_hgrid(self,fname,*args):
         #attribute tracking the file originally read, mainly used for savez and save_pkl
@@ -1770,33 +1772,97 @@ class schism_grid:
                ac=tk.Button(gcf().canvas.toolbar,text='query', command=connect_actions); ac.pack(side=tk.LEFT)
                gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('query',ac))
 
-    def show_node(self):
+    def show_node_elem(self,fmt):
         '''
         show node/element number
         '''
-        def _show_node():
-            if not hasattr(self,'dpe'): self.compute_ctr()
-            if len(self.hts)==0:
-               xm=xlim(); ym=ylim()
-               sind=pindex((self.x>=xm[0])*(self.x<=xm[1])*(self.y>=ym[0])*(self.y<=ym[1]))
-               for i in sind: ht=text(self.x[i],self.y[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
-               sind=pindex((self.xctr>=xm[0])*(self.xctr<=xm[1])*(self.yctr>=ym[0])*(self.yctr<=ym[1]))
-               for i in sind: ht=text(self.xctr[i],self.yctr[i],'{}'.format(i+1),fontsize=6); self.hts.append(ht)
+        def _show_node_elem():
+            xm=xlim(); ym=ylim(); hts=self.hts_p if fmt==0 else self.hts_e
+            if len(hts)==0:
+               if fmt==0:
+                  sind=pindex((self.x>=xm[0])*(self.x<=xm[1])*(self.y>=ym[0])*(self.y<=ym[1]))
+                  for i in sind: ht=text(self.x[i],self.y[i],'{}'.format(i+1),fontsize=6); hts.append(ht)
+               else:
+                  sind=pindex((self.xe>=xm[0])*(self.xe<=xm[1])*(self.ye>=ym[0])*(self.ye<=ym[1]))
+                  for i in sind: ht=text(self.xctr[i],self.yctr[i],'{}'.format(i+1),fontsize=6); hts.append(ht)
             else:
-               for i in arange(len(self.hts)): self.hts.pop().remove()
+               for i in arange(len(hts)): hts.pop().remove()
             gcf().canvas.draw()
+
+        at='node' if fmt==0 else 'elem'
         if self.backend==1:
-           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
-           abp=acs[pindex(ats,'node')[0]] if 'node' in ats else gcf().canvas.toolbar.addAction('node')
-           abp.triggered.connect(_show_node)
+           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs])
+           abp=acs[pindex(ats,at)[0]] if at in ats else gcf().canvas.toolbar.addAction(at)
+           abp.triggered.connect(_show_node_elem)
         else:
-           acs=self.toolbar.toolitems; ats=[i[0] for i in acs]; self.hts=[]
-           if 'node' in ats:
-              ac=acs[ats.index('node')][1]
+           acs=self.toolbar.toolitems; ats=[i[0] for i in acs]
+           if at in ats:
+              ac=acs[ats.index(at)][1]
            else:
               import tkinter as tk
-              ac=tk.Button(gcf().canvas.toolbar,text='node', command=_show_node); ac.pack(side=tk.LEFT)
-              gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('node',ac))
+              ac=tk.Button(gcf().canvas.toolbar,text=at, command=_show_node_elem); ac.pack(side=tk.LEFT)
+              gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,(at,ac))
+        if fmt==0: self.hts_p=[]
+        if fmt==1: self.hts_e=[]
+
+    def save_item(self):
+        '''
+        add method to save bp/reg file
+        '''
+        def _save_item(gd,hf):
+            import tkinter as tk
+            from tkinter import ttk,filedialog
+
+            def chdirpath():
+                sdir.set(filedialog.askdirectory(initialdir=sdir.get(), title = "choose save dir")); resize()
+            def resize():
+                ns=len(sdir.get()); pdir.config(width=max(50,ns+3)); wd.geometry('{}x120'.format(max(450,int(8.5*ns)))); wd.update()
+            def savefile():
+                ftype=file.get(); fn=sdir.get()+os.path.sep+fname.get()
+                if ftype==0: gd.bp.save(fn)
+                if ftype==1: gd.reg.write_reg(fn)
+                if ftype==2: gd.save(fn,fmt=1)
+                if ftype==3: gd.write_bnd(fn)
+                if ftype==4: savefig(fn,hf)
+
+            wd=tk.Tk(); wd.title('save schism files')
+            file=tk.IntVar(wd); sdir=tk.StringVar(wd); fname=tk.StringVar(wd)
+
+            fm=ttk.Frame(master=wd); fm.grid(row=0,column=0,sticky='NW',pady=6)
+            ttk.Radiobutton(fm,text='bp',   variable=file, value=0).grid(row=0,column=0,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='reg',  variable=file, value=1).grid(row=0,column=1,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='hgrid',variable=file, value=2).grid(row=0,column=2,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='bnd',  variable=file, value=3).grid(row=0,column=3,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='fig',  variable=file, value=4).grid(row=0,column=4,sticky='W',padx=2)
+
+            fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW',pady=6)
+            ttk.Label(fm,text='dir',width=3).grid(row=0,column=0,sticky='W',padx=1)
+            pdir=ttk.Entry(fm,textvariable=sdir,width=50); pdir.grid(row=0,column=1,sticky='W')
+            ttk.Button(fm,text='..',command=chdirpath,width=2).grid(row=0,column=2,sticky='W',padx=2)
+            sdir.set(os.path.abspath(os.curdir))
+
+            fm=ttk.Frame(master=wd); fm.grid(row=2,column=0,sticky='NW',pady=4)
+            ttk.Label(fm,text='filename',width=8).grid(row=0,column=0,sticky='W',padx=1)
+            ttk.Entry(fm,textvariable=fname,width=20).grid(row=0,column=1,sticky='W')
+            ttk.Button(fm,text='save',width=4,command=savefile).grid(row=0,column=2,sticky='W',padx=3)
+            resize(); wd.mainloop()
+
+        def init_save():
+            import threading
+            threading.Thread(target=_save_item,args=(self,gcf())).start()
+
+        if self.backend==1:
+           acs=self.toolbar.actions(); ats=array([i.iconText() for i in acs]); self.hts=[]
+           abp=acs[pindex(ats,'save')[0]] if 'save' in ats else gcf().canvas.toolbar.addAction('save')
+           abp.triggered.connect(init_save)
+        else:
+           acs=self.toolbar.toolitems; ats=[i[0] for i in acs]; self.hts=[]
+           if 'save' in ats:
+              ac=acs[ats.index('save')][1]
+           else:
+              import tkinter as tk
+              ac=tk.Button(gcf().canvas.toolbar,text='save', command=init_save); ac.pack(side=tk.LEFT)
+              gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('save',ac))
 
 class schism_bpfile:
     def __init__(self,x=None,y=None,z=None,station=None,fmt=0):
