@@ -44,12 +44,12 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from scipy.fftpack import fft, ifft
 
    #mpi4py
-   try:
-      from mpi4py import MPI
-   except:
-      pass
-      #from pyUtility.mylib import parallel_jobs
-      #MPI=parallel_jobs()
+   #try:
+   #   from mpi4py import MPI
+   #except:
+   #   pass
+   #   #from pyUtility.mylib import parallel_jobs
+   #   #MPI=parallel_jobs()
 
    #url download
    try:
