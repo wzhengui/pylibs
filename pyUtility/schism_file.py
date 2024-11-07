@@ -1848,6 +1848,8 @@ class schism_grid:
             resize(); wd.mainloop()
 
         def init_save():
+            #import multiprocessing as mp
+            #p=mp.Process(target=_save_item,args=[self,gcf()]); p.start()
             import threading
             threading.Thread(target=_save_item,args=(self,gcf())).start()
 
