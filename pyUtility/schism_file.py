@@ -1896,6 +1896,11 @@ class schism_bpfile:
     def cxy(self):
         return self.x+1j*self.y
 
+    @property
+    def dist(self):
+        if not hasattr(self,'_dist'): self._dist=r_[0,cumsum(abs(diff(self.cxy)))]
+        return self._dist
+
     def read_reg(self,*args0,**args):
         self.read(fname,*args0,**args)
 
