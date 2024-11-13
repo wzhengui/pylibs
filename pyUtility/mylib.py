@@ -8,6 +8,10 @@ def sort_all(t,*args):
     sind=argsort(t); t=t[sind]; args=[i[sind] for i in args]
     return [t,*args]
 
+def nargout():
+   import traceback
+   return len(traceback.extract_stack()[-3].line.split('=')[0].split(','))
+
 def add_xtick(nts=6,xlim=None,xts=None,xls=None,grid='on',fmt='%Y-%m-%d\n%H:%M:%S',ax=None,fig=None):
     '''
     add dynamic xtick labels with x-axis being datenum

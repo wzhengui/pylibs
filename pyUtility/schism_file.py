@@ -2329,6 +2329,7 @@ def read_schism_grid(source='.',fmt=0):
 
     fmt=0: hgrid;  fmt=1: vgrid;  fmt=2: hgrid and vgrid
     '''
+    if nargout()==2: fmt=2
     def _endswith(fn,svars): #check str ending
         return max([1 if fn.endswith(i) else 0 for i in svars])==1
 
@@ -2791,9 +2792,10 @@ class schism_transect(schism_grid):
         '''
 
         #read bpfile and grid
-        bp=read(bpfile) if isinstance(bpfile,str) else bpfile if isinstance(bpfile,schism_bpfile) else None
-        gd=read_schism_grid(hgrid) if (hgrid is not None) else read_schism_grid(grid) if (grid is not None) else None
-        vd=read_schism_grid(vgrid,1) if (vgrid is not None) else read_schism_grid(grid,1) if (grid is not None) else None
+        bp,grd,gd,vd=bpfile,grid,hgrid,vgrid
+        bp=bp if isinstance(bp, schism_bpfile) else read(bp) if isinstance(bp,str) else None
+        gd=gd if isinstance(gd, schism_grid)   else read_schism_grid(gd)   if (gd is not None) else read_schism_grid(grd)   if (grd is not None) else None
+        vd=vd if isinstance(vd, schism_vgrid)  else read_schism_grid(vd,1) if (vd is not None) else read_schism_grid(grd,1) if (grd is not None) else None
         if (bp is not None) or (zcor is not None): self.create_transect(bp,gd,vd,eta,zcor,dist)
 
     def create_transect(self,bp=None,gd=None,vd=None,eta=None,zcor=None,dist=None):
@@ -4121,8 +4123,8 @@ class schism_view:
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
         w.curve=ttk.Button(master=fm0,text='curve',command=self.plotts,width=5); w.curve.grid(row=0,column=1)
-        w.query=tk.Button(master=fm0,text='query',bg='gray88',command=self.query,width=5); w.query.grid(row=0,column=2,padx=1,pady=2)
-        #tk.Button(master=fm0,text='profile',bg='darkgray',command=self.plotsc,width=7).grid(row=0,column=3,padx=1,pady=2)
+        w.prf=tk.Button(master=fm0,text='profile',bg='gray88',command=self.plotsc,width=7); w.prf.grid(row=0,column=2,padx=1,pady=2)
+        w.query=tk.Button(master=fm0,text='query',bg='gray88',command=self.query,width=5); w.query.grid(row=0,column=3,padx=1,pady=2)
 
         #xlim, ylim
         w.xmin=tk.DoubleVar(wd); w.xmax=tk.DoubleVar(wd); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1])
