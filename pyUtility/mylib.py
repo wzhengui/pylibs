@@ -1268,7 +1268,7 @@ def savez(fname,data,fmt=0):
 def loadz(fname,svars=None):
     '''
     load self-defined data "fname.npz" or "fname.pkl"
-         svars: list of variables to be read
+       1). svars=list of variables: only read certain variables; 2). svars='vars': return avaiable variables
     '''
     if fname.endswith('.npz') or fname.endswith('.pp'):
        #get data info, collect variables
@@ -2377,6 +2377,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
         fmt=0: reorgnaized Dataset with format of zdata
         fmt=1: return netcdf.Dateset(fname)
         fmt=2: reorgnaized Dataset (*npz format), ignore attributes
+        fmt='vars': return available variables
 
         mode='r+': change variable in situ. other choices are: 'r','w','a'
 
@@ -2389,7 +2390,9 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     from netCDF4 import Dataset
     C=Dataset(fname,mode=mode);
 
-    if fmt==1:
+    if fmt=='vars':
+      svars=[*C.variables]; C.close(); return svars
+    elif fmt==1:
         return C
     elif fmt in [0,2]:
         F=zdata(); F.file_format=C.file_format

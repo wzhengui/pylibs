@@ -115,7 +115,8 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         read_schism_prop,read_schism_reg,interp_schism_3d,get_schism_var_info,check_schism_ihot,
         read_schism_output,change_schism_param,get_schism_output_info,get_schism_grid_subdomain,
         get_schism_output_subset,combine_schism_hotstart,combine_icm_output,read_schism_slab,
-        convert_schism_source,schism_view,schism_check,zcor_to_schism_grid,compute_schism_volume)
+        convert_schism_source,schism_view,schism_check,zcor_to_schism_grid,compute_schism_volume,
+        read_schism_grid,schism_transect)
 
    if os.getenv('HOME')!=None:
        sys.path.append(os.getenv('HOME'))
@@ -142,6 +143,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import load_dem as load_bathymetry
    from pyUtility.mylib import read_shapefile_data as read_shp
    from pyUtility.mylib import write_shapefile_data as write_shp
-   from pyUtility.schism_file import read_schism_hgrid as read_grd
+   from pyUtility.schism_file import read_schism_hgrid as read_hgrid
+   from pyUtility.schism_file import read_schism_grid as read_grd
    from pyUtility.schism_file import read_schism_bpfile as read_bp
    from pyUtility.schism_file import change_schism_param as chparam

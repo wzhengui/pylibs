@@ -36,6 +36,9 @@ class schism_grid:
     @property
     def z(self):
         return self.dp
+    @z.setter
+    def z(self,value):
+        self.dp=value
     @property
     def xy(self):
         return c_[self.x,self.y]
@@ -2316,6 +2319,45 @@ def read_schism_vgrid(fname):
     vd=schism_vgrid(); vd.read_vgrid(fname)
     return vd
 
+def read_schism_grid(source='.',fmt=0):
+    '''
+    smartly read schism hgrid and vgrid from source
+    1). schism rundir
+    2). grid.npz or hgrid.npz
+    3). hgrid.gr3, hgrid.ll, *.gr3, *.ic
+
+    fmt=0: hgrid;  fmt=1: vgrid;  fmt=2: hgrid and vgrid
+    '''
+    def _endswith(fn,svars): #check str ending
+        return max([1 if fn.endswith(i) else 0 for i in svars])==1
+
+    if fmt in [0,2]: #read hgrid
+       if source.endswith('.npz'): #1). npz format
+          svars=read(source,'vars')
+          gd=read(source,'hgrid') if ('hgrid' in svars) else read(source) if {'x','y','elnode'}.issubset(svars) else None
+          if gd is None: sys.exit('unknown *.npz format for schism_hgrid: '+source)
+       elif _endswith(source,['.gr3','.ll','.ic']): #grid file
+            gd=read(source)
+       elif isinstance(source,str): #rundir
+            fns=glob(os.path.abspath(source)+os.sep+'*'); fnames=[]
+            [fnames.append(i) for i in fns if i.endswith('grid.npz')]; [fnames.append(i) for i in fns if i.endswith('hgrid.gr3')]
+            [fnames.append(i) for i in fns if i.endswith('hgrid.ll')]; [fnames.append(i) for i in fns if i.endswith('hgrid.ll')]
+            [fnames.append(i) for i in fns if i.endswith('.gr3')]; [fnames.append(i) for i in fns if i.endswith('.ic')]
+            gd=read_schism_grid(fnames[0])
+    
+    if fmt in [1,2]: #read vgrid
+       if source.endswith('.npz'): #1). npz format
+          svars=read(source,'vars')
+          vd=read(source,'vgrid') if ('vgrid' in svars) else read(source) if {'ivcor','nvrt'}.issubset(svars) else None
+          if vd is None: sys.exit('unknown *.npz format for schism_vgrid: '+source)
+       elif source.endswith('.in'): #grid file
+            vd=read(source)
+       elif isinstance(source,str): #rundir
+            fns=glob(os.path.abspath(source)+os.sep+'*'); fnames=[]
+            [fnames.append(i) for i in fns if i.endswith('grid.npz')]; [fnames.append(i) for i in fns if i.endswith('vgrid.in')]
+            vd=read_schism_grid(fnames[0],1)
+    return gd if fmt==0 else vd if fmt==1 else [gd,vd] 
+
 def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
     '''
     compute schism zcor (ivcor=1 and 2)
@@ -2729,6 +2771,46 @@ def grd2sms(grd,sms):
     #save grid save *2dm format
     gd.grd2sms(sms)
 
+class schism_transect(schism_grid):
+    def __init__(self,bpfile=None,grid=None,hgrid=None,vgrid=None):
+        '''
+        create schism grid from a transect with inputs
+          bpfile (optional): build points
+          grid   (optional): run dir, or grid.npz
+          hgrid  (optional): hgrid.gr3 
+          vgrid  (optional): vgrid.in
+        usage: gdm=schism_transect('james_transect.bp','RUN10a')
+        '''
+
+        #read bpfile and grid
+        bp=read(bpfile) if isinstance(bpfile,str) else bpfile if isinstance(bpfile,schism_bpfile) else None
+        gd=read_schism_grid(hgrid) if (hgrid is not None) else read_schism_grid(grid) if (grid is not None) else None
+        vd=read_schism_grid(vgrid,1) if (vgrid is not None) else read_schism_grid(grid,1) if (grid is not None) else None
+        if (bp!=None)*(gd!=None)*(vd!=None): self.create_transect(bp,gd,vd)
+
+    def create_transect(self,bp=None,gd=None,vd=None,zcor=None,x=None):
+        #get sigma coordiante
+        if (bp!=None)*(gd!=None)*(vd!=None):
+           pie,pip,pacor=gd.compute_acor(bp.xy); self.z0=(gd.z[pip]*pacor).sum(axis=1); dist=bp.dist
+           self.sigma=(vd.sigma[pip]*pacor[...,None]).sum(axis=1); zcor=compute_zcor(self.sigma,self.z0)
+        elif zcor is not None:
+           npt,nvrt=zcor.shape; dist=arange(npt) if (x is None) else x
+        else:
+           sys.exit('wrong inputs for creating SCHISM transect')
+        
+        #create profile holder
+        npt,nvrt=zcor.shape; ns=npt*nvrt; ip=arange(ns).reshape([npt,nvrt]); xs=tile
+        for k in arange(nvrt-1)[::-1]: fp=zcor[:,k]==zcor[:,k+1]; ip[fp,k]=ip[fp,k+1]  #remove repeated points
+        p=unique(array([ip[:-1,1:],ip[:-1,:-1],ip[1:,:-1],ip[1:,1:]]).reshape([4,(nvrt-1)*(npt-1)]),axis=1) #p=elnode,e=elnode
+        fpn=(p[0]==p[1])*(p[2]==p[3]); p=p[:,~fpn] #remove invalid elem.
+        sindp,sindv=unique(p,return_inverse=True); e=arange(sindp.size)[sindv].reshape(p.shape) #get unique points, and renumber elem.
+        e[3,e[2]==e[3]]=-2; fp=e[0]==e[1]; e[:,fp]=r_[e[array([0,2,3])][:,fp],-2*ones([1,sum(fp)],'int')]; e=e.T #for triangle
+        
+        #create grid
+        self.x=tile(dist,[nvrt,1]).T.ravel()[sindp]; self.y=zcor.ravel()[sindp]; self.elnode=e
+        self.np=len(sindp); self.ne=len(e); self.i34=sum(e!=-2,axis=1); self.z=zeros(self.np)
+ 
+
 def zcor_to_schism_grid(zcor,x=None,value=None):
     '''
     convert z-coordinate transect to a schism grid
@@ -2737,26 +2819,28 @@ def zcor_to_schism_grid(zcor,x=None,value=None):
         x[npt]: distances of each pionts from starting point
         value[npt,nvrt]: value assicated for each point @(x,y)
     '''
-
-    #get x,y,z
-    ys=zcor.T; nvrt,npt=ys.shape
-    xs=tile(arange(npt) if x is None else x,[nvrt,1]).astype('float')
-    vs=zeros([nvrt,npt]) if value is None else value.T
-
-    #create schism grid
-    gd=schism_grid(); ip=arange(ys.size).reshape([nvrt,npt]);  #original point index
-    for k in arange(nvrt-1)[::-1]: fp=ys[k]==ys[k+1]; ip[k,fp]=ip[k+1,fp]  #remove repeated points
-    elnode=array([ip[:-1,:-1],ip[:-1,1:],ip[1:,1:],ip[1:,:-1]]).reshape([4,(nvrt-1)*(npt-1)]).T #all quads
-    y=ys.ravel()[elnode]; fp=(y[:,0]==y[:,3])*(y[:,1]==y[:,2]); elnode=elnode[~fp]; p=elnode #valid quads
-    sindp,sindv=unique(elnode,return_inverse=True) #get unique points
-    gd.x,gd.y,gd.dp=xs.ravel()[sindp],ys.ravel()[sindp],vs.ravel()[sindp]
-    elnode=arange(sindp.size)[sindv].reshape(elnode.shape) #renumber node index
-    p=elnode; p[p[:,3]==p[:,0],3]=-2; p[p[:,2]==p[:,1],2]=-2; fp=p[:,2]==-2; p[fp]=p[fp][:,array([3,0,1,2])] #for triangle
-    gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
-    gd.compute_area(); fp3=(gd.i34==3)*(gd.area<0); fp4=(gd.i34==4)*(gd.area<0)
-    gd.elnode[fp3,:3]=gd.elnode[fp3,2::-1]; gd.elnode[fp4,:]=gd.elnode[fp4,::-1]; gd.compute_area()
-
+    gd=schism_transect(); gd.create_transect(zcor=zcor,x=x); gd.z=gd.z if (value is None) else value
     return gd
+
+    #old method
+    #get x,y,z
+    #ys=zcor.T; nvrt,npt=ys.shape
+    #xs=tile(arange(npt) if x is None else x,[nvrt,1]).astype('float')
+    #vs=zeros([nvrt,npt]) if value is None else value.T
+
+    ##create schism grid
+    #gd=schism_grid(); ip=arange(ys.size).reshape([nvrt,npt]);  #original point index
+    #for k in arange(nvrt-1)[::-1]: fp=ys[k]==ys[k+1]; ip[k,fp]=ip[k+1,fp]  #remove repeated points
+    #elnode=array([ip[:-1,:-1],ip[:-1,1:],ip[1:,1:],ip[1:,:-1]]).reshape([4,(nvrt-1)*(npt-1)]).T #all quads
+    #y=ys.ravel()[elnode]; fp=(y[:,0]==y[:,3])*(y[:,1]==y[:,2]); elnode=elnode[~fp]; p=elnode #valid quads
+    #sindp,sindv=unique(elnode,return_inverse=True) #get unique points
+    #gd.x,gd.y,gd.dp=xs.ravel()[sindp],ys.ravel()[sindp],vs.ravel()[sindp]
+    #elnode=arange(sindp.size)[sindv].reshape(elnode.shape) #renumber node index
+    #p=elnode; p[p[:,3]==p[:,0],3]=-2; p[p[:,2]==p[:,1],2]=-2; fp=p[:,2]==-2; p[fp]=p[fp][:,array([3,0,1,2])] #for triangle
+    #gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
+    #gd.compute_area(); fp3=(gd.i34==3)*(gd.area<0); fp4=(gd.i34==4)*(gd.area<0)
+    #gd.elnode[fp3,:3]=gd.elnode[fp3,2::-1]; gd.elnode[fp4,:]=gd.elnode[fp4,::-1]; gd.compute_area()
+
 
 def compute_schism_volume(hgrid,vgrid,fmt=0,value=None,eta=None):
     '''
