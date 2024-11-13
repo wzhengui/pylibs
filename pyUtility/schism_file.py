@@ -142,6 +142,7 @@ class schism_grid:
         bnd=1: plots grid boundary; bnd=0: not plot
         '''
 
+        if hasattr(self,'pid') and (value is not None) and value.ndim==2: value=value[self.pid] #for schism transect
         if ec is None: ec='None'
         if fc is None: fc='None'
         if levels is None: levels=51
@@ -2772,29 +2773,38 @@ def grd2sms(grd,sms):
     gd.grd2sms(sms)
 
 class schism_transect(schism_grid):
-    def __init__(self,bpfile=None,grid=None,hgrid=None,vgrid=None):
+    def __init__(self,bpfile=None,grid=None,hgrid=None,vgrid=None,eta=None,zcor=None,dist=None):
         '''
         create schism grid from a transect with inputs
-          bpfile (optional): build points
+          bpfile (optional): build points (npt,)
           grid   (optional): run dir, or grid.npz
           hgrid  (optional): hgrid.gr3 
           vgrid  (optional): vgrid.in
-        usage: gdm=schism_transect('james_transect.bp','RUN10a')
+          eta    (optional): surface elevation (npt,)
+          zcor   (optional): directly use z-coordinate (npt,nvrt)
+          dist   (optional): distance from starting points (npt,)
+
+        usage: 1). gdm=schism_transect('james_transect.bp','RUN10a')
+               2). gdm=schism_transect('james_transect.bp','grid.npz')
+               3). gdm=schism_transect('james_transect.bp',hgrid='hgrid.gr3',vgrid='vgrid.in')
+               4). gdm=schism_transect(zcor=zcor) or gdm=schism_transect(zcor=zcor,dist=dist)
         '''
 
         #read bpfile and grid
         bp=read(bpfile) if isinstance(bpfile,str) else bpfile if isinstance(bpfile,schism_bpfile) else None
         gd=read_schism_grid(hgrid) if (hgrid is not None) else read_schism_grid(grid) if (grid is not None) else None
         vd=read_schism_grid(vgrid,1) if (vgrid is not None) else read_schism_grid(grid,1) if (grid is not None) else None
-        if (bp!=None)*(gd!=None)*(vd!=None): self.create_transect(bp,gd,vd)
+        if (bp is not None) or (zcor is not None): self.create_transect(bp,gd,vd,eta,zcor,dist)
 
-    def create_transect(self,bp=None,gd=None,vd=None,zcor=None,x=None):
+    def create_transect(self,bp=None,gd=None,vd=None,eta=None,zcor=None,dist=None):
         #get sigma coordiante
+        self._eta=0 if (eta is None) else eta
         if (bp!=None)*(gd!=None)*(vd!=None):
            pie,pip,pacor=gd.compute_acor(bp.xy); self.z0=(gd.z[pip]*pacor).sum(axis=1); dist=bp.dist
-           self.sigma=(vd.sigma[pip]*pacor[...,None]).sum(axis=1); zcor=compute_zcor(self.sigma,self.z0)
+           self.sigma=(vd.sigma[pip]*pacor[...,None]).sum(axis=1); zcor=compute_zcor(self.sigma,self.z0,self.eta)
         elif zcor is not None:
-           npt,nvrt=zcor.shape; dist=arange(npt) if (x is None) else x
+           npt,nvrt=zcor.shape; dist=arange(npt) if (dist is None) else dist
+           self.z0=-zcor[:,0]; self._eta=zcor[:,-1]; self.sigma=(zcor-zcor[:,-1][:,None])/(self.eta+self.z0)[:,None]
         else:
            sys.exit('wrong inputs for creating SCHISM transect')
         
@@ -2807,9 +2817,25 @@ class schism_transect(schism_grid):
         e[3,e[2]==e[3]]=-2; fp=e[0]==e[1]; e[:,fp]=r_[e[array([0,2,3])][:,fp],-2*ones([1,sum(fp)],'int')]; e=e.T #for triangle
         
         #create grid
-        self.x=tile(dist,[nvrt,1]).T.ravel()[sindp]; self.y=zcor.ravel()[sindp]; self.elnode=e
-        self.np=len(sindp); self.ne=len(e); self.i34=sum(e!=-2,axis=1); self.z=zeros(self.np)
- 
+        self.pid=tile(False,[npt,nvrt]); self.pid.ravel()[sindp]=True
+        self.x=tile(dist,[nvrt,1]).T[self.pid]; self.y=zcor[self.pid]; self.elnode=e
+        self.np=len(sindp); self.ne=len(e); self.i34=sum(e!=-2,axis=1); self.dp=zeros(self.np)
+
+    @property
+    def z(self):
+        return self.dp
+    @z.setter
+    def z(self,value):
+        if isinstance(value,np.ndarray):
+           self.dp=value if value.ndim==1 else value[self.pid] if value.ndim==2 else (ones(self.np)*value).ravel()[:self.np]
+        else:
+           self.dp=(ones(self.np)*value).ravel()[:self.np]
+    @property
+    def eta(self):
+        return self._eta
+    @eta.setter
+    def eta(self,value):
+        self.y=compute_zcor(self.sigma,self.z0,value)[self.pid]; self._eta=value
 
 def zcor_to_schism_grid(zcor,x=None,value=None):
     '''
@@ -2819,28 +2845,8 @@ def zcor_to_schism_grid(zcor,x=None,value=None):
         x[npt]: distances of each pionts from starting point
         value[npt,nvrt]: value assicated for each point @(x,y)
     '''
-    gd=schism_transect(); gd.create_transect(zcor=zcor,x=x); gd.z=gd.z if (value is None) else value
+    gd=schism_transect(zcor=zcor,dist=x); gd.z=gd.z if (value is None) else value[gd.pid]
     return gd
-
-    #old method
-    #get x,y,z
-    #ys=zcor.T; nvrt,npt=ys.shape
-    #xs=tile(arange(npt) if x is None else x,[nvrt,1]).astype('float')
-    #vs=zeros([nvrt,npt]) if value is None else value.T
-
-    ##create schism grid
-    #gd=schism_grid(); ip=arange(ys.size).reshape([nvrt,npt]);  #original point index
-    #for k in arange(nvrt-1)[::-1]: fp=ys[k]==ys[k+1]; ip[k,fp]=ip[k+1,fp]  #remove repeated points
-    #elnode=array([ip[:-1,:-1],ip[:-1,1:],ip[1:,1:],ip[1:,:-1]]).reshape([4,(nvrt-1)*(npt-1)]).T #all quads
-    #y=ys.ravel()[elnode]; fp=(y[:,0]==y[:,3])*(y[:,1]==y[:,2]); elnode=elnode[~fp]; p=elnode #valid quads
-    #sindp,sindv=unique(elnode,return_inverse=True) #get unique points
-    #gd.x,gd.y,gd.dp=xs.ravel()[sindp],ys.ravel()[sindp],vs.ravel()[sindp]
-    #elnode=arange(sindp.size)[sindv].reshape(elnode.shape) #renumber node index
-    #p=elnode; p[p[:,3]==p[:,0],3]=-2; p[p[:,2]==p[:,1],2]=-2; fp=p[:,2]==-2; p[fp]=p[fp][:,array([3,0,1,2])] #for triangle
-    #gd.elnode=elnode; gd.np,gd.ne=len(gd.x),len(gd.elnode); gd.i34=sum(gd.elnode!=-2,axis=1)
-    #gd.compute_area(); fp3=(gd.i34==3)*(gd.area<0); fp4=(gd.i34==4)*(gd.area<0)
-    #gd.elnode[fp3,:3]=gd.elnode[fp3,2::-1]; gd.elnode[fp4,:]=gd.elnode[fp4,::-1]; gd.compute_area()
-
 
 def compute_schism_volume(hgrid,vgrid,fmt=0,value=None,eta=None):
     '''
