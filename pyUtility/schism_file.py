@@ -60,6 +60,9 @@ class schism_grid:
     @property
     def ym(self):
         return [self.y.min(),self.y.max()]
+    @property
+    def zm(self):
+        return [self.z.min(),self.z.max()]
 
     #element alias
     @property
@@ -3530,6 +3533,7 @@ class schism_view:
         self.hold='off'  #animation
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
+        self.itp=0 #transect plot
         self.window.mainloop()
         #todo: 1). for cases that out2d*.nc not exist
 
@@ -3556,8 +3560,8 @@ class schism_view:
         if not hasattr(self,'hgrid'): print('wait: still reading grid'); return
         if self.play=='on' and fmt==1: self.play='off'; self.hold='off'; return
         if self.hold=='on': return #add hold to avoid freeze when user press too frequently
-        w=self.wp; gd=self.hgrid
         p=self.init_plot(0) if fmt==0 else self.init_plot(1)
+        w=self.wp; gd=self.hgrid if self.itp==0 else p.td
         if p is None: return
         if fmt==2: p.it=max([p.it-p.ns,0])
         if fmt==3: p.it=min([p.it+p.ns,len(self.irec)-1])
@@ -3609,7 +3613,7 @@ class schism_view:
                     self.get_data(p); v=self.data; self.query(1)
                     if nodata is not None: fpnd=v==nodata; v[fpnd]=nan
                     if p.med==0:
-                        p.hp[0].set_array(v if v.size==gd.np else r_[v,v[self.fp4]])
+                        p.hp[0].set_array(v if v.size==gd.np else r_[v,v[gd.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
                         gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,cb=False,zorder=1)
@@ -3684,8 +3688,15 @@ class schism_view:
         legend(lstr); s.hf.tight_layout(); show(block=False)
         update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
 
-    def plotsc(self):
-        print('profile function not available yet'); return
+    def profile(self,sp=None):
+        import tkinter as tk
+        if not hasattr(self,'td'): self.update_transect()
+        w=self.wp; p=w.tp; td=self.td; gd=self.hgrid
+        if p['relief'].lower()=='sunken':
+           p.config(relief=tk.RAISED,bg='gray88'); self.itp=0; xm,ym=self.xm0,self.ym0
+        else:
+           p.config(relief=tk.SUNKEN,bg='grey'); self.itp=1; xm,ym=td.xm,td.ym; self.xm0=[w.xmin.get(),w.xmax.get()]; self.ym0=[w.ymin.get(),w.ymax.get()]
+        w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
 
     def add_map(self):
         if hasattr(self,'mp'):
@@ -3703,7 +3714,7 @@ class schism_view:
 
         if sp is None: #set query state
            import tkinter as tk
-           qr.config(relief=tk.RAISED) if qr['relief'].lower()=='sunken' else qr.config(relief=tk.SUNKEN)
+           qr.config(relief=tk.RAISED,bg='gray88') if qr['relief'].lower()=='sunken' else qr.config(relief=tk.SUNKEN,bg='grey')
            if hasattr(p,'qxy'): delattr(p,'qxy')
            x[-1]=nan; y[-1]=nan; hp.set_xdata(x); hp.set_ydata(y); ht.set_text(''); hf.canvas.draw()
         elif qr['relief'].lower()=='sunken':
@@ -3750,24 +3761,40 @@ class schism_view:
         if p.med==1: p.hf.canvas.draw()
 
     def get_data(self,p):  #slab data
-        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; idry=self.wp.dry.get()
+        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; idry=self.wp.dry.get(); itp=0
         if p.var=='depth': self.data=gd.dp; return
         if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
+        if self.itp==1 and hasattr(p,'td'): itp=1; tp,td=p.td.tp,p.td
         def _get_data(output):
-           C=self.fid('{}/out2d_{}.nc'.format(output,istack) if svar in self.vars_2d else '{}/{}_{}.nc'.format(output,svar,istack))
+           C0=self.fid('{}/out2d_{}.nc'.format(output,istack))
            if svar in self.vars_2d:
-               data=array(C.variables[svar][irec])
+               if itp==0: #slab data
+                  data=array(C0.variables[svar][irec])
+               elif itp==1: #transect data
+                  p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
+                  data=array(C0.variables[svar][irec][tp.ip]*tp.acor).sum(axis=1)
            else:
-               if layer=='bottom':
-                   npt=C.variables[svar].shape[1]
-                   if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
-                   if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
-               else:
-                   ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-ilayer])
-           data[abs(data)>1e20]=nan
+               C=self.fid('{}/{}_{}.nc'.format(output,svar,istack))
+               if itp==0: #slab
+                 if layer=='bottom':
+                     npt=C.variables[svar].shape[1]
+                     if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
+                     if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
+                 else:
+                     ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-ilayer])
+               elif itp==1: #transect
+                 npt=C.variables[svar].shape[1]
+                 p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
+                 if npt==gd.np: data=array(C.variables[svar][irec][tp.ip]*tp.acor[...,None]).sum(axis=1)
+                 if npt==gd.ne: data=array(C.variables[svar][irec][tp.ie])
+           if itp==0: data[abs(data)>1e20]=nan
+           if itp==1 and data.ndim==2:
+              for k in arange(data.shape[1]-1)[::-1]: fp=abs(data[:,k])>1e20; data[fp,k]=data[fp,k+1]
+              data=data[td.pid]
+           
            if idry==1: #add wetting and drying mask
               npt=len(data);  dvar='dryFlagNode' if npt==gd.np else 'dryFlagElement' if npt==gd.ne else 'dryFlagSide'
-              C=self.fid('{}/out2d_{}.nc'.format(output,istack)); mask=pindex(array(C.variables[dvar][irec]),1); data[mask]=nan
+              mask=pindex(array(C0.variables[dvar][irec]),1); data[mask]=nan
            return data
         self.data=_get_data(self.outputs)
         if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs')
@@ -3838,6 +3865,7 @@ class schism_view:
         p.anim=None; p.sindv=None; p.figsize=[7.2,5.5]
         p.cmp=w.cmp.get(); p.run0=self.run0 if hasattr(self,'run0') else None
         if not hasattr(p,'npt'): p.npt=0; p.px=[]; p.py=[]
+        if self.itp==1 and not hasattr(p,'td'): p.td=self.td
 
         #get time index
         if p.time=='time':
@@ -3922,8 +3950,8 @@ class schism_view:
            if not hasattr(gd,'x0'): gd.x0,gd.y0=[gd.x,gd.y]
            if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
            gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
-           self.hgrid=gd; self.xm=[gd.x.min(),gd.x.max()]; self.ym=[gd.y.min(),gd.y.max()]; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
-           self.vm=[gd.dp.min(),gd.dp.max()]; self.fp3=pindex(gd.i34,3); self.fp4=pindex(gd.i34,4)
+           self.hgrid=gd; self.xm=gd.xm; self.ym=gd.ym; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
+           self.vm=gd.zm; self.fp3=pindex(gd.i34,3); gd.fp4=pindex(gd.i34,4)
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
@@ -4007,10 +4035,19 @@ class schism_view:
         rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
         cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
 
+    def update_transect(self):
+        import tkinter as tk
+        from tkinter import filedialog
+        fname = filedialog.askopenfilename(title='select SCHISM transect file (e.g. *bp)')
+        tp=read_schism_bpfile(fname); tp.ie,tp.ip,tp.acor=tp.compute_acor(self.hgrid)
+        td=schism_transect(tp,hgrid=self.hgrid,vgrid=self.runpath); td.tp=tp; td.fp4=pindex(td.i34,4); self.td=td
+        figure(0); self.hgrid.plot_bnd(); plot(tp.x,tp.y,'r.-'); show(block=False)
+        if hasattr(self,'fig'): figure(self.fig.hf.number)
+
     def reset_limit(self):
-        p,w,gd=self.fig,self.wp,self.hgrid
+        p,w=self.fig,self.wp; gd=self.hgrid if self.itp==0 else p.td
         w.xmin.set(gd.xm[0]); w.xmax.set(gd.xm[1]); w.ymin.set(gd.ym[0]); w.ymax.set(gd.ym[1])
-        w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
+        fpn=~isnan(self.data); w.vmin.set(self.data[fpn].min()); w.vmax.set(self.data[fpn].max())
         self.schism_plot(0)
 
     def show_node(self):
@@ -4123,7 +4160,7 @@ class schism_view:
         #time series
         fm0=ttk.Frame(master=fm); fm0.grid(row=0,column=1)
         w.curve=ttk.Button(master=fm0,text='curve',command=self.plotts,width=5); w.curve.grid(row=0,column=1)
-        w.prf=tk.Button(master=fm0,text='profile',bg='gray88',command=self.plotsc,width=7); w.prf.grid(row=0,column=2,padx=1,pady=2)
+        w.tp=tk.Button(master=fm0,text='profile',bg='gray88',command=self.profile,width=5); w.tp.grid(row=0,column=2,padx=1,pady=2)
         w.query=tk.Button(master=fm0,text='query',bg='gray88',command=self.query,width=5); w.query.grid(row=0,column=3,padx=1,pady=2)
 
         #xlim, ylim
@@ -4151,6 +4188,7 @@ class schism_view:
         menu.add_command(label="schism_check", command=lambda: self.schism_instance('schism_check'))
         menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view'))
         menu.add_checkbutton(label="schism_compare",onvalue=1,offvalue=0,variable=w.cmp,command=lambda: self.schism_instance('compare'))
+        menu.add_command(label="schism_transect", command=self.update_transect)
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
