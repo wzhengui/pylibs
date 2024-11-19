@@ -2078,7 +2078,7 @@ def read_mat(matfile,fname=None):
 def sindex(A,B=None,fmt=0,**args):
     '''
     return index in differnt cases
-      1). sindex(A):   sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=Ture,return_counts=True,**args) 
+      1). sindex(A):   sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=True,return_counts=True,**args) 
       2). sindex(A,B): C,sindA,sindB=intersect1d(A,B,return_indices=True) 
       3). sindex(A,B,1):  return the index of A's element in B. The index will be nan if A's element is not in B
                           if A is a subset of B; sindB=sindex(A,B,1) => A=B[sindB] 
@@ -2086,7 +2086,7 @@ def sindex(A,B=None,fmt=0,**args):
     '''
     if B is None: #single input
        if fmt==0: 
-          sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=Ture,return_counts=True,**args)
+          sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=True,return_counts=True,**args)
           return sA,sind_sort,sind_inverse,ncount 
     else: #two arrays
        if fmt==0:
