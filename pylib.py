@@ -103,7 +103,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,
         get_stat,get_subplot_position,get_subplot_position2,load_dem,plot_taylor_diagram,
         read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
-        mklink,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
+        mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp,
         nargout)
 
@@ -132,6 +132,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #alias
    #---------------------------------------------------------------------
    from os.path import exists as fexist
+   from numpy import array_equal as eq
    from pyUtility.mylib import savez as save_npz; mylib.save_npz=savez
    from pyUtility.mylib import zdata as npz_data; mylib.npz_data=zdata
    from pyUtility.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq

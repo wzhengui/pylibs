@@ -2075,6 +2075,27 @@ def read_mat(matfile,fname=None):
     if fname is not None: savez(fname,S)
     return S
 
+def sindex(A,B=None,fmt=0,**args):
+    '''
+    return index in differnt cases
+      1). sindex(A):   sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=Ture,return_counts=True,**args) 
+      2). sindex(A,B): C,sindA,sindB=intersect1d(A,B,return_indices=True) 
+      3). sindex(A,B,1):  return the index of A's element in B. The index will be nan if A's element is not in B
+                          if A is a subset of B; sindB=sindex(A,B,1) => A=B[sindB] 
+                         
+    '''
+    if B is None: #single input
+       if fmt==0: 
+          sA,sind_sort,sind_inverse,ncount=unique(A,return_index=True,return_inverse=Ture,return_counts=True,**args)
+          return sA,sind_sort,sind_inverse,ncount 
+    else: #two arrays
+       if fmt==0:
+          C,sindA,sindB=intersect1d(A,B,return_indices=True); return C,sindA,sindB 
+       elif fmt==1:
+          sA,inverse_A=unique(A,return_inverse=True)
+          C,sind_A,sind_B=intersect1d(sA,B,return_indices=True)
+          sind=-ones(len(sA),'int'); sind[sind_A]=sind_B; return sind[inverse_A]
+
 def pindex(data,value=None,inverse=0):
     '''
     return True indices of boolean array
