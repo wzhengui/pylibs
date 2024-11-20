@@ -1473,6 +1473,14 @@ def near_pts(pts,pts0,method=0,N=100):
 
     return sind
 
+def inside(xy,pxy):
+    '''
+    return indices of points that are inside polygons
+    xy:  coordinates of inquiry pts (npt,2); nan is allowed
+    pxy: coordinates of polygons (npt,2); mulitiple polygons seperated by nan are allowed 
+    '''
+    return pindex(mpl.path.Path(pxy).contains_points(xy))
+
 def inside_polygon(pts,px,py,fmt=0,method=0):
     '''
     check whether points are inside polygons
@@ -1525,7 +1533,6 @@ def inside_polygon(pts,px,py,fmt=0,method=0):
                else:
                    sind.append(sindp[sindi[0]])
        sind=array(sind)
-
     else:
         if method==0:
             sind=[]
