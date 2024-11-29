@@ -92,6 +92,12 @@ class schism_grid:
     def ecxy(self):
         if not hasattr(self,'dpe'): self.compute_ctr()
         return self.xctr+1j*self.yctr
+    @property
+    def fp3(self):
+        return self.i34==3
+    @property
+    def fp4(self):
+        return self.i34==4
 
     #side alias
     @property
@@ -151,7 +157,7 @@ class schism_grid:
         if levels is None: levels=51
         if ax is None: ax=gca()
         x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
-        fp3=self.i34==3; fp4=~fp3; vm=clim
+        fp3,fp4=self.fp3,self.fp4; vm=clim
 
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
@@ -193,13 +199,7 @@ class schism_grid:
            if ec=='None': ec=['k','k']
            if isinstance(ec,str): ec=[ec,ec]
            if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
-           iqd=self.elnode[fp4]; iqd=c_[iqd,iqd[:,0],tile(0,len(iqd))].ravel()
-           x3,y3=x[iqd],y[iqd]; x3[5::6]=nan; y3[5::6]=nan
-           if sum(fp3)!=0:
-              hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x3,y3,lw=lw[1],color=ec[1],**args)]
-           else:
-              hg0=[plot(x3,y3,lw=lw[1],color=ec[1],**args),]
-
+           hg0=plot(*self.lines().T,lw=lw[0],color=ec[0],**args)
         if bnd!=0: self.plot_bnd()
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -210,6 +210,12 @@ class schism_grid:
         #-------------------------------------------------
         #for reference: old grid plot method
         #-------------------------------------------------
+        #if gridplot==0:
+        #   x4,y4=r_[self.xy[close_data_loop(self.elnode[fp4].T)],nan*ones([1,sum(fp4),2])].T; x4=x4.ravel(); y4=y4.ravel()
+        #   if sum(fp3)!=0:
+        #      hg0=[triplot(x,y,self.elnode[fp3,:3],lw=lw[0],color=ec[0],**args), plot(x4,y4,lw=lw[1],color=ec[1],**args)]
+        #   else:
+        #      hg0=[plot(x4,y4,lw=lw[1],color=ec[1],**args),]
         #elif gridplot==1:
         #   if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
         #   x3=c_[self.x[self.isidenode],nan*zeros(self.ns)].ravel(); x4=[]
@@ -288,31 +294,30 @@ class schism_grid:
         if ax!=None: sca(ax)
         x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         if not hasattr(self,'nob'): self.compute_bnd()
-
-        #get indices for bnds
-        sindo=[]
-        for i in arange(self.nob):
-            sindo=r_[sindo,-1,self.iobn[i]]
-        sindo=array(sindo).astype('int'); fpn=sindo==-1
-        bx1=x[sindo]; by1=y[sindo]
-        bx1[fpn]=nan; by1[fpn]=nan
-
-        sindl=[]
-        for i in arange(self.nlb):
-            if self.island[i]==0:
-               sindl=r_[sindl,-1,self.ilbn[i]]
-            else:
-               sindl=r_[sindl,-1,self.ilbn[i],self.ilbn[i][0]]
-        sindl=array(sindl).astype('int'); fpn=sindl==-1
-        bx2=x[sindl]; by2=y[sindl]
-        bx2[fpn]=nan; by2[fpn]=nan
-
+        xy1,xy2=self.lines(1)
         if len(c)==1:
-           hb=plot(r_[bx1,nan,bx2],r_[by1,nan,by2],c,lw=lw,**args); self.hb=hb
+           hb=plot(*r_[xy1,xy2].T,c,lw=lw,**args); self.hb=hb
         else:
-          hb1=plot(bx1,by1,c[0],lw=lw,**args); hb2=plot(bx2,by2,c[-1],lw=lw,**args); self.hb=[hb1,hb2]
+          hb1=plot(*xy1.T,c[0],lw=lw,**args); hb2=plot(*xy2.T,c[-1],lw=lw,**args); self.hb=[hb1,hb2]
         self.add_actions()
         return self.hb
+
+    def lines(self,fmt=0,xy=0):
+        '''
+        return lines in format of c_[x,y] for plotting purpose
+          fmt=0: grid lines for triangles and quadlaterals
+          fmt=1: lines for open and land bounaries 
+          xy=0: gd.x,gd.y;  xy=1: use gd.lon,gd.lat xy=c_[x,y]: use provided xy coordinates
+        '''
+        xy=self.xy if xy==0 else c_[self.lon,self.lat] if xy==1 else xy
+        if fmt==0:
+           xy3=r_[xy[close_data_loop(self.elnode[self.fp3,:3].T)],nan*ones([1,sum(self.fp3),2])].transpose([1,0,2]).reshape([5*sum(self.fp3),2])
+           xy4=r_[xy[close_data_loop(self.elnode[self.fp4].T)],nan*ones([1,sum(self.fp4),2])].transpose([1,0,2]).reshape([6*sum(self.fp4),2])
+           return r_[xy3,xy4]
+        elif fmt==1:
+           xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[ibn]]) for ibn in self.iobn]; xy1=array(xy1) #open
+           xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[ibn if k==0 else r_[ibn,ibn[0]]]]) for ibn,k in zip(self.ilbn,self.island)]; xy2=array(xy2)
+           return xy1,xy2
 
     def add_actions(self):
         self.toolbar=gcf().canvas.toolbar
@@ -388,7 +393,7 @@ class schism_grid:
         dp=self.dp if (value is None) else value
         dms=[*dp.shape]; ip=dms.index(self.np); idm=arange(len(dms)); dms[ip]=self.ne
         if len(dms)>1:  idm[0],idm[ip]=ip,0; dms[0],dms[ip]=dms[ip],dms[0] #put dim=np 1st for multi-dimensional data
-        fp3=self.i34==3; fp4=~fp3; dp=dp.transpose(idm); dpe=zeros(dms)
+        fp3,fp4=self.fp3,self.fp4; dp=dp.transpose(idm); dpe=zeros(dms)
         dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1); dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
         return dpe.transpose(idm)
 
@@ -440,7 +445,7 @@ class schism_grid:
         compute element center information: (xctr,yctr,dpe)
         '''
         if not hasattr(self,'xctr'):
-           fp3=self.i34==3; fp4=~fp3; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
+           fp3,fp4=self.fp3,self.fp4; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
            self.xctr[fp3],self.yctr[fp3],self.dpe[fp3]=c_[self.x,self.y,self.dp][self.elnode[fp3,:3]].mean(axis=1).T
            self.xctr[fp4],self.yctr[fp4],self.dpe[fp4]=c_[self.x,self.y,self.dp][self.elnode[fp4]].mean(axis=1).T
         return self.dpe
@@ -1077,7 +1082,7 @@ class schism_grid:
         '''
         #compute prism volume
         if not hasattr(self,'area'): self.compute_area()
-        zcor=self.compute_zcor(vgrid,eta=eta); ze=zeros([self.ne,vgrid.nvrt]); fp3=self.i34==3; fp4=~fp3
+        zcor=self.compute_zcor(vgrid,eta=eta); ze=zeros([self.ne,vgrid.nvrt]); fp3,fp4=self.fp3,self.fp4
         ze[fp3]=zcor[self.elnode[fp3,:3]].mean(axis=1); ze[fp4]=zcor[self.elnode[fp4]].mean(axis=1)
         v=(ze[:,1:]-ze[:,:-1])*self.area[:,None]
 
@@ -1095,8 +1100,8 @@ class schism_grid:
         '''
         if not hasattr(self,'area'): self.compute_area()
         if not hasattr(self,'dpe'): self.compute_ctr()
-        self.cfl=0.5*dt*(abs(u)+sqrt(9.81*self.dpe))/sqrt(self.area/pi); fp4=self.i34==4
-        self.cfl[fp4]=self.cfl[fp4]*sqrt(2)
+        self.cfl=0.5*dt*(abs(u)+sqrt(9.81*self.dpe))/sqrt(self.area/pi)
+        self.cfl[self.fp4]=self.cfl[self.fp4]*sqrt(2)
         return self.cfl
 
     def compute_curl(self,u,v):
@@ -1128,7 +1133,7 @@ class schism_grid:
         if value.size==self.ne: value=self.interp_elem_to_node(value)
 
         #plot contour and extract the lines
-        fp4=self.i34==4; trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
+        trs=r_[self.elnode[:,:3],c_[self.elnode[self.fp4,0],self.elnode[self.fp4,2:]]]
         hf=figure(); hf.set_visible(False)
         P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
         for k in arange(len(P.collections)):
@@ -3579,7 +3584,7 @@ class schism_view:
                if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
-           if p.grid==1: hg=gd.plot(animated=anim,zorder=2); p.hg=[hg[0][0],*hg[1]]
+           if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            if p.map!='none': self.add_map()
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]),animated=anim)
@@ -3613,6 +3618,8 @@ class schism_view:
                     self.get_data(p); v=self.data; self.query(1)
                     if nodata is not None: fpnd=v==nodata; v[fpnd]=nan
                     if p.med==0:
+                        if self.itp==1: p.hp[0]._triangulation.y=gd.y #update transect grid
+                        if self.itp==1 and p.grid==1: p.hg[0].set_ydata(gd.lines(0)[:,1])
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[gd.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
@@ -3951,7 +3958,7 @@ class schism_view:
            if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
            gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
            self.hgrid=gd; self.xm=gd.xm; self.ym=gd.ym; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
-           self.vm=gd.zm; self.fp3=pindex(gd.i34,3); gd.fp4=pindex(gd.i34,4)
+           self.vm=gd.zm; self.fp3=pindex(gd.i34,3)
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
@@ -4040,7 +4047,7 @@ class schism_view:
         from tkinter import filedialog
         fname = filedialog.askopenfilename(title='select SCHISM transect file (e.g. *bp)')
         tp=read_schism_bpfile(fname); tp.ie,tp.ip,tp.acor=tp.compute_acor(self.hgrid)
-        td=schism_transect(tp,hgrid=self.hgrid,vgrid=self.runpath); td.tp=tp; td.fp4=pindex(td.i34,4); self.td=td
+        td=schism_transect(tp,hgrid=self.hgrid,vgrid=self.runpath); td.tp=tp; self.td=td
         figure(0); self.hgrid.plot_bnd(); plot(tp.x,tp.y,'r.-'); show(block=False)
         if hasattr(self,'fig'): figure(self.fig.hf.number)
 

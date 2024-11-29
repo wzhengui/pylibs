@@ -147,5 +147,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from pyUtility.mylib import write_shapefile_data as write_shp
    from pyUtility.schism_file import read_schism_hgrid as read_hgrid
    from pyUtility.schism_file import read_schism_grid as read_grd
+   from pyUtility.schism_file import read_schism_grid as grd
    from pyUtility.schism_file import read_schism_bpfile as read_bp
    from pyUtility.schism_file import change_schism_param as chparam
