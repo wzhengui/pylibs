@@ -315,8 +315,9 @@ class schism_grid:
            xy4=r_[xy[close_data_loop(self.elnode[self.fp4].T)],nan*ones([1,sum(self.fp4),2])].transpose([1,0,2]).reshape([6*sum(self.fp4),2])
            return r_[xy3,xy4]
         elif fmt==1:
-           xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[ibn]]) for ibn in self.iobn]; xy1=array(xy1) #open
-           xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[ibn if k==0 else r_[ibn,ibn[0]]]]) for ibn,k in zip(self.ilbn,self.island)]; xy2=array(xy2)
+           xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[i]]) for i in self.iobn if len(i)!=0] #open
+           xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]]) for i,k in zip(self.ilbn,self.island) if len(i)!=0]
+           xy1=zeros([0,2]) if len(xy1)==0 else array(xy1); xy2=zeros([0,2]) if len(xy2)==0 else array(xy2)
            return xy1,xy2
 
     def add_actions(self):
@@ -3586,6 +3587,7 @@ class schism_view:
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
+           if self.itp==1 and p.bnd==1: p.hb.extend(plot(gd.xm,[0,0],'k:',lw=1,zorder=3))
            if p.map!='none': self.add_map()
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]),animated=anim)
 
@@ -3620,6 +3622,7 @@ class schism_view:
                     if p.med==0:
                         if self.itp==1: p.hp[0]._triangulation.y=gd.y #update transect grid
                         if self.itp==1 and p.grid==1: p.hg[0].set_ydata(gd.lines(0)[:,1])
+                        if self.itp==1 and p.bnd==1: p.hb[0].set_ydata(r_[gd.lines(1)][:,1])
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[gd.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
