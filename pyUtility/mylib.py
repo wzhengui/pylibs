@@ -531,44 +531,23 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
             if len(levels_sub)==0: continue
             print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
 
-            hf=figure(); hf.set_visible(False)
-            P=contour(sxi,syi,szi,levels_sub)
-            close(hf)
-
-            for k in arange(len(P.collections)):
-                p=P.collections[k].get_paths()
-                for i in arange(len(p)):
-                    xii=p[i].vertices[:,0]; yii=p[i].vertices[:,1];
-                    if i==0:
-                        xi=r_[xii,NaN];
-                        yi=r_[yii,NaN];
-                    else:
-                        xi=r_[xi,xii,NaN];
-                        yi=r_[yi,yii,NaN];
-                #collect contour in each subdomain
-                sindc=pindex(levels,levels_sub[k])[0]
-                S.xy[sindc].extend(c_[xi,yi])
+            hf=figure(visible=False); P=contour(sxi,syi,szi,levels_sub); close(hf)
+            for k,p in enumerate(P.get_paths()):
+                pxy=[]; [pxy.extend(r_[pn,nan*ones([1,2])]) for pn in p.to_polygons(closed_only=False)] #for each level
+                sindc=pindex(levels,levels_sub[k])[0]; S.xy[sindc].extend(pxy) #collect contour in each subdom
     for i in arange(len(levels)): S.xy[i]=array(S.xy[i])
 
     #write contours
     if fname is not None:
         for i,vi in enumerate(levels):
-            c=zdata()
-            c.type='POLYLINE'
-            c.xy=S.xy[i]
-            c.prj=get_prj_file(prj)
+            c=zdata(); c.type='POLYLINE'; c.xy=S.xy[i]; c.prj=get_prj_file(prj)
             cname='{}_{}'.format(fname,vi) if vi>0 else '{}_m{}'.format(fname,-vi)
             write_shapefile_data(cname,c)
-
     #plot contours
-    cs='krgbmcy'
     if show_contour:
-        figure()
-        for i,vi in enumerate(levels):
-            xi,yi=S.xy[i].T
-            plot(xi,yi,color=cs[i%7],lw=0.5)
+        figure(); cs='krgbmcy'
+        for i,vi in enumerate(levels): plot(*S.xy[i].T,color=cs[i%7],lw=0.5)
         legend([*levels])
-
     return S
 
 def load_dem(x,y,fname,z=None,fmt=0,position='center'):
