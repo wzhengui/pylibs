@@ -532,9 +532,14 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
             print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
 
             hf=figure(visible=False); P=contour(sxi,syi,szi,levels_sub); close(hf)
-            for k,p in enumerate(P.get_paths()):
-                pxy=[]; [pxy.extend(r_[pn,nan*ones([1,2])]) for pn in p.to_polygons(closed_only=False)] #for each level
-                sindc=pindex(levels,levels_sub[k])[0]; S.xy[sindc].extend(pxy) #collect contour in each subdom
+            if 'get_paths' in P.__dir__():
+               for k,p in enumerate(P.get_paths()):
+                   pxy=[]; [pxy.extend(r_[pn,nan*ones([1,2])]) for pn in p.to_polygons(closed_only=False)] #for each level
+                   sindc=pindex(levels,levels_sub[k])[0]; S.xy[sindc].extend(pxy) #collect contour in each subdomain
+            else: #old mpl version
+               for k,p in enumerate(P.collections):
+                   pxy=[]; [pxy.extend(r_[pn.vertices,nan*ones([1,2])]) for pn in p.get_paths()] #for each level
+                   sindc=pindex(levels,levels_sub[k])[0]; S.xy[sindc].extend(pxy) #collect contour in each subdomain
     for i in arange(len(levels)): S.xy[i]=array(S.xy[i])
 
     #write contours
