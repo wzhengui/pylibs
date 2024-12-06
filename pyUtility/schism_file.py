@@ -3983,7 +3983,7 @@ class schism_view:
         if len(iks)>1 and nt==1:
             C1=self.fid('{}/out2d_{}.nc'.format(self.outputs,iks[1])); ti1=array(C1.variables['time'])/86400; dt=ti1-ti[0]
         else:
-            dt=0 if nt==0 else ti[1]-ti[0]
+            dt=0 if nt in [0,1] else ti[1]-ti[0]
         for ik in iks:
             fn='{}{}out2d_{}.nc'.format(self.outputs,os.path.sep,ik); nt1=nt
             if fn not in fnames: continue
