@@ -3558,7 +3558,7 @@ class schism_view:
             elif fmt==1: #restore old figure setting
                 self.update_panel('old',p)
         w._fn['values']=['add',*self.fns]; w.fn.set(self.fns[cid])
-        self.fig=p; figure(p.hf.number) #bring figure to front
+        self.fig=p; p.itp=self.itp; figure(p.hf.number) #bring figure to front
         return p
 
     def schism_plot(self,fmt=0):
@@ -3698,15 +3698,19 @@ class schism_view:
         legend(lstr); s.hf.tight_layout(); show(block=False)
         update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
 
-    def profile(self,sp=None):
+    def profile(self,sp=None,itp=None):
         import tkinter as tk
-        if not hasattr(self,'td'): self.update_transect()
-        w=self.wp; p=w.tp; td=self.td; gd=self.hgrid
-        if p['relief'].lower()=='sunken':
-           p.config(relief=tk.RAISED,bg='gray88'); self.itp=0; xm,ym=self.xm0,self.ym0
+        w=self.wp; tp=w.tp
+        if itp==None: #for transect
+           if not hasattr(self,'td'): self.update_transect()
+           td=self.td; gd=self.hgrid
+           if tp['relief'].lower()=='sunken':
+              tp.config(relief=tk.RAISED,bg='gray88'); self.itp=0; gd=self.hgrid
+           else:
+              tp.config(relief=tk.SUNKEN,bg='grey'); self.itp=1; gd=self.td
+           xm,ym=gd.xm,gd.ym; w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
         else:
-           p.config(relief=tk.SUNKEN,bg='grey'); self.itp=1; xm,ym=td.xm,td.ym; self.xm0=[w.xmin.get(),w.xmax.get()]; self.ym0=[w.ymin.get(),w.ymax.get()]
-        w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
+           tp.config(relief=tk.RAISED,bg='gray88' if itp==0 else 'grey'); self.itp=itp
 
     def add_map(self):
         if hasattr(self,'mp'):
@@ -3858,6 +3862,7 @@ class schism_view:
             w._nan.set(p._nan); w.nan.set(p.nan); self.update_panel('mask'); w.cmp.set(p.cmp)
             w.xmin.set(p.xm[0]); w.xmax.set(p.xm[1]); w.ymin.set(p.ym[0]); w.ymax.set(p.ym[1]); w.map.set(p.map)
             w.ns.set(p.ns); w.grid.set(p.grid); w.bnd.set(p.bnd); w.vvar.set(p.vvar); w.zoom.set(p.zoom); w.med.set(p.med)
+            self.profile(itp=p.itp)
             if p.run0 is not None: self.run0=p.run0
         elif type(event)==mpl.backend_bases.DrawEvent:
             if not fignum_exists(self.fig.hf.number): return
