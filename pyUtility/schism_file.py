@@ -3978,9 +3978,17 @@ class schism_view:
              w._map['values']=['none',]
         self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1]
         threading.Thread(target=_read_grid).start()
+        if iout==0: self.stacks=[0]; self.julian=[0]; self.istack=[0]; self.irec=[0]; self.mls=['0']; return
+        self.run_info_time()
+
+    def run_info_time(self,fmt=0):
+        '''
+        read time information of outputs
+        '''
+        iks=sort(get_schism_output_info(self.outputs)[2]); fnames=glob(self.outputs+'/out2d_*.nc'); ik0=iks[0]
+        C=self.fid('{}/out2d_{}.nc'.format(self.outputs,ik0)); cvar=C.variables
 
         #read available time
-        if iout==0: self.stacks=[0]; self.julian=[0]; self.istack=[0]; self.irec=[0]; self.mls=['0']; return
         self.stacks=[]; self.julian=[]; self.istack=[]; self.irec=[]
         ti=array(cvar['time'])/86400; nt=len(ti); t0=ti[0]  #assume all stacks have the same number of records
         if (not hasattr(self,'StartT')) and hasattr(C.variables['time'],'base_date'):
@@ -4011,6 +4019,10 @@ class schism_view:
            self.mls[0]=num2date(self.mts[0]).strftime('%Y-%m-%d,%H:%M:%S')
            self.mls[-1]=num2date(self.mts[-1]).strftime('%Y-%m-%d,%H:%M:%S')
            threading.Thread(target=_set_time).start()
+
+        if fmt==1: #update panel and parameter
+           p=self.fig if hasattr(self,'fig') else None; mls=self.mls; self.wp.EndT.set(mls[-1])
+           if p!=None: p.EndT=mls[-1]; p.it2=self.mls.index(mls[-1])+1
 
     def cmd_window(self):
         import tkinter as tk
@@ -4195,8 +4207,9 @@ class schism_view:
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
         menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd); w.dry=tk.IntVar(wd)
-        menu.add_command(label="reset",   command=self.reset_limit)
         menu.add_command(label="command", command=self.cmd_window)
+        menu.add_command(label="reset",   command=self.reset_limit)
+        menu.add_command(label="update outputs",   command=lambda: self.run_info_time(1))
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_checkbutton(label="wetting/drying",onvalue=1,offvalue=0,variable=w.dry)
         menu.add_command(label="show node/element", command=self.show_node)
