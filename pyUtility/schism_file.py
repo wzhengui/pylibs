@@ -2024,6 +2024,18 @@ class schism_bpfile:
     def outside(self,xy,fmt=2):
         return self.inside(xy,fmt=fmt)
 
+    def index(self,station,z=None):
+        '''
+        return station index of indices
+        1). for single station, return all the indice of the station
+        2). for a list of stations, return indice of stations (return 1st index if multiple indice exist)
+        '''
+        if isinstance(station,str):
+           sid=pindex(self.station==station if (z is None) else (self.station==station)*(self.z==z))
+           return None if len(sid)==0 else sid[0] if len(sid)==1 else sid
+        else:
+           return array([pindex(self.station==i)[0] if (i in self.station) else None for i in station])
+
     def write_shapefile(self,fname,prj='epsg:4326'):
         self.shp_bp=zdata()
         self.shp_bp.type='POINT'
