@@ -132,7 +132,7 @@ class schism_grid:
     #------------------------------------------------------------------------------------------------
 
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
-             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,nodata=None,bnd=0,cmap='jet',**args):
+             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,mask=None,bnd=0,cmap='jet',**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours
@@ -147,7 +147,7 @@ class schism_grid:
         cb_aspect: adjust colorbar width
         shading: only used for method=1, and value.size=gd.np
         xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
-        nodata: change value to nan for plotting. 1). nodata=number: fp=value==nodata;  2). nodata=[vmin,vmax]: fp=(value<vmin)|(value>vmax)
+        mask: change value to nan for plotting. 1). mask=number: fp=value==mask;  2). mask=[vmin,vmax]: fp=(value<vmin)|(value>vmax)
         bnd=1: plots grid boundary; bnd=0: not plot
         '''
 
@@ -156,17 +156,18 @@ class schism_grid:
         if fc is None: fc='None'
         if levels is None: levels=51
         if ax is None: ax=gca()
+        if (mask is None) and ('nodata' in args): mask=args['nodata'] #for back compatiblity 
         x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         fp3,fp4=self.fp3,self.fp4; vm=clim
 
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
-           if nodata is not None:
-              if isinstance(nodata,list):
-                 fpnd=(value<nodata[0])|(value>nodata[1]); nodata=value[fpnd]; value[fpnd]=nan
+           if mask is not None:
+              if isinstance(mask,list):
+                 fpnd=(value<mask[0])|(value>mask[1]); mask=value[fpnd]; value[fpnd]=nan
               else:
-                 fpnd=value==nodata; value[fpnd]=nan
+                 fpnd=value==mask; value[fpnd]=nan
            if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
            if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
@@ -182,7 +183,7 @@ class schism_grid:
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
               if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
-           if nodata is not None: value0[fpnd]=nodata
+           if mask is not None: value0[fpnd]=mask
            self.data=value0
 
            #add colobar
@@ -3587,14 +3588,14 @@ class schism_view:
         if fmt==5: it=len(self.irec)-1; p.it=it; p.it2=it; self.update_panel('it2',p)
 
         #plot figure and save the backgroud
-        self.hold='on'; nodata=None if p._nan=='none' else p.nan
+        self.hold='on'; mask=None if p._nan=='none' else p.nan
         mls=self.mls if w.time.get()=='time' else self.julian if w.time.get()=='julian' else self.stacks
         if fmt==0:
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                self.get_data(p); v=self.data
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,nodata=nodata,ticks=11,animated=True,cmap=self.cmap,zorder=1,cb_aspect=50)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)]
+               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,mask=mask,ticks=11,animated=True,cmap=self.cmap,zorder=1,cb_aspect=50)]
+               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)]
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
@@ -3630,7 +3631,7 @@ class schism_view:
                 if self.play=='off': break
                 if p.var not in ['depth','none']: # contourf
                     self.get_data(p); v=self.data; self.query(1)
-                    if nodata is not None: fpnd=v==nodata; v[fpnd]=nan
+                    if mask is not None: fpnd=v==mask; v[fpnd]=nan
                     if p.med==0:
                         if self.itp==1: p.hp[0]._triangulation.y=gd.y #update transect grid
                         if self.itp==1 and p.grid==1: p.hg[0].set_ydata(gd.lines(0)[:,1])
@@ -3638,8 +3639,8 @@ class schism_view:
                         p.hp[0].set_array(v if v.size==gd.np else r_[v,v[gd.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
-                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,nodata=nodata,ticks=11,cmap=self.cmap,cb=False,zorder=1)
-                    if nodata is not None: v[fpnd]=nodata
+                        gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,cb=False,zorder=1)
+                    if mask is not None: v[fpnd]=mask
                 if p.vvar!='none':  #vector
                    u,v=self.get_vdata(p)
                    if p.med==0: p.hv[0].set_UVC(u,v)
@@ -3820,7 +3821,7 @@ class schism_view:
            
            if idry==1: #add wetting and drying mask
               npt=len(data);  dvar='dryFlagNode' if npt==gd.np else 'dryFlagElement' if npt==gd.ne else 'dryFlagSide'
-              mask=pindex(array(C0.variables[dvar][irec]),1); data[mask]=nan
+              fmask=pindex(array(C0.variables[dvar][irec]),1); data[fmask]=nan
            return data
         self.data=_get_data(self.outputs)
         if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs')
@@ -3866,7 +3867,7 @@ class schism_view:
             p=self.get_param()
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
             w._nan.set('none'); self.update_panel('mask')
-        elif event=='mask': #set nodata
+        elif event=='mask': #set mask 
             w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
         elif event=='old': #reset all panel variables from a previous figure
             w.var.set(p.var); w.fn.set(p.fn); w.layer.set(p.layer); w.time.set(p.time)
@@ -4549,14 +4550,14 @@ class schism_check(zdata):
            if v is not None: p.vm0=[v.min(),v.max()]
 
        if self.fmt==0:  #gr3 files
-          gd=self.hgrid; p=self.params[fname]; data=fids[fname]; pfmt=0; fxy=0; nodata=None if p._nan.get()=='none' else p.nan.get()
+          gd=self.hgrid; p=self.params[fname]; data=fids[fname]; pfmt=0; fxy=0; mask=None if p._nan.get()=='none' else p.nan.get()
           if p.sflux.get()!='None':
              if not hasattr(gd,'lon'): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
              sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
              for i,k in zip(sx,sy): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1); fxy=1
              for i,k in zip(sx.T,sy.T): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1)
              if abs(gd.lon-gd.x).mean()>1: pfmt=-1; slimit(gd.lon,gd.lat,data)
-          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1,xy=fxy,zorder=0)
+          if p.ctr.get()==1:  gd.plot(fmt=1,value=data,clim=[p.vmin.get(),p.vmax.get()],mask=mask,ticks=11,cmap='jet',method=1,xy=fxy,zorder=0)
           if p.grid.get()==1: gd.plot(xy=fxy,zorder=2)
           if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5,xy=fxy,zorder=2)
           p.hp=gca(); slimit(gd.x,gd.y,data)
@@ -4622,16 +4623,16 @@ class schism_check(zdata):
               i0=p.ax[0]; xi,xn=p.xs[i0], p.dnames[i0]
               if not hasattr(self,'hgrid'):self.read_hgrid()
               if fname.endswith('_nu.nc') and xn=='node' and p.ctr.get()==1:
-                  gd=self.hgrid; nodata=None if p._nan.get()=='none' else p.nan.get()
+                  gd=self.hgrid; mask=None if p._nan.get()=='none' else p.nan.get()
                   if not hasattr(p,'sindn'): p.sindn=array(read(self.run+os.path.sep+fname,1).variables['map_to_global_node'])-1
                   vi=zeros(gd.np); vi[p.sindn]=p.data
-                  gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
+                  gd.plot(fmt=1,value=vi,clim=[p.vmin.get(),p.vmax.get()],mask=mask,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5)
                   pfmt=6; slimit(gd.x,gd.y,p.data)
               elif self.fmt==2 and (xn in ['node', 'elem','node/elem','dim_{}'.format(self.hgrid.np),'dim_{}'.format(self.hgrid.ne)]): #schism grid plot
-                  gd=self.hgrid; nodata=None if p._nan.get()=='none' else p.nan.get()
-                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],nodata=nodata,ticks=11,cmap='jet',method=1); p.hp=gca()
+                  gd=self.hgrid; mask=None if p._nan.get()=='none' else p.nan.get()
+                  gd.plot(fmt=1,value=p.data,clim=[p.vmin.get(),p.vmax.get()],mask=mask,ticks=11,cmap='jet',method=1); p.hp=gca()
                   if p.grid.get()==1: gd.plot()
                   if p.bnd.get()==1:  gd.plot_bnd(c='rg',lw=0.5,alpha=0.5)
                   pfmt=3; slimit(gd.x,gd.y,p.data)
