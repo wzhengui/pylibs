@@ -15,6 +15,7 @@ grdout='hgrid.ll.new' #grid name with depth loaded
 sdir=r'./DEM'    #directory of DEM data
 format_dem='tif' #format of DEM data (npz, tif, tiff); positions are not needed for *.npz files 
 reverse_sign=1   #invert depth sign
+datum_shift =0   #change vertical datum (e.g. -0.258 for navd to ngvd (msl) in ChesBay)
 
 #parameter
 headers=('Bayonne','New_Arthur','CT_River','NY_TACC','Hudson_River','Long_Island','Raritan_Bay_River','MA_TACC','Toms_River')
@@ -129,12 +130,9 @@ if myrank==0:
    for i,fname in enumerate(fnames_sort):
        bname=fname.split('.')[0]
        sind=S.sind[bname]; dp=S.dp[bname]
-       gd.dp[sind]=dp; did[sind]=i+1
+       if reverse_sign==1: dp=-dp #reverse depth sign
+       gd.dp[sind]=dp+datum_shift; did[sind]=i+1
        dnamei=[k for k in fnames0 if k.startswith(fname)][0]; dname.append(dnamei) 
-
-   #reverse depth sign
-   if reverse_sign==1:
-      gd.dp=-gd.dp
 
    #applying minimum depth
    if regions is not None:
