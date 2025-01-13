@@ -127,12 +127,24 @@ class schism_grid:
     def scxy(self):
         if not hasattr(self,'xcj'): self.compute_side(2)
         return self.xcj+1j*self.ycj
+
+    #wrap-around element
+    @property
+    def wrap(self):
+        if not hasattr(self,'_wrap'):
+           xm,ym=self.xm,self.ym; self._wrap=0
+           if xm[1]-xm[0]<=360 and xm[0]>=-360 and xm[1]<=360 and ym[1]-ym[0]<=180 and ym[0]>=-90 and ym[0]<=90: self._wrap=1
+        return self._wrap
+    @wrap.setter
+    def wrap(self,value):
+        self._wrap=value
     #------------------------------------------------------------------------------------------------
     #alias for grid properties
     #------------------------------------------------------------------------------------------------
 
     def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
-             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,mask=None,bnd=0,cmap='jet',**args):
+             ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,mask=None,bnd=0,
+             cmap='jet',wrap=None,dx_wrap=270,actions=True,**args):
         '''
         plot grid with default color value (grid depth)
         fmt=0: plot grid only; fmt=1: plot filled contours
@@ -149,8 +161,11 @@ class schism_grid:
         xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
         mask: change value to nan for plotting. 1). mask=number: fp=value==mask;  2). mask=[vmin,vmax]: fp=(value<vmin)|(value>vmax)
         bnd=1: plots grid boundary; bnd=0: not plot
+        wrap=1: plot wrap-around element seperately; wrap=0: not
+        dx_wrap: the criteria for wrap-around element (Xmax-Xmin>dx_wrap)
         '''
-
+        if (wrap is None): wrap=self.wrap
+        if wrap==1: self.check_wrap_elem(dx_wrap=dx_wrap) #check whether to deal wrap-around elem.
         if hasattr(self,'pid') and (value is not None) and value.ndim==2: value=value[self.pid] #for schism transect
         if ec is None: ec='None'
         if fc is None: fc='None'
@@ -172,13 +187,18 @@ class schism_grid:
            if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
            #plot
-           value0=value #save original data
+           value0=value; npt=value.size #save original data
+           if wrap==1: #move the location of wrap-around elements
+              ie=pindex(self.fpg); ix=c_[ie,ie,ie].ravel(); iy=tile([0,1,2],len(ie))
+              idg=cindex(c_[c_[ie,ie,ie].ravel(),tile([0,1,2],len(ie))],trs.shape); ip=trs.ravel()[idg]
+              fp=x[ip]-x.min()>dx_wrap; trs.ravel()[idg[fp]]=arange(x.size,x.size+sum(fp)); x=r_[x,x[ip[fp]]-360]; y=r_[y,y[ip[fp]]]
+              self.sindg=ip[fp]; value=r_[value,value[ip[fp]]] if npt==self.np else value
            if fmt==1 and method==1:  #tripcolor
-              if value.size==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,cmap=cmap,**args)
-              if value.size==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
-              if value.size==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
+              if npt==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,cmap=cmap,**args)
+              if npt==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
+              if npt==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
            else:  #contourf or contour
-              if value.size==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
+              if npt==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
@@ -200,7 +220,7 @@ class schism_grid:
            if ec=='None': ec=['k','k']
            if isinstance(ec,str): ec=[ec,ec]
            if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
-           hg0=plot(*self.lines().T,lw=lw[0],color=ec[0],**args)
+           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap).T,lw=lw[0],color=ec[0],**args)
         if bnd!=0: self.plot_bnd()
         hg=hg0 if fmt==0 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -285,17 +305,23 @@ class schism_grid:
         '''
         return self.plot(**args)
 
-    def plot_bnd(self,c='k',lw=0.5,ax=None,xy=0,**args):
+    def plot_bnd(self,c='k',lw=0.5,ax=None,xy=0,wrap=None,dx_wrap=270,**args):
         '''
           plot schims grid boundary
           xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
           gd.plot_bnd(): plot bnd
           gd.plot_bnd(c='rb'): open bnd in red,land bnd in blue
+          wrap=1: plot wrap-around element seperately; wrap=0: not
+          dx_wrap: the criteria for wrap-around element (Xmax-Xmin>dx_wrap)
         '''
+
+        if (wrap is None): wrap=self.wrap
+        if wrap==1: self.check_wrap_elem(dx_wrap=dx_wrap) #check whether to deal wrap-around elem.
+
         if ax!=None: sca(ax)
         x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
         if not hasattr(self,'nob'): self.compute_bnd()
-        xy1,xy2=self.lines(1)
+        xy1,xy2=self.lines(1,wrap=wrap,dx_wrap=dx_wrap)
         if len(c)==1:
            hb=plot(*r_[xy1,xy2].T,c,lw=lw,**args); self.hb=hb
         else:
@@ -303,22 +329,38 @@ class schism_grid:
         self.add_actions()
         return self.hb
 
-    def lines(self,fmt=0,xy=0):
+    def lines(self,fmt=0,xy=0,wrap=0,dx_wrap=270):
         '''
         return lines in format of c_[x,y] for plotting purpose
           fmt=0: grid lines for triangles and quadlaterals
           fmt=1: lines for open and land bounaries 
           xy=0: gd.x,gd.y;  xy=1: use gd.lon,gd.lat xy=c_[x,y]: use provided xy coordinates
+          wrap=0: exclude wrap-around elements; wrap=0: include wrap-around elements
         '''
         xy=self.xy if xy==0 else c_[self.lon,self.lat] if xy==1 else xy
         if fmt==0:
-           xy3=r_[xy[close_data_loop(self.elnode[self.fp3,:3].T)],nan*ones([1,sum(self.fp3),2])].transpose([1,0,2]).reshape([5*sum(self.fp3),2])
-           xy4=r_[xy[close_data_loop(self.elnode[self.fp4].T)],nan*ones([1,sum(self.fp4),2])].transpose([1,0,2]).reshape([6*sum(self.fp4),2])
-           return r_[xy3,xy4]
+           fp3,fp4,fp3g,fp4g=[self.fp3,self.fp4,0,0] if wrap==0 else [self.fp3*(~self.fpg),self.fp4*(~self.fpg),self.fp3*self.fpg,self.fp4*self.fpg]
+           xy3=r_[xy[close_data_loop(self.elnode[fp3,:3].T)],nan*ones([1,sum(fp3),2])].transpose([1,0,2]).reshape([5*sum(fp3),2])
+           xy4=r_[xy[close_data_loop(self.elnode[fp4].T)],nan*ones([1,sum(fp4),2])].transpose([1,0,2]).reshape([6*sum(fp4),2])
+           if wrap==1: #for wrap-around elem.
+              xy3g=r_[xy[close_data_loop(self.elnode[fp3g,:3].T)],nan*ones([1,sum(fp3g),2])].transpose([1,0,2]).reshape([5*sum(fp3g),2])
+              xy4g=r_[xy[close_data_loop(self.elnode[fp4g].T)],nan*ones([1,sum(fp4g),2])].transpose([1,0,2]).reshape([6*sum(fp4g),2])
+              fp=((xy3g[:,0]-self.xm[0])>dx_wrap)*(~isnan(xy3g[:,0])); xy3g[fp,0]=xy3g[fp,0]-360
+              fp=((xy4g[:,0]-self.xm[0])>dx_wrap)*(~isnan(xy4g[:,0])); xy4g[fp,0]=xy4g[fp,0]-360
+           return r_[xy3,xy4] if wrap==0 else r_[xy3,xy4,xy3g,xy4g]
         elif fmt==1:
            xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[i]]) for i in self.iobn if len(i)!=0] #open
            xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]]) for i,k in zip(self.ilbn,self.island) if len(i)!=0]
            xy1=zeros([0,2]) if len(xy1)==0 else array(xy1); xy2=zeros([0,2]) if len(xy2)==0 else array(xy2)
+           if wrap==1:
+              x1,y1=xy1.T; x2,y2=xy2.T; n1=sum(abs(diff(x1))>dx_wrap); n2=sum(abs(diff(x2))>dx_wrap)
+              x1=list(x1); y1=list(y1); x2=list(x2); y2=list(y2)
+              for k in arange(n1): i=pindex(abs(diff(x1))>dx_wrap)[0]+1; f=sign(x1[i]-x1[i-1]); \
+                                     x1.insert(i,x1[i]-f*360); y1.insert(i,y1[i]); x1.insert(i+1,nan); y1.insert(i+1,nan)
+              for k in arange(n2): i=pindex(abs(diff(x2))>dx_wrap)[0]+1; f=sign(x2[i]-x2[i-1]); \
+                                     x2.insert(i,x2[i]-f*360); y2.insert(i,y2[i]); x2.insert(i+1,nan); y2.insert(i+1,nan)
+              xy1=c_[x1,y1]; xy2=c_[x2,y2]
+
            return xy1,xy2
 
     def add_actions(self):
@@ -1417,6 +1459,14 @@ class schism_grid:
         sindw=array(sindw)
         if fname is not None: C=schism_bpfile(); C.x,C.y,C.z=self.xctr[sindw],self.yctr[sindw],self.dpe[sindw]; C.save(fname)
         return sindw
+
+    def check_wrap_elem(self,fmt=0,dx_wrap=270):
+        '''
+        return indice from wrap-around elements with element width>dx_wrap
+        fmt=0: return element indices; fmt=1: return boolean value; fmt=2: return both
+        '''
+        if not hasattr(self,'fpg'): x=self.x[self.elnode]; fp=self.elnode[:,-1]==-2; x[fp,-1]=x[fp,0]; self.fpg=(x.max(1)-x.min(1))>dx_wrap
+        return pindex(self.fpg) if fmt==0 else self.fpg if fmt==1 else [pindex(self.fpg),self.fpg]
 
     def inside_elem(self,pxy,ie,out=0):
         '''
@@ -3636,7 +3686,7 @@ class schism_view:
                         if self.itp==1: p.hp[0]._triangulation.y=gd.y #update transect grid
                         if self.itp==1 and p.grid==1: p.hg[0].set_ydata(gd.lines(0)[:,1])
                         if self.itp==1 and p.bnd==1: p.hb[0].set_ydata(r_[gd.lines(1)][:,1])
-                        p.hp[0].set_array(v if v.size==gd.np else r_[v,v[gd.fp4]])
+                        p.hp[0].set_array(r_[v,v[gd.sindg]] if (v.size==gd.np and gd.wrap==1) else v if v.size==gd.np else r_[v,v[gd.fp4]])
                     else:
                         [i.remove() for i in p.ax.collections] 
                         gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,cb=False,zorder=1)
