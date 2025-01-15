@@ -3,6 +3,7 @@
 load bathymetry for NWM model grid 
 '''
 from pylib import *
+from mpi4py import MPI
 import time
 
 #-----------------------------------------------------------------------------

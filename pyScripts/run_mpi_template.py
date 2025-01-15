@@ -4,6 +4,7 @@ Template for running MPI job on sciclone/ches
 Note: For MPI jobs demanding large memory, use small ppn
 '''
 from pylib import *
+from mpi4py import MPI
 
 #-----------------------------------------------------------------------------
 #Input

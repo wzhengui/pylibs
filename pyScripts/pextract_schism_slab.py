@@ -3,6 +3,7 @@
   extract SCHISM slab outputs
 '''
 from pylib import *
+from mpi4py import MPI
 
 #-----------------------------------------------------------------------------
 #Input

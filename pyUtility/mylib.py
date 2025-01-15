@@ -457,9 +457,10 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        #if qnode in ['stampede2',]: scmd='sbatch "--export=ALL" {} {} {} {} -n {} {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
     elif fmt==1:
        #for run parallel jobs
-       ALL='' if os.getenv('mpi_env')=='openmpi' else 'ALL,'
+       #ALL='' if os.getenv('mpi_env')=='openmpi' else 'ALL,'
        if qnode in ['femto','gulf','kuro','bora']:
-          scmd='srun --export={}PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
+          #scmd='srun --export={}PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
+          scmd='srun --export=PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
           #if ename=='schism': scmd='srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}'.format(bdir,nproc,code,scrout)
        elif qnode in ['frontera']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)

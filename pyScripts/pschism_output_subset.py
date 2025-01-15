@@ -4,6 +4,7 @@ running MPI job on sciclone/ches to get schism output subset
 Note: For MPI jobs demanding large memory, use small ppn
 '''
 from pylib import *
+from mpi4py import MPI
 import time
 
 #-----------------------------------------------------------------------------
