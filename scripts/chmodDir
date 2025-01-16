@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+#change dir permission to allow the files public acess
+#from pylib import *
+import os,sys
+import numpy as np
+
+#directories to be changed in access permission
+if len(sys.argv)==1 :
+  sdirs0=['.']
+else:
+  sdirs0=sys.argv[1:]
+sdirs0=[os.path.abspath(i) for i in sdirs0]
+
+#get all filenames recursively
+fnames=[]
+while len(sdirs0)!=0: 
+    sdirs=sdirs0[:]; sdirs0=[]
+    for sdir in sdirs:
+        for rname in os.listdir(sdir):
+            fname=os.path.realpath(sdir+'/'+rname)
+            if os.path.isdir(fname): 
+               sdirs0.append(fname)
+            else:
+               fnames.append(fname)
+
+#change file permission 
+for fname in fnames: 
+    try:
+       mode=os.stat(fname).st_mode
+       os.chmod(fname,int(mode/64)*64+4*8+4) #keep origin user permission
+    except:
+       pass
+
+#change directory permission
+snames=np.unique(np.array([os.path.dirname(i) for i in fnames]))
+user=os.getlogin() #user id
+for sname in snames:
+    rdir=sdir[:sdir.find(user)]
+    while len(sname)>len(rdir):
+          try:
+             mode=os.stat(sname).st_mode
+             os.chmod(sname,int(mode/64)*64+5*8+5) #keep origin user permission
+          except:
+             pass
+          sname=os.path.dirname(sname)

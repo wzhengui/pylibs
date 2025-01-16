@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+'''
+  atuo script to submit SCHISM batch jobs on sciclone/james
+  note: environmental variables "schism" is used to load correct modules 
+'''
+from pylib import *
+import time,signal
+import subprocess as sbp
+
+#-----------------------------------------------------------------------------
+#Input
+#hpc: kuro, femto, bora, potomac, james, frontera, levante, stampede2
+#ppn:  64,   32,    20,    12,     20,     56,      128,      48
+#-----------------------------------------------------------------------------
+code='pschism_KURO_ICM_BLD_STANDALONE_TVD-VL.451ceb84 32'
+walltime='00:30:00'; nnode=2; ppn=64
+
+#optional:  frontera,levante,stampede2,kuro,etc.
+qnode=None              #specify node name, or default qnode based on HOST will be used
+qname=None              #partition name
+account=None            #account name
+reservation=None        #reservation information
+ihot=0                  #submit hotstart run (0: NO,  1: YES)
+runs=[]                 #used to submit multiple jobs
+scrout='screen.out'     #fname for outout and error
+
+#-----------------------------------------------------------------------------
+#submit jobs
+#-----------------------------------------------------------------------------
+bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir); qnode=get_qnode(qnode); check_schism_ihot(bdir)
+if os.getenv('schism')==None: 
+   scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'schism',qname,account,reservation)
+   print(scode); os.system(scode); os._exit(0)
+
+#-----------------------------------------------------------------------------
+#running parallel jobs
+#-----------------------------------------------------------------------------
+if os.getenv('schism')!=None: 
+   fmt=1; bdir=os.getenv('schism').split()[0]; os.chdir(bdir)
+   scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'schism')
+
+   if len(runs)==0: #single jobs 
+      if ihot==0:
+         print(scode); sys.stdout.flush(); os.system(scode)
+      else:
+         #current run
+         print(scode); sys.stdout.flush(); sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
+         t0=time.time(); wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
+         while((time.time()-t0)<(wt-dt)): time.sleep(60) #wait
+
+         #submit hotstart
+         p=read_schism_param('param.nml',3); irec=int(ceil(p.rnday*86400/p.dt/p.ihfskip)); time.sleep(10)
+         if not fexist('outputs/out2d_{}.nc'.format(irec)):
+            fname=combine_schism_hotstart('outputs')[-1]
+            hid=max([*[int(i.split('.')[2]) for i in os.listdir(bdir) if i.startswith('hotstart.nc.')],0])
+            if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
+            os.symlink('outputs/'+fname,'hotstart.nc'); change_schism_param('param.nml','ihot','2')
+            os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
+            os.environ.pop('schism'); sbp.run('./run.schism')
+   else: #multiple jobs: put script outside of run dir
+      for m,run in enumerate(runs): 
+          print(scode); os.chdir(bdir+'/'+run); os.system(scode)
+   sys.exit(0) if qnode in ['bora','levante'] else os._exit(0)

@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+from pylib import *
+close("all")
+
+#inputs
+args=sys.argv[1:]; nv=len(args)
+
+#help info.
+if nv==1 and args[0]=='-h': 
+   sys.exit('usage: 1). cmb_icm; 2). cmb_icm icm.nc')
+
+#fnames
+sname=args[0] if nv==1 else 'icm.nc'
+
+#combine icm outputs
+try:
+  combine_icm_output(fmt=0,sname=sname) 
+except:
+  os.remove('outputs/'+sname); combine_icm_output(fmt=1,sname=sname)
+
