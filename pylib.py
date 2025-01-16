@@ -48,7 +48,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #   from mpi4py import MPI
    #except:
    #   pass
-   #   #from pyUtility.mylib import parallel_jobs
+   #   #from src.mylib import parallel_jobs
    #   #MPI=parallel_jobs()
 
    #url download
@@ -93,9 +93,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #libraries of self-defined modules
    #---------------------------------------------------------------------
-   import pyUtility.mylib as mylib
+   import src.mylib as mylib
    sys.modules['mylib'] = mylib
-   from pyUtility.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
+   from src.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
         add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,sort_all,
         cmean,smooth,doy,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,sub_lines,sub_polygons,
         inside,inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
@@ -107,9 +107,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp,
         nargout)
 
-   import pyUtility.schism_file as schism_file
+   import src.schism_file as schism_file
    sys.modules['schism_file'] = schism_file
-   from pyUtility.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
+   from src.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
         create_schism_vgrid,srank,grd2sms,scatter_to_schism_grid,delete_schism_grid_element,
@@ -133,21 +133,21 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    from os.path import exists as fexist
    from numpy import array_equal as eq
-   from pyUtility.mylib import savez as save_npz; mylib.save_npz=savez
-   from pyUtility.mylib import zdata as npz_data; mylib.npz_data=zdata
-   from pyUtility.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
-   from pyUtility.mylib import move_figure as mvfig
-   from pyUtility.mylib import modify_figure as mfig
-   from pyUtility.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
-   from pyUtility.mylib import read_mat as mat2npz
-   from pyUtility.mylib import read_mat as convert_matfile
-   from pyUtility.mylib import read_dem as convert_dem_format
-   from pyUtility.mylib import load_dem as load_bathymetry
-   from pyUtility.mylib import read_shapefile_data as read_shp
-   from pyUtility.mylib import write_shapefile_data as write_shp
-   from pyUtility.mylib import harmonic_analysis as HA
-   from pyUtility.schism_file import read_schism_hgrid as read_hgrid
-   from pyUtility.schism_file import read_schism_grid as read_grd
-   from pyUtility.schism_file import read_schism_grid as grd
-   from pyUtility.schism_file import read_schism_bpfile as read_bp
-   from pyUtility.schism_file import change_schism_param as chparam
+   from src.mylib import savez as save_npz; mylib.save_npz=savez
+   from src.mylib import zdata as npz_data; mylib.npz_data=zdata
+   from src.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
+   from src.mylib import move_figure as mvfig
+   from src.mylib import modify_figure as mfig
+   from src.mylib import find_cs as find_continuous_sections; mylib.find_continuous_sections=find_cs
+   from src.mylib import read_mat as mat2npz
+   from src.mylib import read_mat as convert_matfile
+   from src.mylib import read_dem as convert_dem_format
+   from src.mylib import load_dem as load_bathymetry
+   from src.mylib import read_shapefile_data as read_shp
+   from src.mylib import write_shapefile_data as write_shp
+   from src.mylib import harmonic_analysis as HA
+   from src.schism_file import read_schism_hgrid as read_hgrid
+   from src.schism_file import read_schism_grid as read_grd
+   from src.schism_file import read_schism_grid as grd
+   from src.schism_file import read_schism_bpfile as read_bp
+   from src.schism_file import change_schism_param as chparam
