@@ -2837,7 +2837,7 @@ def grd2sms(grd,sms):
     #read grid
     if isinstance(grd,str):
        gd=read_schism_hgrid(grd)
-    elif isinstance(grd,schism_grid):
+    elif 'schism_file.schism_grid' in str(type(grd)):
        gd=grd
     else:
        sys.exit('unknow format of grd: {}'.format(grd))
@@ -2865,9 +2865,9 @@ class schism_transect(schism_grid):
 
         #read bpfile and grid
         bp,grd,gd,vd=bpfile,grid,hgrid,vgrid
-        bp=bp if isinstance(bp, schism_bpfile) else read(bp) if isinstance(bp,str) else None
-        gd=gd if isinstance(gd, schism_grid)   else read_schism_grid(gd)   if (gd is not None) else read_schism_grid(grd)   if (grd is not None) else None
-        vd=vd if isinstance(vd, schism_vgrid)  else read_schism_grid(vd,1) if (vd is not None) else read_schism_grid(grd,1) if (grd is not None) else None
+        bp=bp if ('schism_bpfile' in str(type(bp))) else read(bp) if isinstance(bp,str) else None
+        gd=gd if ('schism_grid'  in str(type(gd))) else read_schism_grid(gd)   if (gd is not None) else read_schism_grid(grd)   if (grd is not None) else None
+        vd=vd if ('schism_vgrid' in str(type(vd))) else read_schism_grid(vd,1) if (vd is not None) else read_schism_grid(grd,1) if (grd is not None) else None
         if (bp is not None) or (zcor is not None): self.create_transect(bp,gd,vd,eta,zcor,dist)
 
     def create_transect(self,bp=None,gd=None,vd=None,eta=None,zcor=None,dist=None):
