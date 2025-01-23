@@ -93,9 +93,12 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #libraries of self-defined modules
    #---------------------------------------------------------------------
-   import src.mylib as mylib
+   if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
+      import pylibs.src.mylib as mylib; sys.modules['src']=sys.modules['pylibs.src']
+   else:
+      import src.mylib as mylib
    sys.modules['mylib'] = mylib
-   from src.mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
+   from mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
         add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,sort_all,
         cmean,smooth,doy,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,sub_lines,sub_polygons,
         inside,inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
@@ -107,9 +110,12 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp,
         nargout)
 
-   import src.schism_file as schism_file
+   if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
+      import pylibs.src.schism_file as schism_file
+   else:
+      import src.schism_file as schism_file
    sys.modules['schism_file'] = schism_file
-   from src.schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
+   from schism_file import (read_schism_hgrid, read_schism_bpfile,getglob,
         schism_grid,schism_vgrid,schism_bpfile,sms2grd,read_schism_vgrid,save_schism_grid,
         compute_zcor,read_schism_param,write_schism_param,read_schism_local_to_global,
         create_schism_vgrid,srank,grd2sms,scatter_to_schism_grid,delete_schism_grid_element,

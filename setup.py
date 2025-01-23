@@ -5,10 +5,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
     setup(
         name='pylibs_ocean',
-        packages=[
-          'src',
-          'scripts',
-        ],
+        packages=[ 'pylibs/src', 'pylibs/scripts'],
+        package_dir={'pylibs/src':'src','pylibs/scripts':'scripts'},
         py_modules=['pylib'],
         version='1.2.0',  # Ideally should be same as your GitHub release tag varsion
         package_data={'scripts': ['prj.npz','sflux_template.npz','Harmonic_Analysis/*','schismcheck','schismview']},
