@@ -160,3 +160,4 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from src.schism_file import read_schism_grid as grd
    from src.schism_file import read_schism_bpfile as read_bp
    from src.schism_file import change_schism_param as chparam
+   path_pylib=os.path.dirname(__file__); path_src=path_pylib+'/src'; path_scripts=path_pylib+'/scripts'
