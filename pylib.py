@@ -93,10 +93,12 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #libraries of self-defined modules
    #---------------------------------------------------------------------
+   path_pylib=os.path.dirname(__file__)
    if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
       import pylibs.src.mylib as mylib; sys.modules['src']=sys.modules['pylibs.src']
+      path_src=path_pylib+'/pylibs/src'; path_scripts=path_pylib+'/pylibs/scripts'
    else:
-      import src.mylib as mylib
+      import src.mylib as mylib; path_src=path_pylib+'/src'; path_scripts=path_pylib+'/scripts'
    sys.modules['mylib'] = mylib
    from mylib import (get_xtick,close_data_loop,datenum,quickdatenum,
         add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,sort_all,
@@ -160,4 +162,3 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from src.schism_file import read_schism_grid as grd
    from src.schism_file import read_schism_bpfile as read_bp
    from src.schism_file import change_schism_param as chparam
-   path_pylib=os.path.dirname(__file__); path_src=path_pylib+'/src'; path_scripts=path_pylib+'/scripts'
