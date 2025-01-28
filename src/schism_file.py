@@ -397,7 +397,7 @@ class schism_grid(zdata):
             self.iobn.append(array([int(lines[n+1+k].strip().split()[0])-1 for k in arange(self.nobn[-1])]))
             n=n+1+self.nobn[-1]
         self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
-        if len(self.iobn)==1: self.iobn=self.iobn.astype('int')
+        if len(self.iobn)==1 or self.iobn.ndim==2: self.iobn=self.iobn.astype('int')
 
         #read land bnd info
         self.nlb=int(lines[n].strip().split()[0]); n=n+2; self.nlbn=[]; self.ilbn=[]; self.island=[]
@@ -411,7 +411,7 @@ class schism_grid(zdata):
             if self.ilbn[-1][0]==self.ilbn[-1][-1]: ibtype=1
             self.island.append(ibtype)
         self.island=array(self.island); self.nlbn=array(self.nlbn); self.ilbn=array(self.ilbn,dtype='O');
-        if len(self.ilbn)==1: self.ilbn=self.ilbn.astype('int')
+        if len(self.ilbn)==1 or self.ilbn.ndim==2: self.ilbn=self.ilbn.astype('int')
 
     def read_prop(self,fname):
         '''
