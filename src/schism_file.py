@@ -1,7 +1,7 @@
 #/usr/bin/env python3
 from pylib import *
 
-class schism_grid:
+class schism_grid(zdata):
     def __init__(self, fname=None):
         '''
         Initialize to empty instance if fname is not provided;
@@ -24,13 +24,6 @@ class schism_grid:
     def backend(self):
         bkn=mpl.get_backend().lower(); backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
         return backend
-
-    @property
-    def INFO(self):
-        return get_INFO(self)
-    @property
-    def VINFO(self):
-        return get_INFO(self)
 
     #node alias
     @property
@@ -1930,7 +1923,7 @@ class schism_grid:
               ac=tk.Button(gcf().canvas.toolbar,text='save', command=init_save); ac.pack(side=tk.LEFT)
               gcf().canvas.toolbar.toolitems=(*gcf().canvas.toolbar.toolitems,('save',ac))
 
-class schism_bpfile:
+class schism_bpfile(zdata):
     def __init__(self,x=None,y=None,z=None,station=None,fmt=0):
         self.nsta=0; self.x=array([]); self.y=array([]); self.z=array([])
         self.station=[]; self.hp=[]; self.ht=[]; self.fmt=fmt
@@ -1940,13 +1933,6 @@ class schism_bpfile:
         if station is not None: self.station=station
         bkn=mpl.get_backend().lower(); self.backend=1 if (bkn in ['qt5agg','qtagg']) else 2 if (bkn in ['tkagg',]) else 0
         self.check(); self.edit()
-
-    @property
-    def INFO(self):
-        return get_INFO(self)
-    @property
-    def VINFO(self):
-        return get_INFO(self)
 
     @property
     def xyz(self):
@@ -2282,16 +2268,9 @@ def save_schism_grid(fmt=0,path='.',method=0):
        if vd is not None: S.vgrid=vd
        S.save('grid.npz')
 
-class schism_vgrid:
+class schism_vgrid(zdata):
     def __init__(self):
         pass
-
-    @property
-    def INFO(self):
-        return get_INFO(self)
-    @property
-    def VINFO(self):
-        return get_INFO(self)
 
     def read_vgrid(self,fname):
         #read schism vgrid
@@ -3592,7 +3571,7 @@ def convert_schism_source(run='.',fname='source.nc'):
     #save as netcdf
     WriteNC(sdir+fname,C)
 
-class schism_view:
+class schism_view(zdata):
     def __init__(self, run='.'):
         #note: p is a capsule including all information about a figure
         self.figs=[]; self.fns=[]; self._nf=0; self.sbp=[] #list of figure objects
@@ -3985,13 +3964,6 @@ class schism_view:
                pass
         for i in glob(self.runpath+os.sep+'World_*.png'): os.remove(i)
         close('all'); self.window.destroy()
-
-    @property
-    def INFO(self):
-        return get_INFO(self)
-    @property
-    def VINFO(self):
-        return get_INFO(self)
 
     def run_info(self,run):
         import threading,time
