@@ -1143,9 +1143,10 @@ def get_xtick(fmt=0,xts=None,str=None):
     return [xts,xls]
 
 #-------loadz------------------------------------------------------------------
-def get_INFO(data):
+def get_INFO(data,fmt=0):
     '''
     collect information about object's attributes
+    fmt=0: only return attributes; fmt=1: also return methods
     '''
     atts=[]; sdict=data.__dict__; skeys=sdict.keys(); fnc=0
     if ('dimname' in skeys) and ('dims' in skeys) and ('file_format' in skeys): fnc=1 #netcdf
@@ -1178,6 +1179,11 @@ def get_INFO(data):
             atts.append(fstr.strip())
         except:
             pass
+
+    #collect method
+    if fmt==1:
+       mths=['method: '+i for i in data.__dir__() if (i not in ['INFO','VINFO',*skeys]) and (not i.startswith('_'))]
+       if len(mths)!=0: atts.extend(mths)
     return atts
 
 class zdata:
@@ -1192,7 +1198,7 @@ class zdata:
         return get_INFO(self)
     @property
     def VINFO(self):
-        return self.INFO
+        return get_INFO(self,1)
 
     def attr(self,svar,value=None):
         if value is None:
