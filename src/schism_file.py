@@ -1177,8 +1177,8 @@ class schism_grid(zdata):
             p=P.collections[k].get_paths()
             for i in arange(len(p)):
                 xii,yii=p[i].vertices.T
-                xi=r_[xii,NaN] if i==0 else r_[xi,xii,NaN]
-                yi=r_[yii,NaN] if i==0 else r_[yi,yii,NaN]
+                xi=r_[xii,nan] if i==0 else r_[xi,xii,nan]
+                yi=r_[yii,nan] if i==0 else r_[yi,yii,nan]
             cxy.append(c_[xi,yi])
         return array(cxy) if len(cxy)==1 else array(cxy,dtype='O')
 
@@ -4040,7 +4040,7 @@ class schism_view(zdata):
                    C=self.fid(fn); nt1=C.dimensions['time'].size
                    if nt1==0: continue
                except:
-                   pass
+                   continue #last stack not readable
             self.julian.extend(t0+(ik-ik0)*nt*dt+arange(nt1)*dt); self.irec.extend(arange(nt1))
             self.stacks.append(ik); self.istack.extend(tile(ik,nt1))
 
@@ -4753,7 +4753,7 @@ class schism_check(zdata):
 
           #sanity check
           errmsg=' found in "{}, {}[{}]" !!'.format(fname,p.var,dind)
-          if sum(isnan(p.data))!=0: print('NaN value'+errmsg); p.data=None; return #check nan values
+          if sum(isnan(p.data))!=0: print('nan value'+errmsg); p.data=None; return #check nan values
           if fname in ['source.nc','source_input']: #check source.nc
              if p.var=='msource' and sum(p.data[p.data!=-9999]<0)!=0: print('negative mass concentration'+errmsg); p.data=None; return
              if p.var=='vsource' and sum(p.data<0)!=0: print('negative volume source'+errmsg); p.data=None; return
