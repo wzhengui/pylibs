@@ -127,7 +127,7 @@ if myrank==0:
        S.sind={**S.sind,**Si.sind}
 
    #load bathymetry
-   did=ones(gd.np).astype('int'); dname=[]
+   did=zeros(gd.np,'int'); dname=[]
    for i,fname in enumerate(fnames_sort):
        bname=fname.split('.')[0]
        sind=S.sind[bname]; dp=S.dp[bname]
