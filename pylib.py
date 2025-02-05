@@ -37,6 +37,11 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from numpy import *
    from numpy.random import rand,randn
    from numpy.linalg import *
+   #temp fix: try to be compatible with higher numpy version
+   if ('numpy.core' in sys.modules) and ('numpy._core' not in sys.modules):
+      sys.modules['numpy._core']=sys.modules['numpy.core']
+      nms=[i.split('.')[-1] for i in sys.modules if i.startswith('numpy.core.')]
+      for i in nms: sys.modules['numpy._core.'+i]=sys.modules['numpy.core.'+i]
 
    #scipy
    import scipy as sp
