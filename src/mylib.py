@@ -1,4 +1,7 @@
 #!/usr/bin/evn python3
+#Copyright 2021, Zhengui WANG
+#Apache License, Version 2.0; http://www.apache.org/licenses/LICENSE-2.0
+
 from pylib import *
 
 def sort_all(t,*args):
