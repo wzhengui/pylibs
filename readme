@@ -1,9 +1,9 @@
 #-----------------------------------------------------
 #usage
 #-----------------------------------------------------
-1). download pylib sripts (pylib.py, src), and put on your system
+1). download pylibs files (pylib.py, src), and put on your system
 
-2). import pylib functions using following commands
+2). import pylibs functions using following commands (assume you put in 'pylibs_noaa' diectory below)
 import sys; sys.path.append('/sciclone/home/wangzg/pylibs_noaa')
 from pylib import read, datenum, num2date, read_schism_bpfile, loadtxt, loadz, lpfilt
 
