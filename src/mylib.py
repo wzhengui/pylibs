@@ -171,10 +171,11 @@ def add_basemap(xm=None,ym=None,fmt=0,dpi=300,service='World_Imagery',resolution
        color: color for fillcontinents
     '''
     #pre-proc
-    try:
-      from mpl_toolkits.basemap import Basemap
-    except:
-      sys.exit('install basemap')
+    sys.exit('this function is disabled; need to install mpl_toolkits.basemap')
+    #try:
+    #  from mpl_toolkits.basemap import Basemap
+    #except:
+    #  sys.exit('install basemap')
     if xm is None: xm=xlim()
     if ym is None: ym=ylim()
     if not hasattr(fmt,'__len__'): fmt=[fmt]
@@ -295,7 +296,8 @@ def read_excel(fname,sht=0,fmt=0):
       sht:   name of sheet_name, or number of sheet (default is 0)
       fmt=0: not treat 1st line as header, return data only; fmt=1: treat 1st line as header, return header and data
     '''
-    import pandas as pd
+    sys.exit('this function is disabled; need to install pandas')
+    #import pandas as pd
 
     if fmt==0:
        fd=pd.read_excel(fname,sheet_name=sht,header=None)
@@ -326,8 +328,9 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        fmt=3: insert image (data should be the path of image,and figsize=[w,h] is used to resize the figure)
     '''
     try: 
-       import openpyxl
-       import pandas as pd
+       sys.exit('this function is disabled; need to install pandas and openpyxl')
+       #import openpyxl
+       #import pandas as pd
        #import xlsxwriter as xw
     except:
        sys.exit('install openpyxl pandas')
@@ -800,7 +803,8 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
     #read dem data
     if fname.endswith('.tif') or fname.endswith('.tiff'):
        try:
-          import tifffile as tiff
+          sys.exit('this function is disabled; need to install tifffile')
+          #import tifffile as tiff
        except:
           sys.exit('install tifffile=2022.5.4')
        ginfo=tiff.TiffFile(fname).geotiff_metadata; S=zdata()
@@ -808,7 +812,8 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
        dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
        try:
-          from PIL import Image
+          sys.exit('this function is disabled; need to install pillow')
+          #from PIL import Image
           sinfo=Image.open(fname)
           nrows=sinfo.height; ncols=sinfo.width
        except:
@@ -1233,7 +1238,9 @@ def savez(fname,data,fmt=0):
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
     if fname.endswith('.pp'):  fmt=2
     if fmt==1: fname=fname+'.pkl'
-    if type(data)!=zdata: import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
+    if type(data)!=zdata:
+       sys.exit('this function is disabled; need to install cloudpickle')
+       #import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
     #save data
     if fmt in [0,2]:
@@ -1249,11 +1256,12 @@ def savez(fname,data,fmt=0):
            if isinstance(vi,list): #change list to array
                 save_str=save_str+',{}=array(data.{},dtype="O")'.format(svar,svar); lvars.append(svar)
            elif callable(vi): #change function to bytes
-                try:
-                   import cloudpickle
-                   save_str=save_str+',{}=cloudpickle.dumps(data.{})'.format(svar,svar); mvars.append(svar)
-                except:
-                   pass
+                pass
+                #try:
+                #   import cloudpickle
+                #   save_str=save_str+',{}=cloudpickle.dumps(data.{})'.format(svar,svar); mvars.append(svar)
+                #except:
+                #   pass
            else:
                 save_str=save_str+',{}=data.{}'.format(svar,svar)
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
@@ -1896,7 +1904,8 @@ def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,
           x,y=Transformer.from_crs('epsg:4326','epsg:26918').transform(lat,lon)
     #x1,y1=transform(Proj(proj0),Proj(proj1),x,y); #not used anymore
     '''
-    from pyproj import Transformer
+    sys.exit('this function is disabled; need to install pyproj')
+    #from pyproj import Transformer
     from .schism_file import read_schism_hgrid,read_schism_bpfile,schism_bpfile
 
     #read file
@@ -2171,7 +2180,8 @@ def EOF(data,npc=8,scale=0,center=False,**args):
         VC: variation of each PC
         solver: EOF analysis solver, and all results can be derived from it (e.g., solver.reconstructedField(8))
     '''
-    from eofs.standard import Eof
+    sys.exit('this function is disabled; need to install eofs')
+    #from eofs.standard import Eof
     solver=Eof(data,center=center,**args)
     PC=solver.eofs(neofs=npc,eofscaling=2)
     CC=solver.pcs(npcs=npc,pcscaling=1).T
@@ -2250,8 +2260,8 @@ def read_shapefile_data(fname):
 
     note:  works for pts and polygon only, may not work for other geomerties (need update in these cases)
     '''
-
-    import shapefile as shp
+    sys.exit('this function is disabled; need to install shapefile')
+    #import shapefile as shp
     with shp.Reader(fname) as C:
         #----read shapefile----------------
         S=zdata();
@@ -2304,7 +2314,8 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
     note: only works for geometry: POINT, POLYLINE, POLYGON
     '''
 
-    import shapefile as shp
+    sys.exit('this function is disabled; need to install shapefile')
+    #import shapefile as shp
     S=data
     #---get nrec-----
     if S.type=='POINT':

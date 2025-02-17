@@ -3633,7 +3633,7 @@ class schism_view(zdata):
            if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            if self.itp==1 and p.bnd==1: p.hb.extend(plot(gd.xm,[0,0],'k:',lw=1,zorder=3))
-           if p.map!='none': self.add_map()
+           #if p.map!='none': self.add_map()
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]),animated=anim)
 
            #add pts for time series
@@ -3687,10 +3687,11 @@ class schism_view(zdata):
                 if fmt in [2,3,4,5]: self.play='off'
             if fmt==1: w.player['text']='play'; self.window.update()
             if p.anim!=None:
-               from PIL import Image
-               ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max([p.pause*1e3,50]) if hasattr(p,'pause') else 200
-               fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
-               [os.remove(i) for i in ims]
+               print('this function is disabled; need to install pillow'); pass
+               #from PIL import Image
+               #ims=['.{}_{:06}.png'.format(p.anim,i) for i in  [it0,*its]]; fms=[Image.open(i) for i in ims]; adt=max([p.pause*1e3,50]) if hasattr(p,'pause') else 200
+               #fms[0].save(p.anim+'.gif',format='GIF', append_images=fms[1:], save_all=True, duration=adt, loop=0)
+               #[os.remove(i) for i in ims]
         self.hold='off'
 
     def plotts(self):
@@ -3757,14 +3758,14 @@ class schism_view(zdata):
         else:
            tp.config(relief=tk.RAISED,bg='gray88' if itp==0 else 'grey'); self.itp=itp
 
-    def add_map(self):
-        if hasattr(self,'mp'):
-           mp=self.mp; sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; p=self.fig
-           mp.llcrnrlon=p.xm[0]; mp.urcrnrlon=p.xm[1]; mp.llcrnrlat=p.ym[0]; mp.urcrnrlat=p.ym[1]
-           mp.arcgisimage(xpixels=1500,service=sd[p.map],cachedir=self.runpath)
-        else:
-           from mpl_toolkits.basemap import Basemap
-           xm,ym=self.xml,self.yml; self.mp=Basemap(llcrnrlon=xm[0],urcrnrlon=xm[1],llcrnrlat=ym[0],urcrnrlat=ym[1],epsg=4326); self.add_map()
+    #def add_map(self):
+    #    if hasattr(self,'mp'):
+    #       mp=self.mp; sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; p=self.fig
+    #       mp.llcrnrlon=p.xm[0]; mp.urcrnrlon=p.xm[1]; mp.llcrnrlat=p.ym[0]; mp.urcrnrlat=p.ym[1]
+    #       mp.arcgisimage(xpixels=1500,service=sd[p.map],cachedir=self.runpath)
+    #    else:
+    #       from mpl_toolkits.basemap import Basemap
+    #       xm,ym=self.xml,self.yml; self.mp=Basemap(llcrnrlon=xm[0],urcrnrlon=xm[1],llcrnrlat=ym[0],urcrnrlat=ym[1],epsg=4326); self.add_map()
 
     def query(self,sp=None):
         if not (hasattr(self,'fig') and hasattr(self.fig,'hpt') and hasattr(self.fig,'hf')): return
@@ -4010,10 +4011,10 @@ class schism_view(zdata):
            w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
            if gd.lon.min()<-180 or gd.lon.max()>180 or gd.lat.min()<-90 or gd.lat.max()>90: w._map['values']=['none',]
-           try:
-             from mpl_toolkits.basemap import Basemap
-           except:
-             w._map['values']=['none',]
+           #try:
+           #  from mpl_toolkits.basemap import Basemap
+           #except:
+           #  w._map['values']=['none',]
         self.nvrt=2; self.xm=[0,1]; self.ym=[0,1]; self.vm=[0,1]
         threading.Thread(target=_read_grid).start()
         if iout==0: self.stacks=[0]; self.julian=[0]; self.istack=[0]; self.irec=[0]; self.mls=['0']; return
