@@ -2478,7 +2478,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
                    nm=flipud(arange(ndim(vi.val)))
                    vi.val=vi.val.transpose(nm)
             elif fmt==2:
-               vi=array(C.variables[i][:])
+               vi=array(C.variables[i][:],C.variables[i].dtype)
                if order==1: vi=vi.transpose(flip(arange(vi.ndim)))
             F.__dict__[i]=vi
 
@@ -2520,7 +2520,7 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
           vdms.append(sdict[i].dimname if hasattr(sdict[i],'dimname') else [dnames[dims.index(k)] for k in sdict[i].shape])
           vtypes.append(sdict[i].val.dtype if isinstance(sdict[i],zdata) else sdict[i].dtype)
           vattrs.append([k if k!='_FillValue' else '_fillvalue' for k in sdict[i].attrs] if hasattr(sdict[i],'attrs') else [])
-        attrs=data.attrs if hasattr(data,'attrs') else []
+        attrs=data.attrs if hasattr(data,'attrs') else setdiff1d([*sdict],[*svars,'vars','dims'])
 
         #write zdata as netcdf file
         fid=Dataset(fname,'w',format=data.file_format)   #open file
