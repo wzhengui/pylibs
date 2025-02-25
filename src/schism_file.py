@@ -3307,7 +3307,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     extract slabs of SCHISM results (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
        varname: variables to be extracted; accept shortname(s) or fullname(s) (elev, hvel, horizontalVelX, NO3, ICM_NO3, etc. )
-       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level; "all": all layers)
+       levels:  schism level indices (1-nvrt: surface-bottom; (>nvrt): kbp level; "all": all layers (note: vertical dim is reversed))
        stacks:  (optional) output stacks to be extract; all avaiable stacks will be extracted if not specified
        nspool:  (optional) sub-sampling frequency within each stack (npsool=1 means all records)
        mdt:     (optional) time window (day) for averaging output
@@ -3343,7 +3343,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
                    if reg is not None: vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                 else:   #3D
                    if levels=='all':
-                      vi=array([array(cvar[i]).astype('float32').T for i in arange(nt) if i%nspool==0])
+                      vi=array([flipud(array(cvar[i]).astype('float32').T) for i in arange(nt) if i%nspool==0])
                    else:
                       for n,k in enumerate(zs):
                           if k>nvrt:
