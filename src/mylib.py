@@ -838,61 +838,72 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
     if sname is not None: savez(sname,S)
     return S
 
-def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ticks_RMSD=None,
-                        cR='b',cSTD='k',cRMSD='g',lw_inner=0.4,lw_outer=2,npt=200,labels=None):
+def plot_taylor_diagram(R=None,STD=None,xm=2,cs=['b','k','g'],lss=['--','-','--'],lws=[0.5,0.5,1.0],
+                        ticks=[None,None,None],fs=[8,8,8],lws_axis=[1.0,1.0],dxy=[0.005,0.01],stations=None,
+                        labels=['Correlation Coefficient','Normalized Standard Deviation','RMSD'],fs_label=[12,12,12],R_label=[60,30,1.05]):
     '''
     plot taylor diagram, and return handles
 
     Input:
         R: correlation coefficient
         STD: normalized standard dievaiton (or standard dievation)
-        std_max: limit of std axis
-        ticks_R, ticks_STD, ticks_RMSD: ticks for R, STD, and RMSD
-        cR,cSTD,cRMSD: colors for R, STD, and RMSD
-        lw_inner, lw_outer: line widths for inner and outer lines
-        npt: number of pts for lines
-        labels: when labels!=None, add legend
+        xm: limit of x-axis and y-axis (this is axis for STD)
+        cs/lss/lws/ticks/fs: list of colors/linestyles/lineweights/ticks/fontsizes for R, STD, and RMSD
+        lws_axis: list of lineweights for xy-axis and outer rign (two values)
+
+        labels: list of names for R,STD,RMSD
+        fs_label: size of labels 
+        R_label: parameters to set R labels (angle1, angle2, distance)
+        dxy: set xlim=[-dxy[0],xm+dxy[0]],ylim=[-dxy[1],ym+dxy[1]]
+        stations: when stations!=None, add legend
 
     note: after changing markers' properties, call self.hl.legend() to update legends
     '''
 
     #get default value for axis
-    if ticks_R is None: ticks_R=array([*arange(0.1,1.0,0.1),0.95,0.99])
-    if ticks_STD is None: ticks_STD=arange(0.5,5,0.5)
-    if ticks_RMSD is None: ticks_RMSD=arange(0.5,5,0.5)
-    sm=std_max; S=zdata()
+    if ticks[0] is None: ticks[0]=array([*arange(0.1,1.0,0.1),0.95,0.99])
+    if ticks[1] is None: ticks[1]=arange(0.5,5,0.5)
+    if ticks[2] is None: ticks[2]=arange(0.5,5,0.5)
+    sm=xm; S=zdata(); S.ht_label=[]
 
     #plot axis R
-    xi=linspace(0,sm,npt)
-    S.hp_R=[plot(xi*i,xi*sqrt(1-i**2),ls='--',lw=lw_inner,color=cR) for i in ticks_R]
-    S.ht_R=text(0.97*sm*cos(45*pi/180),0.97*sm*sin(45*pi/180),'correlation',fontsize=10,fontweight='bold',color=cR,rotation=-45)
-    S.ht_R2=[text(1.01*sm*i,1.01*sm*sqrt(1-i**2), '{}'.format(float(int(i*100))/100),fontsize=8,color=cR) for i in ticks_R]
+    xi=linspace(0,sm,200)
+    S.hp_R=[plot(xi*i,xi*sqrt(1-i**2),color=cs[0],ls=lss[0],lw=lws[0]) for i in ticks[0]]
+    S.ht_R=[text(1.01*sm*i,1.01*sm*sqrt(1-i**2), '{}'.format(float(int(i*100))/100),fontsize=fs[0],color=cs[0]) for i in ticks[0]]
+
+    #add text for R
+    rs=linspace(*R_label[:2],len(labels[0])); rm=sm*R_label[2] 
+    for ri,ti in zip(rs,labels[0]): text(rm*cos(ri*pi/180),rm*sin(ri*pi/180),ti,fontsize=fs_label[0],fontweight='bold',color=cs[0],rotation=ri-90)
+    #S.ht_label.append(text(0.97*sm*cos(45*pi/180),0.97*sm*sin(45*pi/180),labels[0],fontsize=fs_label[0],fontweight='bold',color=cs[0],rotation=-45))
 
     #plot STD
-    ri=linspace(0,pi/2,npt);
-    S.hp_STD=[plot(cos(ri)*i,sin(ri)*i,ls='--',lw=lw_inner,color=cSTD) for i in ticks_STD if i<=sm]
-    S.hp_STD2=plot(r_[cos(ri),0,0,1]*sm,r_[sin(ri),1,0,0]*sm,ls='-',lw=lw_outer,color=cSTD)
-    S.ht_STD=text(-0.1*sm,0.35*sm,'standard deviation',fontsize=10,fontweight='bold',color=cSTD,rotation=90)
+    ri=linspace(0,pi/2,200);
+    S.hp_STD=[plot(cos(ri)*i,sin(ri)*i,color=cs[1],ls=lss[1],lw=lws[1]) for i in ticks[1] if i<sm]
+    S.ht_label.append(text(-0.1*sm,0.25*sm,labels[1],fontsize=fs_label[1],fontweight='bold',color=cs[1],rotation=90))
 
     #plot RMSD
-    ri=linspace(0,pi,npt); xi=cos(ri); yi=sin(ri)
+    ri=linspace(0,pi,200); xi=cos(ri); yi=sin(ri)
     S.hp_RMSD=[]
-    for i in ticks_RMSD:
+    for i in ticks[2]:
         #line
         xii=xi*i+1; yii=yi*i; fpn=(sqrt(xii**2+yii**2)<sm)*(xii>=0)
         if sum(fpn)==0: continue
-        hl=plot(xii[fpn],yii[fpn],ls='--',lw=lw_inner,color=cRMSD)
+        hl=plot(xii[fpn],yii[fpn], color=cs[2],ls=lss[2],lw=lws[2])
 
         #text
         xiii=abs(xii-(sm-0.85*i)/sm); sid=pindex(xiii==min(xiii))[0]
-        text(1.02*xii[sid],1.02*yii[sid],'{}'.format(i),color=cRMSD,fontsize=8,rotation=15)
+        text(1.02*xii[sid],1.02*yii[sid],'{}'.format(i),color=cs[2],fontsize=fs[2],rotation=15)
 
         S.hp_RMSD.append(hl)
-    S.ht_RMSD=text(0.08*sm,0.88*sm,'RMSD',color=cRMSD,fontsize=10,fontweight='bold',rotation=25)
+    S.ht_label.append(text(0.08*sm,0.88*sm,labels[2],color=cs[2],fontsize=fs_label[2],fontweight='bold',rotation=25))
+
+    #plot axis
+    S.hp_axis1=plot(array([0,0,1])*sm,array([1,0,0])*sm,color='k',ls='-',lw=lws_axis[0])
+    ri=linspace(0,pi/2,200); S.hp_axis2=plot(cos(ri)*sm,sin(ri)*sm,color='k',ls='-',lw=lws_axis[1]); 
 
     #plot pts
     if (R is not None) and (STD is not None):
-        S.hp_obs=plot(0,1,'k.',ms=12,label='obs')
+        S.hp_obs=plot(1,0,'k.',ms=12,label='obs')
         S.hp=[];
         for i,ri in enumerate(R):
             xi=ri*STD[i]; yi=sqrt(1-ri**2)*STD[i]
@@ -900,12 +911,13 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
             S.hp.append(hp)
 
     #note
-    setp(gca(),yticks=ticks_STD,xticks=[]); yticks(fontsize=8)
+    setp(gca(),yticks=ticks[1],xticks=[])
+    yticks(fontsize=fs[1]); gca().tick_params(length=0)
     gca().spines['right'].set_visible(False)
     gca().spines['top'].set_visible(False)
     gca().spines['left'].set_visible(False)
     gca().spines['bottom'].set_visible(False)
-    df=1e-3; setp(gca(),xlim=[-df,sm+df],ylim=[-df,sm+df])
+    setp(gca(),xlim=[-dxy[0],sm+dxy[0]],ylim=[-dxy[1],sm+dxy[1]])
     S.ha=gca(); S.ax=gca().axes;
 
     def update_legend(self=S,**args):
@@ -913,9 +925,9 @@ def plot_taylor_diagram(R=None,STD=None,std_max=2,ticks_R=None,ticks_STD=None,ti
     S.update_legend=update_legend
 
     #add legend
-    if labels is not None:
+    if stations is not None:
         S.hl=S.ha.legend(fontsize=8)
-        if hasattr(labels,'__len__'): [S.hl.get_texts()[i+1].set_text(lstr) for i,lstr in enumerate(labels)]
+        if hasattr(stations,'__len__'): [S.hl.get_texts()[i+1].set_text(lstr) for i,lstr in enumerate(stations)]
 
     return S
 def get_subplot_position2(margin=[0.1,0.1,0.1,0.1],dxy=[0.05,0.05],ds=[3,4],**args):
