@@ -1215,8 +1215,9 @@ class zdata:
     def VINFO(self):
         return get_INFO(self,1)
 
-    def attr(self,svar,value=None):
+    def attr(self,svar=None,value=None):
         sdict=self.__dict__
+        if (svar is None):  return array([*sdict])
         if (value is None): return sdict[svar]
         sdict[svar]=value
 
@@ -1894,6 +1895,19 @@ def fig_IFNO(hf=None,ax=None):
     c='gcf().tight_layout()'; d='show(block=False); mvfig()'
     print('\n'.join([f,a,b,c,d]))
 
+def pause(dt=None):
+    '''
+    replace mpl.pylplot.pause for interaction
+    '''
+    if dt is None:
+       try:
+          gcf().canvas.draw()
+       except:
+          pass
+       input()
+    else:
+       plt.pause(dt)
+
 def proj(fname0=None,fmt0=None,prj0=None,fname1=None,fmt1=None,prj1=None,x=None,y=None,lon0=None,lat0=None,order0=0,order1=0):
     '''
     tranfrom projection of files: proj(fname0,fmt0,prj0,fname1,fmt1,prj1,x,y,lon0,lat0,order0,order1)
@@ -2212,7 +2226,7 @@ def get_stat(xi_model,xi_obs,fmt=0):
     x1=array(xi_model); x2=array(xi_obs); npt=len(x1); S=zdata()
     if npt==0: S.R,S.ME,S.MAE,S.RMSD=nan,nan,nan,nan; return S
     dx=x1-x2; std1=std(x1); std2=std(x2); mx1=mean(x1); mx2=mean(x2)
-    S.R=corrcoef(x1,x2)[0,1] if (npt>=3 and std2!=0) else nan #R
+    S.R=corrcoef(x1,x2)[0,1] if (npt>=3 and std2!=0 and std1!=0) else nan #R
     S.ME=mean(dx)
     S.MAE=mean(abs(dx))
     S.RMSD=sqrt((dx**2).mean())
