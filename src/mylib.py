@@ -1216,10 +1216,12 @@ class zdata:
         return get_INFO(self,1)
 
     def attr(self,svar,value=None):
-        if value is None:
-           return self.__dict__[svar]
-        else:
-           self.__dict__[svar]=value
+        sdict=self.__dict__
+        if (value is None): return sdict[svar]
+        sdict[svar]=value
+
+    def to_array(self,svar,dtype=None):
+        sdict=self.__dict__; sdict[svar]=array(sdict[svar]) if (dtype is None) else array(sdict[svar],dtype)
 
     def save(self,fname,**args):
         '''
