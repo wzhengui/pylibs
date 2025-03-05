@@ -323,10 +323,10 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        fmt=0: append data to existing file, or create file if not existing
        fmt=1: replace mode of excel file
        fmt=2: only replace sheet, but keep other sheets of excel file
-       fmt=3: insert image (data should be the path of image,and figsize=[w,h] is used to resize the figure)
+       fmt=3: insert image (data is a figure object or path of an image, and figsize=[w,h] is used to resize the figure in pixels)
     '''
     try: 
-       import openpyxl
+       import openpyxl,io
        import pandas as pd
        #import xlsxwriter as xw
     except:
@@ -384,7 +384,10 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
                   sid.cell(indy+k+1,indx+i+1).font=cf
                if number_format is not None: sid.cell(indy+k+1,indx+i+1).number_format=number_format
     elif fmt==3: #insert image
-      idata=openpyxl.drawing.image.Image(data)
+      if isinstance(data,mpl.figure.Figure):
+         buf=io.BytesIO(); data.savefig(buf,format='png'); buf.seek(0); idata=openpyxl.drawing.image.Image(buf)
+      else:
+         idata=openpyxl.drawing.image.Image(data)
       sid=fid.sheets[sht]
       if figsize is not None: idata.width=figsize[0]; idata.height=figsize[1]
       sid.add_image(idata,sid.cell(indy,indx).coordinate)
