@@ -4683,10 +4683,10 @@ class schism_check(zdata):
               i1,i2=p.ax[:2]; xi,yi=p.xs[i1],p.xs[i2]; xn,yn=p.dnames[i1],p.dnames[i2]
               if self.fmt==2: xi=arange(xi); yi=arange(yi)
               if p.transpose.get()==1:
-                 hg=contourf(yi,xi,p.data,vmin=vm[0],vmax=vm[1],levels=50)
+                 hg=contourf(yi,xi,p.data,levels=linspace(*vm,50),extend='both',cmap='jet')
                  xlabel(yn); ylabel(xn); pfmt=5; slimit(yi,xi,p.data)
               else:
-                 hg=contourf(xi,yi,p.data.T,vmin=vm[0],vmax=vm[1],levels=50)
+                 hg=contourf(xi,yi,p.data.T,levels=linspace(*vm,50),extend='both',cmap='jet')
                  xlabel(xn); ylabel(yn); pfmt=4; slimit(xi,yi,p.data)
               cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1]); p.hp=gca()
               hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)

@@ -1218,7 +1218,7 @@ class zdata:
     def VINFO(self):
         return get_INFO(self,1)
 
-    def attr(self,svar=None,value=None):
+    def getattr(self,svar=None,value=None):
         '''
         1). C.attr('a'): return value of  C.a; 2). C.attr('a',x): set value as C.a=x
         '''
@@ -1232,6 +1232,12 @@ class zdata:
         delattr('x'), delattr('x','y'), or delattr(['x','y'])
         '''
         for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m)  for m in svars] 
+
+    def attr(self,*args):
+        '''
+        alias to getattr
+        '''
+        return self.getattr(*args)
 
     def to_array(self,*args,dtype=None):
         '''
