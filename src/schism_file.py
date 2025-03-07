@@ -3232,7 +3232,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     mtime=[]; mdata=[[] for i in varname]
     stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
     for istack in stacks:
-        print('reading stack: {}'.format(istack))
+        print('reading stack: {}'.format(istack)); sys.stdout.flush()
         C0=ReadNC('{}/{}_{}.nc'.format(bdir,'out2d' if outfmt==0 else 'schout',istack),1)
         if fmt==0 and zcor==1: #open zcoordinates channel
             if outfmt==0:

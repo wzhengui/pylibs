@@ -1219,13 +1219,27 @@ class zdata:
         return get_INFO(self,1)
 
     def attr(self,svar=None,value=None):
+        '''
+        1). C.attr('a'): return value of  C.a; 2). C.attr('a',x): set value as C.a=x
+        '''
         sdict=self.__dict__
         if (svar is None):  return array([*sdict])
         if (value is None): return sdict[svar]
         sdict[svar]=value
 
-    def to_array(self,svar,dtype=None):
-        sdict=self.__dict__; sdict[svar]=array(sdict[svar]) if (dtype is None) else array(sdict[svar],dtype)
+    def delattr(self,*args):
+        '''
+        delattr('x'), delattr('x','y'), or delattr(['x','y'])
+        '''
+        for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m)  for m in svars] 
+
+    def to_array(self,svars,dtype=None):
+        '''
+        convert attributes to numpy array
+        1).  to_array('x') or to_array('x','int32');   2). to_array(['x','y'])
+        '''
+        sdict=self.__dict__; svars=[svars,] if isinstance(svars,str) else svars
+        for i in svars: sdict[i]=array(sdict[i]) if (dtype is None) else array(sdict[i],dtype)
 
     def save(self,fname,**args):
         '''
