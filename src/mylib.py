@@ -1233,13 +1233,15 @@ class zdata:
         '''
         for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m)  for m in svars] 
 
-    def to_array(self,svars,dtype=None):
+    def to_array(self,*args,dtype=None):
         '''
         convert attributes to numpy array
-        1).  to_array('x') or to_array('x','int32');   2). to_array(['x','y'])
+        1).  to_array('x') or to_array('x',dtype='int32');   2). to_array(['x','y']) or to_array('x','y')
         '''
-        sdict=self.__dict__; svars=[svars,] if isinstance(svars,str) else svars
-        for i in svars: sdict[i]=array(sdict[i]) if (dtype is None) else array(sdict[i],dtype)
+        sdict=self.__dict__
+        for arg in args: 
+            svars=[arg,] if isinstance(arg,str) else arg
+            for i in svars: sdict[i]=array(sdict[i]) if (dtype is None) else array(sdict[i],dtype)
 
     def save(self,fname,**args):
         '''
