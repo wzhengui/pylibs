@@ -4613,9 +4613,9 @@ class schism_check(zdata):
             if not hasattr(p,'isk') and ('sink_elem' in self.fids[fname]): p.isk=array(self.fids[fname]['sink_elem'][:])-1
 
             #prepare scatter data
-            gd=self.hgrid; srat=p.srat.get()
+            gd=self.hgrid; srat=p.srat.get(); isource=p.isource if hasattr(p,'isource') else 0
             sind=p.isc if p.var in ['source_elem','msource','vsource'] else p.isk; xi,yi=gd.xctr[sind],gd.yctr[sind]; eid=arange(len(sind))
-            data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy(); data2=p.data2 if p.isource==1 else data.copy()
+            data=ones(p.data.shape) if p.var in ['source_elem','sink_elem'] else p.data.copy(); data2=p.data2 if isource==1 else data.copy()
             fpn=data!=-9999; xi,yi,data,eid,data2=xi[fpn],yi[fpn],data[fpn],eid[fpn],data2[fpn] #remove -9999 values
             if data.max()<=0: data=-data #plot negative values (vsink)
             fpn=data>0; xi,yi,data,eid,data2=xi[fpn],yi[fpn],data[fpn],eid[fpn],data2[fpn] #only keep data>0
@@ -4625,7 +4625,7 @@ class schism_check(zdata):
             if p.ctr.get()==0:
                hg=scatter(xi,yi,s=data*srat,c='r')
             else:
-               if p.isource==1 and srat<0 and p.ctr.get()==1:  
+               if isource==1 and srat<0 and p.ctr.get()==1:  
                   hg=scatter(xi,yi,s=-data2*srat,c=data,cmap='jet'); data=data2
                else:
                   hg=scatter(xi,yi,s=srat*10,c=data,cmap='jet')
@@ -4637,15 +4637,16 @@ class schism_check(zdata):
                for xii,yii,eidi in zip(xi,yi,eid): text(xii,yii,'{}'.format(eidi),fontsize=7)
 
             #legend
-            if p.ctr.get()==0 or (p.isource==1 and srat<0 and p.ctr.get()==1):
+            if p.ctr.get()==0 or (isource==1 and srat<0 and p.ctr.get()==1):
                v1,v2=data.min(),data.max();  m1,m2=int(log10(v1)),int(log10(v2))
                m1=max([0,m1]) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
                if len(ms)==0:
                   hl=legend(*hg.legend_elements("sizes", num=[(v1+v2)/2])) #legend
                else:
-                  hl=legend(*hg.legend_elements("sizes", num=[srat*10.0**i for i in ms])) #legend
+                  hl=legend(*hg.legend_elements("sizes", num=[abs(srat)*10.0**i for i in ms])) #legend
                   for i,m in enumerate(ms): hl.texts[i].set_text('$10^{'+str(m)+'}$')  #set legend value
-            else:
+            #colorbar
+            if p.ctr.get()==1 or (isource==1 and srat<0 and p.ctr.get()==1):
                cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
                hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
        elif self.fmt in [1,2,3,4]: # bnd, nudge, hotstart, source.nc
@@ -4749,14 +4750,14 @@ class schism_check(zdata):
           if sum(dns=='all')>=3 or sum(dns=='all')==0 : print("can't plot scalar or 3D data"); return
 
           #read data
-          dind=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns])
-          if p.isource==1: dns2=[dns[0],dns[2]]; dind2=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns2])
+          dind=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns]); isource=p.isource if hasattr(p,'isource') else 0
+          if isource==1: dns2=[dns[0],dns[2]]; dind2=','.join([':' if (i in ['all','mean','min','max','sum']) else str(i) for i in dns2])
           if p.var in ['su2','sv2']: dind=dind[:-2]
           if p.var in ['su2','sv2'] and dns[-1]!='0': #deal with vector in hotstart
              fid=fids[fname]; exec('p.data=array(concatenate((fid["su2"][{}][...,None],fid["sv2"][{}][...,None]),axis=-1))'.format(dind,dind))
           else:
              exec('p.data=array(cvar[{}])'.format(dind))
-             if p.isource==1: exec('p.data2=array(p.fvar[{}])'.format(dind2))
+             if isource==1: exec('p.data2=array(p.fvar[{}])'.format(dind2))
           if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()) or isnan(p.vmin.get()+p.vmax.get()):
               p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
           if self.fmt==1: p.itr=p.dvars[-1].get()
@@ -4776,7 +4777,7 @@ class schism_check(zdata):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
               if dn!='all': isht=isht+1
-          if p.isource==1: #for source.nc
+          if isource==1: #for source.nc
              isht=0
              for n, dn in enumerate(dns2):
                  if dn in ['mean','min','max','sum']: exec('p.data2=p.data2.{}(axis={})'.format(dn,n-isht))
