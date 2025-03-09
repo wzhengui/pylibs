@@ -1244,6 +1244,7 @@ class zdata:
         convert attributes to numpy array
         1).  to_array('x') or to_array('x',dtype='int32');   2). to_array(['x','y']) or to_array('x','y')
         '''
+        if len(args)==0: args=self.attr()
         sdict=self.__dict__
         for arg in args: 
             svars=[arg,] if isinstance(arg,str) else arg
