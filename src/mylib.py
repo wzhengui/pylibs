@@ -1308,6 +1308,7 @@ def loadz(fname,svars=None):
     load self-defined data "fname.npz" or "fname.pkl"
        1). svars=list of variables: only read certain variables; 2). svars='vars': return avaiable variables
     '''
+    if '.' not in fname: fname=fname+'.npz' #default file format
     if fname.endswith('.npz') or fname.endswith('.pp'):
        #get data info, collect variables
        data0=load(fname,allow_pickle=True)
@@ -2616,6 +2617,7 @@ def read(fname,*args0,**args):
                               read_schism_prop, read_schism_param,read_schism_th,sms2grd)
 
     #determine read function
+    if '.' not in fname: fname=fname+'.npz' #default file format
     F=None
     if fname.endswith('.asc') or fname.endswith('.tif') or fname.endswith('.tiff'): F=read_dem
     if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic'): F=read_schism_hgrid
