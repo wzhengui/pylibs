@@ -1094,6 +1094,12 @@ def quickdatenum(times):
 
 def get_xtick(fmt=0,xts=None,str=None):
     '''
+    see xtick's help doc
+    '''
+    return xtick(xts,fmt,str)
+
+def xtick(xts=None,fmt=0,str=None):
+    '''
     return temporal ticks and labels for plot purpose
 
         fmt: format of xtick and xticklabel
