@@ -1230,7 +1230,7 @@ class zdata:
         '''
         sdict=self.__dict__
         if (svar is None):  return array([*sdict])
-        if (value is None): return sdict[svar] if (svar in [sdict]) else None
+        if (value is None): return sdict[svar] if (svar in sdict) else None
         sdict[svar]=value
 
     def delattr(self,*args):
