@@ -341,7 +341,7 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
 
     if fmt in [0,1,2]: #write cell data
        #reorganize data to a 2D array
-       if type(data)==str or (not hasattr(data,'__len__')): data=array([[data,],]) #for single data
+       if isinstance(data,str) or (not hasattr(data,'__len__')): data=array([[data,],]) #for single data
        data=array(data) #for list
        if data.ndim==1: data=data[None,:] if (align=='row') else data[:,None]  #for 1D array
 
@@ -1230,7 +1230,7 @@ class zdata:
         '''
         sdict=self.__dict__
         if (svar is None):  return array([*sdict])
-        if (value is None): return sdict[svar]
+        if (value is None): return sdict[svar] if (svar in [sdict]) else None
         sdict[svar]=value
 
     def delattr(self,*args):
