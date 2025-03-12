@@ -307,7 +307,8 @@ def read_excel(fname,sht=0,fmt=0):
     if fmt==1: return header, fdata
 
 def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_font=0,
-                color=None,fontsize=None,fontweight=None,number_format=None,figsize=None, **args):
+                color=None,fontsize=None,fontweight=None,number_format=None,figsize=None,
+                cell_width=None,cell_color=None,  **args):
     '''
     use xlsxwriter to write Excel file
        fname: name of Excel file
@@ -319,6 +320,8 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        old_font=1: for existing sheet,keep old font styles; old_font=0: discard
        color,fontsize,fontweight: options for specify cell font (see openpyxl.styles.Font)
        number_format: specifiy the data format (e.g. "0.0000")
+       cell_width: cell width
+       cell_color: cell color in the background
 
        fmt=0: append data to existing file, or create file if not existing
        fmt=1: replace mode of excel file
@@ -378,11 +381,16 @@ def write_excel(fname,data,sht='sheet_1',indy=0,indx=0,fmt=0,align='row',old_fon
        if color is not None: color=mpl.colors.to_hex(color)[1:]
        for k, datai in enumerate(data):
            for i, dataii in enumerate(datai):
+               if cell_color is not None:
+                  clr=mpl.colors.to_hex(cell_color).upper()[1:]
+                  sid.cell(indy+k+1,indx+i+1).fill=openpyxl.styles.PatternFill(start_color=clr, end_color=clr, fill_type="solid")
                if (color,fontsize,fontweight)!=(None,None,None) or len(args)!=0:
                   #from openpyxl.styles import Color, PatternFill, Font, Border
                   cf=openpyxl.styles.Font(color=color,size=fontsize,bold=(fontweight=='bold'),**args)
                   sid.cell(indy+k+1,indx+i+1).font=cf
                if number_format is not None: sid.cell(indy+k+1,indx+i+1).number_format=number_format
+               if k==0 and cell_width is not None: sid.column_dimensions[sid.cell(indy+k+1,indx+i+1).column_letter].width=cell_width
+                  
     elif fmt==3: #insert image
       if isinstance(data,mpl.figure.Figure):
          buf=io.BytesIO(); data.savefig(buf,format='png'); buf.seek(0); idata=openpyxl.drawing.image.Image(buf)
@@ -1229,7 +1237,7 @@ class zdata:
         initilize variables with value
         '''
         svar=[svar,] if isinstance(svar,str) else svar
-        for i in svar: self.__dict__[i]=value
+        for i in svar: self.__dict__[i]=value.copy() if ['copy' in value.__dir__()] else value
 
     def getattr(self,svar=None,value=None):
         '''
