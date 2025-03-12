@@ -1224,6 +1224,13 @@ class zdata:
     def VINFO(self):
         return get_INFO(self,1)
 
+    def init(self,svar,value=None):
+        '''
+        initilize variables with value
+        '''
+        svar=[svar,] if isinstance(svar,str) else svar
+        for i in svar: self.__dict__[i]=value
+
     def getattr(self,svar=None,value=None):
         '''
         1). C.attr('a'): return value of  C.a; 2). C.attr('a',x): set value as C.a=x
@@ -1255,6 +1262,12 @@ class zdata:
         for arg in args: 
             svars=[arg,] if isinstance(arg,str) else arg
             for i in svars: sdict[i]=array(sdict[i]) if (dtype is None) else array(sdict[i],dtype)
+
+    def rename(self,svar,tvar):
+        '''
+        rename variable name
+        '''
+        sdict=self.__dict__; sdict[tvar]=sdict.pop(svar)
 
     def save(self,fname,**args):
         '''
