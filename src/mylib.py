@@ -2054,6 +2054,7 @@ def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918',**args):
       prj2: name of target projection
       when 'cpp' projection exists, lon0, and lat0 arguments can be provided
     '''
+    if len(array(x).shape)==0: x=array([x,]); y=array([y,])
     px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y,**args)
     return [px,py]
 
