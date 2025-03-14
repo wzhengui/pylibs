@@ -1340,7 +1340,7 @@ def loadz(fname,svars=None):
        #get data info, collect variables
        data0=load(fname,allow_pickle=True)
        fmt=1 if isinstance(svars,str) else 0 #determine what to return
-       if svars=='vars': return list(data0.keys()) #return variables list
+       if svars=='vars': return array([i for i in data0 if not i.endswith('_variables')]) #return variables list
        svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
        vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables','_CLASS']
        ivars=list(data0[vlist[0]]) if (vlist[0] in svars) else []
@@ -2676,7 +2676,7 @@ def read(fname,*args0,**args):
        if 'IO' in args0:
           return fid
        elif 'vars' in args0:
-          return array([i for i in fid('vars') if not (i.startswith('_') and i.endswith('_variables'))])
+          return fid('vars')
        elif ('INFO' in args0) or ('VINFO' in args0):
           vs=fid('vars'); ms=min([6,max([len(i) for i in vs])]); fs0='{:'+str(ms)+'s}: '
           lines=[]; dt=''; ds=''
