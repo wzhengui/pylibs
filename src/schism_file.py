@@ -3827,28 +3827,28 @@ class schism_view(zdata):
         if p.var=='depth': self.data=gd.dp; return
         if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
         if self.itp==1 and hasattr(p,'td'): itp=1; tp,td=p.td.tp,p.td
-        def _get_data(output):
+        def _get_data(output,var): #get value of 'var' from outputs dir.
            C0=self.fid('{}/out2d_{}.nc'.format(output,istack))
-           if svar in self.vars_2d:
+           if var in self.vars_2d:
                if itp==0: #slab data
-                  data=array(C0.variables[svar][irec])
+                  data=array(C0.variables[var][irec])
                elif itp==1: #transect data
                   p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
-                  data=array(C0.variables[svar][irec][tp.ip]*tp.acor).sum(axis=1)
+                  data=array(C0.variables[var][irec][tp.ip]*tp.acor).sum(axis=1)
            else:
-               C=self.fid('{}/{}_{}.nc'.format(output,svar,istack))
+               C=self.fid('{}/{}_{}.nc'.format(output,var,istack))
                if itp==0: #slab
                  if layer=='bottom':
-                     npt=C.variables[svar].shape[1]
-                     if npt==gd.np: data=array(C.variables[svar][irec][arange(gd.np),self.kbp])
-                     if npt==gd.ne: data=array(C.variables[svar][irec][arange(gd.ne),self.kbe])
+                     npt=C.variables[var].shape[1]
+                     if npt==gd.np: data=array(C.variables[var][irec][arange(gd.np),self.kbp])
+                     if npt==gd.ne: data=array(C.variables[var][irec][arange(gd.ne),self.kbe])
                  else:
-                     ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[svar][irec,:,-ilayer])
+                     ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[var][irec,:,-ilayer])
                elif itp==1: #transect
-                 npt=C.variables[svar].shape[1]
+                 npt=C.variables[var].shape[1]
                  p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
-                 if npt==gd.np: data=array(C.variables[svar][irec][tp.ip]*tp.acor[...,None]).sum(axis=1)
-                 if npt==gd.ne: data=array(C.variables[svar][irec][tp.ie])
+                 if npt==gd.np: data=array(C.variables[var][irec][tp.ip]*tp.acor[...,None]).sum(axis=1)
+                 if npt==gd.ne: data=array(C.variables[var][irec][tp.ie])
            if itp==0: data[abs(data)>1e20]=nan
            if itp==1 and data.ndim==2:
               for k in arange(data.shape[1]-1)[::-1]: fp=abs(data[:,k])>1e20; data[fp,k]=data[fp,k+1]
@@ -3858,8 +3858,13 @@ class schism_view(zdata):
               npt=len(data);  dvar='dryFlagNode' if npt==gd.np else 'dryFlagElement' if npt==gd.ne else 'dryFlagSide'
               fmask=pindex(array(C0.variables[dvar][irec]),1); data[fmask]=nan
            return data
-        self.data=_get_data(self.outputs)
-        if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs')
+
+        if self.pdict[svar]==0: #original variables
+           self.data=_get_data(self.outputs,svar)
+           if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs',svar)
+        else: #new defined variables
+           s=zdata(); [s.attr(i,_get_data(self.outputs,i)) for i in self.pdict[svar].vars]
+           exec('self.data={}'.format(self.pdict[svar].exp))
 
     def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -3899,8 +3904,9 @@ class schism_view(zdata):
                 if event=='time': w._StartT['width']=20; w._EndT['width']=20
         elif event=='vm': #reset data limit
             if not hasattr(self,'hgrid'): return
-            p=self.get_param()
+            p=self.get_param(); s=self.pdict[p.var]
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
+            if s!=0: print('define var: {}\nevaluation: {}={}'.format(s.equation,s.name,s.exp))
             w._nan.set('none'); self.update_panel('mask')
         elif event=='mask': #set mask 
             w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
@@ -3989,7 +3995,7 @@ class schism_view(zdata):
         else:
            self.vars=[]; self.svars_2d=[]; self.vvars=[]; iout=0; cvar=None
            print('schism outputs dir. not found')
-        self.pvars=['none','depth',*self.vars,*self.gr3]
+        self.pvars=['none','depth',*self.vars,*self.gr3]; self.pdict=dict(zip(self.pvars,zeros(len(self.pvars))))
 
         #read grid and param
         grd=run+'/grid.npz'; gr3=run+'/hgrid.gr3'; grl=run+'/hgrid.ll'; vrd=run+'/vgrid.in'; par=run+'/param.nml'; fexist=os.path.exists; fpath=os.path.abspath
@@ -4065,20 +4071,26 @@ class schism_view(zdata):
            p=self.fig if hasattr(self,'fig') else None; mls=self.mls; self.wp.EndT.set(mls[-1])
            if p!=None: p.EndT=mls[-1]; p.it2=self.mls.index(mls[-1])+1
 
-    def cmd_window(self):
+    def cmd_window(self,fmt):
         import tkinter as tk
         from tkinter import ttk
-        if hasattr(self,'fig'): p=self.fig; hf,ax=p.hf,p.ax; print('control vars: [self,p,hf,ax]')
+        if hasattr(self,'fig'): p=self.fig; hf,ax=p.hf,p.ax
+        T0='control vars: [self,p,hf,ax]'; T1='define new variable: rho=999.8+0.8*salt-0.2*temp'; print(T0 if fmt==0 else T1)
         cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
-        rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
+        if fmt==0:
+           rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END)))
+        else:
+           rbn=ttk.Button(cw, text= "run",command=lambda: self.add_var(txt.get('1.0',tk.END)))
+        rbn.grid(row=1,column=0,padx=10)
         cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
-        if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
+        if fmt==0: txt.insert('1.0',self.cmd0) if hasattr(self,'cmd0') else txt.insert('1.0','#'+T0)
+        if fmt==1: txt.insert('1.0',self.cmd1) if hasattr(self,'cmd1') else txt.insert('1.0','#'+T1)
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
     def cmd_exec(self,cmd):
-        self.cmd=cmd
+        self.cmd0=cmd
         if hasattr(self,'fig'): #get figure handles
            p=self.fig; fig, hf, ax, hp, hv, hg, hb, hpt = p, p.hf, p.ax, p.hp, p.hv, p.hg, p.hb, p.hpt
            hp=None if len(hp)==0 else hp[0]; hv=None if len(hv)==0 else hv[0]; hb=None if len(hb)==0 else hb[0]
@@ -4090,6 +4102,34 @@ class schism_view(zdata):
                print('fail: '+i)
         if hasattr(self,'fig'): self.fig.hf.canvas.draw()
         self.window.update()
+
+    def add_var(self,cmd):
+        self.cmd1=cmd; lines=[i.strip() for i in cmd.split('\n') if (not i.startswith('#')) and len(i.strip())!=0]
+        modules=get_schism_output_info(self.outputs)[0]
+        for line in lines:  #parse each formulation
+            try:
+              pind=[i for i,k in enumerate(line) if k in '=+-*/()% ']; s=[] #s contain all items
+              s.append(line[:pind[0]]) # first var should be the new variable to be add
+              for i in arange(len(pind)-1):  #find all variables and numbers
+                  s.append(line[pind[i]])
+                  if pind[i]==pind[i+1]-1: continue
+                  s.append(line[(pind[i]+1):pind[i+1]])
+              s.append(line[pind[-1]])
+              if pind[-1]!=len(s)-1: s.append(line[(pind[-1]+1):])
+
+              #add variables information
+              C=zdata(); C.name=s[0]; C.exp=s[2:]; C.equation=line; C.vars=[]; iflag=0
+              for i,svar in enumerate(C.exp):
+                  if (svar in '=+-*/()% ') or (svar[0] in '0123456789'): continue
+                  sinfo=get_schism_var_info(svar,modules)
+                  if len(sinfo)!=1: print('check variable in {}: '.format(line), sinfo); iflag=1
+                  C.exp[i]='s.'+sinfo[0][1]; C.vars.append(sinfo[0][1])
+              C.exp=''.join(C.exp) #evaluation expression
+              if iflag==1: continue
+              if C.name not in self.pvars: self.pvars=[*self.pvars[:2],C.name,*self.pvars[2:]]; self.wp.svar.config(value=self.pvars) #add variables 
+              self.pdict[C.name]=C
+            except:
+              print('invalid formulation: '+line)
 
     def anim_window(self):
         import tkinter as tk
@@ -4174,7 +4214,7 @@ class schism_view(zdata):
         w.var=tk.StringVar(wd); w.var.set('depth')
         ttk.Label(master=fm,text='  variable').grid(row=0,column=0,sticky='W',pady=4)
         svar=ttk.Combobox(fm,textvariable=w.var,values=self.pvars,width=15,); svar.grid(row=0,column=1)
-        svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm'))
+        svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm')); w.svar=svar
 
         #figure
         sfm=ttk.Frame(master=fm); sfm.grid(row=0,column=2,sticky='E',padx=5)
@@ -4248,8 +4288,9 @@ class schism_view(zdata):
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
         menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd); w.dry=tk.IntVar(wd)
-        menu.add_command(label="command", command=self.cmd_window)
+        menu.add_command(label="command", command=lambda: self.cmd_window(0))
         menu.add_command(label="reset",   command=self.reset_limit)
+        menu.add_command(label="add_variable", command=lambda: self.cmd_window(1))
         menu.add_command(label="update outputs",   command=lambda: self.run_info_time(1))
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_checkbutton(label="wetting/drying",onvalue=1,offvalue=0,variable=w.dry)
