@@ -3823,11 +3823,11 @@ class schism_view(zdata):
         if p.med==1: p.hf.canvas.draw()
 
     def get_data(self,p):  #slab data
-        svar,layer,istack,irec=p.var,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid; idry=self.wp.dry.get(); itp=0
+        svar,layer,istack,irec,pdict=p.var,p.layer,self.istack[p.it],self.irec[p.it],self.pdict; gd=self.hgrid; idry=self.wp.dry.get(); itp=0
         if p.var=='depth': self.data=gd.dp; return
         if p.var in self.gr3: self.data=read_schism_hgrid(self.runpath+os.sep+p.var).z; return
         if self.itp==1 and hasattr(p,'td'): itp=1; tp,td=p.td.tp,p.td
-        def _get_data(output,var): #get value of 'var' from outputs dir.
+        def _data0(output,var): #get original value of 'var' from outputs dir.
            C0=self.fid('{}/out2d_{}.nc'.format(output,istack))
            if var in self.vars_2d:
                if itp==0: #slab data
@@ -3853,18 +3853,16 @@ class schism_view(zdata):
            if itp==1 and data.ndim==2:
               for k in arange(data.shape[1]-1)[::-1]: fp=abs(data[:,k])>1e20; data[fp,k]=data[fp,k+1]
               data=data[td.pid]
-           
            if idry==1: #add wetting and drying mask
               npt=len(data);  dvar='dryFlagNode' if npt==gd.np else 'dryFlagElement' if npt==gd.ne else 'dryFlagSide'
               fmask=pindex(array(C0.variables[dvar][irec]),1); data[fmask]=nan
            return data
+        def _data1(output,var):  #get defined variable
+           s=zdata(); [s.attr(i,_data0(self.outputs,i) if pdict[i]==0 else _data1(self.outputs,i)) for i in pdict[var].vars]
+           exec('s.data={}'.format(pdict[var].exp)); return s.data
 
-        if self.pdict[svar]==0: #original variables
-           self.data=_get_data(self.outputs,svar)
-           if p.cmp==1: self.data=self.data-_get_data(p.run0+os.path.sep+'outputs',svar)
-        else: #new defined variables
-           s=zdata(); [s.attr(i,_get_data(self.outputs,i)) for i in self.pdict[svar].vars]
-           exec('self.data={}'.format(self.pdict[svar].exp))
+        self.data=_data0(self.outputs,svar) if pdict[svar]==0 else _data1(self.outputs,svar)
+        if p.cmp==1: odir=p.run0+os.path.sep+'outputs'; self.data=self.data-_data0(odir,svar) if pdict[svar]==0 else _data1(odir,svar)
 
     def get_vdata(self,p): #get vector data
         svar,layer,istack,irec=p.vvar,p.layer,self.istack[p.it],self.irec[p.it]; gd=self.hgrid
@@ -3906,7 +3904,7 @@ class schism_view(zdata):
             if not hasattr(self,'hgrid'): return
             p=self.get_param(); s=self.pdict[p.var]
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
-            if s!=0: print('define var: {}\nevaluation: {}={}'.format(s.equation,s.name,s.exp))
+            if s!=0: print('\ndefine var: {}\nevaluation: {}={}'.format(s.equation,s.name,s.exp))
             w._nan.set('none'); self.update_panel('mask')
         elif event=='mask': #set mask 
             w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
@@ -4073,17 +4071,24 @@ class schism_view(zdata):
 
     def cmd_window(self,fmt):
         import tkinter as tk
-        from tkinter import ttk
+        from tkinter import ttk, filedialog
+        def cmd_from_file():
+            fname=filedialog.askopenfilename(initialdir=self.runpath, title = "choose file")
+            if len(fname)==0 or fname.strip()=='': return
+            fid=open(fname,'r'); txt.insert('1.0',''.join([*fid.readlines(),'\n'])); fid.close()
         if hasattr(self,'fig'): p=self.fig; hf,ax=p.hf,p.ax
         T0='control vars: [self,p,hf,ax]'; T1='define new variable: rho=999.8+0.8*salt-0.2*temp'; print(T0 if fmt==0 else T1)
-        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
+        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input' if fmt==0 else 'define variables')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
+        sbar=tk.Scrollbar(cw, orient="vertical", command=txt.yview); sbar.grid(row=0,column=1,sticky="ns"); txt.config(yscrollcommand=sbar.set)
+        sfm=ttk.Frame(master=cw); sfm.grid(row=1,column=0,padx=10)
         if fmt==0:
-           rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END)))
+           rbn=ttk.Button(sfm, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END)))
         else:
-           rbn=ttk.Button(cw, text= "run",command=lambda: self.add_var(txt.get('1.0',tk.END)))
-        rbn.grid(row=1,column=0,padx=10)
+           rbn=ttk.Button(sfm, text= "add",command=lambda: self.add_var(txt.get('1.0',tk.END)))
+        fbn=ttk.Button(sfm, text= "file",command=cmd_from_file); dbn=ttk.Button(sfm, text= "clean",command=lambda: txt.delete("1.0",tk.END))
+        fbn.grid(row=0,column=0,padx=10); dbn.grid(row=0,column=1,padx=10); rbn.grid(row=0,column=2,padx=10)
         cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
         if fmt==0: txt.insert('1.0',self.cmd0) if hasattr(self,'cmd0') else txt.insert('1.0','#'+T0)
         if fmt==1: txt.insert('1.0',self.cmd1) if hasattr(self,'cmd1') else txt.insert('1.0','#'+T1)
@@ -4108,7 +4113,7 @@ class schism_view(zdata):
         modules=get_schism_output_info(self.outputs)[0]
         for line in lines:  #parse each formulation
             try:
-              pind=[i for i,k in enumerate(line) if k in '=+-*/()% ']; s=[] #s contain all items
+              pind=[i for i,k in enumerate(line) if k in "=+-*/()% '"]; s=[] #s contain all items
               s.append(line[:pind[0]]) # first var should be the new variable to be add
               for i in arange(len(pind)-1):  #find all variables and numbers
                   s.append(line[pind[i]])
@@ -4120,13 +4125,19 @@ class schism_view(zdata):
               #add variables information
               C=zdata(); C.name=s[0]; C.exp=s[2:]; C.equation=line; C.vars=[]; iflag=0
               for i,svar in enumerate(C.exp):
-                  if (svar in '=+-*/()% ') or (svar[0] in '0123456789') or svar.lower()=='sqrt': continue
-                  sinfo=get_schism_var_info(svar,modules)
-                  if len(sinfo)!=1: print('check variable in {}: '.format(line), sinfo); iflag=1
-                  C.exp[i]='s.'+sinfo[0][1]; C.vars.append(sinfo[0][1])
+                  if (svar in "=+-*/()% '") or (svar[0] in '0123456789') or svar.lower() in ['sqrt','none']: continue
+                  vs=get_schism_var_info(svar,modules)
+                  if len(vs)!=1 or vs[0][1] not in self.pvars: print('check variable in {}: '.format(line), vs); iflag=1
+                  C.exp[i]='s.'+vs[0][1]; C.vars.append(vs[0][1])
               C.exp=''.join(C.exp) #evaluation expression
               if iflag==1: continue
-              if C.name not in self.pvars: self.pvars=[*self.pvars[:2],C.name,*self.pvars[2:]]; self.wp.svar.config(value=self.pvars) #add variables 
+              if (C.exp.lower() in ["''", 'none']) and C.name in self.pvars: #remove variables
+                 vid=self.pvars.index(C.name); self.pvars=[*self.pvars[:vid],C.name,*self.pvars[(vid+1):]]; self.wp.svar.config(value=self.pvars)
+                 self.pdict.pop(C.name); print('remove variable: '+C.name); continue
+              if C.name not in self.pvars: #add variables
+                 self.pvars=[*self.pvars[:2],C.name,*self.pvars[2:]]; self.wp.svar.config(value=self.pvars); print('add variable: '+C.name)
+              else:
+                 print('update variable: '+C.name)
               self.pdict[C.name]=C
             except:
               print('invalid formulation: '+line)
