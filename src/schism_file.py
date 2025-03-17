@@ -3578,11 +3578,11 @@ def convert_schism_source(run='.',fname='source.nc'):
     WriteNC(sdir+fname,C)
 
 class schism_view(zdata):
-    def __init__(self, run='.'):
+    def __init__(self, run='.',scaling=None):
         #note: p is a capsule including all information about a figure
         self.figs=[]; self.fns=[]; self._nf=0; self.sbp=[] #list of figure objects
         self.run_info(run)
-        self.window, self.wp=self.init_window(); self.window.title('SCHSIM Visualization : '+self.run+' (Author: Z. WANG)')
+        self.window, self.wp=self.init_window(scaling); self.window.title('SCHSIM Visualization : '+self.run+' (Author: Z. WANG)')
         self.cmap='jet'
         self.hold='off'  #animation
         self.play='off'  #animation
@@ -4069,16 +4069,16 @@ class schism_view(zdata):
            p=self.fig if hasattr(self,'fig') else None; mls=self.mls; self.wp.EndT.set(mls[-1])
            if p!=None: p.EndT=mls[-1]; p.it2=self.mls.index(mls[-1])+1
 
-    def cmd_window(self,fmt):
+    def cmd_window(self,fmt,scaling):
         import tkinter as tk
-        from tkinter import ttk, filedialog
+        from tkinter import ttk, filedialog,font
         def cmd_from_file():
             fname=filedialog.askopenfilename(initialdir=self.runpath, title = "choose file")
             if len(fname)==0 or fname.strip()=='': return
             fid=open(fname,'r'); txt.insert('1.0',''.join([*fid.readlines(),'\n'])); fid.close()
         if hasattr(self,'fig'): p=self.fig; hf,ax=p.hf,p.ax
         T0='control vars: [self,p,hf,ax]'; T1='define new variable: rho=999.8+0.8*salt-0.2*temp'; print(T0 if fmt==0 else T1)
-        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input' if fmt==0 else 'define variables')
+        cw=tk.Toplevel(self.window); cw.geometry("400x300"); cw.title('command input' if fmt==0 else 'define variables')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
         sbar=tk.Scrollbar(cw, orient="vertical", command=txt.yview); sbar.grid(row=0,column=1,sticky="ns"); txt.config(yscrollcommand=sbar.set)
@@ -4092,6 +4092,10 @@ class schism_view(zdata):
         cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
         if fmt==0: txt.insert('1.0',self.cmd0) if hasattr(self,'cmd0') else txt.insert('1.0','#'+T0)
         if fmt==1: txt.insert('1.0',self.cmd1) if hasattr(self,'cmd1') else txt.insert('1.0','#'+T1)
+        if scaling is not None: #scaling
+           srat=float(scaling); fs=int(10*srat); xm=int(xm*srat); ym=int(ym*srat)
+           DF=font.Font(family="Arial",size=fs); ttk.Style().configure("Custom.TButton", font=("Arial", fs))
+           txt.config(font=DF); rbn.config(style="Custom.TButton"); fbn.config(style="Custom.TButton"); dbn.config(style="Custom.TButton")
         cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
     def cmd_exec(self,cmd):
@@ -4207,10 +4211,10 @@ class schism_view(zdata):
         else: #add base run
            self.run0=os.path.abspath(crun)
 
-    def init_window(self):
+    def init_window(self,scaling=None):
         #open an window
         import tkinter as tk
-        from tkinter import ttk
+        from tkinter import ttk,font
 
         wd=tk.Tk(); fms=[]
         wd.title("SCHSIM Visualization")
@@ -4299,9 +4303,9 @@ class schism_view(zdata):
         ttk.Button(master=sfm0,text='exit',command=self.window_exit,width=5).pack(side=tk.LEFT)
         mbar=ttk.Menubutton(sfm0,text='option',width=6); mbar.pack(side=tk.LEFT)
         menu=tk.Menu(mbar,tearoff=0); w.cmp=tk.IntVar(wd); w.dry=tk.IntVar(wd)
-        menu.add_command(label="command", command=lambda: self.cmd_window(0))
+        menu.add_command(label="command", command=lambda: self.cmd_window(0,scaling))
         menu.add_command(label="reset",   command=self.reset_limit)
-        menu.add_command(label="add_variable", command=lambda: self.cmd_window(1))
+        menu.add_command(label="add_variable", command=lambda: self.cmd_window(1,scaling))
         menu.add_command(label="update outputs",   command=lambda: self.run_info_time(1))
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_checkbutton(label="wetting/drying",onvalue=1,offvalue=0,variable=w.dry)
@@ -4326,10 +4330,28 @@ class schism_view(zdata):
 
         #resize window
         wd.protocol("WM_DELETE_WINDOW",self.window_exit)
-        wd.geometry('600x180'); wd.update(); xm=max([i.winfo_width() for i in fms])
-        for i in arange(0,100,3):
+        wd.geometry('600x180'); wd.update(); ym=210
+
+        #scaling all elements
+        if scaling is not None:
+           def get_elem(fm):
+               xs=[]; [xs.extend(get_elem(i)) if isinstance(i,ttk.Frame) else xs.append(i) for i in fm.winfo_children()]
+               return xs
+           xs=get_elem(wd); srat=float(scaling); fs=int(srat*10); ym=int(srat*ym) #scaling factor
+           iw,ih=wd.geometry().split('+')[0].split('x'); wd.geometry('{}x{}'.format(int(srat*int(iw)),int(srat*int(ih))))
+           #DF=font.Font(family="TkDefaultFont",size=fs); ttk.Style().configure("Custom.TButton", font=("TkDefaultFont", fs))
+           #wd.option_add("*TCombobox*Listbox.font", ("TkDefaultFont", fs)) #font size in dropdown list
+           DF=font.Font(family="Arial",size=fs); ttk.Style().configure("Custom.TButton", font=("Arial", fs))
+           wd.option_add("*TCombobox*Listbox.font", ("Arial", fs)) #font size in dropdown list
+           [i.config(font=DF) for i in xs if isinstance(i,ttk.Label) or isinstance(i,tk.Button) or isinstance(i,ttk.Entry) or isinstance(i,tk.Checkbutton) or isinstance(i,ttk.Combobox)]
+           [i.config(style="Custom.TButton") for i in xs if isinstance(i,ttk.Button) or isinstance(i,ttk.OptionMenu) or isinstance(i,ttk.Menubutton)]
+           menu.config(font=DF); wd.update() #menu is treated seperately
+
+        #adjust last frame
+        xm=max([i.winfo_width() for i in fms])
+        for i in arange(0,100):
             L1['text']=' '*i; L2['text']=' '*i; wd.update(); xs=fms[-1].winfo_width()
-            if xs>xm: wd.geometry('{}x210'.format(xs)); wd.update(); break
+            if xs>xm: wd.geometry('{}x{}'.format(xs,ym)); wd.update(); break
         return wd,w
 
 class schism_check(zdata):
