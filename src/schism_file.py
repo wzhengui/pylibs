@@ -4120,7 +4120,7 @@ class schism_view(zdata):
               #add variables information
               C=zdata(); C.name=s[0]; C.exp=s[2:]; C.equation=line; C.vars=[]; iflag=0
               for i,svar in enumerate(C.exp):
-                  if (svar in '=+-*/()% ') or (svar[0] in '0123456789'): continue
+                  if (svar in '=+-*/()% ') or (svar[0] in '0123456789') or svar.lower()=='sqrt': continue
                   sinfo=get_schism_var_info(svar,modules)
                   if len(sinfo)!=1: print('check variable in {}: '.format(line), sinfo); iflag=1
                   C.exp[i]='s.'+sinfo[0][1]; C.vars.append(sinfo[0][1])
