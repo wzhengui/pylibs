@@ -175,13 +175,12 @@ class schism_grid(zdata):
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
            if mask is not None:
+              if isnumber(mask): mask=float(mask)
               if isinstance(mask,list):
                  fpnd=(value<mask[0])|(value>mask[1]); mask=value[fpnd]
               elif isinstance(mask,str):
-                 if isnumber(mask):
-                    fpnd=value==float(mask)
-                 else:
-                    s=zdata(); exec('s.fp=value{}'.format(mask)); fpnd=s.fp
+                 if mask[0]=='=' and mask[1]!='=': mask='='+mask
+                 s=zdata(); exec('s.fp=value{}'.format(mask)); fpnd=s.fp
               else:
                  fpnd=value==mask
               value_nd=value[fpnd]; value[fpnd]=nan
@@ -3673,6 +3672,7 @@ class schism_view(zdata):
                 if p.var not in ['depth','none']: # contourf
                     self.get_data(p); v=self.data; self.query(1); s=zdata()
                     if mask is not None:
+                       if mask[0]=='=' and mask[1]!='=': mask='='+mask
                        if isnumber(mask): fpnd=v==float(mask); v_nd=v[fpnd]; v[fpnd]=nan
                        if not isnumber(mask): exec('s.fp=v'+mask); fpnd=s.fp; v_nd=v[fpnd]; v[fpnd]=nan
                     if p.med==0:
@@ -5023,6 +5023,7 @@ class schism_check(zdata):
        wd.option_add("*TCombobox*Listbox.font", ("Arial", fs)) #font size in dropdown list
        [i.config(font=DF) for i in xs if isinstance(i,ttk.Label) or isinstance(i,tk.Button) or isinstance(i,ttk.Entry) or isinstance(i,tk.Checkbutton) or isinstance(i,ttk.Combobox)]
        [i.config(style="Custom.TButton") for i in xs if isinstance(i,ttk.Button) or isinstance(i,ttk.OptionMenu) or isinstance(i,ttk.Menubutton)]
+       [i['menu'].config(font=DF) for i in xs if isinstance(i,ttk.OptionMenu)]
        wd.update() #menu is treated seperately
 
    def init_window(self):
