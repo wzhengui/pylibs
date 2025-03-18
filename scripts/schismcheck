@@ -2,5 +2,13 @@
 from pylib import *
 mpl.use('TkAgg')
 
-run=sys.argv[1] if len(sys.argv)>=2 else '.'
-schism_check(run)
+run='.'; scaling=None; args=sys.argv[1:]
+if len(args)==1:
+  if args[0][0] in '0123456789':
+      scaling=args[0]
+  else:
+      run=args[0]
+elif len(args)==2:
+  run=args[0]; scaling=args[1]
+
+schism_check(run,scaling)

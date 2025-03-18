@@ -1007,6 +1007,15 @@ def close_data_loop(xi):
         vi=r_[xi,xi[0,...][None,...]]
     return vi
 
+def isnumber(x):
+    '''
+    check whether a string is numeric or not
+    '''
+    try:
+       float(x); return True
+    except:
+      return False
+
 def find_cs(xi,dx):
     '''
     analyze time series to find the locations where differences are larger than dx: (xi[i+1]-xi[i]>dx)

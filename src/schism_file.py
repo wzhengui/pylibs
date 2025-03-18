@@ -155,7 +155,7 @@ class schism_grid(zdata):
         cb_aspect: adjust colorbar width
         shading: only used for method=1, and value.size=gd.np
         xy=0: plot with gd.x,gd.y;  xy=1: use gd.lon,gd.lat;  xy=c_[x,y]: use provided xy coordinates
-        mask: change value to nan for plotting. 1). mask=number: fp=value==mask;  2). mask=[vmin,vmax]: fp=(value<vmin)|(value>vmax)
+        mask: change value to nan for plotting. 1). mask=number: fp=value==mask;  2). mask=[v1,v2]: fp=(value<v1)|(value>v2), 3). mask='<v1'; fp=value<v1 
         bnd=1: plots grid boundary; bnd=0: not plot
         wrap=1: plot wrap-around element seperately; wrap=0: not
         dx_wrap: the criteria for wrap-around element (Xmax-Xmin>dx_wrap)
@@ -176,9 +176,15 @@ class schism_grid(zdata):
            if value is None: value=self.dp
            if mask is not None:
               if isinstance(mask,list):
-                 fpnd=(value<mask[0])|(value>mask[1]); mask=value[fpnd]; value[fpnd]=nan
+                 fpnd=(value<mask[0])|(value>mask[1]); mask=value[fpnd]
+              elif isinstance(mask,str):
+                 if isnumber(mask):
+                    fpnd=value==float(mask)
+                 else:
+                    s=zdata(); exec('s.fp=value{}'.format(mask)); fpnd=s.fp
               else:
-                 fpnd=value==mask; value[fpnd]=nan
+                 fpnd=value==mask
+              value_nd=value[fpnd]; value[fpnd]=nan
            if vm is None: fpn=~isnan(value); vm=[min(value[fpn]),max(value[fpn])]
            if vm[0]==vm[1] or (vm[1]-vm[0])/(abs(vm[0])+abs(vm[1]))<1e-10: vm[1]=vm[1]+max([(vm[1]-vm[0])*1e-10,1e-10])
 
@@ -199,7 +205,7 @@ class schism_grid(zdata):
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
               if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
               if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
-           if mask is not None: value0[fpnd]=mask
+           if mask is not None: value0[fpnd]=value_nd
            self.data=value0
 
            #add colobar
@@ -215,8 +221,8 @@ class schism_grid(zdata):
         if (fmt==0)|(ec!='None'): #plot grid
            if ec=='None': ec=['k','k']
            if isinstance(ec,str): ec=[ec,ec]
-           if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
-           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap).T,lw=lw[0],color=ec[0],**args)
+           #if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
+           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap).T,lw=lw,color=ec[0],**args)
         if fmt==3 or bnd!=0: hb=self.plot_bnd(lw=lw)
         hg=hg0 if fmt==0 else hb if fmt==3 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
@@ -3665,8 +3671,10 @@ class schism_view(zdata):
             for p.it in its:
                 if self.play=='off': break
                 if p.var not in ['depth','none']: # contourf
-                    self.get_data(p); v=self.data; self.query(1)
-                    if mask is not None: fpnd=v==mask; v[fpnd]=nan
+                    self.get_data(p); v=self.data; self.query(1); s=zdata()
+                    if mask is not None:
+                       if isnumber(mask): fpnd=v==float(mask); v_nd=v[fpnd]; v[fpnd]=nan
+                       if not isnumber(mask): exec('s.fp=v'+mask); fpnd=s.fp; v_nd=v[fpnd]; v[fpnd]=nan
                     if p.med==0:
                         if self.itp==1: p.hp[0]._triangulation.y=gd.y #update transect grid
                         if self.itp==1 and p.grid==1: p.hg[0].set_ydata(gd.lines(0)[:,1])
@@ -3675,7 +3683,7 @@ class schism_view(zdata):
                     else:
                         [i.remove() for i in p.ax.collections] 
                         gd.plot(ax=p.ax,fmt=1,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,cb=False,zorder=1)
-                    if mask is not None: v[fpnd]=mask
+                    if mask is not None: v[fpnd]=v_nd
                 if p.vvar!='none':  #vector
                    u,v=self.get_vdata(p)
                    if p.med==0: p.hv[0].set_UVC(u,v)
@@ -4266,9 +4274,10 @@ class schism_view(zdata):
         ttk.Label(master=fm,text='  limit').grid(row=3,column=0,sticky='W')
         ttk.Entry(fm,textvariable=w.vmin,width=10).grid(row=3,column=1,sticky='W',padx=2)
         ttk.Entry(sfm3,textvariable=w.vmax,width=10).grid(row=0,column=0,sticky='W',padx=0)
-        w._nan=tk.StringVar(wd); w.nan=tk.DoubleVar(wd); w._nan.set('none'); w.nan.set(0)
+        #w._nan=tk.StringVar(wd); w.nan=tk.DoubleVar(wd); w._nan.set('none'); w.nan.set(0)
+        w._nan=tk.StringVar(wd); w.nan=tk.StringVar(wd); w._nan.set('none'); w.nan.set('0')
         ttk.OptionMenu(sfm3,w._nan,'','none','mask',command=lambda x: self.update_panel('mask')).grid(row=0,column=1,padx=5,sticky='W')
-        sfm4=ttk.Frame(master=sfm3); ttk.Entry(sfm4,textvariable=w.nan,width=5).grid(row=0,column=0,sticky='W'); w.sfm=sfm4
+        sfm4=ttk.Frame(master=sfm3); ttk.Entry(sfm4,textvariable=w.nan,width=10).grid(row=0,column=0,sticky='W'); w.sfm=sfm4
 
         #frame2: vector, time_series
         fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW'); fms.append(fm)
@@ -4345,6 +4354,7 @@ class schism_view(zdata):
            wd.option_add("*TCombobox*Listbox.font", ("Arial", fs)) #font size in dropdown list
            [i.config(font=DF) for i in xs if isinstance(i,ttk.Label) or isinstance(i,tk.Button) or isinstance(i,ttk.Entry) or isinstance(i,tk.Checkbutton) or isinstance(i,ttk.Combobox)]
            [i.config(style="Custom.TButton") for i in xs if isinstance(i,ttk.Button) or isinstance(i,ttk.OptionMenu) or isinstance(i,ttk.Menubutton)]
+           [i['menu'].config(font=DF) for i in xs if isinstance(i,ttk.OptionMenu)]
            menu.config(font=DF); wd.update() #menu is treated seperately
 
         #adjust last frame
@@ -4355,8 +4365,8 @@ class schism_view(zdata):
         return wd,w
 
 class schism_check(zdata):
-   def __init__(self,run='.'):
-       self.params,self.figs,self.fids,self.fmts={},{},{},{}
+   def __init__(self,run='.',scaling=None):
+       self.params,self.figs,self.fids,self.fmts,self.scaling={},{},{},{},scaling
 
        self.run_info(run) #get run information
        self.init_window(); self.update_panel()
@@ -4579,6 +4589,7 @@ class schism_check(zdata):
           tk.Checkbutton(master=sfm,text='transpose',variable=p.transpose,onvalue=1,offvalue=0).grid(row=0,column=3,sticky='W')
 
        p.init=1; wd.update(); self.set_anim()
+       if self.scaling is not None: self.scaling_window()
        self.init_plot(fmt=1)
 
    def set_anim(self):
@@ -4952,19 +4963,32 @@ class schism_check(zdata):
 
    def cmd_window(self):
         import tkinter as tk
-        from tkinter import ttk
-        cw=tk.Toplevel(self.window); cw.geometry("400x200"); cw.title('command input')
+        from tkinter import ttk,filedialog,font
+        def cmd_from_file():
+            fname=filedialog.askopenfilename(initialdir=self.run, title = "choose file")
+            if len(fname)==0 or fname.strip()=='': return
+            fid=open(fname,'r'); txt.insert('1.0',''.join([*fid.readlines(),'\n'])); fid.close()
+        cw=tk.Toplevel(self.window); cw.geometry("400x300"); cw.title('command input')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
         txt=tk.Text(master=cw,width=150,height=14); txt.grid(row=0,column=0,pady=2,padx=2,sticky='nsew')
-        rbn=ttk.Button(cw, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END))); rbn.grid(row=1,column=0,padx=10)
+        sfm=ttk.Frame(master=cw); sfm.grid(row=1,column=0,padx=10)
+        rbn=ttk.Button(sfm, text= "run",command=lambda: self.cmd_exec(txt.get('1.0',tk.END)))
+        fbn=ttk.Button(sfm, text= "file",command=cmd_from_file); dbn=ttk.Button(sfm, text= "clean",command=lambda: txt.delete("1.0",tk.END))
+        fbn.grid(row=0,column=0,padx=10); dbn.grid(row=0,column=1,padx=10); rbn.grid(row=0,column=2,padx=10)
         cw.update(); xm=max([txt.winfo_width(),rbn.winfo_width()]); ym=txt.winfo_height()+rbn.winfo_height()+12
-        if hasattr(self,'cmd'): txt.insert('1.0',self.cmd)
-        cw.geometry('{}x{}'.format(xm,ym)); cw.update()
+        txt.insert('1.0',self.cmd) if hasattr(self,'cmd') else txt.insert('1.0','#'+'control vars: [fname,p,fid,hf,ax,gd]')
         print('control vars: [fname,p,fid,hf,ax,gd]')
+        if self.scaling is not None:
+           srat=float(self.scaling); fs=int(10*srat); xm=int(xm*srat); ym=int(ym*srat)
+           DF=font.Font(family="Arial",size=fs); ttk.Style().configure("Custom.TButton", font=("Arial", fs))
+           txt.config(font=DF); rbn.config(style="Custom.TButton"); fbn.config(style="Custom.TButton"); dbn.config(style="Custom.TButton")
+        cw.geometry('{}x{}'.format(xm,ym)); cw.update()
 
    def cmd_exec(self,cmd):
         self.cmd=cmd
-        fname=self.fname; p,fid=self.params[fname],self.fids[fname]
+        fname=self.fname; p,fid=None,None
+        if fname in self.params: p=self.params[fname]
+        if fname in self.fids: fid=self.fids[fname]
         if fname in self.figs: hf=self.figs[fname]; ax=gca()
         if hasattr(self,'hgrid'): gd=self.hgrid
 
@@ -4984,6 +5008,22 @@ class schism_check(zdata):
        if os.path.exists(self.run+'.source.nc'): os.remove(self.run+'.source.nc')
        if '*.th' in self.fids: os.remove(self.fids['*.th'].filepath())
        self.window.destroy()
+
+   def scaling_window(self):
+       import tkinter as tk
+       from tkinter import ttk,font
+
+       wd,scaling=self.window,self.scaling
+       def get_elem(fm):
+           xs=[]; [xs.extend(get_elem(i)) if isinstance(i,ttk.Frame) else xs.append(i) for i in fm.winfo_children()]
+           return xs
+       xs=get_elem(wd); srat=float(scaling); fs=int(srat*10)  #scaling factor
+       wd.geometry('{}x{}'.format(int(srat*400),int(srat*175)))
+       DF=font.Font(family="Arial",size=fs); ttk.Style().configure("Custom.TButton", font=("Arial", fs))
+       wd.option_add("*TCombobox*Listbox.font", ("Arial", fs)) #font size in dropdown list
+       [i.config(font=DF) for i in xs if isinstance(i,ttk.Label) or isinstance(i,tk.Button) or isinstance(i,ttk.Entry) or isinstance(i,tk.Checkbutton) or isinstance(i,ttk.Combobox)]
+       [i.config(style="Custom.TButton") for i in xs if isinstance(i,ttk.Button) or isinstance(i,ttk.OptionMenu) or isinstance(i,ttk.Menubutton)]
+       wd.update() #menu is treated seperately
 
    def init_window(self):
        import tkinter as tk
@@ -5039,6 +5079,7 @@ class schism_check(zdata):
        #resize window
        wd.protocol("WM_DELETE_WINDOW",self.window_exit)
        wd.geometry('400x175'); wd.update()
+       if self.scaling is not None: self.scaling_window()
 
 if __name__=="__main__":
     pass
