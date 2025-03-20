@@ -2535,7 +2535,11 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     if fmt=='vars':
       svars=[*C.variables]; C.close(); return svars
     elif fmt==1:
-        return C
+        F=zdata();
+        for i in [i for i in C.__dir__() if not i.startswith('_')]: exec('F.{}=C.{}'.format(i,i)) 
+        return F
+        #F=zdata(); F.variables=C.variables; return F
+        #return C
     elif fmt in [0,2]:
         F=zdata(); F.file_format=C.file_format
 
@@ -2621,8 +2625,8 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
         for ds,dn,dt in zip(dims,dnames,dtypes): #set dimension
             fid.createDimension(dn,None) if (dt is True) else fid.createDimension(dn,ds)
         for i,svar in enumerate(svars):  #set variables
-            vid=fid.createVariable(svar,vtypes[i],vdms[i] if order==0 else vdms[i][::-1] ,**args)
-            [vid.setncattr(k,sdict[svar].__dict__[k]) for k in vattrs[i] if k!='val']
+            vid=fid.createVariable(svar,vtypes[i],vdms[i] if order==0 else vdms[i][::-1],fill_value=sdict[svar]._FillValue if ('_fillvalue' in vattrs[i]) else None, **args)
+            [vid.setncattr(k,sdict[svar].__dict__[k]) for k in vattrs[i] if k not in ['val','_fillvalue']]
             v=sdict[svar].val if isinstance(sdict[svar],zdata) else sdict[svar];
             fid.variables[svar][:]=v if order==0 else v.T
         fid.close()
