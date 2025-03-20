@@ -1190,6 +1190,7 @@ def get_INFO(data,fmt=0):
     fmt=0: only return attributes; fmt=1: also return methods
     '''
     atts=[]; sdict=data.__dict__; skeys=sdict.keys(); fnc=0
+    skeys=[i for i in skeys if not hasattr(sdict[i],'__call__')] #exclude method
     if ('dimname' in skeys) and ('dims' in skeys) and ('file_format' in skeys): fnc=1 #netcdf
     stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
     snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
@@ -1211,6 +1212,8 @@ def get_INFO(data,fmt=0):
                if vi.size==1 and (vi.dtype in stypes): nd=': {}, array({})'.format(squeeze(vi),1)
             elif dt in stypes:
                nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
+            elif 'netcdf4.variable' in str(dt).lower(): #netcdf4 variable
+               nd=': nc.array{}, {}'.format(vi.shape,vi.dtype)
             else:
                nd=': {}'.format(type(vi))
 
@@ -1293,7 +1296,7 @@ class zdata:
         if fname.endswith('.shp'):
            write_shapefile_data(fname,self,**args)
         elif fname.endswith('.nc'):
-           WriteNC(fname,self,**args)
+           WriteNC(fname,self,fmt=1 if isinstance(self,ncfile) else 0, **args)
         else:
            savez(fname,self)
 
@@ -2511,6 +2514,17 @@ def delete_shapefile_nan(xi,iloop=0):
     return vi
 
 #---------------------netcdf---------------------------------------------------
+class ncfile(zdata):
+      '''
+      wraper for Datafile(fname)
+      '''
+      def __init__(self,fname,mode='r'):
+          if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
+          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) 
+          for i in fname.variables: self.attr(i,fname.variables[i])
+      def test(self):
+          print('ZG')
+
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
     read netcdf files, and return its values and attributes
@@ -2535,11 +2549,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     if fmt=='vars':
       svars=[*C.variables]; C.close(); return svars
     elif fmt==1:
-        F=zdata();
-        for i in [i for i in C.__dir__() if not i.startswith('_')]: exec('F.{}=C.{}'.format(i,i)) 
-        return F
-        #F=zdata(); F.variables=C.variables; return F
-        #return C
+        return ncfile(C,mode=mode) #return C
     elif fmt in [0,2]:
         F=zdata(); F.file_format=C.file_format
 
@@ -2634,7 +2644,8 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
         C=data; cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
         fid=Dataset(fname,'w',format=C.file_format)     #open file
         fid.setncattr('file_format',C.file_format)      #set file_format
-        for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
+        #for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
+        for i in C.ncattrs(): fid.setncattr(i,C.getncattr(i)) #set attrs
         for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else fid.createDimension(i,cdim[i].size) #set dims
         for i in cvar: #set vars
             if (vars is not None) and (i not in vars): continue
