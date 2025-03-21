@@ -1191,6 +1191,8 @@ def get_INFO(data,fmt=0):
     '''
     atts=[]; sdict=data.__dict__; skeys=sdict.keys(); fnc=0
     skeys=[i for i in skeys if not hasattr(sdict[i],'__call__')] #exclude method
+    if ('file_format' in skeys) and ('netcdf' in sdict['file_format'].lower()) and fmt==0: #exclude default netcdf attribute
+       skeys=[i for i in skeys if i not in ['name','groups','disk_format','path','parent','data_model','cmptypes','vltypes','enumtypes','keepweakref','auto_complex']]
     if ('dimname' in skeys) and ('dims' in skeys) and ('file_format' in skeys): fnc=1 #netcdf
     stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
     snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
@@ -1212,7 +1214,7 @@ def get_INFO(data,fmt=0):
                if vi.size==1 and (vi.dtype in stypes): nd=': {}, array({})'.format(squeeze(vi),1)
             elif dt in stypes:
                nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
-            elif 'netcdf4.variable' in str(dt).lower(): #netcdf4 variable
+            elif 'ncfile' in str(dt).lower(): #netcdf4 variable
                nd=': nc.array{}, {}'.format(vi.shape,vi.dtype)
             else:
                nd=': {}'.format(type(vi))
@@ -2519,11 +2521,19 @@ class ncfile(zdata):
       wraper for Datafile(fname)
       '''
       def __init__(self,fname,mode='r'):
+          class nc_var:
+               def __init__(self,cvar):
+                   self.var=cvar
+                   self.shape=cvar.shape; self.size=prod(self.shape); self.dtype=cvar.dtype
+               def __getitem__(self,key):
+                   return array(self.var[key])
+               def __setitem__(self,key,item):
+                   self.var[key]=item
+               def __len__(self):
+                   return len(self.var)
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
-          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) 
-          for i in fname.variables: self.attr(i,fname.variables[i])
-      def test(self):
-          print('ZG')
+          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i))
+          for i in self.variables: self.__dict__[i]=nc_var(self.variables[i])
 
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
