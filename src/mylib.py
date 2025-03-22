@@ -2560,6 +2560,10 @@ class ncfile(zdata):
                    self.var[key]=item
                def __len__(self):
                    return len(self.var)
+               @property
+               def value(self):
+                   return array(self.var)
+
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
           for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i))
           for i in self.variables: self.__dict__[i]=nc_var(self.variables[i])
