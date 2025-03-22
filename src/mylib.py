@@ -1216,6 +1216,9 @@ def get_INFO(data,fmt=0):
                nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
             elif 'ncfile' in str(dt).lower(): #netcdf4 variable
                nd=': nc.array{}, {}'.format(vi.shape,vi.dtype)
+            elif 'npzfile' in str(dt).lower(): #npz variable
+               if i.startswith('_') and i.endswith('_variables') and i[1]!='_': continue
+               nd=': array{}, {}'.format(vi.shape,str(vi.dtype))
             else:
                nd=': {}'.format(type(vi))
 
@@ -1344,15 +1347,41 @@ def savez(fname,data,fmt=0):
        import pickle
        fid=open(fname,'wb'); pickle.dump(data,fid,pickle.HIGHEST_PROTOCOL); fid.close()
 
+class npzfile(zdata):
+    '''
+    wrapper for numpy *.npz file
+    '''
+    def __init__(self,fname):
+        class npz_var:
+              def __init__(self,data,fid,name):
+                  ff=np.lib.format; npy=fid.open(name); self.shape,_,self.dtype=ff._read_array_header(npy, ff.read_magic(npy))
+                  self.data=data; self.name=name[:-4]
+              def __getitem__(self,key):
+                 return self.value if str(self.dtype)=='object' else self.value[key]
+
+              @property
+              def value(self):
+                  if not hasattr(self,'_value'): self._value=loadz(self.data,self.name)
+                  return self._value
+
+        #collect all variable information
+        self._data=load(fname,allow_pickle=True,mmap_mode='r')
+        import zipfile; fid=zipfile.ZipFile(fname)
+        for svar in [i for i in fid.namelist() if i.endswith('npy')]:
+            self.__dict__[svar[:-4]]=npz_var(self._data,fid,svar)
+        fid.close()
+
 def loadz(fname,svars=None):
     '''
     load self-defined data "fname.npz" or "fname.pkl"
        1). svars=list of variables: only read certain variables; 2). svars='vars': return avaiable variables
+       3). svars=1: open channel to npz file (read data later).
     '''
-    if '.' not in fname: fname=fname+'.npz' #default file format
-    if fname.endswith('.npz') or fname.endswith('.pp'):
+    if isinstance(fname,str) and ('.' not in fname): fname=fname+'.npz' #default file format
+    if isinstance(fname,np.lib.npyio.NpzFile) or fname.endswith('.npz') or fname.endswith('.pp'):
+       if svars==1: return npzfile(fname)
        #get data info, collect variables
-       data0=load(fname,allow_pickle=True)
+       data0=fname if isinstance(fname,np.lib.npyio.NpzFile) else load(fname,allow_pickle=True)
        fmt=1 if isinstance(svars,str) else 0 #determine what to return
        if svars=='vars': return array([i for i in data0 if not i.endswith('_variables')]) #return variables list
        svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
@@ -2518,7 +2547,7 @@ def delete_shapefile_nan(xi,iloop=0):
 #---------------------netcdf---------------------------------------------------
 class ncfile(zdata):
       '''
-      wraper for Datafile(fname)
+      wraper for netcdf Datafile(fname)
       '''
       def __init__(self,fname,mode='r'):
           class nc_var:
