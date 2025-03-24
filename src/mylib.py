@@ -1352,7 +1352,7 @@ class npzfile(zdata):
     wrapper for numpy *.npz file
     '''
     def __init__(self,fname):
-        class npz_var:
+        class npz_var(zdata):
               def __init__(self,data,fid,name):
                   ff=np.lib.format; npy=fid.open(name); self.shape,_,self.dtype=ff._read_array_header(npy, ff.read_magic(npy))
                   self.data=data; self.name=name[:-4]

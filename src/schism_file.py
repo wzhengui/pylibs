@@ -3263,7 +3263,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     if (zii is None) and fmt==0:
                        if n==0:
                           if zcor==0:
-                             eta=array([C0['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel(); sindp=tile(pip,[ntime,1,1]).ravel()
+                             eta=array([C0.variables['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel(); sindp=tile(pip,[ntime,1,1]).ravel()
                              sigma=vd.sigma[sindp] if vd.ivcor==1 else 0; zii0=compute_zcor(sigma,gd.dp[sindp],eta,ivcor=vd.ivcor,vd=vd)
                              zii=(zii0.reshape([ntime,3,npt,nvrt])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                           else:
