@@ -2568,6 +2568,9 @@ class ncfile(zdata):
           for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i))
           for i in self.variables: self.__dict__[i]=nc_var(self.variables[i])
 
+      def __getitem__(self,key):
+         return array(self.variables[key])
+
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
     read netcdf files, and return its values and attributes
