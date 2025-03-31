@@ -4666,7 +4666,7 @@ class schism_check(zdata):
           gd=self.hgrid; p=self.params[fname]; data=fids[fname]; pfmt=0; fxy=0; mask=None if p._nan.get()=='none' else p.nan.get()
           if p.sflux.get()!='None':
              if not hasattr(gd,'lon'): gd0=read_schism_hgrid(self.run+'hgrid.ll'); gd.lon=gd0.x; gd.lat=gd0.y
-             sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid['lon'][:]); sy=array(sid['lat'][:]); sid.close()
+             sid=read(self.run+'sflux'+os.sep+p.sflux.get()+'.nc',1); sx=array(sid.variables['lon'][:]); sy=array(sid.variables['lat'][:]); sid.close()
              for i,k in zip(sx,sy): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1); fxy=1
              for i,k in zip(sx.T,sy.T): plot(i,k,'-',color='orange',lw=0.5,alpha=1,zorder=1)
              if abs(gd.lon-gd.x).mean()>1: pfmt=-1; slimit(gd.lon,gd.lat,data)
