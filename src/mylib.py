@@ -1214,7 +1214,7 @@ def get_INFO(data,fmt=0):
                if vi.size==1 and (vi.dtype in stypes): nd=': {}, array({})'.format(squeeze(vi),1)
             elif dt in stypes:
                nd=': {}, {} '.format(vi,snames[stypes.index(dt)])
-            elif 'ncfile' in str(dt).lower(): #netcdf4 variable
+            elif 'nctype' in str(dt).lower(): #netcdf4 variable
                nd=': nc.array{}, {}'.format(vi.shape,vi.dtype)
             elif 'npzfile' in str(dt).lower(): #npz variable
                if i.startswith('_') and i.endswith('_variables') and i[1]!='_': continue
@@ -2545,31 +2545,83 @@ def delete_shapefile_nan(xi,iloop=0):
     return vi
 
 #---------------------netcdf---------------------------------------------------
+#class ncfile(zdata):
+#      '''
+#      wraper for netcdf Datafile(fname)
+#      '''
+#      def __init__(self,fname,mode='r'):
+#          class nc_var:
+#               def __init__(self,cvar):
+#                   self.var=cvar
+#                   self.shape=cvar.shape; self.size=prod(self.shape); self.dtype=cvar.dtype
+#               def __getitem__(self,key):
+#                   return array(self.var[key])
+#               def __setitem__(self,key,item):
+#                   self.var[key]=item
+#               def __len__(self):
+#                   return len(self.var)
+#               @property
+#               def value(self):
+#                   return array(self.var)
+#
+#          if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
+#          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i))
+#          for i in self.variables: self.__dict__[i]=nc_var(self.variables[i])
+#
+#      def __getitem__(self,key):
+#         return array(self.variables[key])
+
+
 class ncfile(zdata):
       '''
       wraper for netcdf Datafile(fname)
       '''
       def __init__(self,fname,mode='r'):
-          class nc_var:
-               def __init__(self,cvar):
-                   self.var=cvar
-                   self.shape=cvar.shape; self.size=prod(self.shape); self.dtype=cvar.dtype
-               def __getitem__(self,key):
-                   return array(self.var[key])
-               def __setitem__(self,key,item):
-                   self.var[key]=item
-               def __len__(self):
-                   return len(self.var)
-               @property
-               def value(self):
-                   return array(self.var)
+          class nc_base:
+                def __init__(self,ncvar):
+                    self.data=ncvar
+                    for i in ncvar.ncattrs(): self.__dict__[i]=ncvar.getncattr(i) #get all attribute
+                    self.shape=ncvar.shape; self.size=prod(self.shape); self.dtype=ncvar.dtype
+
+                @property
+                def value(self):   #all values of nc variable will be read out
+                    if not hasattr(self,'_value'): self._value=array(self.data[:])
+                    return self._value
+                @property
+                def INFO(self):
+                    return get_INFO(self)
+                @property
+                def VINFO(self):
+                    return get_INFO(self,1)
+                def __getitem__(self,key): #subset of values
+                   data=self._value[key] if hasattr(self,'_value') else self.data[key]
+                   return data.item() if size(data)==1 else array(data)
+                def __setitem__(self,key,item): #set variable
+                    if mode=='r':
+                       if not hasattr(self,'_value'): self.value
+                       self._value[key]=item
+                    elif mode in ['r+','w','w+','a']:
+                        self.data[key]=item
+                    else:
+                        sys.exit('simple fix: add open mode above')
+                def __repr__(self):
+                    return 'array({})'.format(self.value)
+          def get_method(fn):
+              def method(self, *args,**kwargs):
+                  return getattr(self.value, fn)(*args,**kwargs)
+              return method
+          blist=['__new__', '__init__', '__getattribute__', '__getnewargs__', '__doc__', '__setattr__',
+                 '__str__', '__repr__','__getitem__','__setitem__', '__array_finalize__', '__array_function__', '__array_interface__',
+                 '__array_prepare__', '__array_priority__', '__array_struct__', '__array_ufunc__', '__array_wrap__']
+          nctype=type('nctype',(nc_base,), {i: get_method(i) for i in dir(np.ndarray) if i not in blist})
 
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
-          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i))
-          for i in self.variables: self.__dict__[i]=nc_var(self.variables[i])
+          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
+          for i in self.variables: setattr(self,i,nctype(self.variables[i])) #get variables
 
+      #refine method
       def __getitem__(self,key):
-         return array(self.variables[key])
+         return self.__dict__[key]
 
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
@@ -2698,7 +2750,10 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
             vdim=cvar[i].dimensions
             vid=fid.createVariable(i,cvar[i].dtype,vdim) if order==0 else fid.createVariable(i,cvar[i].dtype,vdim[::-1])
             for k in cvar[i].ncattrs(): vid.setncattr(k,cvar[i].getncattr(k))
-            fid.variables[i][:]=cvar[i][:] if order==0 else cvar[i][:].T
+            if isinstance(C,ncfile):
+               fid.variables[i][:]=cdict[i].value if order==0 else cdict[i].value.T
+            else:
+               fid.variables[i][:]=cvar[i][:] if order==0 else cvar[i][:].T
         fid.close()
 
 def read(fname,*args0,**args):
