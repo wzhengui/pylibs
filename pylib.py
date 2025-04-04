@@ -107,7 +107,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    else:
       import src.mylib as mylib; path_src=path_pylib+'/src'; path_scripts=path_pylib+'/scripts'
    sys.modules['mylib'] = mylib
-   from mylib import (xtick,get_xtick,close_data_loop,datenum,quickdatenum,
+   from mylib import (ntype,xtick,get_xtick,close_data_loop,datenum,quickdatenum,
         add_basemap,get_INFO,loadz,zdata,savez,find_cs,npz2mat,read_mat,sort_all,
         cmean,smooth,doy,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,sub_lines,sub_polygons,
         inside,inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
