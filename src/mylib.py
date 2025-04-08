@@ -2641,6 +2641,8 @@ class ncfile(zdata):
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
           for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
           for i in self.variables: self.__dict__[i]=ntype(self.variables[i]) #get variables
+          self.dimname=[*self.dimensions]; self.dims=[self.dimensions[i].size for i in self.dimname]
+          self.dim_unlimited=[self.dimensions[i].isunlimited() for i in self.dimname]
 
       #refine method
       def __getitem__(self,key):
@@ -2652,6 +2654,8 @@ class ncfile(zdata):
              cvar._value=value
           else:
              cvar=value
+      def __delattr__(self,key):
+          self.__dict__.pop(key); self.variables.pop(key)
 
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
@@ -2772,9 +2776,11 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
         C=data; cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
         fid=Dataset(fname,'w',format=C.file_format)     #open file
         fid.setncattr('file_format',C.file_format)      #set file_format
-        #for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
-        for i in C.ncattrs(): fid.setncattr(i,C.getncattr(i)) #set attrs
-        for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else fid.createDimension(i,cdim[i].size) #set dims
+        for i in setdiff1d(C.ncattrs(),['dimname', 'dims', 'vars']): fid.setncattr(i,C.getncattr(i)) #set attrs
+        if isinstance(C,ncfile): #set dims
+           [fid.createDimension(i,None) if flag else fid.createDimension(i,k) for i,k,flag in zip(C.dimname,C.dims,C.dim_unlimited)]
+        else:
+           [fid.createDimension(i,None) if cdim[i].isunlimited() else fid.createDimension(i,cdim[i].size) for i in cdim]
         for i in cvar: #set vars
             if (vars is not None) and (i not in vars): continue
             vdim=cvar[i].dimensions
