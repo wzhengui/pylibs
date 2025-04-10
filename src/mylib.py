@@ -4,22 +4,24 @@
 
 from pylib import *
 
-def ntype(data,fmt=0,mode='r'):
+def ntype(data,fmt=0,mode='r',name=None,vshape=None,vtype=None):
     '''
     convert data to new self-defined datatype
+    fmt=0: for numpy array in *.npz file
+    fmt=1: for numpy array in *.nc file
     '''
     class narray: #derived type based on numpy.array
-          def __init__(self,ncvar):
-              self._data=ncvar
-              for i in ncvar.ncattrs(): self.__dict__[i]=ncvar.getncattr(i) #get all attribute
+          def __init__(self,ndata):
+              if fmt==1:
+                 for i in data.ncattrs(): self.__dict__[i]=data.getncattr(i) #get all attribute
           def __getitem__(self,key): #subset of values
-             data=self.data[key]; return data.item() if size(data)==1 else array(data)
+             data=self.value[key] if self.fmt==0 else self.data[key]; return data.item() if size(data)==1 else array(data)
           def __setitem__(self,key,item): #set variable
               if mode=='r':
                  if not hasattr(self,'_value'): self.value
                  self._value[key]=item
               elif mode in ['r+','w','w+','a']:
-                  self._data[key]=item
+                  data[key]=item
               else:
                   sys.exit('simple fix: add open mode above')
           def __repr__(self):
@@ -27,11 +29,11 @@ def ntype(data,fmt=0,mode='r'):
 
           @property
           def value(self):   #all values of nc variable will be read out
-              if not hasattr(self,'_value'): self._value=array(self._data[:])
+              if not hasattr(self,'_value'): self._value=data[name] if fmt==0 else array(data[:])
               return self._value
           @property
           def data(self):
-              return self._value if hasattr(self,'_value') else self._data
+              return self._value if hasattr(self,'_value') else data
 
           @property
           def T(self):
@@ -41,16 +43,16 @@ def ntype(data,fmt=0,mode='r'):
               return self.value.ctypes
           @property
           def base(self):
-              return self._value.base if hasattr(self,'_value') else self._data
+              return self._value.base if hasattr(self,'_value') else data
           @property
           def shape(self):
-              return self.data.shape
+              return vshape if fmt==0 else self.data.shape
           @property
           def size(self):
-              return self.data.size
+              return prod(vshape) if fmt==0 else self.data.size
           @property
           def dtype(self):
-              return self.data.dtype
+              return vtype if fmt==0 else self.data.dtype
           @property
           def flags(self):
               return self.data.flags
@@ -1440,24 +1442,17 @@ class npzfile(zdata):
     wrapper for numpy *.npz file
     '''
     def __init__(self,fname):
-        class npz_var(zdata):
-              def __init__(self,data,fid,name):
-                  ff=np.lib.format; npy=fid.open(name); self.shape,_,self.dtype=ff._read_array_header(npy, ff.read_magic(npy))
-                  self.data=data; self.name=name[:-4]
-              def __getitem__(self,key):
-                 return self.value if str(self.dtype)=='object' else self.value[key]
-
-              @property
-              def value(self):
-                  if not hasattr(self,'_value'): self._value=loadz(self.data,self.name)
-                  return self._value
-
         #collect all variable information
-        self._data=load(fname,allow_pickle=True,mmap_mode='r')
-        import zipfile; fid=zipfile.ZipFile(fname)
-        for svar in [i for i in fid.namelist() if i.endswith('npy')]:
-            self.__dict__[svar[:-4]]=npz_var(self._data,fid,svar)
-        fid.close()
+        import zipfile; fid=zipfile.ZipFile(fname); ff=np.lib.format; svars0,svars,dms,dts=[],[],[],[]
+        [svars0.extend(ff.read_array(fid.open(i))) for i in fid.namelist() if i.endswith('_variables.npy')]
+        for name in [i for i in fid.namelist() if i.endswith('npy') and (i[:-4] not in svars0) and not i.endswith('_variables.npy')]:
+            npy=fid.open(name); dm,_,dt=ff._read_array_header(npy, ff.read_magic(npy))
+            svars.append(name[:-4]); dms.append(dm); dts.append(dt)
+        fid.close(); [self.attr(i,read(fname,i)) for i in svars0] #read some variables
+
+        #assign each numpy array
+        data=load(fname,allow_pickle=True,mmap_mode='r')
+        for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
 
 def loadz(fname,svars=None):
     '''
@@ -1472,13 +1467,13 @@ def loadz(fname,svars=None):
        data0=fname if isinstance(fname,np.lib.npyio.NpzFile) else load(fname,allow_pickle=True)
        fmt=1 if isinstance(svars,str) else 0 #determine what to return
        if svars=='vars': return array([i for i in data0 if not i.endswith('_variables')]) #return variables list
-       svars=list(data0.keys()) if svars is None else [svars] if isinstance(svars,str) else svars
+       svars0=list(data0.keys()); svars=svars0 if svars is None else [svars] if isinstance(svars,str) else svars
        vlist=['_int_variables','_float_variables','_str_variables','_list_variables','_method_variables','_CLASS']
-       ivars=list(data0[vlist[0]]) if (vlist[0] in svars) else []
-       fvars=list(data0[vlist[1]]) if (vlist[1] in svars) else []
-       tvars=list(data0[vlist[2]]) if (vlist[2] in svars) else []
-       lvars=list(data0[vlist[3]]) if (vlist[3] in svars) else []
-       mvars=list(data0[vlist[4]]) if (vlist[4] in svars) else []
+       ivars=list(data0[vlist[0]]) if (vlist[0] in svars0) else []
+       fvars=list(data0[vlist[1]]) if (vlist[1] in svars0) else []
+       tvars=list(data0[vlist[2]]) if (vlist[2] in svars0) else []
+       lvars=list(data0[vlist[3]]) if (vlist[3] in svars0) else []
+       mvars=list(data0[vlist[4]]) if (vlist[4] in svars0) else []
 
        #extract data
        vdata=zdata()
@@ -2640,7 +2635,7 @@ class ncfile(zdata):
       def __init__(self,fname,mode='r'):
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
           for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
-          for i in self.variables: self.__dict__[i]=ntype(self.variables[i]) #get variables
+          for i in self.variables: self.__dict__[i]=ntype(self.variables[i],fmt=1,name=i) #get variables
           self.dimname=[*self.dimensions]; self.dims=[self.dimensions[i].size for i in self.dimname]
           self.dim_unlimited=[self.dimensions[i].isunlimited() for i in self.dimname]
 

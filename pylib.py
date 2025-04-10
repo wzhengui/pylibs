@@ -50,14 +50,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from scipy import interpolate
    from scipy.fftpack import fft, ifft
 
-   #mpi4py
-   #try:
-   #   from mpi4py import MPI
-   #except:
-   #   pass
-   #   #from src.mylib import parallel_jobs
-   #   #MPI=parallel_jobs()
-
    #url download
    try:
       import urllib
@@ -77,6 +69,13 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #------------------------------------------------
    #old import
    #------------------------------------------------
+   #mpi4py
+   #try:
+   #   from mpi4py import MPI
+   #except:
+   #   pass
+   #   #from src.mylib import parallel_jobs
+   #   #MPI=parallel_jobs()
    #from numpy.random import *
    #import numpy.ma as ma
    #from matplotlib import cbook, mlab
@@ -139,7 +138,6 @@ if not set(Libs).issubset(set(sys.modules.keys())):
 
    #sys.modules['loadz'] = mylib #in case oldmodule name used
    #sys.modules['read_schism_file'] = schism_file #in case oldmodule name used
-
    #import mpas_file
    #from mpas_file import (read_mpas_grid)
 
