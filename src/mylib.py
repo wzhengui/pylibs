@@ -15,7 +15,7 @@ def ntype(data,fmt=0,mode='r',name=None,vshape=None,vtype=None):
               if fmt==1:
                  for i in data.ncattrs(): self.__dict__[i]=data.getncattr(i) #get all attribute
           def __getitem__(self,key): #subset of values
-             data=self.value[key] if self.fmt==0 else self.data[key]; return data.item() if size(data)==1 else array(data)
+             data=self.value[key] if fmt==0 else self.data[key]; return data.item() if size(data)==1 else array(data)
           def __setitem__(self,key,item): #set variable
               if mode=='r':
                  if not hasattr(self,'_value'): self.value
@@ -1408,12 +1408,17 @@ def savez(fname,data,fmt=0):
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
     if fname.endswith('.pp'):  fmt=2
     if fmt==1: fname=fname+'.pkl'
-    if type(data)!=zdata: import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
+    if isinstance(data,ncfile):
+       dvs=['name','groups','dimensions','variables','disk_format','path','parent','file_format','data_model',
+            'cmptypes','vltypes','enumtypes','keepweakref','auto_complex','dimname','dims','dim_unlimited']
+       svars0=[i for i in data.__dict__ if (not hasattr(data.attr(i),'__call__')) and (i not in dvs)]
+    elif type(data)!=zdata:
+         import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
     #save data
     if fmt in [0,2]:
        #check variable types (list, string, int, float and method), and constrcut save_string
-       zdict=data.__dict__;  svars=list(zdict.keys())
+       zdict=data.__dict__;  svars=svars0 if isinstance(data,ncfile) else list(zdict.keys())
        save_str='savez_compressed("{}" '.format(fname)
        lvars=[]; tvars=[]; ivars=[]; fvars=[]; mvars=[]
        for svar in svars:
@@ -1430,7 +1435,7 @@ def savez(fname,data,fmt=0):
                 except:
                    pass
            else:
-                save_str=save_str+',{}=data.{}'.format(svar,svar)
+                save_str=save_str+',{}=data.{}{}'.format(svar,svar,'.value' if ('narray' in str(type(vi))) else '')
        exec(save_str+',_list_variables=lvars,_str_variables=tvars,_int_variables=ivars,_float_variables=fvars,_method_variables=mvars)')
        if fmt==2: os.rename(fname+'.npz',fname)
     elif fmt==1:
