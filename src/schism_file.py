@@ -2514,7 +2514,33 @@ def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e6,h_c=10,th
     else:
         sys.exit('ivcor=1 option not available yet')
 
-def interp_schism_3d(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0):
+def interp_schism_3d(gd0,vd0,value0,xyz,fmt=0):
+    '''
+    3D interpolator based on schism grid
+      gd0:    original schism hgrid object
+      vd0:    original schism vgrid object or z-coordiantes (np,nvrt)
+      value0: original 3D data with dims (np,nvrt) or (ne,nvrt)
+      xyz:    target coordinates that value0 will be interpolated to, with formats
+              1). c_[x,y,z]: sparse data in space
+              2). [gd,vd] or (gd,vd): target schism hgrid and vgrid (or z-coordiantes (np,nvrt))
+      fmt=0/1: when xyz=gd+vd, interp to gd's node(fmt=0,default) or elem (fmt=1)
+    '''
+
+    #pre-proc on xyz
+    if isinstance(xyz,np.ndarray):
+       xy=xy[:,:2]; z=xy[:,2:].T
+    elif isinstance(xyz,tuple) or isinstance(xyz,list):
+       gd,vd=xyz; zcor=vd if isinstance(vd,np.ndarray) else vd.compute_zcor(gd.dp)
+       xy,z=[gd.xy,zcor] if fmt==0 else [gd.exy, gd.interp_node_to_elem(zcor)]
+
+    #pre-proc on (gd0,vd0,value0)
+    zcor0=vd0 if isinstance(vd0,np.ndarray) else vd0.compute_zcor(gd0.dp)
+    ie,ip,acor=gd0.compute_acor(xy); z0=(zcor0[ip]*acor[...,None]).sum(axis=1)
+    data0=(value0[ip]*acor[...,None]).sum(axis=1) if value0.shape[0]==gd0.np else gd0.interp_node_to_elem(value0)
+
+    return interp_vertical(data0.T,z0.T,z.T).T
+
+def interp_schism_3d_remove(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0): #outdated, to be updated
     '''
     3D interpolation for multiple variables; interplation only for the variables with a dimension of ne or np
         (gd,  vd):    (hgrid,vgrid) from save_schism_grid
