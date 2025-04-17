@@ -1597,7 +1597,7 @@ def near_pts(pts,pts0,method=0,N=100):
     '''
     return index of pts0 that pts is nearest
        usage: sind=near_pts(pts,pts0)
-       pts0: c_[x0,y0];  pts: c_[x,y]
+       pts0: c_[x0,y0];  pts: c_[x,y]  (or, pts=x+1j*y)
        algorithm: using sp.spatial.cKDTree (default)
 
     old methods: method=1 and  method=2
@@ -1610,6 +1610,7 @@ def near_pts(pts,pts0,method=0,N=100):
     '''
 
     if method==0:
+        pts=c_[pts.real,pts.imag] if pts.ndim==1 else pts; pts0=c_[pts0.real,pts0.imag] if pts0.ndim==1 else pts0
         sind=sp.spatial.cKDTree(pts0).query(pts)[1]
     elif method==1:
         p=pts[:,0]+(1j)*pts[:,1]
@@ -2364,7 +2365,7 @@ def cindex(index,shape):
       2) cindex(c_[id1,id2,...], ds):  convert flat indices (nD) to index (1D)
     '''
     index=array(index)
-    if index.ndim!=1 and index.shape[0]!=len(shape): index=index.T
+    if index.ndim!=1 and index.shape[1]==len(shape): index=index.T
 
     if index.ndim==1:
        cid=[*unravel_index(index,shape)]
