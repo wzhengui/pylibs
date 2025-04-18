@@ -1,14 +1,24 @@
-#/usr/bin/env python3
+''' Experimental functions and classes '''
+
+
 import os
+import unittest
+import pickle
+import sys
+import copy
+
 import numpy as np
 import pandas as pd
-import copy
-import unittest
+import netCDF4 as nc
+from sklearn.neighbors import KDTree
 
-from pylib import schism_grid, zdata, WriteNC
+from pylib import schism_grid, zdata, WriteNC, read_schism_vgrid
+from pylib import inside_polygon
 
 
-# ---------------------experimental functions and classes-------------------------------------
+# experimental c++ libraries on SciClone only
+sys.path.append('/sciclone/data10/feiye/schism_clib/build')
+
 
 def cread_schism_hgrid(fname):
     '''
@@ -16,14 +26,15 @@ def cread_schism_hgrid(fname):
     then copy the data to pylib's grid object.
     Usefull when the grid is large and the python reading is slow.
     '''
-    import hgrid_pybind
+    import hgrid_pybind  # pylint: disable=import-outside-toplevel
 
-    hgrid_obj = hgrid_pybind.HGrid(fname, True)  # read c++ HGrid object from file and optionally get side information
+    # read c++ HGrid object from hgrid file and optionally get side information
+    hgrid_obj = hgrid_pybind.HGrid(fname, True)  # pylint: disable=c-extension-no-member
 
-    gd=schism_grid()  # initialize empty pylib's grid object
+    gd = schism_grid()  # initialize empty pylib's grid object
     gd.source_file = str(fname)
 
-    # copy the member variables from the c++ HGrid object to pylib's grid object
+    # copy the member variables to pylib's grid object
     gd.np = hgrid_obj.np
     gd.ne = hgrid_obj.ne
     gd.x = hgrid_obj.x
@@ -33,72 +44,93 @@ def cread_schism_hgrid(fname):
     gd.i34 = hgrid_obj.i34
     gd.ns = hgrid_obj.ns
 
-    # need more testing
-    # gd.iobn = np.array(hgrid_obj.openBoundaryNodes, dtype=object)
-    # gd.nobn = np.array(hgrid_obj.nobn)
-    # gd.nob = np.array(hgrid_obj.nob)
-    # gd.ilbn = np.array(hgrid_obj.landBoundaryNodes, dtype=object)
-    # gd.nlbn = np.array(hgrid_obj.nlbn)
-    # gd.nlb = np.array(hgrid_obj.nlb)
-    # gd.island = np.array(hgrid_obj.island)
+    # copy the boundary information to pylib's grid object
+    if hgrid_obj.has_boundary:
+        gd.iobn = np.array(hgrid_obj.openBoundaryNodes, dtype=object)
+        gd.nobn = np.array(hgrid_obj.nobn)
+        gd.nob = np.array(hgrid_obj.nob)
+        gd.ilbn = np.array(hgrid_obj.landBoundaryNodes, dtype=object)
+        gd.nlbn = np.array(hgrid_obj.nlbn)
+        gd.nlb = np.array(hgrid_obj.nlb)
+        gd.island = np.array(hgrid_obj.island)
 
     return gd
 
+
 def read_schism_vgrid_cached(vg_filename, overwrite_cache=False):
+    '''
+    Read SCHISM vgrid.in file and cache the result in a pickle file.
+    '''
     vg_cache_fname = os.path.splitext(vg_filename)[0] + '.pkl'
+    cache_success = False
+
     if not overwrite_cache:
         try:
             with open(vg_cache_fname, 'rb') as handle:
                 vg = pickle.load(handle)
-        except Exception as e:
-            print(f'{e}\nError reading cache file {vg_cache_fname}.\nReading from original file.')
-            # read original file
-            vg = read_schism_vgrid(vg_filename)
-            with open(vg_cache_fname, 'wb') as handle:
-                pickle.dump(vg, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
+                cache_success = True
+        except Exception as e:  # pylint: disable=broad-except
+            print(f'{e}\n'
+                  f'Error reading cache file {vg_cache_fname}.\n'
+                  'Reading from original file.')
+
+    if overwrite_cache or not cache_success:
         vg = read_schism_vgrid(vg_filename)
         with open(vg_cache_fname, 'wb') as handle:
             pickle.dump(vg, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
     return vg
 
-def combine_dataframes(A, B, weights=[1.0, 1.0]):
-    import numbers
 
-    AB = copy.deepcopy(A)
+def combine_dataframes(a, b, weights=None):
+    '''
+    Combine two dataframes a and b,
+    assuming they are time series and the index is time.
+    '''
+    import numbers  # pylint: disable=import-outside-toplevel
 
-    # warn if B's time period does not contain A's time
-    if B.index[0] > A.index[0] or B.index[-1] < A.index[-1]:
-        print('Warning: B\'s time period does not contain A\'s time period')
-        print('In the interpolated B, NaN will be filled for the time period that is not covered by B')
-        print('and the NaN in the interpolated B will be treated as 0 when summing up')
+    if weights is None:
+        weights = [1.0, 1.0]
 
-    # Interpolate B to A's index
-    B_interpolated = B.reindex(A.index).interpolate(method='time')
+    ab = copy.deepcopy(a)
 
-    # Find the columns that are in B but not in A
-    new_columns = B_interpolated.columns.difference(A.columns)
+    # warn if b's time period does not contain a's time
+    if b.index[0] > a.index[0] or b.index[-1] < a.index[-1]:
+        print('Warning: b\'s time period does not contain a\'s time period')
+        print('In the interpolated b, NaN will be filled for the time period that is not covered by b')
+        print('and the NaN in the interpolated b will be treated as 0 when summing up')
 
-    # append these columns to A
-    AB = pd.concat([A, B_interpolated[new_columns]], axis=1)
+    # Interpolate b to a's index; requires same starting/ending timestamps
+    # b_interpolated = b.reindex(a.index).interpolate(method='time')
+    a_seconds = (a.index - a.index[0]).total_seconds().values
+    b_seconds = (b.index - a.index[0]).total_seconds().values
+    b_data = np.array([np.interp(a_seconds, b_seconds, b.values[:, i]) for i in range(b.values.shape[1])]).T
+    b_interpolated = pd.DataFrame(b_data, index=a.index, columns=b.columns)
 
-    # Find the common columns in A and B
-    common_columns = A.columns.intersection(B_interpolated.columns)
+    # Find the columns that are in b but not in a
+    new_columns = b_interpolated.columns.difference(a.columns)
+
+    # append these columns to a
+    ab = pd.concat([a, b_interpolated[new_columns]], axis=1)
+
+    # Find the common columns in a and b
+    common_columns = a.columns.intersection(b_interpolated.columns)
 
     # Sum the values from both dataframes for the common columns
     if isinstance(weights[0], numbers.Number):
-        AB[common_columns] = weights[0] * A[common_columns] + weights[1] * B_interpolated[common_columns]
+        ab[common_columns] = weights[0] * a[common_columns] + weights[1] * b_interpolated[common_columns]
     elif isinstance(weights[0], TimeHistory):
-        vs_A = weights[0].df[common_columns]
-        vs_B = weights[1].df[common_columns]
-        vs_B = vs_B.reindex(vs_A.index).interpolate(method='time')
-        weights_A = vs_A / (vs_A + vs_B)
-        weights_B = vs_B / (vs_A + vs_B)
-        AB[common_columns] = weights_A * A[common_columns] + weights_B * B_interpolated[common_columns]
+        vs_a = weights[0].df[common_columns]
+        vs_b = weights[1].df[common_columns]
+        vs_b = vs_b.reindex(vs_a.index).interpolate(method='time')
+        weights_a = vs_a / (vs_a + vs_b)
+        weights_b = vs_b / (vs_a + vs_b)
+        ab[common_columns] = weights_a * a[common_columns] + weights_b * b_interpolated[common_columns]
     else:
         raise ValueError('weights must be a list of two numbers or two TimeHistory objects')
 
-    return AB
+    return ab
+
 
 class TimeHistory:
     """Class for handling SCHISM's *.th file format.
@@ -113,32 +145,40 @@ class TimeHistory:
     """
     @property
     def time(self):
-        # original time in *th's format
+        ''' original time in *.th's format, i.e., seconds or days '''
         seconds = (self.df.index - self.df.index[0]).total_seconds().values
         t = seconds / self.sec_per_time_unit
         return t
 
     @property
-    def delta_t(self): # time step
+    def datetime(self):
+        ''' original time in datetime format '''
+        return self.df.index
+
+    @property
+    def delta_t(self):
+        '''time step'''
         return self.time[1] - self.time[0]
 
     @property
     def n_time(self):
+        '''number of time steps'''
         return self.df.shape[0]
 
     @property
     def n_station(self):
+        '''number of stations'''
         return self.df.shape[1]
 
     @property
     def stations(self):
+        '''station names'''
         return self.df.columns.values.tolist()
 
     @property
     def data(self):
-        # original data excluding time
+        '''original data excluding time'''
         return self.df.values
-
 
     def __init__(self, start_time_str="2000-01-01 00:00:00", data_array=None, columns=None, th_unit='seconds'):
         """
@@ -149,9 +189,12 @@ class TimeHistory:
 
         # list of main attributes
         self.df = pd.DataFrame(data_array)
-        self.meaningful_columns = False  # some functions only work when column names are meaningful,
+
+        # some functions only work when column names are meaningful,
+        # e.g., station names or element ids, but not datetime + column numbers
+        self.meaningful_columns = False
+
         self.th_unit = th_unit
-                                         # e.g., station names or element ids, but not datetime + column numbers
         self.sec_per_time_unit = None
 
         # set time unit
@@ -159,21 +202,22 @@ class TimeHistory:
         self.sec_per_time_unit = unit_dict[th_unit]  # only related to the time column of a *.th file
 
         # set column names, which usually are datetime + station ids
-        if type(columns) is list:  # from a user-specified list
+        if isinstance(columns, list):  # from a user-specified list
             if len(columns) == self.df.shape[1]:
                 self.df.columns = [str(x) for x in columns]
                 self.meaningful_columns = True
             elif len(columns) == self.df.shape[1]-1:
-                print('number of column labels does not match the data array, assuming the first column of the data is time')
+                print('number of column labels does not match the data array, '
+                      'assuming the first column of the data is time')
                 self.df.columns = [str(x) for x in ['datetime'] + columns]
                 self.meaningful_columns = True
             else:
-                raise Exception('number of columns does not match')
+                raise ValueError('number of columns does not match')
         elif columns is None:  # first col is time and the rest are column numbers
             self.df.columns = ['datetime'] + [str(x) for x in range(1, self.df.shape[1])]
             self.meaningful_columns = False
         else:
-            raise Exception('unknown columns type')
+            raise TypeError('unknown columns type')
 
         # Lay some ground rules
         # force the first column's name to "datetime"
@@ -201,7 +245,7 @@ class TimeHistory:
         """Subset the TimeHistory object by column names"""
 
         # parse row and col selectors from selector
-        if type(selector) is str:
+        if isinstance(selector, str):
             selector = [selector]
         elif isinstance(selector, np.ndarray):
             if len(selector.shape) == 1:  # 1D array of column names
@@ -209,7 +253,7 @@ class TimeHistory:
             else:
                 raise IndexError("Column names must be a 1D array")
 
-        if type(selector) is list and all(isinstance(x, str) for x in selector):  # subset by column names
+        if isinstance(selector, list) and all(isinstance(x, str) for x in selector):  # subset by column names
             column_names = selector
             subset_data = np.array(self.df[column_names])
             return TimeHistory(
@@ -222,26 +266,30 @@ class TimeHistory:
             if len(selector) != 2:
                 raise IndexError("Only 2D indexing is supported")
             row_idx, col_idx = selector
+
             subset_data = self.data[row_idx, col_idx]
+
             subset_time_str = self.df.index[row_idx]
             subset_time = self.time[row_idx]
+            # re-allign start time to the beginning of the slice
+            subset_time -= subset_time[0]
+
+            return TimeHistory(
+                start_time_str=subset_time_str[0],
+                data_array=np.c_[subset_time, subset_data],
+                columns=self.df.columns[col_idx].tolist(),
+                th_unit=self.th_unit
+            )
         elif isinstance(selector, slice):  # subset by row index only, i.e., by time
             subset_df = self.df.loc[selector]
             subset_data = subset_df.values
-            subset_time_str = subset_df.index
-            subset_time = np.array(subset_df.index - subset_df.index[0]).astype('timedelta64[s]').astype(float) / self.sec_per_time_unit
-            col_idx = range(len(self.df.columns))
 
-            # if isinstance(row_idx, slice) or isinstance(col_idx, slice):
-            #     # Handle slices here
-            #     rows = self.data[row_idx] if isinstance(row_idx, int) else [self.data[i] for i in range(*row_idx.indices(len(self.data)))]
-            #     if isinstance(col_idx, int):
-            #         return [row[col_idx] for row in rows]
-            #     else:
-            #         return [row[col_idx] for row in rows for col_idx in range(*col_idx.indices(len(row)))]
-            # else:
-            #     # Regular integer indexing
-            #     data = self.data[row_idx][col_idx]
+            subset_time_str = subset_df.index
+            # re-allign start time to the beginning of the slice
+            subset_time = np.array(subset_df.index - subset_df.index[0])
+            subset_time = subset_time.astype('timedelta64[s]').astype(float) / self.sec_per_time_unit
+
+            col_idx = range(len(self.df.columns))
 
             return TimeHistory(
                 start_time_str=subset_time_str[0],
@@ -251,7 +299,7 @@ class TimeHistory:
         else:
             raise IndexError("Unknown type of index")
 
-    def __add__(self, other, weights=[1.0, 1.0]):
+    def __add__(self, other, weights=None):
         """
         Add two TimeHistory objects together
         Interpolate other to self's time stamps;
@@ -264,13 +312,15 @@ class TimeHistory:
         e.g., when combining two sets of msource, you can set weights=[vsource1, vsource2],
         i.e., a weighted average based on the volume of the two sources,
         """
+        if weights is None:
+            weights = [1.0, 1.0]
 
-        A = copy.deepcopy(self)
-        B = other
+        a = copy.deepcopy(self)
+        b = other
 
-        A.df = combine_dataframes(A.df, B.df, weights=weights)
+        a.df = combine_dataframes(a.df, b.df, weights=weights)
 
-        return A
+        return a
 
     def __eq__(self, other) -> bool:
         """Check if two TimeHistory objects are equal"""
@@ -288,39 +338,51 @@ class TimeHistory:
             return False
         return np.allclose(self.df, other.df, rtol=0.001, atol=0.0001)
 
-    def writer(self, file_name, np_savetxt_args={'fmt':'%.4f', 'delimiter':' ', 'newline':'\n'}):
-        # assemble data array in *.th format and write to file
+    def writer(self, file_name, np_savetxt_args=None):
+        ''' assemble data array in *.th format and write to file '''
+        if np_savetxt_args is None:
+            np_savetxt_args = {'fmt': '%.4f', 'delimiter': ' ', 'newline': '\n'}
         np.savetxt(file_name, np.c_[self.time, self.data], **np_savetxt_args)
 
 
 class SourceSinkIn():
-    def __init__(self, ele_groups=[[], []]):
+    '''A class for handling source_sink.in file, which defines source and sink elements.'''
+    def __init__(self, ele_groups=None):
+        if ele_groups is None:
+            ele_groups = [[], []]
         self.ele_groups = ele_groups  # 0: source; 1: sink
 
     @property
     def n_group(self):
+        '''number of groups, usually 2, i.e., source and sink,
+        but can be less if source or sink is non-existent.'''
         return len(self.ele_groups)
 
     @property
     def np_group(self):
+        """number of points in each group"""
         return [len(x) for x in self.ele_groups]
 
     @property
     def ip_group(self):
+        """element id in each group"""
         return [np.array(x) for x in self.ele_groups]
 
     @property
     def n_source(self):
+        """number of source elements"""
         return self.np_group[0]
 
     @property
     def n_sink(self):
+        """number of sink elements"""
         return self.np_group[1]
 
     @classmethod
     def from_file(cls, filename):
+        '''initialize from a source_sink.in file'''
         ele_groups = [[], []]
-        with open(filename, 'r') as file:
+        with open(filename, 'r', encoding='utf-8') as file:
             for k in range(0, 2):  # 0: source; 1: sink
                 num_points = int(file.readline().strip().split()[0])
                 for _ in range(num_points):
@@ -334,6 +396,8 @@ class SourceSinkIn():
         return source_sink_in
 
     def print_info(self):
+        '''print basic information of the source_sink.in file'''
+
         print(f"nsource: {self.n_source}")
         if self.n_source > 0:
             print(f"first and last ele: {self.ele_groups[0][0]}, {self.ele_groups[0][-1]}")
@@ -343,7 +407,9 @@ class SourceSinkIn():
             print(f"first and last ele: {self.ele_groups[1][0]}, {self.ele_groups[1][-1]}")
 
     def writer(self, filename=None):
-        with open(filename, 'w') as fout:
+        '''write to a source_sink.in file'''
+
+        with open(filename, 'w', encoding='utf-8') as fout:
             for k in range(0, self.n_group):
                 print("Points in Group " + str(k+1) + ": " + str(self.np_group[k]))
                 fout.write(f"{self.np_group[k]}\n")
@@ -358,7 +424,7 @@ class SourceSinkIn():
         return True
 
 
-class source_sink:
+class SourceSink:  # pylint: disable=invalid-name
     """
     Class for handling all source/sink inputs:
 
@@ -376,22 +442,26 @@ class source_sink:
     provide additional functions.
     """
     @property
-    def source_eles(self):  # element index starts from 1
+    def source_eles(self):
+        '''source elements, 1-based index'''
         return self.source_sink_in.ele_groups[0]
 
     @property
-    def sink_eles(self):  # element index starts from 1
+    def sink_eles(self):
+        '''sink elements, 1-based index'''
         return self.source_sink_in.ele_groups[1]
 
     @property
     def nsource(self):
+        '''number of source elements'''
         return self.source_sink_in.n_source
 
     @property
     def nsink(self):
+        '''number of sink elements'''
         return self.source_sink_in.n_sink
 
-    def __init__(self, vsource:TimeHistory, vsink:TimeHistory, msource:list):
+    def __init__(self, vsource: TimeHistory, vsink: TimeHistory, msource: list):
         """initialize from TimeHistory objects,
         vsource: TimeHistory object for volume source
         vsink: TimeHistory object for volume sink
@@ -429,9 +499,18 @@ class source_sink:
         self.sanity_check()
 
     @classmethod
-    def dummy(cls, start_time_str='2000-01-01 00:00:00', timestamps=[0.0, 86400.0*365*100],
-                 source_eles=[], sink_eles=[], ntracers=2):
+    def dummy(
+        cls, start_time_str='2000-01-01 00:00:00',
+        timestamps=None, source_eles=None, sink_eles=None, ntracers=2
+    ):
         """create a dummy source_sink object for testing purpose"""
+
+        if timestamps is None:
+            timestamps = [0.0, 86400.0*365*100]
+        if source_eles is None:
+            source_eles = []
+        if sink_eles is None:
+            sink_eles = []
 
         # initialize a set of source/sink files from scratch
         nt = len(timestamps)
@@ -442,22 +521,26 @@ class source_sink:
         msource = [None] * ntracers
 
         if nsources > 0:
-            vsource = TimeHistory(start_time_str=start_time_str,
-                                  data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])],
-                                  columns=source_eles)
+            vsource = TimeHistory(
+                start_time_str=start_time_str, columns=source_eles,
+                data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])]
+            )
             # dummy temperature, set to -9999, i.e., ambient temperature
-            msource[0] = TimeHistory(start_time_str=start_time_str,
-                                     data_array=np.c_[np.array(timestamps), -9999*np.ones([nt, nsources])],
-                                     columns=source_eles)
+            msource[0] = TimeHistory(
+                start_time_str=start_time_str, columns=source_eles,
+                data_array=np.c_[np.array(timestamps), -9999*np.ones([nt, nsources])]
+            )
             # dummy salinity, set to 0
-            msource[1] = TimeHistory(start_time_str=start_time_str,
-                                     data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])],
-                                     columns=source_eles)
+            msource[1] = TimeHistory(
+                start_time_str=start_time_str, columns=source_eles,
+                data_array=np.c_[np.array(timestamps), np.zeros([nt, nsources])],
+            )
 
         if nsinks > 0:
-            vsink = TimeHistory(start_time_str=start_time_str,
-                                data_array=np.c_[np.array(timestamps), np.zeros([nt, nsinks])],
-                                columns=sink_eles)
+            vsink = TimeHistory(
+                start_time_str=start_time_str, columns=sink_eles,
+                data_array=np.c_[np.array(timestamps), np.zeros([nt, nsinks])],
+            )
 
         return cls(vsource, vsink, msource)
 
@@ -487,7 +570,7 @@ class source_sink:
             msource_total = np.loadtxt(f"{source_dir}/msource.th")
             msource_t = msource_total[:, 0]
             ntracers = (msource_total.shape[1] - 1) / vsource.n_station
-            if (int(ntracers) != ntracers):
+            if int(ntracers) != ntracers:
                 raise ValueError("Number of tracers must be an integer, vsource and msource don't match")
             else:
                 ntracers = int(ntracers)
@@ -512,10 +595,10 @@ class source_sink:
                 columns=source_sink_in.ele_groups[1]
             )
 
-        source_sink = cls(vsource, vsink, msource)
-        source_sink.sanity_check()
-        return source_sink
-    
+        source_sink_obj = cls(vsource, vsink, msource)
+        source_sink_obj.sanity_check()
+        return source_sink_obj
+
     @classmethod
     def from_ncfile(cls, ncfile, start_time_str='2000-01-01 00:00:00'):
         '''
@@ -523,35 +606,46 @@ class source_sink:
         Note that this file doesn't have start time information,
         and you need to provide it.
         '''
-        import netCDF4 as nc
 
         # read source.nc
-        with nc.Dataset(ncfile, 'r') as f:
+        with nc.Dataset(ncfile, 'r') as f:  # pylint: disable=no-member
             # source
             source_elem = f.variables['source_elem'][:]
             # vsource
             vs_data = f.variables['vsource'][:]
             dt_vs = f.variables['time_step_vsource'][:][0]
             time_vs = np.arange(0, dt_vs*vs_data.shape[0], dt_vs)
-            vsource = TimeHistory(data_array=np.c_[time_vs, vs_data], start_time_str=start_time_str, columns=source_elem.tolist())
+            vsource = TimeHistory(
+                data_array=np.c_[time_vs, vs_data],
+                start_time_str=start_time_str,
+                columns=source_elem.tolist()
+            )
             # msource
-            ms_data = f.variables[f'msource'][:]
+            ms_data = f.variables['msource'][:]
             ntracers = ms_data.shape[1]
-            dt_ms = f.variables[f'time_step_msource'][:][0]
+            dt_ms = f.variables['time_step_msource'][:][0]
             time_ms = np.arange(0, dt_ms*ms_data.shape[0], dt_ms)
             msources = [None] * ntracers
             for i in range(ntracers):
-                msources[i] = TimeHistory(data_array=np.c_[time_ms, ms_data[:, i, :]], start_time_str=start_time_str, columns=source_elem.tolist())
+                msources[i] = TimeHistory(
+                    data_array=np.c_[time_ms, ms_data[:, i, :]],
+                    start_time_str=start_time_str,
+                    columns=source_elem.tolist()
+                )
             # vsink
             sink_elem = f.variables['sink_elem'][:]
             vsink_data = f.variables['vsink'][:]
             dt_vsink = f.variables['time_step_vsink'][:][0]
             time_vsink = np.arange(0, dt_vsink*vsink_data.shape[0], dt_vsink)
-            vsink = TimeHistory(data_array=np.c_[time_vsink, vsink_data], start_time_str=start_time_str, columns=sink_elem.tolist())
+            vsink = TimeHistory(
+                data_array=np.c_[time_vsink, vsink_data],
+                start_time_str=start_time_str,
+                columns=sink_elem.tolist()
+            )
 
-        source_sink = cls(vsource, vsink, msources)
-        source_sink.sanity_check()
-        return source_sink
+        source_sink_obj = cls(vsource, vsink, msources)
+        source_sink_obj.sanity_check()
+        return source_sink_obj
 
     def subset_by_time(self, start_time_str, end_time_str):
         '''
@@ -576,24 +670,29 @@ class source_sink:
         '''
         Subset source/sink files by index.
         '''
-        if self.vsource is not None:
-            subset_vsource = self.vsource[:, source_idx]
-            subset_msource = [x[:, source_idx] for x in self.msource]
-        else:
+        if sum(source_idx) == 0 or self.vsource is None:
             subset_vsource = None
             subset_msource = None
-
-        if self.vsink is not None:
-            subset_vsink = self.vsink[:, sink_idx]
         else:
+            subset_vsource = self.vsource[:, source_idx]
+            subset_msource = [x[:, source_idx] for x in self.msource]
+
+        if sum(sink_idx) == 0 or self.vsink is None:
             subset_vsink = None
+        else:
+            subset_vsink = self.vsink[:, sink_idx]
 
         return source_sink(subset_vsource, subset_vsink, subset_msource)
 
-    def subset_by_ele(self, source_eles=[], sink_eles=[]):
+    def subset_by_ele(self, source_eles=None, sink_eles=None):
         '''subset source/sink files by element ids (index starts from 1)'''
+        if source_eles is None:
+            source_eles = []
+        if sink_eles is None:
+            sink_eles = []
+
         if self.vsource is not None:
-            if source_eles == []:  # no subsetting
+            if len(source_eles) == 0:  # no subsetting
                 subset_vsource = self.vsource
                 subset_msource = self.msource
             else:
@@ -604,7 +703,7 @@ class source_sink:
             subset_msource = None
 
         if self.vsink is not None:
-            if sink_eles == []:
+            if len(sink_eles) == 0:  # no subsetting
                 subset_vsink = self.vsink  # no subsetting
             else:
                 subset_vsink = self.vsink[sink_eles]
@@ -613,13 +712,84 @@ class source_sink:
 
         return source_sink(subset_vsource, subset_vsink, subset_msource)
 
+    def reset_source_ele(self, relocation_dict):
+        '''
+        Relocate source elements based on a dictionary.
+        This involves changing the source element ids in the source_sink_in object,
+        as well as the column names in the vsource and msource objects.
 
-    def clip_by_polygons(self, hgrid, polygons_xy=[]):
+        Sample relocation_dict:
+        relocate_dict = {
+            131606: 163773
+        }
+        , where key is the original element id, value is the new element id.
+
+        remove_unspecified: bool
+            if True, then unspecified elements will be removed;
+            if False, then unspecified elements will remain unchanged
+        '''
+        # source_sink.in
+        for key, value in relocation_dict.items():
+            # replace key with value in the source id array
+            indices = self.source_sink_in.ele_groups[0] == key
+            self.source_sink_in.ele_groups[0][indices] = value
+            print(f"relocated {sum(indices)} source id {key} to {value}")
+
+        # vsource column names
+        self.vsource.df.columns = [str(x) for x in self.source_sink_in.ele_groups[0]]
+        # msources column names
+        for i in range(self.ntracers):
+            self.msource[i].df.columns = [str(x) for x in self.source_sink_in.ele_groups[0]]
+    
+    def get_source_sink_coords(self, hgrid_obj):
+        '''
+        Get source and sink coordinates from the hgrid object.
+        '''
+        hgrid_obj.compute_ctr()
+        if self.nsource == 0:
+            source_coords = None
+        else:
+            source_coords = np.c_[hgrid_obj.xctr[self.source_eles-1], hgrid_obj.yctr[self.source_eles-1]]
+        
+        if self.nsink == 0:
+            sink_coords = None
+        else:
+            sink_coords = np.c_[hgrid_obj.xctr[self.sink_eles-1], hgrid_obj.yctr[self.sink_eles-1]]
+
+        return source_coords, sink_coords
+    
+    def map_source_ele(self, hgrid_obj, destination_xy):
+        """
+        Map source/sink elements to new locations based on the given coordinates.
+        Each new location is mapped to the nearest original source/sink element.
+        Any unmapped original source/sink elements are removed.
+        This function needs the hgrid object to get the element coordinates.
+        """
+        source_coords, _ = self.get_source_sink_coords(hgrid_obj)
+        if source_coords is not None:
+            original_src_idx = np.squeeze(KDTree(source_coords).query(destination_xy)[1])
+            ele_idx = np.squeeze(KDTree(np.c_[hgrid_obj.xctr, hgrid_obj.yctr]).query(destination_xy)[1])
+            relocation_dict = {}
+            for src_idx, el_idx in zip(original_src_idx, ele_idx):
+                relocation_dict[self.source_eles[src_idx]] = el_idx + 1
+        else:
+            raise ValueError("No source elements to map")
+        
+        self.reset_source_ele(relocation_dict)
+            
+        # remove unmapped elements
+        new_source_sink = self.subset_by_ele(source_eles=ele_idx+1)
+        return new_source_sink
+
+    def clip_by_polygons(self, hgrid, polygons_xy=None):
         '''
         Select source/sink elements by polygons.
         An hgrid of schism_grid type is required to get element coordinates.
         polygons: a list of 2D np arrays of (x, y) coordinates of each polygon
         '''
+        if polygons_xy is None:
+            polygons_xy = []
+
         hgrid.compute_ctr()
 
         # select source and sink elements
@@ -665,25 +835,42 @@ class source_sink:
         if self.vsource:
             np.savetxt(
                 f'{output_dir}/sources.xyz',
-                np.c_[hgrid.xctr[self.source_eles-1], hgrid.yctr[self.source_eles-1], self.vsource.df.mean().values]
+                np.c_[
+                    hgrid.xctr[self.source_eles-1],
+                    hgrid.yctr[self.source_eles-1],
+                    self.vsource.df.mean().values
+                ]
             )
         if self.vsink:
             np.savetxt(
                 f'{output_dir}/sinks.xyz',
-                np.c_[hgrid.xctr[self.sink_eles-1], hgrid.yctr[self.sink_eles-1], self.vsink.df.mean().values]
+                np.c_[
+                    hgrid.xctr[self.sink_eles-1],
+                    hgrid.yctr[self.sink_eles-1],
+                    self.vsink.df.mean().values
+                ]
             )
 
     def nc_writer(self, output_dir=None):
+        '''write source/sink files to netcdf format'''
+
         if output_dir is None:
-            raise Exception("output_dir is required.")
+            raise FileNotFoundError("output_dir is required.")
+
         os.makedirs(output_dir, exist_ok=True)
 
-        # create netcdf data
-        C=zdata(); C.vars=[]; C.file_format='NETCDF4'
+        # create netcdf data using pylib's functions
+        C = zdata()
+        C.vars = []
+        C.file_format = 'NETCDF4'
 
         # create dummy source/sink if they are empty
         if self.nsource == 0:
-            dummy_ss = source_sink.dummy(start_time_str=self.vsink.df.index[0], timestamps=self.vsink.time, source_eles=['1'], sink_eles=['1'], ntracers=2)
+            dummy_ss = source_sink.dummy(
+                start_time_str=self.vsink.df.index[0],
+                timestamps=self.vsink.time,
+                source_eles=['1'], sink_eles=['1'], ntracers=2
+            )
             vsource = dummy_ss.vsource
             msource = dummy_ss.msource
             vsink = self.vsink
@@ -691,7 +878,11 @@ class source_sink:
             nsink = self.nsink
             ntracers = 2
         else:
-            dummy_ss = source_sink.dummy(start_time_str=self.vsource.df.index[0], timestamps=self.vsource.time, source_eles=['1'], sink_eles=['1'], ntracers=self.ntracers)
+            dummy_ss = source_sink.dummy(
+                start_time_str=self.vsource.df.index[0],
+                timestamps=self.vsource.time,
+                source_eles=['1'], sink_eles=['1'], ntracers=self.ntracers
+            )
             vsource = self.vsource
             msource = self.msource
             vsink = dummy_ss.vsink
@@ -699,46 +890,101 @@ class source_sink:
             nsink = 1
             ntracers = self.ntracers
 
-        C.dimname=['nsources', 'nsinks', 'ntracers', 'time_msource','time_vsource','time_vsink','one']
-        C.dims=[nsource, nsink, ntracers, msource[0].n_time, vsource.n_time, vsink.n_time, 1]
+        C.dimname = ['nsources', 'nsinks', 'ntracers', 'time_msource', 'time_vsource', 'time_vsink', 'one']
+        C.dims = [nsource, nsink, ntracers, msource[0].n_time, vsource.n_time, vsink.n_time, 1]
 
-        C.vars.extend(['source_elem','vsource','msource'])
-        vi=zdata(); vi.dimname=('nsources',); vi.val=vsource.df.columns.values.astype(int); C.source_elem=vi
-        vi=zdata(); vi.dimname=('time_vsource','nsources'); vi.val=vsource.data; C.vsource=vi
-        msource_data = np.stack([x.data for x in msource], axis=1)  # cast into a 3D array of shape (nt, ntracers, nsources)
-        vi=zdata(); vi.dimname=('time_msource','ntracers','nsources'); vi.val=msource_data; C.msource=vi
+        C.vars.extend(['source_elem', 'vsource', 'msource'])
+        vi = zdata()
+        vi.dimname = ('nsources',)
+        vi.val = vsource.df.columns.values.astype(int)
+        C.source_elem = vi
 
-        C.vars.extend(['sink_elem','vsink'])
-        vi=zdata(); vi.dimname=('nsinks',); vi.val=vsink.df.columns.values.astype(int); C.sink_elem=vi
-        vi=zdata(); vi.dimname=('time_vsink','nsinks',); vi.val=vsink.data; C.vsink=vi
+        vi = zdata()
+        vi.dimname = ('time_vsource', 'nsources')
+        vi.val = vsource.data
+        C.vsource = vi
+        # cast into a 3D array of shape (nt, ntracers, nsources)
+        msource_data = np.stack([x.data for x in msource], axis=1)
 
-        C.vars.extend(['time_step_vsource','time_step_msource','time_step_vsink'])
-        vi=zdata(); vi.dimname=('one',); vi.val=vsource.delta_t; C.time_step_vsource=vi
-        vi=zdata(); vi.dimname=('one',); vi.val=msource[0].delta_t; C.time_step_msource=vi
-        vi=zdata(); vi.dimname=('one',); vi.val=vsink.delta_t; C.time_step_vsink=vi
+        vi = zdata()
+        vi.dimname = ('time_msource', 'ntracers', 'nsources')
+        vi.val = msource_data
+        C.msource = vi
+
+        C.vars.extend(['sink_elem', 'vsink'])
+        vi = zdata()
+        vi.dimname = ('nsinks',)
+        vi.val = vsink.df.columns.values.astype(int)
+        C.sink_elem = vi
+
+        vi = zdata()
+        vi.dimname = ('time_vsink', 'nsinks',)
+        vi.val = vsink.data
+        C.vsink = vi
+
+        C.vars.extend(['time_step_vsource', 'time_step_msource', 'time_step_vsink'])
+        vi = zdata()
+        vi.dimname = ('one',)
+        vi.val = vsource.delta_t
+        C.time_step_vsource = vi
+
+        vi = zdata()
+        vi.dimname = ('one',)
+        vi.val = msource[0].delta_t
+        C.time_step_msource = vi
+
+        vi = zdata()
+        vi.dimname = ('one',)
+        vi.val = vsink.delta_t
+        C.time_step_vsink = vi
 
         WriteNC(f'{output_dir}/source.nc', C)
 
     def sanity_check(self):
-        # check consistency of source_sink_in and vsource/vsink/msource
+        '''
+        check consistency of source_sink_in and vsource/vsink/msource
+        check if vsource is non-negative
+        check if vsink is non-positive
+        check possible duplicates in sources
+        '''
+
         if self.vsource is None and self.vsink is None:
             raise ValueError("vsource and vsink cannot be both None")
 
         if self.vsource is not None:
             if len(self.msource) != self.ntracers:
-                raise Exception('inconsistent number of tracers')
+                raise ValueError('inconsistent number of tracers')
             if self.nsource != self.msource[0].n_station:
-                raise Exception('inconsistent number of msource stations')
+                raise ValueError('inconsistent number of msource stations')
             if self.nsource != self.vsource.n_station:
-                raise Exception('inconsistent number of vsource stations')
+                raise ValueError('inconsistent number of vsource stations')
             if np.min(self.vsource.df.values, axis=None) < 0:
-                raise Exception('vsource must be non-negative')
+                raise ValueError('vsource must be non-negative')
 
         if self.vsink is not None:
             if self.nsink != self.vsink.n_station:
-                raise Exception('inconsistent number of sink stations')
+                raise ValueError('inconsistent number of sink stations')
             if np.max(self.vsink.df.values, axis=None) > 0:
-                raise Exception('vsink must be non-positive')
+                raise ValueError('vsink must be non-positive')
+
+        # check possible duplicates in sources
+        if self.vsource is not None:
+            existing_sources = set()
+            duplicate_sources = []
+            for i, source_time_series in enumerate(self.vsource.data.T):
+                this_source = tuple(np.round(source_time_series, decimals=11))
+                if this_source in existing_sources:
+                    if np.mean(this_source) > 100:
+                        print('Large potentially duplicate sources found')
+                    duplicate_sources.append(i)
+                if np.mean(this_source) > 0:
+                    existing_sources.add(this_source)
+            if duplicate_sources:
+                for i in duplicate_sources:
+                    print(f"Potentially duplicate source found: "
+                          f"index {i}, Element {self.source_eles[i]}; "
+                          f"mean value {np.mean(self.vsource.data[:, i])}")
+                print(f"{len(duplicate_sources)} potentially duplicate sources found")
 
     def __add__(self, other):
         '''
@@ -750,7 +996,7 @@ class source_sink:
 
         # sanity check
         if A.nsource == 0 and B.nsource == 0 and A.nsink == 0 and B.nsink == 0:
-            raise Exception('both source and sink are empty')
+            raise ValueError('both source and sink are empty')
 
         # most cases are trivial unless both A and B have source
         if A.nsource == 0 and B.nsource == 0:  # neither has source
@@ -785,18 +1031,30 @@ class source_sink:
             if getattr(self, att) != getattr(other, att):
                 print(f'{att} not equal')
                 return False
-        for i, [ms_A, ms_B] in enumerate(zip(self.msource, other.msource)):
+        for _, [ms_A, ms_B] in enumerate(zip(self.msource, other.msource)):
             if ms_A != ms_B:
                 print('msource {i} not equal')
                 return False
         return True
 
+
+source_sink = SourceSink  # pylint: disable=invalid-name; alias for legacy code
+
+
 # ---------------------------- unit test ----------------------------
-class test_cread_schism_hgrid(unittest.TestCase):
+class TestCreadSchismHgrid(unittest.TestCase):
+    '''unit test for cread_schism_hgrid'''
     def test_read_schism_hgrid(self):
+        '''
+        test cread_schism_hgrid by
+        comparing the output with the original schism_grid object
+        '''
+
         print('\n\n*************** test_read_schism_hgrid ****************')
 
+        print('reading *.gr3 using pylib')
         gd0 = schism_grid('/sciclone/schism10/feiye/STOFS3D-v7/Inputs/I16/hg.gr3')
+        print('reading *.gr3 using cread_schism_hgrid')
         gd = cread_schism_hgrid('/sciclone/schism10/feiye/STOFS3D-v7/Inputs/I16/hg.gr3')
 
         gd0.compute_bnd()
@@ -806,7 +1064,7 @@ class test_cread_schism_hgrid(unittest.TestCase):
         self.assertEqual(gd0.np, gd.np)
         self.assertEqual(gd0.ns, gd.ns)
         self.assertEqual(gd0.nob, gd.nob)
-        
+
         print(gd)
         print(gd.x)
         print(gd.y)
@@ -814,49 +1072,74 @@ class test_cread_schism_hgrid(unittest.TestCase):
         print(f'number of nodes: {gd.np}')
         print(f'number of sides: {gd.ns}')
         print(f'number of open boundaries: {gd.nob}')
-class test_add_source_sink(unittest.TestCase):
+
+
+class TestAddSourceSink(unittest.TestCase):
+    '''unit test for add_source_sink'''
+
     def test_add_source_sink(self):
+        '''test add_source_sink by comparing the output with the prepared sample files'''
         print('\n\n*************** test_add_source_sink ****************')
         # read from prepared sample files
-        A = source_sink.from_files('/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample1')
-        B = source_sink.from_files('/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample2')
-        AB = source_sink.from_files('/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample12')
+        a = source_sink.from_files(
+            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
+            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample1')
+        b = source_sink.from_files(
+            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
+            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample2')
+        ab = source_sink.from_files(
+            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
+            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample12')
 
-        A_add_B = A + B
+        a_add_b = a + b
 
-        self.assertEqual(A_add_B, AB)
+        self.assertEqual(a_add_b, ab)
 
-class test_combine_dataframes(unittest.TestCase):
+
+class TestCombineDataframes(unittest.TestCase):
+    '''Unit test for combine_dataframes function'''
     def setUp(self):
-        # create some random time series for test
-        index_A = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
-        index_B = pd.date_range(start='2023-01-01', end='2023-10-31', freq='3D')  # lower frequency
-        self.df_A = pd.DataFrame(np.random.rand(len(index_A), 3), index=index_A, columns=['A', 'B', 'C'])
-        self.df_B = pd.DataFrame(np.random.rand(len(index_B), 3), index=index_B, columns=['B', 'C', 'D'])
+        ''' create some random time series for test '''
+        index_a = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+        index_b = pd.date_range(start='2023-01-01', end='2023-10-31', freq='3D')  # lower frequency
+        self.df_a = pd.DataFrame(np.random.rand(len(index_a), 3), index=index_a, columns=['A', 'B', 'C'])
+        self.df_b = pd.DataFrame(np.random.rand(len(index_b), 3), index=index_b, columns=['B', 'C', 'D'])
 
     def test_combine_dataframes(self):
+        '''Test combine_dataframes function'''
         print('\n\n*************** test combine dataframes ****************')
-        df_combined = combine_dataframes(self.df_A, self.df_B)
+        df_combined = combine_dataframes(self.df_a, self.df_b)
 
         print("First few rows of DataFrame A:")
-        print(self.df_A.head())
+        print(self.df_a.head())
         print("First few rows of DataFrame B:")
-        print(self.df_B.head())
+        print(self.df_b.head())
         print("First few rows of Combined DataFrame:")
         print(df_combined.head())
 
         # Check the shape of the resulting dataframe
-        self.assertEqual(df_combined.shape[0], self.df_A.shape[0])  # check row number
+        self.assertEqual(df_combined.shape[0], self.df_a.shape[0])  # check row number
         self.assertEqual(df_combined.shape[1], 4)  # check column number
 
         # Check the column names of the resulting dataframe
         self.assertTrue(all(np.isin(['A', 'B', 'C', 'D'], df_combined.columns)))  # check column names
 
         # Check that the values of the resulting dataframe are correct
-        common_columns = self.df_A.columns.intersection(self.df_B.columns)
+        common_columns = self.df_a.columns.intersection(self.df_b.columns)
         for col in common_columns:
-            self.assertTrue(all(np.isclose(df_combined[col].loc[self.df_B.index], self.df_A[col].loc[self.df_B.index] + self.df_B[col], atol=1e-5)))
+            self.assertTrue(all(np.isclose(
+                df_combined[col].loc[self.df_b.index],
+                self.df_a[col].loc[self.df_b.index] + self.df_b[col],
+                atol=1e-5)))
+
 
 if __name__ == "__main__":
+    # sample comparing two TimeHistory objects
+    # ts1 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Relocated_SS/vsink.th')
+    # ts2 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Source_sink/USGS_adjusted_sources/vsink.th')
+    # print(ts1 == ts2)
+
     # run unit tests
-    unittest.main()
+    # unittest.main()
+
+    print('Done')
