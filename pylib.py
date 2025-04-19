@@ -162,6 +162,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from src.mylib import read_shapefile_data as read_shp
    from src.mylib import write_shapefile_data as write_shp
    from src.mylib import harmonic_analysis as HA
+   from src.mylib import interp_vertical as interpv
    from src.schism_file import read_schism_hgrid as read_hgrid
    from src.schism_file import read_schism_grid as read_grd
    from src.schism_file import read_schism_grid as grd
