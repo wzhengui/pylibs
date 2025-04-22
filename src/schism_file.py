@@ -1407,6 +1407,28 @@ class schism_grid(zdata):
         self.ne=ne+nea; self.elnode[sid,-1]=-2; self.i34=tile(3,ne+nea)
         self.save(fname)
 
+    def ie(self,fmt=0):
+        '''
+        element indices
+          fmt=0: elements with at least one side on boundary 
+          fmt=1: elements with at least one node on boundary 
+        '''
+        if fmt==0: 
+           if not hasattr(self,'isdel'): self.compute_side(1)
+           return unique(self.isdel[self.isdel[:,1]==-1,0])
+        if fmt==1:
+           self.compute_nne(); ie=unique(self.ine[self.ip()])
+           return ie[1:] if ie[0]==-1 else ie 
+    
+    def ip(self,fmt=0):
+        '''
+        node indices
+          fmt=0: boundary nodes
+        '''
+        if fmt==0:
+           if not hasattr(self,'nob'): self.compute_bnd()
+           return unique(r_[hstack(self.iobn),hstack(self.ilbn)].astype('int')) 
+
     def proj(self,prj0,prj1='epsg:4326',fmt=0,x=None,y=None,lon0=None,lat0=None):
         '''
         transform the projection of schism grid's coordinates
