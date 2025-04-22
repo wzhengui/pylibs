@@ -545,7 +545,7 @@ class SourceSink:  # pylint: disable=invalid-name
         return cls(vsource, vsink, msource)
 
     @classmethod
-    def from_files(cls, source_dir, start_time_str='2000-01-01 00:00:00'):
+    def from_files(cls, source_dir, start_time_str='2000-01-01 00:00:00', strict_check=False):
         '''
         Initialize from existing source/sink files under the source_dir.
         Note that these files don't have start time information,
@@ -596,7 +596,7 @@ class SourceSink:  # pylint: disable=invalid-name
             )
 
         source_sink_obj = cls(vsource, vsink, msource)
-        source_sink_obj.sanity_check()
+        source_sink_obj.sanity_check(strict_check=strict_check)
         return source_sink_obj
 
     @classmethod
@@ -940,7 +940,7 @@ class SourceSink:  # pylint: disable=invalid-name
 
         WriteNC(f'{output_dir}/source.nc', C)
 
-    def sanity_check(self):
+    def sanity_check(self, strict_check=False):
         '''
         check consistency of source_sink_in and vsource/vsink/msource
         check if vsource is non-negative
@@ -975,16 +975,22 @@ class SourceSink:  # pylint: disable=invalid-name
                 this_source = tuple(np.round(source_time_series, decimals=11))
                 if this_source in existing_sources:
                     if np.mean(this_source) > 100:
-                        print('Large potentially duplicate sources found')
+                        if strict_check:
+                            raise ValueError('Large potentially duplicate sources found')
+                        else:
+                            print(f"Warning: large potentially duplicate sources found")
                     duplicate_sources.append(i)
                 if np.mean(this_source) > 0:
                     existing_sources.add(this_source)
             if duplicate_sources:
-                for i in duplicate_sources:
-                    print(f"Potentially duplicate source found: "
-                          f"index {i}, Element {self.source_eles[i]}; "
-                          f"mean value {np.mean(self.vsource.data[:, i])}")
+                if strict_check:
+                    for i in duplicate_sources:
+                        print(f"Potentially duplicate source found: "
+                              f"index {i}, Element {self.source_eles[i]}; "
+                              f"mean value {np.mean(self.vsource.data[:, i])}")
                 print(f"{len(duplicate_sources)} potentially duplicate sources found")
+            else:
+                print("No duplicate sources found")
 
     def __add__(self, other):
         '''
