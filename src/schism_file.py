@@ -775,7 +775,7 @@ class schism_grid(zdata):
            if not array_equal(sindb,sindb2): sys.exit('piont pairs are not on the same boundary')
 
            #parse each segment for open boundaries
-           self.nob=len(pxy); self.nobn=[]; self.iobn=[]; self.nlb=0; self.nlbn=[]; self.ilbn=[]; self.island=[]
+           self.nob=len(pxy); self.nobn=[]; iobn=[]; self.nlb=0; self.nlbn=[]; ilbn=[]; self.island=[]
            for m in sindb[sort(unique(sindb, return_index=True)[1])]:
                sind=pindex(sindb,m);  sids=[]; bf=ones(S.nbn[m])
                if len(sind)==0: continue
@@ -783,19 +783,21 @@ class schism_grid(zdata):
                    id1=pindex(S.ibn[m],p1[sindi])[0]; id2=pindex(S.ibn[m],p2[sindi])[0]; sids.extend([id1,id2])
                    itype=(((id1<id2) and (S.island[m]==0)) or ((id1>id2) and (S.island[m]==1)))
                    sid=arange(id1,id2+1) if (id1<id2) else r_[arange(id1,S.nbn[m]),arange(id2+1)]
-                   self.nobn.append(sid.size); self.iobn.append(S.ibn[m][sid]); bf[sid]=0
+                   self.nobn.append(sid.size); iobn.append(S.ibn[m][sid]); bf[sid]=0
                for n,id1 in enumerate(sids):  #add land boundaries
                    id2=sids[(n+1)%len(sids)]
                    itype=(((id1<id2) and (S.island[m]==0)) or ((id1>id2) and (S.island[m]==1)))
                    sid=arange(id1,id2+1) if (id1<id2) else r_[arange(id1,S.nbn[m]),arange(id2+1)]
                    if sum(bf[sid])!=0:
-                      self.nlb=self.nlb+1; self.nlbn.append(sid.size); self.ilbn.append(S.ibn[m][sid]); self.island.append(0)
+                      self.nlb=self.nlb+1; self.nlbn.append(sid.size); ilbn.append(S.ibn[m][sid]); self.island.append(0)
            for m in arange(S.nb): #add remaining land bnd
                sind=pindex(sindb,m)
                if len(sind)!=0: continue
-               self.nlb=self.nlb+1; self.nlbn.append(S.nbn[m]); self.ilbn.append(S.ibn[m]); self.island.append(S.island[m])
-           self.nobn=array(self.nobn); self.iobn=array(self.iobn,dtype='O')
-           self.nlbn=array(self.nlbn); self.ilbn=array(self.ilbn,dtype='O'); self.island=array(self.island)
+               self.nlb=self.nlb+1; self.nlbn.append(S.nbn[m]); ilbn.append(S.ibn[m]); self.island.append(S.island[m])
+           self.nobn=array(self.nobn); self.nlbn=array(self.nlbn); self.island=array(self.island)
+           self.iobn=zeros(self.nob,'O'); self.ilbn=zeros(self.nlb,'O')
+           for i in arange(self.nob): self.iobn[i]=array(iobn[i],'int')
+           for i in arange(self.nlb): self.ilbn[i]=array(ilbn[i],'int')
 
     def compute_node_ball(self,**args):
         '''
@@ -1217,7 +1219,7 @@ class schism_grid(zdata):
         '''
         self.write(fname,**args)
 
-    def write_hgrid(self,fname,value=None,fmt=0,outfmt='{:<.8f}',elnode=1,bndfile=None,Info=None):
+    def write_hgrid(self,fname,value=None,fmt=0,outfmt='{:<.8f}',elnode=1,bndfile=None,Info=None,xy=0):
         '''
         write *.gr3 file
             fname: file name
@@ -1230,6 +1232,7 @@ class schism_grid(zdata):
             elnode=1: output grid connectivity; elnode=0: not output grid connectivity
             bndfile=filepath:  if bndfile is not None, append it at the end of file
             Info: annotation of the gr3 file
+            xy=0: projection coordinate; xy=1: lon&lat
         '''
 
         #get depth value
@@ -1248,7 +1251,8 @@ class schism_grid(zdata):
             fid.write('{} {}\n'.format(self.ne,self.np))
             lineformat='{:<d} {:<.8f} {:<.8f} '+outfmt+'\n'
             for i in arange(self.np):
-                fid.write(lineformat.format(i+1,self.x[i],self.y[i],dp[i]))
+                if xy==0: fid.write(lineformat.format(i+1,self.x[i],self.y[i],dp[i]))
+                if xy==1: fid.write(lineformat.format(i+1,self.lon[i],self.lat[i],dp[i]))
             if elnode!=0:
                 for i in arange(self.ne):
                     if self.i34[i]==3: fid.write('{:<d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
