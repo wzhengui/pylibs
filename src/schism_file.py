@@ -1013,6 +1013,7 @@ class schism_grid(zdata):
           value=None: gd.dp is used; value: array of [np,] or [ne,]
           fmt=0: (default) faster method by searching the neighbors of elements and nodes
           fmt=1: slower method using point-wise comparison
+          fmt=2: pass fmt to self.interp_elem_to_node for 1d-array (ne,)
           out=0: use nearest node if points outside grid domain; out=1: interp using nearest element
           p: only used for interp_node_to_elem when fmt==1
 
