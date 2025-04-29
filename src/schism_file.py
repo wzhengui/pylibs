@@ -4950,7 +4950,7 @@ class schism_check(zdata):
            fid=C.variables[p.var]; fids[fname]=fid
            p.dnames=['time','node','layer','tracer']; p.dims=fid.shape
            p.info='  dim={}'.format(p.dims)
-       elif self.fmt==2: #hostart.nc
+       elif self.fmt==2: #hostart.nc and other nc files
            cvar=read(run+fname,1).variables
            p.vars=[*cvar]; fids[fname]=cvar
            p.var='tr_el' if fname.startswith('hotstart') else p.vars[0] 
@@ -4993,6 +4993,7 @@ class schism_check(zdata):
        '''
        self.run=os.path.abspath(run)+os.path.sep; fexist=os.path.exists
        snames=os.listdir(self.run); fnames=[]
+       #snames=[i for i in snames if not (i.startswith('WW3') and i.endswith('.nc'))]
        [fnames.append(i) for i in snames if i=='hgrid.gr3']         #hgrid.gr3
        [fnames.append(i) for i in snames if i=='hotstart.nc']       #hotstart.nc
        [fnames.append(i) for i in snames if i=='ICM_param.nc']      #ICM_param.nc

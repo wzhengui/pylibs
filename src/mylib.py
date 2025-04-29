@@ -2640,7 +2640,8 @@ class ncfile(zdata):
       '''
       def __init__(self,fname,mode='r'):
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
-          for i in [i for i in fname.__dir__() if not i.startswith('_')]: exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
+          for i in [i for i in fname.__dir__() if (not i.startswith('_')) and (not ' ' in i)]:
+              exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
           for i in self.variables: self.__dict__[i]=ntype(self.variables[i],fmt=1,name=i) #get variables
           self.dimname=[*self.dimensions]; self.dims=[self.dimensions[i].size for i in self.dimname]
           self.dim_unlimited=[self.dimensions[i].isunlimited() for i in self.dimname]
