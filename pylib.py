@@ -100,10 +100,11 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #libraries of self-defined modules
    #---------------------------------------------------------------------
    path_pylib=os.path.dirname(__file__)
-   if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
+   if os.path.exists(path_pylib+'/pylibs/src'):
       import pylibs.src.mylib as mylib; sys.modules['src']=sys.modules['pylibs.src']
       path_src=path_pylib+'/pylibs/src'; path_scripts=path_pylib+'/pylibs/scripts'
    else:
+      if path_pylib not in sys.path: sys.path.append(path_pylib)
       import src.mylib as mylib; path_src=path_pylib+'/src'; path_scripts=path_pylib+'/scripts'
    sys.modules['mylib'] = mylib
    from mylib import (ntype,xtick,get_xtick,close_data_loop,datenum,quickdatenum,
