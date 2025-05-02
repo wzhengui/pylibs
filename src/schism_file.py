@@ -1908,7 +1908,7 @@ class schism_grid(zdata):
             def chdirpath():
                 sdir.set(filedialog.askdirectory(initialdir=sdir.get(), title = "choose save dir")); resize()
             def resize():
-                ns=len(sdir.get()); pdir.config(width=max(50,ns+3)); wd.geometry('{}x120'.format(max(450,int(8.5*ns)))); wd.update()
+                ns=len(sdir.get()); pdir.config(width=max([50,ns+3])); wd.geometry('{}x120'.format(max([450,int(8.5*ns)]))); wd.update()
             def savefile():
                 ftype=file.get(); fn=sdir.get()+os.path.sep+fname.get()
                 if ftype==0: gd.bp.save(fn)
