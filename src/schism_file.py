@@ -1905,10 +1905,9 @@ class schism_grid(zdata):
             import tkinter as tk
             from tkinter import ttk,filedialog
 
-            def chdirpath():
-                sdir.set(filedialog.askdirectory(initialdir=sdir.get(), title = "choose save dir")); resize()
-            def resize():
-                ns=len(sdir.get()); pdir.config(width=max([50,ns+3])); wd.geometry('{}x120'.format(max([450,int(8.5*ns)]))); wd.update()
+            def chdirpath(): sdir.set(filedialog.askdirectory(initialdir=sdir.get(), title = "choose save dir")); resize()
+            def resize(): ns=len(sdir.get()); pdir.config(width=max([50,ns+3])); wd.geometry('{}x120'.format(max([450,int(8.5*ns)]))); wd.update()
+            def update_fname(): fname.set(fname.get().split('.')[0]+'.'+snames[file.get()])
             def savefile():
                 ftype=file.get(); fn=sdir.get()+os.path.sep+fname.get()
                 if ftype==0: gd.bp.save(fn)
@@ -1917,15 +1916,16 @@ class schism_grid(zdata):
                 if ftype==3: gd.write_bnd(fn)
                 if ftype==4: savefig(fn,hf)
 
-            wd=tk.Tk(); wd.title('save schism files')
-            file=tk.IntVar(wd); sdir=tk.StringVar(wd); fname=tk.StringVar(wd)
+            snames=['bp','reg','gr3','bnd','png']
+            wd=tk.Tk(); wd.title('save schism files'); fmt=0 if self.bp.npt!=0 else 1 if self.reg.npt!=0 else 2
+            file=tk.IntVar(wd); sdir=tk.StringVar(wd); fname=tk.StringVar(wd); file.set(fmt); fname.set('*.'+snames[fmt])
 
             fm=ttk.Frame(master=wd); fm.grid(row=0,column=0,sticky='NW',pady=6)
-            ttk.Radiobutton(fm,text='bp',   variable=file, value=0).grid(row=0,column=0,sticky='W',padx=2)
-            ttk.Radiobutton(fm,text='reg',  variable=file, value=1).grid(row=0,column=1,sticky='W',padx=2)
-            ttk.Radiobutton(fm,text='hgrid',variable=file, value=2).grid(row=0,column=2,sticky='W',padx=2)
-            ttk.Radiobutton(fm,text='bnd',  variable=file, value=3).grid(row=0,column=3,sticky='W',padx=2)
-            ttk.Radiobutton(fm,text='fig',  variable=file, value=4).grid(row=0,column=4,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='bp',   variable=file, value=0,command=update_fname).grid(row=0,column=0,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='reg',  variable=file, value=1,command=update_fname).grid(row=0,column=1,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='hgrid',variable=file, value=2,command=update_fname).grid(row=0,column=2,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='bnd',  variable=file, value=3,command=update_fname).grid(row=0,column=3,sticky='W',padx=2)
+            ttk.Radiobutton(fm,text='fig',  variable=file, value=4,command=update_fname).grid(row=0,column=4,sticky='W',padx=2)
 
             fm=ttk.Frame(master=wd); fm.grid(row=1,column=0,sticky='NW',pady=6)
             ttk.Label(fm,text='dir',width=3).grid(row=0,column=0,sticky='W',padx=1)
@@ -2198,12 +2198,16 @@ class schism_bpfile(zdata):
             if dlk==1 and btn in [1,3]: self.station=(arange(len(self.x))+1).astype('U'); self.plot(connect_mpl=0)
 
         def add_pt(x,y):
+            if (x is None) or (y is None): return
             self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.plot(connect_mpl=0)
 
         def remove_pt(x,y):
             if self.nsta==0: return
-            distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=pindex(distp,distp.min())[0]
-            self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; self.plot()
+            if self.nsta==1:
+               self.x,self.y=array([]), array([]); self.plot()
+            else:
+               distp=squeeze(abs((self.x-x)+1j*(self.y-y))); sid=pindex(distp,distp.min())[0]
+               self.x=r_[self.x[:sid],self.x[(sid+1):]]; self.y=r_[self.y[:sid],self.y[(sid+1):]]; self.plot()
 
         def move_pt(xi,yi):
             distp=squeeze(abs((self.x-xi)+1j*(self.y-yi))); sid=pindex(distp,distp.min())[0]
