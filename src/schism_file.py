@@ -466,8 +466,8 @@ class schism_grid(zdata):
         if fmt==1:
               dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
               w=1/(dist**p); w[fpn]=0; tw=w.sum(axis=1); fp=tw!=0; v[fp]=(w*vs).sum(axis=1)[fp]/tw[fp]
-        if fmt==2: fp=sum(fpv,axis=1)!=0; vs[fpn]=-np.Inf; v[fp]=vs.max(axis=1)[fp]
-        if fmt==3: fp=sum(fpv,axis=1)!=0; vs[fpn]=np.Inf;  v[fp]=vs.min(axis=1)[fp]
+        if fmt==2: fp=sum(fpv,axis=1)!=0; vs[fpn]=-inf; v[fp]=vs.max(axis=1)[fp]
+        if fmt==3: fp=sum(fpv,axis=1)!=0; vs[fpn]=inf;  v[fp]=vs.min(axis=1)[fp]
         if fmt==4:
            w=fpv; tw=w.sum(axis=1); fp=tw!=0; v[fp]=vs.sum(axis=1)[fp]/tw[fp]
         return v
