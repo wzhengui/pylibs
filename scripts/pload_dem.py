@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 '''
 load bathymetry for NWM model grid 
+Remove mpi4py if you only use serial
 '''
 from pylib import *
 from mpi4py import MPI
@@ -9,7 +10,7 @@ import time
 #-----------------------------------------------------------------------------
 #Input
 #-----------------------------------------------------------------------------
-grd='hgrid.ll'  #grid name
+grd='hgrid.ll'  #grid name (.ll or .gr3)
 grdout='hgrid.ll.new' #grid name with depth loaded
 
 #DEM informat
@@ -20,7 +21,7 @@ datum_shift =0   #change vertical datum (e.g. -0.258 for navd to ngvd (msl) in C
 
 #parameter
 headers=('Bayonne','New_Arthur','CT_River','NY_TACC','Hudson_River','Long_Island','Raritan_Bay_River','MA_TACC','Toms_River')
-positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corder for DEM file
+positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corner for DEM file (Property->AREA_OR_POINT=Point to find out this)
 #headers=("etopo1","crm_3arcs","cdem13_","dem_continetalus_southcarolina","North_Carolina_USGS_3m",
 #         "al_ll","nc_ll","fl_ll","gulf_1_dem_usgs","gulf_3_demcombined_ll","ge_ll","sc_ll",
 #         "cb_ll","db_ll","new_england_topobathy_dem_3m_dd","Tile3_R3_DEMv2","cb_bay_dem_v3.1_ll") #FOR STOFS3D
