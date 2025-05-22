@@ -2373,30 +2373,49 @@ def cindex(index,shape):
        cid=ravel_multi_index(index,shape)
     return cid
 
-def EOF(data,npc=8,scale=0,center=False,**args):
+def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
     '''
     EOF analysis
         data(time,...): data with 1st dimension as time, other dimes for space
         npc: number of principal components (PCs) returned
         scale=0: normalized by eigenvalue; scale=1: normalized by the value of time series of each PC.
-        Note: the mean value is not removed (center=False) in the analysis at default.
+        method=0: using eofs package; method=1: using xeofs package
+        rotation=1: return Varimax-rotated EOF analysis
+        npc_r: optional number of rotation EOFs (fewer than npc)
+        Note: the mean value is removed (center=True) in the analysis at default.
     Outputs: (PC,CC,VC,solver)
         PC: principal components
         CC: coefficients of each PC
         VC: variation of each PC
         solver: EOF analysis solver, and all results can be derived from it (e.g., solver.reconstructedField(8))
     '''
-    from eofs.standard import Eof
-    solver=Eof(data,center=center,**args)
-    PC=solver.eofs(neofs=npc,eofscaling=2)
-    CC=solver.pcs(npcs=npc,pcscaling=1).T
-    VC=solver.varianceFraction(npc)
+    if method==0 and rotation==0:
+       from eofs.standard import Eof
+       solver=Eof(data,center=center,**args)
+       PC=solver.eofs(neofs=npc,eofscaling=2)
+       CC=solver.pcs(npcs=npc,pcscaling=1).T
+       VC=solver.varianceFraction(npc)
+    else:
+       import xeofs as xe; import xarray as xr
+       ds=['d{}'.format(i) for i in arange(data.ndim)]; xs={i:arange(k) for i,k in zip(ds,data.shape)}
+       solver=xe.single.EOF(npc).fit(xr.Dataset(data_vars={'data': xr.DataArray(data,dims=ds)},coords=xs),'d0')
+       if rotation==1: solver=xe.single.EOFRotator(n_modes=min([npc,npc_r])).fit(solver)
+       PC=solver.components().to_array().data[0]
+       CC=solver.scores().data
+       VC=solver.explained_variance_ratio().data
 
     #normalize
-    for m,cc in enumerate(CC):
-        if cc.mean()<0: CC[m],PC[m]=-CC[m],-PC[m]
-        if scale==1: rat=abs(cc).mean(); CC[m], PC[m]=CC[m]/rat,PC[m]*rat
+    for m,[pc,cc] in enumerate(zip(PC,CC)):
+        s=1 if cc.mean()>=0 else -1 #whether to reverse the sign
+        rat=sqrt(sum(pc**2)/pc.size) if scale==0 else sqrt(cc.size/sum(cc**2))
+        PC[m]=s*pc/rat; CC[m]=s*cc*rat
     return PC, CC, VC, solver
+
+def REOF(data,npc=8,scale=0,center=True,npc_r=None,**args):
+    '''
+    Varimax-rotated EOF analysis; see input in EOF
+    '''
+    return EOF(data,npc,scale,center,npc_r=npc_r,rotation=1,**args)
 
 def get_stat(xi_model,xi_obs,fmt=0):
     '''

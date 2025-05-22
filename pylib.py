@@ -112,7 +112,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         cmean,smooth,doy,daytime_length,move_figure,bpfilt,lpfilt,mdivide,signa,sub_lines,sub_polygons,
         inside,inside_polygon,mdist,command_outputs,near_pts,proj,proj_pts,rewrite,rewrite_input,
         get_prj_file,mfft,interp_vertical,read_shapefile_data,write_shapefile_data,
-        ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,
+        ReadNC,WriteNC,harmonic_fit,harmonic_analysis,get_hycom,compute_contour,EOF,REOF,
         get_stat,get_subplot_position,get_subplot_position2,load_dem,plot_taylor_diagram,
         read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
         mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
