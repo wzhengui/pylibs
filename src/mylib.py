@@ -2594,7 +2594,7 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
                     W.field(S.attname[m],'N')
                 elif stype[m] in [npfloat,np.float16,np.float32,np.float64]:
                     W.field(S.attname[m],'F',float_len,float_decimal)
-                elif stype[m] in [np.str0,npstr,np.str_,np.string_]:
+                elif stype[m] in [npstr,np.str_,np.bytes_]:
                     W.field(S.attname[m],'C',100)
                 else:
                     print('attribute type not included: {}'.format(stype[m]))
