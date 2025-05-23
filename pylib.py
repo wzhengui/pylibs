@@ -42,7 +42,9 @@ if not set(Libs).issubset(set(sys.modules.keys())):
       sys.modules['numpy._core']=sys.modules['numpy.core']
       nms=[i.split('.')[-1] for i in sys.modules if i.startswith('numpy.core.')]
       for i in nms: sys.modules['numpy._core.'+i]=sys.modules['numpy.core.'+i]
+
    import scipy as sp #scipy
+   from scipy import interpolate
 
    #------------------------------------------------
    #old import

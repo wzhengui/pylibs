@@ -203,8 +203,7 @@ def interp(x0,y0,x,fmt=0,kind='linear',axis=-1,fill_value=nan):
 
       note: fmt=3 only works for 1D data
     '''
-    from scipy import interpolate
-    f=interpolate.interp1d; x1=x0.min(); x2=x0.max(); x=array(x).copy().astype('float'); t0=x0; t1=x1; t2=x2; t=x
+    f=sp.interpolate.interp1d; x1=x0.min(); x2=x0.max(); x=array(x).copy().astype('float'); t0=x0; t1=x1; t2=x2; t=x
 
     #different options for points out of range
     if fmt==0: x[x<x1]=x1; x[x>x2]=x2
