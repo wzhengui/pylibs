@@ -167,12 +167,25 @@ def cmean(mtime,data,n=13):
     '''
     compute climatological pattern by using running smooth method for computing
        mtime, data: time and data
-       n: number of points in a year
+       n: number of points in a year for the outputs
     '''
     t0=doy(mtime) if mtime.max()>365 else mtime; y0=data; t=linspace(0,365,n); dt=t[1]-t[0]
     fmean=lambda x: nan if len(x)==0 else x.mean()
     y=array([fmean(y0[abs(t0-i)<=dt/2]) for i in t]); fpn=~isnan(y); t,y=t[fpn],y[fpn]
     return t,y
+
+def urlsave(url,fname):
+    '''
+    download url to local, using urllib.request.urlretrieve
+    '''
+    import urllib,ssl
+    try:
+           _create_unverified_https_context = ssl._create_unverified_context
+    except AttributeError: # Legacy Python that doesn't verify HTTPS certificates by default
+           pass
+    else: # Handle target environment that doesn't support HTTPS verification
+           ssl._create_default_https_context = _create_unverified_https_context
+    urllib.request.urlretrieve(url,fname)
 
 def interp(x0,y0,x,fmt=0,kind='linear',axis=-1,fill_value=nan):
     '''
@@ -190,7 +203,7 @@ def interp(x0,y0,x,fmt=0,kind='linear',axis=-1,fill_value=nan):
 
       note: fmt=3 only works for 1D data
     '''
-    f=interpolate.interp1d; x1=x0.min(); x2=x0.max(); x=array(x).copy().astype('float'); t0=x0; t1=x1; t2=x2; t=x
+    f=sp.interpolate.interp1d; x1=x0.min(); x2=x0.max(); x=array(x).copy().astype('float'); t0=x0; t1=x1; t2=x2; t=x
 
     #different options for points out of range
     if fmt==0: x[x<x1]=x1; x[x>x2]=x2
@@ -1542,6 +1555,8 @@ def mfft(xi,dt):
     output:
        period[period],afx[amplitude],pfx[phase]
     '''
+    from scipy.fftpack import fft, ifft
+
     N=xi.size;
     fx=fft(xi);
     afx=abs(fx[1:N//2])*2.0/N;
@@ -1943,6 +1958,7 @@ def bpfilt(data,delta_t,band_f):
        delta_t: time interval
        band_f: frequency band (eg. band_f=[12,48])
     '''
+    from scipy.fftpack import fft, ifft
 
     #data dimension
     ds=data.shape; N=ds[0]
@@ -1973,6 +1989,7 @@ def lpfilt(data,delta_t,cutoff_f):
     Note: there is no phase shift for this LP-filter
     '''
     #import gc #discard
+    from scipy.fftpack import fft, ifft
 
     ds=data.shape
 
@@ -3273,7 +3290,7 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             #interpolate
             datai=[];
             for k in arange(Data0.shape[0]):
-                fd=interpolate.interp1d(T0,Data0[k],fill_value='extrapolate');
+                fd=sp.interpolate.interp1d(T0,Data0[k],fill_value='extrapolate');
                 datai.append(fd(Time));
             datai=array(datai)
             exec('S.{}=datai'.format(varnamei))
@@ -3281,8 +3298,8 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
             #interpolate
             datai=[]; data2i=[];
             for k in arange(Data0.shape[0]):
-                fd=interpolate.interp1d(T0,Data0[k,0]);
-                fd2=interpolate.interp1d(T0,Data0[k,1]);
+                fd=sp.interpolate.interp1d(T0,Data0[k,0]);
+                fd2=sp.interpolate.interp1d(T0,Data0[k,1]);
                 datai.append(fd(Time)); data2i.append(fd2(Time))
             datai=array(datai); data2i=array(data2i)
             exec('S.{}=datai'.format(varnamei[0]))

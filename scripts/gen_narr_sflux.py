@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pylib import *
-import urllib
 
 #------------------------------------------------------------------------------------
 #inputs: creat narr sflux database
@@ -32,7 +31,7 @@ for year in years:
             if os.path.exists(fname): continue
             url='{}/{}'.format(bdir,fname)
             print('downloading {}'.format(fname))
-            urllib.request.urlretrieve(url,fname)
+            urlsave(url,fname)
 
 #        #read the data
         C=zdata()

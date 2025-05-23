@@ -47,7 +47,7 @@ for ti in arange(StartT,EndT):
         #download hycom data
         if os.path.exists(fname): continue
         try: 
-           urllib.request.urlretrieve(furl,fname)
+           urlsave(furl,fname)
            print(fname)
         except: 
            pass

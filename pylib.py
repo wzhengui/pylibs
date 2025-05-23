@@ -15,9 +15,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    #matplotlib
    import matplotlib as mpl
-   HNAME=str(os.getenv('HOSTNAME')); TNAME=str(os.getenv('TACC_SYSTEM'))
-   if ('frontera' in HNAME) or ('stampede2' in HNAME): mpl.use('tkagg')
-   if ('frontera' in TNAME) or ('stampede2' in TNAME): mpl.use('tkagg')
+   if 'frontera' in [str(os.getenv('HOSTNAME')), str(os.getenv('TACC_SYSTEM'))]: mpl.use('tkagg')
    from matplotlib import pyplot as plt
    from matplotlib.dates import date2num, datestr2num,num2date
    if hasattr(mpl.dates,'set_epoch'):
@@ -44,31 +42,24 @@ if not set(Libs).issubset(set(sys.modules.keys())):
       sys.modules['numpy._core']=sys.modules['numpy.core']
       nms=[i.split('.')[-1] for i in sys.modules if i.startswith('numpy.core.')]
       for i in nms: sys.modules['numpy._core.'+i]=sys.modules['numpy.core.'+i]
-
-   #scipy
-   import scipy as sp
-   from scipy import interpolate
-   from scipy.fftpack import fft, ifft
-
-   #url download
-   try:
-      import urllib
-      from urllib.request import urlretrieve as urlsave
-      import ssl
-      try:
-          _create_unverified_https_context = ssl._create_unverified_context
-      except AttributeError:
-          # Legacy Python that doesn't verify HTTPS certificates by default
-          pass
-      else:
-          # Handle target environment that doesn't support HTTPS verification
-          ssl._create_default_https_context = _create_unverified_https_context
-   except:
-      pass
+   import scipy as sp #scipy
 
    #------------------------------------------------
    #old import
    #------------------------------------------------
+   #url download
+   #try:
+   #   import urllib
+   #   from urllib.request import urlretrieve as urlsave
+   #   import ssl
+   #   try:
+   #       _create_unverified_https_context = ssl._create_unverified_context
+   #   except AttributeError: # Legacy Python that doesn't verify HTTPS certificates by default
+   #       pass
+   #   else: # Handle target environment that doesn't support HTTPS verification
+   #       ssl._create_default_https_context = _create_unverified_https_context
+   #except:
+   #   pass
    #mpi4py
    #try:
    #   from mpi4py import MPI
@@ -117,7 +108,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
         mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp,
-        nargout,pause,isnumber,ncfile)
+        nargout,pause,isnumber,ncfile,urlsave)
 
    if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
       import pylibs.src.schism_file as schism_file
