@@ -15,7 +15,7 @@ def ntype(data,fmt=0,mode='r',name=None,vshape=None,vtype=None):
               if fmt==1:
                  for i in data.ncattrs(): self.__dict__[i]=data.getncattr(i) #get all attribute
           def __getitem__(self,key): #subset of values
-             data=self.value[key] if fmt==0 else self.data[key]; return data.item() if size(data)==1 else array(data)
+             data=self.value[key] if fmt==0 else self.data[key]; return array(data) if size(data)!=1 else data.item() if isinstance(data,np.ndarray) else data
           def __setitem__(self,key,item): #set variable
               if mode=='r':
                  if not hasattr(self,'_value'): self.value
@@ -93,6 +93,10 @@ def ntype(data,fmt=0,mode='r',name=None,vshape=None,vtype=None):
            '__new__', '__getattribute__', '__getnewargs__', '__doc__', '__setattr__','__str__'] 
     datatype=type('narray',(narray,), {i: get_method(i) for i in dir(np.ndarray) if (i not in blist) and (not i.startswith('__array_'))})
     return datatype(data)
+
+#def type(*args,**kwargs):
+#    import builtins
+#    return np.ndarray if (('narray' in str(builtins.type(args[0]))) and len(args)==1) else builtins.type(*args,**kwargs) 
 
 def sort_all(t,*args):
     '''
