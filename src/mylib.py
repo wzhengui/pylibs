@@ -2748,7 +2748,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
                vi.dimname=dimi
                vi.dims=[C.dimensions[j].size for j in dimi]
                vi.val=C.variables[i][:]
-               vi.dtype=C.variables[i].dtype
+               if hasattr(C.variables[i],'scale_factor'): vi.dtype=C.variables[i].dtype
                vi.attrs=C.variables[i].ncattrs()
                for j in C.variables[i].ncattrs():
                    ncattri=C.variables[i].getncattr(j)
