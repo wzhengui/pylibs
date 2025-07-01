@@ -3116,6 +3116,14 @@ def combine_icm_output(rundir='.',sname='icm.nc',fmt=0,outfmt=0):
         if fmt==1: os.remove(fname)
     fid.close()
 
+def combine_schism_gr3(var='maxelev',outdir='outputs'):
+    '''
+    return combined values (maxelev, maxdahv) from schism outputs on each rank
+    '''
+    x=concatenate([loadtxt(i,skiprows=1) for i in glob('{}/{}_*'.format(outdir,var))])
+    x=x[unique(x[:,0],return_index=True)[1],3:].T
+    return x[0] if len(x)==1 else x
+
 def combine_schism_hotstart(outdir='.',fmt=0,irec=None):
     '''
     combine schism hotstart

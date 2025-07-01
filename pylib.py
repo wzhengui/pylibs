@@ -125,7 +125,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         read_schism_output,change_schism_param,get_schism_output_info,get_schism_grid_subdomain,
         get_schism_output_subset,combine_schism_hotstart,combine_icm_output,read_schism_slab,
         convert_schism_source,schism_view,schism_check,zcor_to_schism_grid,compute_schism_volume,
-        read_schism_grid,schism_transect)
+        read_schism_grid,schism_transect,combine_schism_gr3)
 
    if os.getenv('HOME')!=None:
        sys.path.append(os.getenv('HOME'))
