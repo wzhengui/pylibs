@@ -2748,6 +2748,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
                vi.dimname=dimi
                vi.dims=[C.dimensions[j].size for j in dimi]
                vi.val=C.variables[i][:]
+               vi.dtype=C.variables[i].dtype
                vi.attrs=C.variables[i].ncattrs()
                for j in C.variables[i].ncattrs():
                    ncattri=C.variables[i].getncattr(j)
@@ -2799,7 +2800,8 @@ def WriteNC(fname,data,fmt=0,order=0,vars=None,**args):
            dims=dims0; dnames=['dim_{}'.format(i) for i in dims]; dtypes=[False for i in dims]; dims=list(dims)
         for i in svars:
           vdms.append(sdict[i].dimname if hasattr(sdict[i],'dimname') else [dnames[dims.index(k)] for k in sdict[i].shape])
-          vtypes.append(sdict[i].val.dtype if isinstance(sdict[i],zdata) else sdict[i].dtype)
+          #vtypes.append(sdict[i].val.dtype if isinstance(sdict[i],zdata) else sdict[i].dtype)
+          vtypes.append(sdict[i].dtype if hasattr(sdict[i],'dtype') else sdict[i].val.dtype)
           vattrs.append([k if k!='_FillValue' else '_fillvalue' for k in sdict[i].attrs] if hasattr(sdict[i],'attrs') else [])
         attrs=data.attrs if hasattr(data,'attrs') else setdiff1d([*sdict],[*svars,'vars','dims'])
 

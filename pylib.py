@@ -143,6 +143,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    #---------------------------------------------------------------------
    from os.path import exists as fexist
    from numpy import array_equal as eq
+   from numpy.ma.core import MaskedArray as marray
    from src.mylib import savez as save_npz; mylib.save_npz=savez
    from src.mylib import zdata as npz_data; mylib.npz_data=zdata
    from src.mylib import least_square_fit as lsq; mylib.least_square_fit=lsq
