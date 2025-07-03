@@ -16,17 +16,19 @@ code='pschism_KURO_ICM_BLD_STANDALONE_TVD-VL.451ceb84 32'
 walltime='00:30:00'; nnode=2; ppn=64
 
 #optional:  frontera,levante,stampede2,kuro,etc.
-qnode=None              #specify node name, or default qnode based on HOST will be used
-qname=None              #partition name
-account=None            #account name
-reservation=None        #reservation information
-ihot=0                  #submit hotstart run (0: NO,  1: YES)
-runs=[]                 #used to submit multiple jobs
-scrout='screen.out'     #fname for outout and error
+#qnode=None              #specify node name, or default qnode based on HOST will be used
+#qname=None              #partition name
+#account=None            #account name
+#reservation=None        #reservation information
+#ihot=0                  #submit hotstart run (0: NO,  1: YES)
+#runs=[]                 #used to submit multiple jobs
+#scrout='screen.out'     #fname for outout and error
 
 #-----------------------------------------------------------------------------
 #submit jobs
 #-----------------------------------------------------------------------------
+for i in ['qnode','qname','account','reservation']: None if i in locals() else locals().update({i:None})
+for i,k in zip(['ihot','runs','scrout'],[0,[],'screen.out']): None if i in locals() else locals().update({i:k})
 bdir=os.path.abspath(os.path.curdir); jname=os.path.basename(bdir); qnode=get_qnode(qnode); check_schism_ihot(bdir)
 if os.getenv('schism')==None: 
    scode=get_hpc_command(sys.argv[0],bdir,jname,qnode,nnode,ppn,walltime,scrout,0,'schism',qname,account,reservation)
