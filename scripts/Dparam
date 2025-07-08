@@ -10,8 +10,13 @@
 from pylib import *
 
 flagd=0;
-if len(sys.argv)==1:
-   files=['param.nml']
+if len(sys.argv)==1 or (len(sys.argv)==2 and sys.argv[1]=='-h'):
+   sys.exit('''
+       1. Dparam f1.nml f2.nml
+       2. Dparam -c f1.nml f2.nml (common variables)
+       3. Dparam -d f1.nml f2.nml (missing variables)
+       4. Dparam -e f1.nml f2.nml (sorted missing variables)
+       ''')
 else:
    files=[];
    for vi in sys.argv[1:]:
@@ -23,13 +28,6 @@ else:
          flagd=2
       elif vi=='-e':
          flagd=3
-      elif vi=='-h':
-         print('''
-               1. Dparam f1.nml f2.nml
-               2. Dparam -c f1.nml f2.nml (common variables)
-               3. Dparam -d f1.nml f2.nml (missing variables)
-               4. Dparam -e f1.nml f2.nml (sorted missing variables)
-               '''); sys.exit()
 
 Par=[]; Key=[]; Val=[];
 for i,fname in enumerate(files):
