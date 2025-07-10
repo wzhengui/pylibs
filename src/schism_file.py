@@ -1040,7 +1040,7 @@ class schism_grid(zdata):
            else: #node-based data
               exec('c.data=(v[{}]*pacor[{}]).sum(axis={})'.format(','.join([':']*idm+['pip']),','.join(['None']*idm+['...']+['None']*(ndm-idm-1)),idm+1))
            if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
-           return p.data
+           return c.data
 
     def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
