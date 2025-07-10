@@ -174,6 +174,7 @@ class schism_grid(zdata):
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
            if value is None: value=self.dp
+           if issubdtype(value.dtype,integer): value=value*1.0
            if mask is not None:
               if isnumber(mask): mask=float(mask)
               if isinstance(mask,list):
@@ -1006,33 +1007,40 @@ class schism_grid(zdata):
         self.angles=array(angles).T
         return self.angles
 
-    def interp(self,pxy,value=None,fmt=0,out=1,p=1):
+    def interp(self,pxy,value=None,fmt=0,out=1,p=1,axis=None):
         '''
-        interpolate to get value at pxy
-          pxy: 1). c_[x,y];   2).if pxy is 1D array(ne,np), interp_elem_to_node or interp_node_to_elem is used
-          value=None: gd.dp is used; value: array of [np,] or [ne,]
+        interpolate value at pxy
+          pxy: 1). c_[x,y] where x,y are both 1d array of coordinates
+               2). if pxy is 1d array data(len=ne or np) and  value is not given, interp_elem_to_node or interp_node_to_elem is used
+          value:
+               1). None: gd.dp is used
+               2). ndarray: at least 1 dimension size is np/ne. "axis" can be specified to refer the interploation dimension,
+                            or the code will try to find the 1st dimension of np, followed by the 1st dimension of ne
           fmt=0: (default) faster method by searching the neighbors of elements and nodes
           fmt=1: slower method using point-wise comparison
           fmt=2: pass fmt to self.interp_elem_to_node for 1d-array (ne,)
           out=0: use nearest node if points outside grid domain; out=1: interp using nearest element
           p: only used for interp_node_to_elem when fmt==1
+          axis: the dimension over which interploation is performed
 
           Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
-        pxy=array(pxy); ndim=pxy.ndim; np=len(pxy)
-        if ndim==1 and np==self.np:
+        pxy=array(pxy); ndim=pxy.ndim; npt=len(pxy); p,e=self.np,self.ne
+        if ndim==1 and npt==p:
            return self.interp_node_to_elem(pxy)
-        elif ndim==1 and np==self.ne:
+        elif ndim==1 and npt==e:
            return self.interp_elem_to_node(pxy,fmt=fmt,p=p)
         else: #interp to pts
-           vi=self.dp if value is None else value; npt=len(vi)  #get value
            pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out) #get interp coeff
-           if npt==self.np:
-              return (vi[pip]*pacor).sum(axis=1)
-           elif npt==self.ne:
-              return vi[pie]
-           else:
-              sys.exit('unknown data size: {}'.format(npt))
+           v=self.dp if value is None else value; dms=v.shape; ndm=len(dms); c=zdata()
+           idm=axis if axis!=None else dms.index(p) if (p in dms) else dms.index(e) if (e in dms) else None
+           if (idm is None) or (dms[idm] not in [p,e]) : sys.exit('axis or data dimension wrong: axis={}; dim={}'.format(idm,dms))
+           if dms[idm]==e: #elem-based data
+              exec('c.data=v[{}]'.format(','.join([':']*idm+['pie'])))
+           else: #node-based data
+              exec('c.data=(v[{}]*pacor[{}]).sum(axis={})'.format(','.join([':']*idm+['pip']),','.join(['None']*idm+['...']+['None']*(ndm-idm-1)),idm+1))
+           if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
+           return p.data
 
     def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
