@@ -2558,7 +2558,7 @@ def interp_schism_3d(gd0,vd0,value0,xyz,fmt=0):
     3D interpolator based on schism grid
       gd0:    original schism hgrid object
       vd0:    original schism vgrid object or z-coordiantes (np,nvrt)
-      value0: original 3D data with dims (np,nvrt) or (ne,nvrt)
+      value0: original multi-dimensional data (must include nvrt and np/ne dimensions) 
       xyz:    target coordinates that value0 will be interpolated to, with formats
               1). c_[x,y,z]: sparse data in space
               2). [gd,vd] or (gd,vd): target schism hgrid and vgrid (or z-coordiantes (np,nvrt))
@@ -2574,10 +2574,11 @@ def interp_schism_3d(gd0,vd0,value0,xyz,fmt=0):
 
     #pre-proc on (gd0,vd0,value0)
     zcor0=vd0 if isinstance(vd0,np.ndarray) else vd0.compute_zcor(gd0.dp)
-    ie,ip,acor=gd0.compute_acor(xy); z0=(zcor0[ip]*acor[...,None]).sum(axis=1)
-    data0=(value0[ip]*acor[...,None]).sum(axis=1) if value0.shape[0]==gd0.np else gd0.interp_node_to_elem(value0)
+    ds=list(value0.shape); ndm=len(ds); id1=ds.index(vd0.nvrt); id2=ds.index(gd0.np) if (gd0.np in ds) else ds.index(gd0.ne)
+    ids=[id1,id2,*setdiff1d(arange(ndm),[id1,id2])]; idr=argsort(ids)
 
-    return interp_vertical(data0.T,z0.T,z.T).T
+    data0=gd0.interp(xy,value0); z0=gd0.interp(xy,zcor0) #interp on horizonal
+    return interp_vertical(data0.transpose(ids),z0.T,z.T).transpose(idr).astype(value0.dtype)
 
 def interp_schism_3d_remove(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0): #outdated, to be updated
     '''
