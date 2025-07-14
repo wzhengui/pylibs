@@ -6,10 +6,10 @@ from pylib import *
 #input
 #---------------------------------------------------------------------
 tnames=['O1','K1','Q1','P1','M2','S2','K2','N2']
-StartT=[2010,1,1,0]  #year,month,day,hour
-nday=365             #number of days
-ibnds=[1,]           #order of open boundaries (starts from 1)
-flags=[[5,5,4,4],]   #SCHISM bnd flags for each boundary
+StartT=[2023,1,1,0]  #year,month,day,hour
+nday=732             #number of days
+ibnds=[1,2]           #order of open boundaries (starts from 1)
+flags=[[5,5,4,4],[5,5,4,4]]   #SCHISM bnd flags for each boundary
 Z0=0.0               #add Z0 constant if Z0!=0.0
 
 grd='../grid.npz'       #hgrid.ll (includes bndinfo), or grid.npz (include lon,lat)
@@ -114,4 +114,8 @@ for i,ibnd in enumerate(ibnds):
         fid.write('{}\n'.format(tname.lower()))
         for k in arange(nobn):
             fid.write('{:8.6f} {:.6f} {:8.6f} {:.6f}\n'.format(*ap[1,m,k],*ap[2,m,k]))
+
+    #write TS nudge factor
+    if flags[i][2]!=0: fid.write('1.0 !/TEM nudge\n')
+    if flags[i][3]!=0: fid.write('1.0 !/SAL nudge\n')
 fid.close()
