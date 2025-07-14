@@ -125,7 +125,7 @@ class schism_grid(zdata):
         return self.xcj+1j*self.ycj
     @property
     def gds(self):
-        if not hasattr(self,'_gds'): self._gds=self.scatter_to_grid(fmt=2); self._gds.compute_side()
+        if not hasattr(self,'_gds'): self._gds=self.scatter_to_grid(fmt=2)
         return self._gds
 
     #wrap-around element
@@ -1029,22 +1029,23 @@ class schism_grid(zdata):
 
           Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
-        pxy=array(pxy); ndim=pxy.ndim; npt=len(pxy); p,e,s=self.np,self.ne,self.ns
+        pxy=array(pxy); ndim=pxy.ndim; npt=len(pxy); p,e=self.np,self.ne
         if ndim==1 and npt==p:
            return self.interp_node_to_elem(pxy)
         elif ndim==1 and npt==e:
            return self.interp_elem_to_node(pxy,fmt=fmt,p=p)
         else: #interp to pts
            v=self.dp if value is None else value; dms=v.shape; ndm=len(dms); c=zdata()
-           idm=axis if axis!=None else dms.index(p) if (p in dms) else dms.index(e) if (e in dms) else dms.index(s) if (s in dms) else None
-           if (idm is None) or (dms[idm] not in [p,e,s]) : sys.exit('axis or data dimension wrong: axis={}; dim={}'.format(idm,dms))
+           idm=axis if axis!=None else dms.index(p) if (p in dms) else dms.index(e) if (e in dms) else 0
            if dms[idm] in [p,e]: pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out) #get interp coeff for node and elem based data
            if dms[idm]==e: #elem-based data
               exec('c.data=v[{}]'.format(','.join([':']*idm+['pie'])))
            elif dms[idm]==p: #node-based data
               exec('c.data=(v[{}]*pacor[{}]).sum(axis={})'.format(','.join([':']*idm+['pip']),','.join(['None']*idm+['...']+['None']*(ndm-idm-1)),idm+1))
-           else:  #side-based data
+           elif dms[idm]==self.ns:  #side-based data
               c.data=self.gds.interp(pxy,v)
+           else:
+              sys.exit('axis or data dimension wrong: axis={}; dim={}'.format(idm,dms))
            if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
            return c.data
 
