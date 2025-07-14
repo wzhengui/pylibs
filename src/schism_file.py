@@ -123,6 +123,10 @@ class schism_grid(zdata):
     def scxy(self):
         if not hasattr(self,'xcj'): self.compute_side(2)
         return self.xcj+1j*self.ycj
+    @property
+    def gds(self):
+        if not hasattr(self,'_gds'): self._gds=self.scatter_to_grid(fmt=2); self._gds.compute_side()
+        return self._gds
 
     #wrap-around element
     @property
@@ -1014,8 +1018,8 @@ class schism_grid(zdata):
                2). if pxy is 1d array data(len=ne or np) and  value is not given, interp_elem_to_node or interp_node_to_elem is used
           value:
                1). None: gd.dp is used
-               2). ndarray: at least 1 dimension size is np/ne. "axis" can be specified to refer the interploation dimension,
-                            or the code will try to find the 1st dimension of np, followed by the 1st dimension of ne
+               2). ndarray: at least 1 dimension size is np/ne/ns. "axis" can be specified to refer the interploation dimension,
+                            or the code will try to find the dimension of np, or ne, or ns.
           fmt=0: (default) faster method by searching the neighbors of elements and nodes
           fmt=1: slower method using point-wise comparison
           fmt=2: pass fmt to self.interp_elem_to_node for 1d-array (ne,)
@@ -1025,20 +1029,22 @@ class schism_grid(zdata):
 
           Note: for interpolation of few pts on a large grid, fmt=1 can be faster than fmt=0
         '''
-        pxy=array(pxy); ndim=pxy.ndim; npt=len(pxy); p,e=self.np,self.ne
+        pxy=array(pxy); ndim=pxy.ndim; npt=len(pxy); p,e,s=self.np,self.ne,self.ns
         if ndim==1 and npt==p:
            return self.interp_node_to_elem(pxy)
         elif ndim==1 and npt==e:
            return self.interp_elem_to_node(pxy,fmt=fmt,p=p)
         else: #interp to pts
-           pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out) #get interp coeff
            v=self.dp if value is None else value; dms=v.shape; ndm=len(dms); c=zdata()
-           idm=axis if axis!=None else dms.index(p) if (p in dms) else dms.index(e) if (e in dms) else None
-           if (idm is None) or (dms[idm] not in [p,e]) : sys.exit('axis or data dimension wrong: axis={}; dim={}'.format(idm,dms))
+           idm=axis if axis!=None else dms.index(p) if (p in dms) else dms.index(e) if (e in dms) else dms.index(s) if (s in dms) else None
+           if (idm is None) or (dms[idm] not in [p,e,s]) : sys.exit('axis or data dimension wrong: axis={}; dim={}'.format(idm,dms))
+           if dms[idm] in [p,e]: pie,pip,pacor=self.compute_acor(pxy,fmt=fmt,out=out) #get interp coeff for node and elem based data
            if dms[idm]==e: #elem-based data
               exec('c.data=v[{}]'.format(','.join([':']*idm+['pie'])))
-           else: #node-based data
+           elif dms[idm]==p: #node-based data
               exec('c.data=(v[{}]*pacor[{}]).sum(axis={})'.format(','.join([':']*idm+['pip']),','.join(['None']*idm+['...']+['None']*(ndm-idm-1)),idm+1))
+           else:  #side-based data
+              c.data=self.gds.interp(pxy,v)
            if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
            return c.data
 
@@ -2553,32 +2559,95 @@ def create_schism_vgrid(fname='vgrid.in',ivcor=2,nvrt=10,zlevels=-1.e6,h_c=10,th
     else:
         sys.exit('ivcor=1 option not available yet')
 
+def interp_schism_2d(gd0,value0,xy,axis=None):
+    '''
+    2D interpolator based on schism grid
+      gd0:    original schism hgrid path or hgrid object
+      value0: original multi-dimensional data (must include np/ne/ns dimensions,or specify axis to refer to the interp dimension)
+      xy:     c_[x,y], target coordinates that value0 will be interpolated onto
+      axis:   the dimension over which interpolation performs
+
+    examples: 1). data=interp_schism_2d(gd0,data0,xy)
+              2). data=interp_schism_2d('hgrid.gr3',data0,xy)
+    '''
+    if isinstance(gd0,str): gd0=read(gd0)
+    return gd0.interp(xy,value0,axis=axis).astype(value0.dtype)
+
 def interp_schism_3d(gd0,vd0,value0,xyz,fmt=0):
     '''
     3D interpolator based on schism grid
-      gd0:    original schism hgrid object
-      vd0:    original schism vgrid object or z-coordiantes (np,nvrt)
-      value0: original multi-dimensional data (must include nvrt and np/ne dimensions) 
+      gd0:    1). original schism hgrid path, or 2). hgrid object
+      vd0:    1). original schism vgrid path, or 2). vgrid object, or 3). z-coordiantes (np,nvrt)
+      value0: original multi-dimensional data (must include nvrt and np/ne/ns dimensions)
       xyz:    target coordinates that value0 will be interpolated to, with formats
               1). c_[x,y,z]: sparse data in space
               2). [gd,vd] or (gd,vd): target schism hgrid and vgrid (or z-coordiantes (np,nvrt))
-      fmt=0/1: when xyz=gd+vd, interp to gd's node(fmt=0,default) or elem (fmt=1)
+              3). ['hgrid.gr3','vgrid.in']
+      fmt=0/1/2: when xyz=gd+vd, interp to gd's node(fmt=0,default) or elem (fmt=1) or side(fmt=2)
+
+    examples: 1). data=interp_schism_3d(gd0,vd0,data0,[gd,vd])
+              2). data=interp_schism_3d('hgrid_old.gr3','vgrid_old.in',data0,['hgrid.gr3','vgrid.in'])
     '''
 
     #pre-proc on xyz
     if isinstance(xyz,np.ndarray):
        xy=xy[:,:2]; z=xy[:,2:].T
     elif isinstance(xyz,tuple) or isinstance(xyz,list):
-       gd,vd=xyz; zcor=vd if isinstance(vd,np.ndarray) else vd.compute_zcor(gd.dp)
-       xy,z=[gd.xy,zcor] if fmt==0 else [gd.exy, gd.interp_node_to_elem(zcor)]
+       gd,vd=xyz
+       if isinstance(gd,str): gd=read(gd)
+       if isinstance(vd,str): vd=read(vd)
+       zcor=vd if isinstance(vd,np.ndarray) else vd.compute_zcor(gd.dp)
+       if fmt==0: xy=gd.xy; z=zcor
+       if fmt==1: xy=gd.exy; z=gd.interp_node_to_elem(zcor)
+       if fmt==2: xy=gd.sxy; z=gd.interp(xy,zcor)
 
     #pre-proc on (gd0,vd0,value0)
-    zcor0=vd0 if isinstance(vd0,np.ndarray) else vd0.compute_zcor(gd0.dp)
-    ds=list(value0.shape); ndm=len(ds); id1=ds.index(vd0.nvrt); id2=ds.index(gd0.np) if (gd0.np in ds) else ds.index(gd0.ne)
+    if isinstance(gd0,str): gd0=read(gd0)
+    if isinstance(vd0,str): vd0=read(vd0)
+    zcor0=vd0 if isinstance(vd0,np.ndarray) else vd0.compute_zcor(gd0.dp); nvrt0=zcor0.shape[1]
+    ds=list(value0.shape); ndm=len(ds); id1=ds.index(nvrt0)
+    id2=ds.index(gd0.np) if (gd0.np in ds) else ds.index(gd0.ne) if (gd0.ne in ds) else ds.index(gd0.ns)
     ids=[id1,id2,*setdiff1d(arange(ndm),[id1,id2])]; idr=argsort(ids)
 
     data0=gd0.interp(xy,value0); z0=gd0.interp(xy,zcor0) #interp on horizonal
     return interp_vertical(data0.transpose(ids),z0.T,z.T).transpose(idr).astype(value0.dtype)
+
+def interp_schism_hotstart(gd0,vd0,name0,gd,vd,name):
+    '''
+    interploate hotstart.nc onto a new grid
+      gd0/vd0: old hgrid/vgrid path or hgrid/vgrid object
+      name0:   path of old hotstart.nc
+      gd/vd:   new hgrid/vgrid path or hgrid/vgrid object
+      name:    path of new hotstart.nc to be saved
+    '''
+    from netCDF4 import Dataset
+    if isinstance(gd0,str): gd0=read(gd0)
+    if isinstance(vd0,str): vd0=read(vd0)
+    if isinstance(gd,str):  gd=read(gd)
+    if isinstance(vd,str):  vd=read(vd)
+
+    #open hotstart
+    C0=ReadNC(name0,1); dn=C0.dimname; ds=C0.dims  #old
+    fid=Dataset(name,'w',format='NETCDF4') #new
+
+    #def dimensions
+    for i,k in zip(['node','elem','side'],[gd.np,gd.ne,gd.ns]): ds[dn.index(i)]=k #change dimension
+    for i,k in zip(dn,ds): fid.createDimension(i,k) #create dimensions
+
+    #create variables
+    for svar in C0.variables:
+        print(svar)
+        v=C0.variables[svar]; dms=v.dimensions; vv=array(v[:])
+        fid.createVariable(svar,v.dtype,dms,fill_value=False)
+        if ('elem' in dms) or ('node' in dms) or ('side' in dms):
+           xy,fmt=[gd.xy,0] if ('node' in dms) else [gd.exy,1] if ('elem' in dms) else [gd.sxy,2]
+           if 'nVert' in dms:
+              fid.variables[svar][:]=interp_schism_3d(gd0,vd0,vv,[gd,vd],fmt=fmt)
+           else:
+              fid.variables[svar][:]=interp_schism_2d(gd0,vv,xy)
+        else:
+           fid.variables[svar][:]=vv
+    C0.close(); fid.close()
 
 def interp_schism_3d_remove(gd,vd,pxy,pz,values,pind=None,zind=None,fmt=0): #outdated, to be updated
     '''

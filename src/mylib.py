@@ -2470,8 +2470,8 @@ def interp_vertical(data0,zcor0,zcor):
     interpolate data in the vertical dimension; works for multi-dimensional data.
     format:
       data0([nz0,...]: can be mutli-dimensional, but the 1st dim must be vertical
-      zcor0[nz0,...]:    z-coordiantes of data; it can have fewer dimenions of data
-      zcor[nz,...]:   target z-coordiantes.
+      zcor0[nz0,...]:  z-coordiantes of data; it can have fewer dimenions of data
+      zcor[nz,...]:    target z-coordiantes.
     where nz0 and nz are number of vertical layers
 
     Note: zs and zcor can have different number of dimensions, can be different from data.
