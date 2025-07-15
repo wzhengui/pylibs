@@ -2632,7 +2632,7 @@ def interp_schism_hotstart(gd0,vd0,name0,gd,vd,name):
     fid=Dataset(name,'w',format='NETCDF4') #new
 
     #def dimensions
-    for i,k in zip(['node','elem','side'],[gd.np,gd.ne,gd.ns]): ds[dn.index(i)]=k #change dimension
+    for i,k in zip(['node','elem','side','nVert'],[gd.np,gd.ne,gd.ns,vd.nvrt]): ds[dn.index(i)]=k #change dimension
     for i,k in zip(dn,ds): fid.createDimension(i,k) #create dimensions
 
     #create variables
