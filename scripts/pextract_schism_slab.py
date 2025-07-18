@@ -56,24 +56,20 @@ if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-sdir=run+'/outputs'                            #output directory
-if 'nspool' not in locals(): nspool=1          #subsample
-if 'rvars' not in locals(): rvars=svars        #rename variables
-if 'mdt' not in locals(): mdt=None             #averaging
-if 'reg' not in locals(): reg=None             #region
-modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)  #schism outputs information
+add_var(['nspool','rvars','mdt','reg'],[1,svars,None,None],locals()) #add default values
+modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(run+'/outputs',1)  #schism outputs information
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
 #extract results
-irec=0; oname=odir+'/.schout'
+irec=0; oname=odir+'/.schout_'+os.path.basename(os.path.abspath(sname))
 for svar in svars: 
    ovars=get_schism_var_info(svar,modules,fmt=outfmt)
    if ovars[0][1] not in dvars: continue 
    for istack in stacks:
-       fname='{}_{}_{}_slab'.format(oname,svar,istack); irec=irec+1; t00=time.time()
+       fn='{}_{}_{}_slab'.format(oname,svar,istack); irec=irec+1; t00=time.time()
        if irec%nproc==myrank: 
           try:
-             read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fname,reg=reg)
+             read_schism_slab(run,svar,levels,istack,nspool,mdt,fname=fn,reg=reg)
              dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
           except:
              pass
@@ -81,17 +77,13 @@ for svar in svars:
 #combine results
 if ibatch==1: comm.Barrier()
 if myrank==0:
-   S=zdata(); S.time=[]; fnames=[]
-   for i,[k,m] in enumerate(zip(svars,rvars)):
-       data=[]; mtime=[]
-       for istack in stacks:
-           fname='{}_{}_{}_slab.npz'.format(oname,k,istack)
-           if not fexist(fname): continue
-           C=loadz(fname); data.extend(C.__dict__[k]); mtime.extend(C.time); fnames.append(fname)
-       if len(data)>0: S.__dict__[m]=array(data)
+   S=zdata(); S.time=[]; fnss=[]
+   for i,[svar,rvar] in enumerate(zip(svars,rvars)):
+       fns=['{}_{}_{}_slab.npz'.format(oname,svar,k) for k in stacks]; fnss.extend(fns)
+       data=[read(fn,svar).astype('float32') for fn in fns if fexist(fn)]; mtime=[read(fn,'time') for fn in fns if fexist(fn)]
+       if len(data)>0: S.attr(rvar,concatenate(data)); mtime=concatenate(mtime)
        if len(mtime)>len(S.time): S.time=array(mtime)
-   savez(sname,S)
-   for i in fnames: os.remove(i)
+   S.save(sname); [os.remove(fn) for fn in fnss if fexist(fn)]
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs

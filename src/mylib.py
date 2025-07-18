@@ -98,6 +98,19 @@ def ntype(data,fmt=0,mode='r',name=None,vshape=None,vtype=None):
 #    import builtins
 #    return np.ndarray if (('narray' in str(builtins.type(args[0]))) and len(args)==1) else builtins.type(*args,**kwargs) 
 
+def add_var(svar,value,sdict,fmt=0):
+    '''
+    add dictionary elements
+      svar: variable name or list of variable names
+      value: variable value or list of variable values
+      sdict: dictionary
+      fmt=0: ignore if variable already existing in sdict; fmt=1: always add: sdict[svar]=value
+    '''
+    if isinstance(svar,str): #single value
+       if (svar not in sdict) or fmt==1: sdict[svar]=value
+    else:  #list of values
+       for i, k in zip(svar,value): add_var(i,k,sdict,fmt)
+
 def sort_all(t,*args):
     '''
     sort all variables based on the 1st input
@@ -1366,24 +1379,41 @@ class zdata:
 
     def getattr(self,svar=None,value=None):
         '''
-        1). C.attr('a'): return value of  C.a; 2). C.attr('a',x): set value as C.a=x
+        retrieve attribute or add attribute
+        retrieve attrs:
+            1). C.attr('a'): return C.a
+            2). C.attr(['a','b']): return [C.a,C.b]
+            3). C.attr(): return list of attribute names
+        add attr:
+            1). C.attr('a',x): set C.a=x
+            2). C.attr(['a','b'],['x','y']): set C.a=x and C.b=y
         '''
-        sdict=self.__dict__
+        sdict=self.__dict__; T=isinstance(svar,str); svars=[svar,] if T else svar
         if (svar is None):  return array([*sdict])
-        if (value is None): return sdict[svar] if (svar in sdict) else None
-        sdict[svar]=value
+        if (value is None):
+           vs=[sdict[i] if (i in sdict) else None for i in svars]; return vs[0] if T else vs
+        else:
+           for i,k in enumerate(svars): sdict[k]=value if T else value[i]
 
     def delattr(self,*args):
         '''
         delattr('x'), delattr('x','y'), or delattr(['x','y'])
         '''
-        for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m)  for m in svars] 
+        for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m) for m in svars if self.hasattr(m)]
 
     def attr(self,*args):
         '''
-        alias to getattr
+        alias to getattr: retrieve attribute or add attribute
         '''
         return self.getattr(*args)
+
+    def hasattr(self,*args,fmt=0):
+        '''
+        check whether variable(s) exists
+        fmt=0: return True or False; fmt=1: return a list of True or False
+        '''
+        fs=[hasattr(self,i) if isinstance(i,str) else self.hasattr(*i,fmt=fmt) for i in args]
+        return sum(fs)==len(fs) if fmt==0 else fs
 
     def to_array(self,*args,dtype=None):
         '''

@@ -110,7 +110,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
         mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
         get_qnode,modify_figure,parallel_jobs,fig_IFNO,ceqstate,subdomain_index,interp,
-        nargout,pause,isnumber,ncfile,urlsave)
+        nargout,pause,isnumber,ncfile,urlsave,add_var)
 
    if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
       import pylibs.src.schism_file as schism_file
@@ -164,3 +164,5 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    from src.schism_file import read_schism_grid as grd
    from src.schism_file import read_schism_bpfile as read_bp
    from src.schism_file import change_schism_param as chparam
+   from src.schism_file import get_schism_output_info as schout_info
+   from src.schism_file import get_schism_var_info as schvar_info

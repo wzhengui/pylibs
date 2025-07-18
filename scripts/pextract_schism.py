@@ -58,25 +58,15 @@ if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-sdir=run+'/outputs'                                              #output directory
-if 'itype' not in locals(): itype=0                              #time series or transect
-if 'ifs' not in locals(): ifs=0                                  #refer to free surface
-if 'nspool' not in locals(): nspool=1                            #subsample
-if 'rvars' not in locals(): rvars=svars                          #rename variables
-if 'prj' not in locals(): prj=None                               #projections
-if 'mdt' not in locals(): mdt=None                               #average
-modules, outfmt, dstacks, dvars, dvars_2d = get_schism_output_info(sdir,1)     #schism outputs information
+add_var(['itype','ifs','nspool','rvars','prj','mdt'],[0,0,1,svars,None,None],locals()) #add default values
+modules, outfmt, dstacks, dvars, dvars_2d = schout_info(run+'/outputs',1)   #schism outputs information
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
-
-#read model grid
-fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'
-gd=loadz(fgz,'hgrid') if fexist(fgz) else read_schism_hgrid(fgd); gd.compute_bnd()
-vd=loadz(fgz,'vgrid') if fexist(fgz) else read_schism_vgrid(fvd); sys.stdout.flush()
+gd,vd=grd(run,fmt=2); gd.compute_bnd()                                      #read model grid
 
 #extract results
-irec=0; oname=odir+'/.schout'
+irec=0; oname=odir+'/.schout_'+os.path.basename(os.path.abspath(sname))
 for svar in svars: 
-   ovars=get_schism_var_info(svar,modules,fmt=outfmt)
+   ovars=schvar_info(svar,modules,fmt=outfmt)
    if ovars[0][1] not in dvars: continue 
    for istack in stacks:
        fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
@@ -90,21 +80,14 @@ for svar in svars:
 #combine results
 if ibatch==1: comm.Barrier()
 if myrank==0:
-   S=zdata(); S.time=[]; fnames=[]
+   S=zdata(); S.bp=read(bpfile); S.time=[]; fnss=[]
    for i,[k,m] in enumerate(zip(svars,rvars)):
-       data=[]; mtime=[]
-       for istack in stacks:
-           fname='{}_{}_{}.npz'.format(oname,k,istack)
-           if not fexist(fname): continue
-           C=loadz(fname); datai=C.__dict__[k]; fnames.append(fname)
-           data.extend(datai.transpose([1,0,*arange(2,datai.ndim)])); mtime.extend(C.time)
-       if len(data)>0: S.__dict__[m]=array(data).transpose([1,0,*arange(2,array(data).ndim)])
+       fns=['{}_{}_{}.npz'.format(oname,k,n) for n in stacks]; fnss.extend(fns)
+       data=[read(fn,k).astype('float32') for fn in fns if fexist(fn)]; mtime=[read(fn,'time') for fn in fns if fexist(fn)]
+       if len(data)>0: S.attr(m,concatenate(data,axis=1)); mtime=concatenate(mtime)
        if len(mtime)>len(S.time): S.time=array(mtime)
-   S.bp=read_schism_bpfile(bpfile)
-   for pn in ['param','icm','sediment','cosine','wwminput']:
-       if fexist('{}/{}.nml'.format(run,pn)): S.__dict__[pn]=read_schism_param('{}/{}.nml'.format(run,pn),3)
-   savez(sname,S)
-   for i in fnames: os.remove(i)
+   [S.attr(pn,read('{}/{}.nml'.format(run,pn),3)) for pn in ['param','icm','sediment','cosine','wwminput'] if fexist('{}/{}.nml'.format(run,pn))]
+   S.save(sname); [os.remove(fn) for fn in fnss if fexist(fn)] 
 
 #-----------------------------------------------------------------------------
 #finish MPI jobs

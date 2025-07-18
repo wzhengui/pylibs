@@ -57,8 +57,7 @@ if myrank==0: t0=time.time()
 #-----------------------------------------------------------------------------
 #do MPI work on each core
 #-----------------------------------------------------------------------------
-if 'nspool' not in locals(): nspool=1       #subsample
-if 'rvars' not in locals(): rvars=svars     #rename variables
+add_var(['nspool','rvars'],[1,svars],locals()) #add default values
 modules, outfmt, dstacks, dvars, dvars_2d=get_schism_output_info(run+'/outputs',1) #schism outputs info
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 
