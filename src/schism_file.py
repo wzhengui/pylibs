@@ -59,6 +59,12 @@ class schism_grid(zdata):
     @property
     def zm(self):
         return [self.z.min(),self.z.max()]
+    @property
+    def lxm(self):
+        return [self.lon.min(),self.lon.max()]
+    @property
+    def lym(self):
+        return [self.lat.min(),self.lat.max()]
 
     #element alias
     @property
