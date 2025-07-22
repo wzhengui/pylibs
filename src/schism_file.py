@@ -232,7 +232,7 @@ class schism_grid(zdata):
            if ec=='None': ec=['k','k']
            if isinstance(ec,str): ec=[ec,ec]
            #if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
-           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap).T,lw=lw,color=ec[0],**args)
+           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T,lw=lw,color=ec[0],**args)
         if fmt==3 or bnd!=0: hb=self.plot_bnd(lw=lw,xy=xy)
         hg=hg0 if fmt==0 else hb if fmt==3 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
