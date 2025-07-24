@@ -1377,12 +1377,12 @@ class zdata:
         svar=[svar,] if isinstance(svar,str) else svar
         for i in svar: self.__dict__[i]=value.copy() if ['copy' in value.__dir__()] else value
 
-    def getattr(self,svar=None,value=None):
+    def getattr(self,svar=None,value=None,fmt=0,default=None):
         '''
         retrieve attribute or add attribute
         retrieve attrs:
             1). C.attr('a'): return C.a
-            2). C.attr(['a','b']): return [C.a,C.b]
+            2). C.attr(['a','b']): return [C.a,C.b] if fmt==0 else array([C.a,C.b])
             3). C.attr(): return list of attribute names
         add attr:
             1). C.attr('a',x): set C.a=x
@@ -1391,7 +1391,7 @@ class zdata:
         sdict=self.__dict__; T=isinstance(svar,str); svars=[svar,] if T else svar
         if (svar is None):  return array([*sdict])
         if (value is None):
-           vs=[sdict[i] if (i in sdict) else None for i in svars]; return vs[0] if T else vs
+           vs=[sdict[i] if (i in sdict) else default for i in svars]; return vs[0] if T else vs if fmt==0 else array(vs)
         else:
            for i,k in enumerate(svars): sdict[k]=value if T else value[i]
 
@@ -1401,11 +1401,11 @@ class zdata:
         '''
         for i in args: svars=[i,] if isinstance(i,str) else i; [delattr(self, m) for m in svars if self.hasattr(m)]
 
-    def attr(self,*args):
+    def attr(self,*args,fmt=0,default=None):
         '''
         alias to getattr: retrieve attribute or add attribute
         '''
-        return self.getattr(*args)
+        return self.getattr(*args,fmt=fmt,default=default)
 
     def hasattr(self,*args,fmt=0):
         '''
