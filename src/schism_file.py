@@ -148,7 +148,7 @@ class schism_grid(zdata):
     #alias for grid properties
     #------------------------------------------------------------------------------------------------
 
-    def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=None,xlim=None,
+    def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=11,xlim=None,
              ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,mask=None,bnd=0,
              cmap='jet',wrap=None,dx_wrap=270,actions=True,**args):
         '''
@@ -178,11 +178,10 @@ class schism_grid(zdata):
         if levels is None: levels=51
         if ax is None: ax=gca()
         if (mask is None) and ('nodata' in args): mask=args['nodata'] #for back compatiblity 
-        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
-        fp3,fp4=self.fp3,self.fp4; vm=clim
+        x,y=(self.xy if xy==0 else self.lxy if xy==1 else xy).T; fp3,fp4=self.fp3,self.fp4; vm=clim
 
         if fmt in [1,2]: #plot contours
-           trs=r_[self.elnode[:,:3],c_[self.elnode[fp4,0],self.elnode[fp4,2:]]]
+           trs=r_[self.elnode[:,:3],self.elnode[fp4][:,[0,2,3]]]
            if value is None: value=self.dp
            if issubdtype(value.dtype,integer): value=value*1.0
            if mask is not None:
@@ -222,11 +221,10 @@ class schism_grid(zdata):
            cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
            if cb==True:
               hc=colorbar(hg,aspect=cb_aspect,pad=cb_pad); self.hc=hc
-              if ticks is not None:
-                 if not hasattr(ticks,'__len__'):
-                    hc.set_ticks(linspace(*vm,int(ticks)))
-                 else:
-                    hc.set_ticks(ticks)
+              if not hasattr(ticks,'__len__'):
+                 hc.set_ticks(linspace(*vm,int(ticks)))
+              else:
+                 hc.set_ticks(ticks)
 
         if (fmt==0)|(ec!='None'): #plot grid
            if ec=='None': ec=['k','k']
@@ -331,7 +329,7 @@ class schism_grid(zdata):
         if wrap==1: self.check_wrap_elem(dx_wrap=dx_wrap) #check whether to deal wrap-around elem.
 
         if ax!=None: sca(ax)
-        x,y=[self.x,self.y] if xy==0 else [self.lon,self.lat] if xy==1 else xy.T
+        x,y=(self.xy if xy==0 else self.lxy if xy==1 else xy).T
         if not hasattr(self,'nob'): self.compute_bnd()
         xy1,xy2=self.lines(1,wrap=wrap,dx_wrap=dx_wrap,xy=xy)
         if len(c)==1:
@@ -349,17 +347,12 @@ class schism_grid(zdata):
           xy=0: gd.x,gd.y;  xy=1: use gd.lon,gd.lat xy=c_[x,y]: use provided xy coordinates
           wrap=0: exclude wrap-around elements; wrap=0: include wrap-around elements
         '''
-        xy=self.xy if xy==0 else c_[self.lon,self.lat] if xy==1 else xy
+        xy=self.xy if xy==0 else self.lxy if xy==1 else xy
         if fmt==0:
-           fp3,fp4,fp3g,fp4g=[self.fp3,self.fp4,0,0] if wrap==0 else [self.fp3*(~self.fpg),self.fp4*(~self.fpg),self.fp3*self.fpg,self.fp4*self.fpg]
-           xy3=r_[xy[close_data_loop(self.elnode[fp3,:3].T)],nan*ones([1,sum(fp3),2])].transpose([1,0,2]).reshape([5*sum(fp3),2])
-           xy4=r_[xy[close_data_loop(self.elnode[fp4].T)],nan*ones([1,sum(fp4),2])].transpose([1,0,2]).reshape([6*sum(fp4),2])
-           if wrap==1: #for wrap-around elem.
-              xy3g=r_[xy[close_data_loop(self.elnode[fp3g,:3].T)],nan*ones([1,sum(fp3g),2])].transpose([1,0,2]).reshape([5*sum(fp3g),2])
-              xy4g=r_[xy[close_data_loop(self.elnode[fp4g].T)],nan*ones([1,sum(fp4g),2])].transpose([1,0,2]).reshape([6*sum(fp4g),2])
-              fp=((xy3g[:,0]-self.xm[0])>dx_wrap)*(~isnan(xy3g[:,0])); xy3g[fp,0]=xy3g[fp,0]-360
-              fp=((xy4g[:,0]-self.xm[0])>dx_wrap)*(~isnan(xy4g[:,0])); xy4g[fp,0]=xy4g[fp,0]-360
-           return r_[xy3,xy4] if wrap==0 else r_[xy3,xy4,xy3g,xy4g]
+           xy=xy[self.elnode]; fp3,fp4=self.fp3,self.fp4
+           if wrap==1: xg=xy[self.fpg,:,0]; fp=(xg-self.xm[0])>dx_wrap; xg[fp]=xg[fp]-360; xy[self.fpg,:,0]=xg #for wrap-around elem.
+           xy3=xy[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xy[fp4][:,[0,1,2,3,0,0]].reshape([6*sum(fp4),2])
+           xy3[4::5]=nan; xy4[5::6]=nan; return r_[xy3,xy4]
         elif fmt==1:
            xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[i]]) for i in self.iobn if len(i)!=0] #open
            xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]]) for i,k in zip(self.ilbn,self.island) if len(i)!=0]
@@ -475,7 +468,7 @@ class schism_grid(zdata):
            a=self.area[self.ine]; ta=sum(a*fpv,axis=1); tv=sum(a*vs,axis=1)
            fp=ta!=0; v[fp]=tv[fp]/ta[fp]
         if fmt==1:
-              dist=abs((self.xctr[self.ine]+1j*self.yctr[self.ine])-(self.x+1j*self.y)[:,None])
+              dist=abs(self.ecxy[self.ine]-self.cxy[:,None])
               w=1/(dist**p); w[fpn]=0; tw=w.sum(axis=1); fp=tw!=0; v[fp]=(w*vs).sum(axis=1)[fp]/tw[fp]
         if fmt==2: fp=sum(fpv,axis=1)!=0; vs[fpn]=-inf; v[fp]=vs.max(axis=1)[fp]
         if fmt==3: fp=sum(fpv,axis=1)!=0; vs[fpn]=inf;  v[fp]=vs.min(axis=1)[fp]
@@ -501,9 +494,9 @@ class schism_grid(zdata):
         compute element center information: (xctr,yctr,dpe)
         '''
         if not hasattr(self,'xctr'):
-           fp3,fp4=self.fp3,self.fp4; self.xctr,self.yctr,self.dpe=zeros([3,self.ne])
-           self.xctr[fp3],self.yctr[fp3],self.dpe[fp3]=c_[self.x,self.y,self.dp][self.elnode[fp3,:3]].mean(axis=1).T
-           self.xctr[fp4],self.yctr[fp4],self.dpe[fp4]=c_[self.x,self.y,self.dp][self.elnode[fp4]].mean(axis=1).T
+           v=zeros([self.ne,3])
+           v[self.fp3]=self.xyz[self.elnode[self.fp3,:3]].mean(1); v[self.fp4]=self.xyz[self.elnode[self.fp4]].mean(1)
+           self.xctr,self.yctr,self.dpe=v.T
         return self.dpe
 
     def compute_area(self,fmt=0):
@@ -513,8 +506,7 @@ class schism_grid(zdata):
         fmt=1: return element area, 1st triangle area, and 2nd triangle area
         '''
         x1,x2,x3,x4=self.x[self.elnode].T; y1,y2,y3,y4=self.y[self.elnode].T
-        #fp=self.elnode[:,-1]<0; x4[fp]=x1[fp]; y4[fp]=y1[fp]
-        fp=self.i34==3; x4[fp]=x1[fp]; y4[fp]=y1[fp]
+        fp=self.fp3; x4[fp]=x1[fp]; y4[fp]=y1[fp]
         a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2;  self.area=a1+a2
         return self.area if fmt==0 else [self.area, a1, a2]
 
@@ -533,9 +525,9 @@ class schism_grid(zdata):
 
         if cpp==1:
             if lon0==None or lat0==None: lon0=(self.x.min()+self.x.max())/2; lat0=(self.y.min()+self.y.max())/2
-            x,y=proj_pts(self.x,self.y,'epsg:4326','cpp',lon0=lon0,lat0=lat0)
+            x,y=proj_pts(*self.xy.T,'epsg:4326','cpp',lon0=lon0,lat0=lat0)
         else:
-            x=self.x; y=self.y
+            x,y=self.xy.T
 
         #get node value
         v0=self.dp if value is None else value
@@ -572,11 +564,11 @@ class schism_grid(zdata):
         '''
 
         #collect sides
-        fp3=self.i34==3; self.elnode[fp3,-1]=self.elnode[fp3,0]; sis=[]; sie=[]
+        fp3=self.fp3; elnode=self.elnode.copy(); elnode[fp3,-1]=elnode[fp3,0]; sis=[]; sie=[]
         for i in arange(4):
-            sis.append(c_[self.elnode[:,(i+1)%4],self.elnode[:,(i+2)%4]]); sie.append(arange(self.ne))
+            sis.append(c_[elnode[:,(i+1)%4],elnode[:,(i+2)%4]]); sie.append(arange(self.ne))
         sie=array(sie).T.ravel(); sis=array(sis).transpose([1,0,2]).reshape([len(sie),2])
-        fpn=diff(sis,axis=1)[:,0]!=0; sis=sis[fpn]; sie=sie[fpn]; self.elnode[fp3,-1]=-2
+        fpn=diff(sis,axis=1)[:,0]!=0; sis=sis[fpn]; sie=sie[fpn]
 
         #sort sides
         usis=sort(sis,axis=1).T; usis,sind,sindr=unique(usis[0]+1j*usis[1],return_index=True,return_inverse=True)
@@ -595,9 +587,8 @@ class schism_grid(zdata):
 
            #compute xcj,ycj and dps
            if fmt==2:
-              self.xcj,self.ycj,self.dps=c_[self.x,self.y,self.dp][self.isidenode].mean(axis=1).T
-              self.distj=abs(diff(self.x[self.isidenode],axis=1)+1j*diff(self.y[self.isidenode],axis=1))[:,0]
-
+              self.xcj,self.ycj,self.dps=self.xyz[self.isidenode].mean(axis=1).T
+              self.distj2=abs(diff(self.cxy[self.isidenode],axis=1))[:,0]
               inode=self.isidenode.ravel(); iside=tile(arange(self.ns),2) #node-side table
               sind=argsort(inode); inode=inode[sind]; iside=iside[sind]
               self.nns=unique(inode,return_counts=True)[1]; self.ins=-ones([self.np,self.nns.max()]).astype('int'); n=0
@@ -948,7 +939,7 @@ class schism_grid(zdata):
            #search elements inside node ball
            if len(sindp)!=0:
                if not hasattr(self,'ine'): self.compute_nne()
-               sindn=near_pts(pxy[sindp],c_[self.x,self.y]); pip[sindp]=sindn[:,None]; pacor[sindp,0]=1
+               sindn=near_pts(pxy[sindp],self.xy); pip[sindp]=sindn[:,None]; pacor[sindp,0]=1
                for i in arange(self.mnei):
                    ie=self.ine[sindn,i]; fps,sip,sacor=self.inside_elem(pxy[sindp],ie)
                    if len(fps)!=0: pie[sindp[fps]]=ie[fps]; pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
@@ -966,7 +957,7 @@ class schism_grid(zdata):
               sindp=pindex(pie,-1)
               if sum(sindp)!=0:
                  if not hasattr(self,'xcj'): self.compute_side(fmt=2)
-                 sinds=pindex(self.isdel[:,1],-1); pie[sindp]=self.isdel[sinds[near_pts(pxy[sindp],c_[self.xcj[sinds],self.ycj[sinds]])],0]
+                 sinds=pindex(self.isdel[:,1],-1); pie[sindp]=self.isdel[sinds[near_pts(pxy[sindp], self.sxy[sinds])],0]
                  fps,sip,sacor=self.inside_elem(pxy[sindp],pie[sindp],out=1); pip[sindp[fps]]=sip; pacor[sindp[fps]]=sacor
 
         elif fmt==1:
@@ -988,7 +979,7 @@ class schism_grid(zdata):
                A=signa(c_[x1,x2,x3],c_[y1,y2,y3]); fp=(A1+A2-A)>0; A[fp]=A1[fp]+A2[fp]
                pacor[fpn]=c_[A1/A,A2/A,1-(A1+A2)/A]
             if sum(~fpn)!=0:
-               sindn=near_pts(pxy[~fpn],c_[self.x,self.y]); pip[~fpn]=sindn[:,None]; pacor[~fpn,0]=1
+               sindn=near_pts(pxy[~fpn],self.xy); pip[~fpn]=sindn[:,None]; pacor[~fpn,0]=1
 
         return pie,pip,pacor
 
@@ -1067,24 +1058,14 @@ class schism_grid(zdata):
 
         '''
         #get regions
+        reg_in=None if reg_in==0 else 1; reg_out=None if reg_out==0 else 1
         if reg_in==1 or reg_out==1:
            if not hasattr(self,'bndinfo'): self.compute_bnd()
-           if reg_in==1:  reg_in=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[1:]]
-           if reg_out==1: reg_out=[c_[self.x[i],self.y[i]] for i in self.bndinfo.ibn[:1]]
-        if reg_in==0:  reg_in=None
-        if reg_out==0: reg_out=None
+           if reg_in==1:  reg_in=[self.xy[i] for i in self.bndinfo.ibn[1:]]
+           if reg_out==1: reg_out=[self.xy[self.bndinfo.ibn[0]]]
 
-        #get scatter
-        if fmt==0: xyz=c_[self.x,self.y,self.z]
-        if fmt==1:
-           if not hasattr(self,'dpe'): self.compute_ctr()
-           xyz=c_[self.exy,self.dpe]
-        if fmt==2:
-           if not hasattr(self,'dps'): self.compute_side(fmt=2)
-           xyz=c_[self.xcj,self.ycj,self.dps]
-
-        #build grid
-        gdn=scatter_to_schism_grid(xyz,reg_out=reg_out,reg_in=reg_in,**args)
+        #build grid from scatter points
+        gdn=scatter_to_schism_grid(self.xyz if fmt==0 else self.exyz if fmt==1 else self.sxyz,reg_out=reg_out,reg_in=reg_in,**args)
         return gdn
 
     def smooth(self,dist,value=None,fmt=0,ms=1e8):
@@ -1202,7 +1183,7 @@ class schism_grid(zdata):
         if value.size==self.ne: value=self.interp_elem_to_node(value)
 
         #plot contour and extract the lines
-        trs=r_[self.elnode[:,:3],c_[self.elnode[self.fp4,0],self.elnode[self.fp4,2:]]]
+        trs=r_[self.elnode[:,:3],self.elnode[fp4][:,[0,2,3]]]
         hf=figure(); hf.set_visible(False)
         P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
         for k in arange(len(P.collections)):
@@ -1256,35 +1237,19 @@ class schism_grid(zdata):
             Info: annotation of the gr3 file
             xy=0: projection coordinate; xy=1: lon&lat
         '''
-
-        #get depth value
-        if value is None:
-           dp=self.dp
-        else:
-           if hasattr(value,"__len__"):
-              dp=value
-           else:
-              dp=ones(self.np)*value
-        if fmt==1: elnode=1
-
-        #write *gr3
-        with open(fname,'w+') as fid:
-            fid.write('!grd info:{}\n'.format(Info))
-            fid.write('{} {}\n'.format(self.ne,self.np))
-            lineformat='{:<d} {:<.8f} {:<.8f} '+outfmt+'\n'
-            for i in arange(self.np):
-                if xy==0: fid.write(lineformat.format(i+1,self.x[i],self.y[i],dp[i]))
-                if xy==1: fid.write(lineformat.format(i+1,self.lon[i],self.lat[i],dp[i]))
-            if elnode!=0:
-                for i in arange(self.ne):
-                    if self.i34[i]==3: fid.write('{:<d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
-                    if self.i34[i]==4: fid.write('{:<d} {:d} {:d} {:d} {:d} {:d}\n'.format(i+1,self.i34[i],*self.elnode[i,:]+1))
-
-            #write bnd information
-            if fmt==1 and bndfile is None:
-               if not hasattr(self,'nob'): self.compute_bnd()
-               self.write_bnd(fid=fid)
-            if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
+        #write gr3
+        fid=open(fname,'w+'); fstr='{:<d} {:<.8f} {:<.8f} '+outfmt+'\n'
+        xys=self.xy if xy==0 else self.lxy; elnode=1 if fmt==1 else elnode; 
+        dp=self.dp if (value is None) else value if hasattr(value,"__len__") else ones(self.np)*value
+        fid.write('!grd info:{}\n'.format(Info)); fid.write('{} {}\n'.format(self.ne,self.np))
+        for i, [xy,z] in enumerate(zip(xys,dp)): fid.write(fstr.format(i+1,*xy,z)) #node
+        if elnode!=0: #elem
+           for i,[n,m] in enumerate(zip(self.i34,self.elnode)): fid.write(('{:<d} {:d}'+' {:d}'*n+'\n').format(i+1,n,*(m+1)))
+        if fmt==1 and (bndfile is None): #write bnd information
+           if not hasattr(self,'nob'): self.compute_bnd()
+           self.write_bnd(fid=fid)
+        if bndfile is not None: fid.writelines(open(bndfile,'r').readlines())
+        fid.close()
 
     def write_bnd(self,fname='grd.bnd',fid=None):
         '''
@@ -1514,7 +1479,7 @@ class schism_grid(zdata):
         return indice from wrap-around elements with element width>dx_wrap
         fmt=0: return element indices; fmt=1: return boolean value; fmt=2: return both
         '''
-        if not hasattr(self,'fpg'): x=self.x[self.elnode]; fp=self.elnode[:,-1]==-2; x[fp,-1]=x[fp,0]; self.fpg=(x.max(1)-x.min(1))>dx_wrap
+        if not hasattr(self,'fpg'): x=self.x[self.elnode]; x[self.fp3,-1]=x[self.fp3,0]; self.fpg=(x.max(1)-x.min(1))>dx_wrap
         return pindex(self.fpg) if fmt==0 else self.fpg if fmt==1 else [pindex(self.fpg),self.fpg]
 
     def inside_elem(self,pxy,ie,out=0):
@@ -1674,57 +1639,24 @@ class schism_grid(zdata):
         generic function to write grid elem/node/bnd as shapefile
         fmt=0: elem (default);   fmt=1: node;    fmt=2: bnd
         '''
-        if fmt==0: self.write_shapefile_element(fname,prj)
-        if fmt==1: self.write_shapefile_node(fname,prj)
-        if fmt==2: self.write_shapefile_bnd(fname,prj)
+        C=zdata(); C.type='POLYGON' if fmt==0 else 'POINT' if fmt==1 else 'POLYLINE'; C.prj=get_prj_file(prj)
+        if fmt==0: #elem
+           ie=self.elnode.copy(); ie[self.fp3,-1]=ie[self.fp3,0]; C.xy=self.xy[fliplr(ie)]
+           C.attname=['id_elem']; C.attvalue=arange(self.ne)+1
+        if fmt==1: #node
+           C.xy=self.xy; C.attname=['id_node']; C.attvalue=arange(self.np)+1
+        if fmt==2:  #bnd
+           C.xy=concatenate([r_[nan*ones([1,2]),self.xy[i if k==0 else r_[i,i[0]]]] \
+                for i,k in zip([*self.iobn,*self.ilbn],[*zeros(self.nob),*self.island])])
+        C.save(fname if fname.endswith('.shp') else fname+'.shp')
+        return C
 
-    def write_shapefile_bnd(self,fname,prj='epsg:4326'):
-        self.shp_bnd=zdata()
-        self.shp_bnd.type='POLYLINE'; xy=array([[],[]]).T
-        for i in arange(self.nob):
-            ind=self.iobn[i]
-            xyi=c_[self.x[ind],self.y[ind]];
-            xyi=insert(xyi,0,nan,axis=0);
-            xy=r_[xy,xyi]
-        for i in arange(self.nlb):
-            ind=self.ilbn[i]
-            xyi=c_[self.x[ind],self.y[ind]];
-            if self.island[i]==1: xyi=close_data_loop(xyi)
-            xyi=insert(xyi,0,nan,axis=0)
-            xy=r_[xy,xyi]
-        self.shp_bnd.xy=xy
-        self.shp_bnd.prj=get_prj_file(prj)
-        write_shapefile_data(fname,self.shp_bnd)
-
+    def write_shapefile_elem(self,fname,prj='epsg:4326'):
+        return self.write_shp(fname,0,prj)
     def write_shapefile_node(self,fname,prj='epsg:4326'):
-        self.shp_node=zdata()
-        self.shp_node.type='POINT'
-        self.shp_node.xy=c_[self.x,self.y]
-        self.shp_node.attname=['id_node']
-        self.shp_node.attvalue=arange(self.np)+1;
-        self.shp_node.prj=get_prj_file(prj)
-        write_shapefile_data(fname,self.shp_node)
-
-    def write_shapefile_element(self,fname,prj='epsg:4326'):
-        self.shp_elem=zdata()
-        self.shp_elem.type='POLYGON'
-        elnode=self.elnode; fp=elnode[:,-1]<0; elnode[fp,-1]=elnode[fp,0]
-        elnode=fliplr(elnode)
-        for i in arange(4):
-            xyi=c_[self.x[elnode[:,i]],self.y[elnode[:,i]]]
-            if i==0:
-                xy=xyi[:,:,None]
-            else:
-                xy=c_[xy,xyi[:,:,None]]
-        xy=transpose(xy,[0,2,1]);
-        self.shp_elem.xy=zeros(self.ne).astype('O')
-        for i in arange(self.ne):
-            self.shp_elem.xy[i]=xy[i]
-
-        self.shp_elem.attname=['id_elem']
-        self.shp_elem.attvalue=arange(self.ne)+1;
-        self.shp_elem.prj=get_prj_file(prj)
-        write_shapefile_data(fname,self.shp_elem)
+        return self.write_shp(fname,1,prj)
+    def write_shapefile_bnd(self,fname,prj='epsg:4326'):
+        return self.write_shp(fname,2,prj)
 
     def create_bnd(self):
         '''

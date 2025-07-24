@@ -2592,21 +2592,13 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
 
     import shapefile as shp
     S=data
-    #---get nrec-----
     if S.type=='POINT':
-        if S.xy.dtype==dtype('O'):
-            print('S.xy has a dtype="O" for POINT'); sys.exit()
-        else:
-            nrec=S.xy.shape[0];
+       nrec=len(S.xy)
     elif S.type=='POLYLINE' or S.type=='POLYGON':
-        if S.xy.dtype==dtype('O'):
-            nrec=len(S.xy)
-        else:
-            nrec=1;
+        nrec=len(S.xy) if (S.xy.dtype==dtype('O') or S.xy.ndim==3) else 1
     else:
-        sys.exit('unknow type')
-    if hasattr(S,'nrec'):
-        if nrec!=S.nrec: sys.exit('nrec inconsistent')
+        sys.exit('unknown type')
+    if hasattr(S,'nrec') and  nrec!=S.nrec: sys.exit('nrec inconsistent')
 
     #---write shapefile---------
     with shp.Writer(fname) as W:
@@ -2642,10 +2634,10 @@ def write_shapefile_data(fname,data,prj='epsg:4326',float_len=18,float_decimal=8
             if S.type=='POINT': #point, W.multipoint(S.xy) is multiple pts features
                 W.point(*S.xy[i])
             elif S.type=='POLYLINE':
-                vali=S.xy[i] if S.xy.dtype==dtype('O') else S.xy
+                vali=S.xy[i] if (S.xy.dtype==dtype('O') or S.xy.ndim==3) else S.xy
                 W.line(delete_shapefile_nan(vali,0)) #reorganize the shape of vali, and write
             elif S.type=='POLYGON':
-                vali=S.xy[i] if S.xy.dtype==dtype('O') else S.xy
+                vali=S.xy[i] if (S.xy.dtype==dtype('O') or S.xy.ndim==3) else S.xy
                 W.poly([[[*m] for m in k] for k in delete_shapefile_nan(vali,1)]) #reorganize the shape of vali and add polygons
 
             #add attribute
