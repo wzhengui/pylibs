@@ -349,6 +349,7 @@ class schism_grid(zdata):
         '''
         xy=self.xy if xy==0 else self.lxy if xy==1 else xy
         if fmt==0:
+           if hasattr(self,'grid_lines'): pxy=xy[self.grid_lines]; pxy[self.grid_lines==-1]=nan; return pxy
            xy=xy[self.elnode]; fp3,fp4=self.fp3,self.fp4
            if wrap==1: xg=xy[self.fpg,:,0]; fp=(xg-self.xm[0])>dx_wrap; xg[fp]=xg[fp]-360; xy[self.fpg,:,0]=xg #for wrap-around elem.
            xy3=xy[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xy[fp4][:,[0,1,2,3,0,0]].reshape([6*sum(fp4),2])
@@ -481,13 +482,17 @@ class schism_grid(zdata):
         compute all geometry information of hgrid by invoking:
            functions: compute_ctr(),compute_area(),compute_side(fmt=2),compute_nne(),compute_ic3()
            attrs: (xctr,yctr,dpe),(area),(ns,isidenode,isdel,xcj,ycj,dps,distj),(nne,mnei,indel,ine),(ic3,elside)
-           fmt=0: skip if already attrs are already available; fmt=1: recompute all attrs
+           fmt=0: skip if already attrs are already available; fmt!=0: recompute all attrs
+           fmt=1: compute all attrs (dpe,area,dps,ine,ic3)
+           fmt=2: more comprehensive attrs (dpe,area,dps,ine,ic3,bnd,lines)
         '''
-        if (not hasattr(self,'dpe'))  or fmt==1: self.compute_ctr()
-        if (not hasattr(self,'area')) or fmt==1: self.compute_area()
-        if (not hasattr(self,'dps'))  or fmt==1: self.compute_side(fmt=2)
-        if (not hasattr(self,'ine'))  or fmt==1: self.compute_nne(fmt=1)
-        if (not hasattr(self,'ic3'))  or fmt==1: self.compute_ic3()
+        if (not hasattr(self,'dpe'))  or fmt!=0: self.compute_ctr()
+        if (not hasattr(self,'area')) or fmt!=0: self.compute_area()
+        if (not hasattr(self,'dps'))  or fmt!=0: self.compute_side(fmt=2)
+        if (not hasattr(self,'ine'))  or fmt!=0: self.compute_nne(fmt=1)
+        if (not hasattr(self,'ic3'))  or fmt!=0: self.compute_ic3()
+        if (not hasattr(self,'bndinfo')) and fmt==2: self.compute_bnd()
+        if (not hasattr(self,'grid_lines')) and fmt==2: self.compute_lines()
 
     def compute_ctr(self):
         '''
@@ -1007,6 +1012,21 @@ class schism_grid(zdata):
             a=(angle((x1-x2)+1j*(y1-y2))-angle((x3-x2)+1j*(y3-y2)))%(2*pi); angles.append(a*180/pi)
         self.angles=array(angles).T
         return self.angles
+
+    def compute_lines(self):
+        '''
+        compute grid lines for quick plotting
+        Note: for large grid, it is time consuming. saving the grid with the result will help
+        '''
+        if not hasattr(self,'isidenode'): self.compute_side(1)
+        s={}; [s.update({i:[]}) for i in arange(self.np)]; [s[i[0]].append(i[1]) for i in self.isidenode]
+        n=zeros(self.np,'int'); fp,nc=unique(self.isidenode[:,0],return_counts=True); n[fp]=nc; xs=[]
+        def tline(p,x):
+            if n[p]==0: x.append(-1); return x
+            pn=s[p].pop(); x.append(pn); n[p]=n[p]-1; return tline(pn,x)
+        while sum(n)!=0: i0=argmax(n); xs.append(i0); xs.extend(tline(i0,[]))
+        self.grid_lines=array(xs)
+        return self.grid_lines
 
     def interp(self,pxy,value=None,fmt=0,out=1,p=1,axis=None):
         '''
@@ -2238,7 +2258,8 @@ def save_schism_grid(fmt=0,path='.',method=0):
     save schism grid information in *.npz format (hgrid.gr3,hgrid.ll,vgrid.in}
        path:  directory of grids
        fmt=0: save as grid.npz (include hgrid and vgrid); fmt=1: save as hgrid.npz and vgrid.npz
-       method=1: save hgrid full geometry information
+       method=1: save hgrid's geometry information
+       method=2: save more comprehensive hgrid's geometry information
     '''
     #read grids
     grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path)
@@ -2248,7 +2269,7 @@ def save_schism_grid(fmt=0,path='.',method=0):
     if os.path.exists(vrd):  vd=read_schism_vgrid(vrd)
     if (gd is None) and (gd0 is not None): gd=gd0
     if (gd is not None) and (gd0 is not None): gd.lon,gd.lat=gd0.x,gd0.y
-    if (gd is not None) and method==1: gd.compute_all()
+    if (gd is not None) and method!=0: gd.compute_all(method)
 
     #save grid
     if fmt==1:

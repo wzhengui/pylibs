@@ -2970,7 +2970,7 @@ def savefig(fname,fig=None,fmt=0,**args):
            else:
               plt.savefig(fname)
     '''
-    if fname.endswith('.pp'):
+    if isinstance(fname,str) and fname.endswith('.pp'):
        hf=gcf() if fig is None else fig
        if fmt==0:
           #fig info
