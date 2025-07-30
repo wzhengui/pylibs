@@ -349,11 +349,13 @@ class schism_grid(zdata):
         '''
         xy=self.xy if xy==0 else self.lxy if xy==1 else xy
         if fmt==0:
-           if hasattr(self,'grid_lines'): pxy=xy[self.grid_lines]; pxy[self.grid_lines==-1]=nan; return pxy
-           xy=xy[self.elnode]; fp3,fp4=self.fp3,self.fp4
-           if wrap==1: xg=xy[self.fpg,:,0]; fp=(xg-self.xm[0])>dx_wrap; xg[fp]=xg[fp]-360; xy[self.fpg,:,0]=xg #for wrap-around elem.
-           xy3=xy[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xy[fp4][:,[0,1,2,3,0,0]].reshape([6*sum(fp4),2])
-           xy3[4::5]=nan; xy4[5::6]=nan; return r_[xy3,xy4]
+           if not hasattr(self,'grid_lines'): self.compute_lines()
+           pxy=xy[self.grid_lines]; pxy[self.grid_lines==-1]=nan; return pxy
+           #old method: fast, but 2x number of lines
+           #xy=xy[self.elnode]; fp3,fp4=self.fp3,self.fp4
+           #if wrap==1: xg=xy[self.fpg,:,0]; fp=(xg-self.xm[0])>dx_wrap; xg[fp]=xg[fp]-360; xy[self.fpg,:,0]=xg #for wrap-around elem.
+           #xy3=xy[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xy[fp4][:,[0,1,2,3,0,0]].reshape([6*sum(fp4),2])
+           #xy3[4::5]=nan; xy4[5::6]=nan; return r_[xy3,xy4]
         elif fmt==1:
            xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[i]]) for i in self.iobn if len(i)!=0] #open
            xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]]) for i,k in zip(self.ilbn,self.island) if len(i)!=0]
@@ -483,16 +485,15 @@ class schism_grid(zdata):
            functions: compute_ctr(),compute_area(),compute_side(fmt=2),compute_nne(),compute_ic3()
            attrs: (xctr,yctr,dpe),(area),(ns,isidenode,isdel,xcj,ycj,dps,distj),(nne,mnei,indel,ine),(ic3,elside)
            fmt=0: skip if already attrs are already available; fmt!=0: recompute all attrs
-           fmt=1: compute all attrs (dpe,area,dps,ine,ic3)
-           fmt=2: more comprehensive attrs (dpe,area,dps,ine,ic3,bnd,lines)
+           fmt=1: compute comprehensive attrs (dpe,area,dps,ine,ic3,bnd,lines)
         '''
         if (not hasattr(self,'dpe'))  or fmt!=0: self.compute_ctr()
         if (not hasattr(self,'area')) or fmt!=0: self.compute_area()
         if (not hasattr(self,'dps'))  or fmt!=0: self.compute_side(fmt=2)
         if (not hasattr(self,'ine'))  or fmt!=0: self.compute_nne(fmt=1)
         if (not hasattr(self,'ic3'))  or fmt!=0: self.compute_ic3()
-        if (not hasattr(self,'bndinfo')) and fmt==2: self.compute_bnd()
-        if (not hasattr(self,'grid_lines')) and fmt==2: self.compute_lines()
+        if (not hasattr(self,'bndinfo')) and fmt!=0: self.compute_bnd()
+        if (not hasattr(self,'grid_lines')) and fmt!=0: self.compute_lines()
 
     def compute_ctr(self):
         '''
@@ -1013,19 +1014,52 @@ class schism_grid(zdata):
         self.angles=array(angles).T
         return self.angles
 
-    def compute_lines(self):
+    def compute_lines(self,npt=None):
         '''
         compute grid lines for quick plotting
+        npt: number of starting search points
         Note: for large grid, it is time consuming. saving the grid with the result will help
         '''
+        if hasattr(self,'grid_lines'): return self.grid_lines
         if not hasattr(self,'isidenode'): self.compute_side(1)
-        s={}; [s.update({i:[]}) for i in arange(self.np)]; [s[i[0]].append(i[1]) for i in self.isidenode]
-        n=zeros(self.np,'int'); fp,nc=unique(self.isidenode[:,0],return_counts=True); n[fp]=nc; xs=[]
-        def tline(p,x):
-            if n[p]==0: x.append(-1); return x
-            pn=s[p].pop(); x.append(pn); n[p]=n[p]-1; return tline(pn,x)
-        while sum(n)!=0: i0=argmax(n); xs.append(i0); xs.extend(tline(i0,[]))
-        self.grid_lines=array(xs)
+        if npt is None: npt=int(max([self.ns/100,1]))
+        #-------------------------------------------------------------------
+        #new method: parallel search (fast)
+        #-------------------------------------------------------------------
+        #create node-to-node table
+        n1,n2=self.isidenode.T; inp=[]; np=zeros(self.np,'int')
+        while n1.size>0:
+            n,fp=unique(n1,return_index=True); fpn=setdiff1d(arange(len(n1)),fp)
+            ip=-ones(self.np,'int'); ip[n]=n2[fp]; np[n]=np[n]+1; inp.append(ip); n1,n2=n1[fpn],n2[fpn]
+        inp=sort(array(inp),axis=0)[::-1].T
+
+        #search side function
+        def tline(p0,xs):
+            pn=inp[p0,0]; [x.append(p) for x,p in zip(xs,pn)] #add sides
+            inp[p0,:-1]=inp[p0,1:]; np[p0]=np[p0]-1; #remove sides
+            ip=unique(pn,return_index=True)[1]; fp=np[pn[ip]]>0; pn=pn[ip[fp]]; sindn=ip[fp]
+            if len(pn)>0: xs[sindn]=tline(pn,xs[sindn]) #search next
+            [xs[i].append(-1) for i in setdiff1d(arange(len(p0)),sindn)]; return xs
+
+        #search sides
+        self.grid_lines=[]; print('computing lines for plotting schism grid')
+        while sum(np)>0:
+              sind=pindex(np>0); p0=sind[argsort(np[sind])][-npt:]; xs=zeros(len(p0),'O') #start nodes
+              for i,p in enumerate(p0): xs[i]=[]; xs[i].append(p)
+              #print('computing grid line: {:0.2f}% done'.format(100*(1-sum(np)/self.ns)))
+              xs=tline(p0,xs); self.grid_lines.extend(xs[0] if p0.size==1 else concatenate(xs))
+        self.grid_lines=array(self.grid_lines)
+        #-------------------------------------------------------------------
+        #old method: serial search (slow)
+        #-------------------------------------------------------------------
+        #s={}; [s.update({i:[]}) for i in arange(self.np)]; [s[i[0]].append(i[1]) for i in self.isidenode]
+        #n=zeros(self.np,'int'); fp,nc=unique(self.isidenode[:,0],return_counts=True); n[fp]=nc; xs=[]; t0=time.time()
+        #def tline(p,x):
+        #    if n[p]==0: x.append(-1); return x
+        #    pn=s[p].pop(); x.append(pn); n[p]=n[p]-1; return tline(pn,x)
+        #while sum(n)!=0: i0=argmax(n); xs.append(i0); xs.extend(tline(i0,[])); \
+        #      print('computing lines: {:0.2f}%, time={:0.2f}s'.format(100*(1-sum(n)/self.ns),time.time()-t0)) if i0%10000==0 else None
+        #self.grid_lines=array(xs)
         return self.grid_lines
 
     def interp(self,pxy,value=None,fmt=0,out=1,p=1,axis=None):
