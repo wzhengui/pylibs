@@ -350,7 +350,13 @@ class schism_grid(zdata):
         xy=self.xy if xy==0 else self.lxy if xy==1 else xy
         if fmt==0:
            if not hasattr(self,'grid_lines'): self.compute_lines()
-           pxy=xy[self.grid_lines]; pxy[self.grid_lines==-1]=nan; return pxy
+           xyg=xy[self.elnode[self.fpg]] if wrap==1 else 0; xy=xy[self.grid_lines]; xy[self.grid_lines==-1]=nan
+           if wrap==1: #wrap-around elements
+              ip=pindex(abs(diff(xy[:,0]))>dx_wrap)+1; xy=insert(xy,ip,nan,axis=0) #break lines
+              fp=(xyg[...,0]-self.xm[0])>dx_wrap; xyg[fp,0]=xyg[fp,0]-360; fp3=self.i34[self.fpg]==3
+              xy3=xyg[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xyg[~fp3][:,[0,1,2,3,0,0]].reshape([6*sum(~fp3),2])
+              xy3[4::5]=nan; xy4[5::6]=nan; xy=r_[xy,xy3,xy4]
+           return xy
            #old method: fast, but 2x number of lines
            #xy=xy[self.elnode]; fp3,fp4=self.fp3,self.fp4
            #if wrap==1: xg=xy[self.fpg,:,0]; fp=(xg-self.xm[0])>dx_wrap; xg[fp]=xg[fp]-360; xy[self.fpg,:,0]=xg #for wrap-around elem.
@@ -495,13 +501,15 @@ class schism_grid(zdata):
         if (not hasattr(self,'bndinfo')) and fmt!=0: self.compute_bnd()
         if (not hasattr(self,'grid_lines')) and fmt!=0: self.compute_lines()
 
-    def compute_ctr(self):
+    def compute_ctr(self,wrap=None,dx_wrap=270):
         '''
         compute element center information: (xctr,yctr,dpe)
         '''
         if not hasattr(self,'xctr'):
-           v=zeros([self.ne,3])
-           v[self.fp3]=self.xyz[self.elnode[self.fp3,:3]].mean(1); v[self.fp4]=self.xyz[self.elnode[self.fp4]].mean(1)
+           v=zeros([self.ne,3]); v[self.fp3]=self.xyz[self.elnode[self.fp3,:3]].mean(1); v[self.fp4]=self.xyz[self.elnode[self.fp4]].mean(1)
+           if (wrap is not None) or (hasattr(self,'_wrap') and self._wrap==1): #wrap-around elem.
+              x=self.x[self.elnode[self.fpg]]; fp=(x-self.xm[0])>dx_wrap; x[fp]=x[fp]-360
+              xc=zeros(len(x)); fp3=self.i34[self.fpg]==3; xc[fp3]=x[fp3,:3].mean(1); xc[~fp3]=x[~fp3].mean(1); v[self.fpg,0]=xc
            self.xctr,self.yctr,self.dpe=v.T
         return self.dpe
 
@@ -2293,7 +2301,6 @@ def save_schism_grid(fmt=0,path='.',method=0):
        path:  directory of grids
        fmt=0: save as grid.npz (include hgrid and vgrid); fmt=1: save as hgrid.npz and vgrid.npz
        method=1: save hgrid's geometry information
-       method=2: save more comprehensive hgrid's geometry information
     '''
     #read grids
     grd=path+'/hgrid.gr3'; grd0=path+'/hgrid.ll'; vrd='{}/vgrid.in'.format(path)
