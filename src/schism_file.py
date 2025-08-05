@@ -4345,7 +4345,7 @@ class schism_view(zdata):
         p.anim=anim[:-4] if anim.endswith('.gif') else anim if anim.strip()!='' else None
         self.play='off'; self.schism_plot(1); p.anim=None
 
-    def schism_instance(self,event):
+    def schism_instance(self,event,scaling=None):
         from tkinter import filedialog
         import subprocess
 
@@ -4359,7 +4359,7 @@ class schism_view(zdata):
 
         if not (isinstance(crun,str) and os.path.exists(crun)): return
         if event in ['schism_check','schism_view']: #open another window for schismview or schismcheck
-           p=subprocess.Popen('python3 -c "from pylib import *; {}(\'{}\')"'.format(event,crun),shell=True);  self.sbp.append(p)
+           p=subprocess.Popen('python3 -c "from pylib import *; {}(\'{}\',{})"'.format(event,crun,scaling),shell=True);  self.sbp.append(p)
         else: #add base run
            self.run0=os.path.abspath(crun)
 
@@ -4463,9 +4463,9 @@ class schism_view(zdata):
         menu.add_command(label="save animation", command=self.anim_window)
         menu.add_checkbutton(label="wetting/drying",onvalue=1,offvalue=0,variable=w.dry)
         menu.add_command(label="show node/element", command=self.show_node)
-        menu.add_command(label="schism_check", command=lambda: self.schism_instance('schism_check'))
-        menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view'))
-        menu.add_checkbutton(label="schism_compare",onvalue=1,offvalue=0,variable=w.cmp,command=lambda: self.schism_instance('compare'))
+        menu.add_command(label="schism_check", command=lambda: self.schism_instance('schism_check',scaling))
+        menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view',scaling))
+        menu.add_checkbutton(label="schism_compare",onvalue=1,offvalue=0,variable=w.cmp,command=lambda: self.schism_instance('compare',scaling))
         menu.add_command(label="schism_transect", command=self.update_transect)
         mbar['menu']=menu; mbar['direction']='below'
 
