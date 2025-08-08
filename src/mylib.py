@@ -2239,7 +2239,7 @@ def proj_pts(x,y,prj1='epsg:4326',prj2='epsg:26918',**args):
       when 'cpp' projection exists, lon0, and lat0 arguments can be provided
     '''
     if len(array(x).shape)==0: x=array([x,]); y=array([y,])
-    px,py=proj(prj0=prj1,prj1=prj2,x=x,y=y,**args)
+    px,py=[x,y] if prj1==prj2 else proj(prj0=prj1,prj1=prj2,x=x,y=y,**args)
     return [px,py]
 
 def get_prj_file(prjname='epsg:4326',fmt=0,prj_dir=r'D:\Work\Database\projection\prj_files',fname=None):
