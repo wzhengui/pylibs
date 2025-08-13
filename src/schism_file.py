@@ -602,7 +602,7 @@ class schism_grid(zdata):
            #compute xcj,ycj and dps
            if fmt==2:
               self.xcj,self.ycj,self.dps=self.xyz[self.isidenode].mean(axis=1).T
-              self.distj2=abs(diff(self.cxy[self.isidenode],axis=1))[:,0]
+              self.distj=abs(diff(self.cxy[self.isidenode],axis=1))[:,0]
               inode=self.isidenode.ravel(); iside=tile(arange(self.ns),2) #node-side table
               sind=argsort(inode); inode=inode[sind]; iside=iside[sind]
               self.nns=unique(inode,return_counts=True)[1]; self.ins=-ones([self.np,self.nns.max()]).astype('int'); n=0
