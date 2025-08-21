@@ -3726,6 +3726,19 @@ def convert_schism_source(run='.',fname='source.nc'):
     #save as netcdf
     WriteNC(sdir+fname,C)
 
+def schism_view_tsdata(fn,svar,ks,sindp,pacor,f2d,facor):
+    '''
+    for parallel extracting time series in schism_view app (target fun in mp needs to be in top-module)
+    '''
+    C=ReadNC(fn,1); nt0,npt=C.variables[svar].shape[:2]; t0=time.time()
+    if f2d:
+        data=array(C.variables[svar][:,sindp])
+    else:
+        data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
+    if facor: data=sum(reshape(data,[nt0,*pacor.shape])*pacor[None,...],axis=2)
+    print('done: {}, dt={:0.1f}'.format(fn,time.time()-t0)); C.close()
+    return data
+
 class schism_view(zdata):
     def __init__(self, run='.',scaling=None):
         #note: p is a capsule including all information about a figure
@@ -3850,43 +3863,58 @@ class schism_view(zdata):
 
     def plotts(self):
         import threading
-        #function to extract data
-        def get_tsdata(ts,x,y,svar,layer,ik1,ik2):
-            w.curve['text']='wait'; ts.x=x; ts.y=y; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0
-            for ik in arange(ik1,ik2+1):
-                def _ts(outputs):
-                   fname='{}/out2d_{}.nc'.format(outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(outputs,svar,ik)
-                   C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]
-                   if ik==ik1 and self.curve_method==0: t.sindp=near_pts(c_[x,y],gd.xy) if npt==gd.np else near_pts(c_[x,y],gd.exy) #compute index
-                   if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(c_[x,y],fmt=1); t.sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
-                   if svar in self.vars_2d:
-                       data=array(C.variables[svar][:,t.sindp])
-                   else:
-                       ks=(self.kbp[t.sindp] if npt==gd.np else self.kbe[t.sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),t.sindp.size))
-                       data=array([C.variables[svar][:,i,k] for i,k in zip(t.sindp,ks)]).T
-                   if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
-                   return data,nt0,fname
-                t00=time.time(); data,nt0,fname=_ts(self.outputs)
-                if p.cmp==1: data=data-_ts(p.run0+os.path.sep+'outputs')[0]
-                ts.mys.extend(data); nt=nt+nt0; print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
-            ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it1:(it1+nt)]); ts.mls=array(self.mls[it1:(it1+nt)]); p.ts=ts
-            print('done in extracting'); w.curve['text']='curve'
+        import multiprocessing as mp
+        #function to extract data (serial mode: disabled)
+        #def get_tsdata(ts,pxy,svar,layer,ik1,ik2):
+        #    w.curve['text']='wait'; ts.pxy=pxy; ts.var=svar; ts.layer=layer; ts.ik1=ik1; ts.ik2=ik2; ts.mys=[]; nt=0; t=zdata()
+        #    for ik in arange(ik1,ik2+1):
+        #        def _ts(outputs):
+        #           fname='{}/out2d_{}.nc'.format(outputs,ik) if svar in self.vars_2d else '{}/{}_{}.nc'.format(outputs,svar,ik)
+        #           C=self.fid(fname); nt0,npt=C.variables[svar].shape[:2]
+        #           if ik==ik1 and self.curve_method==0: t.sindp=near_pts(pxy,gd.xy) if npt==gd.np else near_pts(pxy,gd.exy) #compute index
+        #           if ik==ik1 and self.curve_method==1: pie,pip,pacor=gd.compute_acor(pxy,fmt=1); t.sindp=pip.ravel() if npt==gd.np else pie #compute index for interp
+        #           if svar in self.vars_2d:
+        #               data=array(C.variables[svar][:,t.sindp])
+        #           else:
+        #               ks=(self.kbp[t.sindp] if npt==gd.np else self.kbe[t.sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),t.sindp.size))
+        #               data=array([C.variables[svar][:,i,k] for i,k in zip(t.sindp,ks)]).T
+        #           if npt==gd.np and self.curve_method==1: data=sum(reshape(data,[nt0,*pip.shape])*pacor[None,...],axis=2)
+        #           return data,nt0,fname
+        #        t00=time.time(); data,nt0,fname=_ts(self.outputs)
+        #        if p.cmp==1: data=data-_ts(p.run0+os.path.sep+'outputs')[0]
+        #        ts.mys.extend(data); nt=nt+nt0; print('extracting {} from {}: {:0.2f}'.format(svar,fname,time.time()-t00))
+        #    ts.mys=array(ts.mys).T; ts.mt=array(self.mts[it0:(it0+nt)]); ts.mls=array(self.mls[it0:(it0+nt)]); p.ts=ts
+        #    print('done in extracting'); w.curve['text']='curve'
 
         def update_xts(event):
             if event!=0 and type(event)!=mpl.backend_bases.DrawEvent: return
             t1,t2=xlim(); dt1=abs(mt-t1); dt2=abs(mt-t2); i1=pindex(dt1,dt1.min())[0]; i2=pindex(dt2,dt2.min())[0]
             ns=max([int(floor((i2-i1+1)/5)),1]); mti=mt[i1:i2:ns]; mlsi=mls[i1:i2:ns]
             if hasattr(self,'StartT'): mlsi=[i[:10]+'\n'+i[11:] for i in mlsi]
-            s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi)
+            s.ax.set_xticks(mti); s.ax.set_xticklabels(mlsi); s.hf.tight_layout()
+        def check_pool_data(pcheck):
+            if pcheck.is_set():
+               T.mys=concatenate(pd.get()).T; nt=len(T.mys.T); T.mt=array(self.mts[it0:(it0+nt)]); T.mls=array(self.mls[it0:(it0+nt)]); p.ts=T
+               print('extract time series: done, dt={:0.1f}'.format(time.time()-t0)); pp.close(); pp.join(); w.curve['text']='curve'; self.plotts()
+            else:
+               self.window.after(100,check_pool_data,pcheck)
+        def check_mp(x): pcheck.set(); return
 
         #prepare info. about time sereis
-        if not hasattr(self,'fig'): return
+        if not hasattr(self,'fig') or self.wp.curve['text']=='wait': return
         p=self.fig; w=self.wp; gd=self.hgrid; gd.compute_ctr()
-        svar,layer=p.var,p.layer; x=array(p.px); y=array(p.py)
-        if svar=='depth' or len(x)==0: return
-        ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it1=self.istack.index(ik1); it2=len(self.istack)-self.istack[::-1].index(ik2); t=zdata()
-        fpc=(array_equal(x,p.ts.x) and array_equal(y,p.ts.y) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
-        if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,x,y,svar,layer,ik1,ik2)).start(); return
+        svar,layer=p.var,p.layer; pxy=c_[p.px,p.py]; ik1=self.istack[p.it]; ik2=self.istack[p.it2-1]; it0=self.istack.index(ik1)
+        if svar=='depth' or len(pxy)==0: return
+        fpc=(array_equal(pxy,p.ts.pxy) and svar==p.ts.var and layer==p.ts.layer and ik1>=p.ts.ik1 and ik2<=p.ts.ik2) if hasattr(p,'ts') else False
+        #if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,pxy,svar,layer,ik1,ik2)).start(); return #serial mode: disabled
+        if not fpc: #extract data in parallel
+           fns=['{}/{}_{}.nc'.format(self.outputs,'out2d' if (svar in self.vars_2d) else svar,i) for i in arange(ik1,ik2+1)]; npt=self.fid(fns[0]).variables[svar].shape[1]  
+           if self.curve_method==0: sindp=near_pts(pxy,gd.xy if npt==gd.np else gd.exy); pip,pacor=None,None #compute index for interp
+           if self.curve_method==1: pie,pip,pacor=gd.compute_acor(pxy,fmt=1); sindp=pip.ravel() if npt==gd.np else pie         #compute index for interp
+           ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size)) #compute layer index
+           f2d=svar in self.vars_2d; facor= (npt==gd.np) and (self.curve_method==1); nproc=min([20,ik2-ik1+1])
+           T=zdata(); T.pxy=pxy; T.var=svar; T.layer=layer; T.ik1=ik1; T.ik2=ik2; t0=time.time(); pcheck=threading.Event(); check_pool_data(pcheck); w.curve['text']='wait'
+           pp=mp.Pool(processes=nproc); pd=pp.starmap_async(schism_view_tsdata,[(fn,svar,ks,sindp,pacor,f2d,facor) for fn in fns],callback=check_mp); return #parallel extract time series
 
         #plot time series
         s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5],num=self.nf()); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
@@ -3895,8 +3923,8 @@ class schism_view(zdata):
         s.ax=gca(); ym=ylim(); plot(mt,zeros(mt.size),'k:',lw=0.3,alpha=0.5)
         setp(s.ax,xticks=mt[:2],xticklabels=mls[:2],xlim=[mt.min(),mt.max()],ylim=ym); s.ax.xaxis.grid('on')
         title('{}, layer={}, ({}, {})'.format(s.var,s.layer,mls[0][:10],mls[-1][:10]))
-        legend(lstr); s.hf.tight_layout(); show(block=False)
         update_xts(0); s.hf.canvas.mpl_connect("draw_event", update_xts)
+        legend(lstr); s.hf.tight_layout(); show(block=False)
 
     def profile(self,sp=None,itp=None):
         import tkinter as tk
