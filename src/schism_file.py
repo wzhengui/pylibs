@@ -3726,17 +3726,21 @@ def convert_schism_source(run='.',fname='source.nc'):
     #save as netcdf
     WriteNC(sdir+fname,C)
 
-def schism_view_tsdata(fn,svar,ks,sindp,pacor,f2d,facor):
+def schism_view_tsdata(fn,fn0,svar,ks,sindp,pacor,f2d,facor):
     '''
     for parallel extracting time series in schism_view app (target fun in mp needs to be in top-module)
     '''
-    C=ReadNC(fn,1); nt0,npt=C.variables[svar].shape[:2]; t0=time.time()
-    if f2d:
-        data=array(C.variables[svar][:,sindp])
-    else:
-        data=array([C.variables[svar][:,i,k] for i,k in zip(sindp,ks)]).T
-    if facor: data=sum(reshape(data,[nt0,*pacor.shape])*pacor[None,...],axis=2)
-    print('done: {}, dt={:0.1f}'.format(fn,time.time()-t0)); C.close()
+    t0=time.time()
+    for i,fname in enumerate([fn,fn0]):
+        if fname==0: continue
+        C=ReadNC(fname,1); nt=C.variables[svar].shape[0]
+        if f2d:
+            v=array(C.variables[svar][:][:,sindp])
+        else:
+            v=array([C.variables[svar][i][sindp,ks] for i in arange(nt)])
+        if facor: data=sum(reshape(data,[nt,*pacor.shape])*pacor[None,...],axis=2)
+        C.close(); data=v if i==0 else data-v
+    print('done: {}, dt={:0.1f}'.format(os.path.basename(fn),time.time()-t0))
     return data
 
 class schism_view(zdata):
@@ -3750,6 +3754,7 @@ class schism_view(zdata):
         self.play='off'  #animation
         self.curve_method=0 #the method in extracting time series (0: nearest, 1: interpolation)
         self.itp=0 #transect plot
+        self.nproc=20 #maximum number of processes for exracting time series
         self.window.mainloop()
         #todo: 1). for cases that out2d*.nc not exist
 
@@ -3909,12 +3914,14 @@ class schism_view(zdata):
         #if not fpc: ts=zdata(); threading.Thread(target=get_tsdata,args=(ts,pxy,svar,layer,ik1,ik2)).start(); return #serial mode: disabled
         if not fpc: #extract data in parallel
            fns=['{}/{}_{}.nc'.format(self.outputs,'out2d' if (svar in self.vars_2d) else svar,i) for i in arange(ik1,ik2+1)]; npt=self.fid(fns[0]).variables[svar].shape[1]  
+           fns0=['{}/outputs/{}_{}.nc'.format(p.run0,'out2d' if (svar in self.vars_2d) else svar,i) if p.cmp==1 else 0 for i in arange(ik1,ik2+1)]
            if self.curve_method==0: sindp=near_pts(pxy,gd.xy if npt==gd.np else gd.exy); pip,pacor=None,None #compute index for interp
            if self.curve_method==1: pie,pip,pacor=gd.compute_acor(pxy,fmt=1); sindp=pip.ravel() if npt==gd.np else pie         #compute index for interp
            ks=(self.kbp[sindp] if npt==gd.np else self.kbe[sindp]) if layer=='bottom' else (-tile(1 if layer=='surface' else int(layer),sindp.size)) #compute layer index
-           f2d=svar in self.vars_2d; facor= (npt==gd.np) and (self.curve_method==1); nproc=min([20,ik2-ik1+1])
-           T=zdata(); T.pxy=pxy; T.var=svar; T.layer=layer; T.ik1=ik1; T.ik2=ik2; t0=time.time(); pcheck=threading.Event(); check_pool_data(pcheck); w.curve['text']='wait'
-           pp=mp.Pool(processes=nproc); pd=pp.starmap_async(schism_view_tsdata,[(fn,svar,ks,sindp,pacor,f2d,facor) for fn in fns],callback=check_mp); return #parallel extract time series
+           f2d=svar in self.vars_2d; facor= (npt==gd.np) and (self.curve_method==1); nproc=min([self.nproc,ik2-ik1+1])
+           T=zdata(); T.pxy=pxy; T.var=svar; T.layer=layer; T.ik1=ik1; T.ik2=ik2; t0=time.time(); pcheck=threading.Event(); check_pool_data(pcheck); 
+           w.curve['text']='wait'; print('extract time series: {}, stacks=[{}, {}]'.format(svar,ik1,ik2))
+           pp=mp.Pool(processes=nproc); pd=pp.starmap_async(schism_view_tsdata,[(fn,fn0,svar,ks,sindp,pacor,f2d,facor) for fn,fn0 in zip(fns,fns0)],callback=check_mp); return #parallel extract time series
 
         #plot time series
         s=p.ts; mt=s.mt; mls=s.mls; s.hf=figure(figsize=[6.5,3.5],num=self.nf()); cs='rgbkcmy'; ss=['-',':','--']; lstr=[]
