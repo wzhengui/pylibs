@@ -13,8 +13,8 @@ from pylib import *
 #Inputs: 
 #mods: OLDIO,PREC_EVAP,GOTM,HA,MARSH,SED2D,WWW,ICM,MICM,GEN,AGE,ECO,ICM,PH,COSINE,FIB,SED,FABM,ANALYSIS
 #-----------------------------------------------------------------------------------------------
-modules=['OLDIO', 'ICM', 'PREC_EVAP'] 
-#modules=['OLDIO','COSINE']
+#modules=['OLDIO', 'ICM', 'PREC_EVAP'] 
+modules=['OLDIO','COSINE']
 
 #choose TVD LIM
 TVD_LIM='VL' # can be: SB, VL, MM or OS for Superbee, Van Leer, Minmod, or Osher

@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# -----------------------------------------------------------------------------
+# Script Name: copy_run
+#
+# Description:
+#   Copy or link files from a given directory into the current working directory.
+#
+# Usage:
+#   ./copy_run <source_directory>
+#
+# Rules:
+#   1. If the target file already exists in the current directory → skip (green).
+#   2. Files to skip (grey):
+#        - hotstart*, slurm*, outputs, results, screen*
+#        - *.py, *.sh
+#   3. Files to copy (red):
+#        - *.nml
+#        - pschism*
+#        - run.schism*
+#        - fort*
+#   4. All other files → soft link to current directory (orange).
+#
+# Author: Wenfan Wu, 08/26/2025
+# -----------------------------------------------------------------------------
+import sys
+import os
+import shutil
+from pathlib import Path
+
+# ANSI colors
+GREEN = "\033[92m"
+GREY = "\033[90m"
+RED = "\033[91m"
+ORANGE = "\033[38;5;208m"
+RESET = "\033[0m"
+
+def ensure_outputs_link():
+    cwd = Path.cwd().resolve()
+    local_outputs = cwd / "outputs"
+
+    if local_outputs.exists() or local_outputs.is_symlink():
+        return
+
+    parts = list(cwd.parts)
+    try:
+        if len(parts) >= 3 and parts[1] == "sciclone":
+            parts[2] = "pscr"
+            remote_base = Path(*parts)
+            remote_outputs = remote_base / "outputs"
+            remote_outputs.mkdir(parents=True, exist_ok=True)
+
+            os.symlink(remote_outputs, local_outputs, target_is_directory=True)
+            print(f"{ORANGE}Linked outputs -> {remote_outputs}{RESET}")
+        else:
+            print(f"{GREY}Skipped: outputs (cwd not under /sciclone/*){RESET}")
+    except Exception as e:
+        print(f"{GREY}Skipped: outputs (reason: {e}){RESET}")
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: copy_run filepath")
+        sys.exit(1)
+
+    src_dir = Path(sys.argv[1]).resolve()
+    dst_dir = Path.cwd()
+
+    if not src_dir.is_dir():
+        print(f"Error: {src_dir} is not a directory")
+        sys.exit(1)
+
+    ensure_outputs_link()
+
+    for f in src_dir.iterdir():
+        fname = f.name
+        dst_path = dst_dir / fname
+
+        # handle directories
+        if f.is_dir():
+            if fname == "sflux":
+                if dst_path.exists():
+                    print(f"{GREEN}Skipped (exists): {fname}{RESET}")
+                else:
+                    try:
+                        os.symlink(f, dst_path, target_is_directory=True)
+                        print(f"{ORANGE}Linked dir: {fname}{RESET}")
+                    except Exception as e:
+                        print(f"{GREY}Skipped dir: {fname} (link error: {e}){RESET}")
+            continue  # only allow sflux dir; skip other dirs
+
+        # handle files
+        if dst_path.exists() or dst_path.is_symlink():
+            print(f"{GREEN}Skipped (exists): {fname}{RESET}")
+            continue
+
+        if (fname.startswith("hotstart") or
+            fname.startswith("slurm") or
+            fname.startswith("outputs") or
+            fname.startswith("results") or
+            fname.startswith("screen") or
+            fname.startswith("fort") or
+            fname.endswith(".py") or
+            fname.endswith(".sh")):
+            print(f"{GREY}Skipped: {fname}{RESET}")
+            continue
+
+        if (fname.endswith(".nml") or
+            fname.startswith("pschism") or
+            fname.startswith("run.schism")):
+            try:
+                shutil.copy2(f, dst_path)
+                print(f"{RED}Copied: {fname}{RESET}")
+            except Exception as e:
+                print(f"{GREY}Skipped: {fname} (copy error: {e}){RESET}")
+            continue
+
+        try:
+            os.symlink(f, dst_path)
+            print(f"{ORANGE}Linked: {fname}{RESET}")
+        except Exception as e:
+            print(f"{GREY}Skipped: {fname} (link error: {e}){RESET}")
+
+if __name__ == "__main__":
+    main()
+
