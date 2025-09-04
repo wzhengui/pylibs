@@ -14,18 +14,20 @@ from mpi4py import MPI
 walltime='00:10:00'; nnode=1;  ppn=4
 
 #optional: (frontera,levante,stampede2)
-ibatch     =1              #0: serial mode;  1: parallel mode
-qnode      =None           #specify node name, or default qnode based on HOST will be used
-qname      =None           #partition name
-account    =None           #account name
-reservation=None           #reservation information
-jname      ='mpi4py'       #job name
-scrout     ='screen.out'   #fname for outout and error
+#ibatch     =1              #0: serial mode;  1: parallel mode
+#qnode      =None           #specify node name, or default qnode based on HOST will be used
+#qname      =None           #partition name
+#account    =None           #account name
+#reservation=None           #reservation information
+#jname      ='mpi4py'       #job name
+#scrout     ='screen.out'   #fname for outout and error
 
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs  2) running parallel jobs
 #-----------------------------------------------------------------------------
 bdir=os.path.abspath(os.path.curdir)
+add_var(['ibatch','qnode','qname','account','reservation','jname','scrout'],
+        [1,None,None,None,None,'mpi4py','screen.out'],locals()) #add default values
 if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('job_on_node')==None:
    if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]; os.environ['qnode']=get_qnode(qnode)
