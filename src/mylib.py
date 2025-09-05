@@ -553,6 +553,7 @@ def get_qnode(qnode=None):
     if re.match('bo\w+.sciclone.wm.edu',host)!=None: qnode='bora'
     if host.startswith('bo') and host.endswith('sciclone.wm.edu'): qnode='bora'
     if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
+    if qnode is None: qnode=os.environ['HOST'].split('.')[0]
     return qnode
 
 def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',scrout='screen.out',
@@ -588,7 +589,9 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        if qnode in ['femto','gulf','kuro','bora','frontera','levante','hercules','eagle','deception','grace','stampede2','stampede3']:
           scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
        else:
-          sys.exit('unknown qnode: {},tag=1'.format(qnode))
+          #sys.exit('unknown qnode: {},tag=1'.format(qnode))
+          print('warning: unknown qnode: {},tag=1'.format(qnode)); sys.stdout.flush() #assuming slurm system
+          scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
        #if qnode in ['stampede2',]: scmd='sbatch "--export=ALL" {} {} {} {} -n {} {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
     elif fmt==1:
        #for run parallel jobs
@@ -616,7 +619,9 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' -np {} {} >& {}".format(bdir,nproc,code,scrout) 
           if ename=='schism': scmd="mpirun -np {} ./{} >& {}".format(nproc,code,scrout)
        else:
-          sys.exit('unknown qnode: {},tag=2'.format(qnode))
+          #sys.exit('unknown qnode: {},tag=2'.format(qnode))
+          print('unknown qnode: {},tag=2'.format(qnode)); sys.stdout.flush() #assuming slurm system
+          scmd='srun --export={}PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
 
     return scmd
 
@@ -1549,6 +1554,7 @@ def loadz(fname,svars=None):
               except:
                  continue
            vdict[svar]=vi
+       data0.close()
     elif fname.endswith('.pkl'):
        import pickle
        from copy import deepcopy as dcopy
