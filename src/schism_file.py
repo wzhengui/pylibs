@@ -2896,7 +2896,9 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
        P=read_schism_param(fname,1); lines=slines[:]; slines=[]
        S=read_schism_param(source,1) if isinstance(fname,str) else source
        for line in lines:
-           eid=line.find('='); pname=line[:eid].strip(); sline=line
+           eid=line.find('='); pname=line[:eid].strip(); sline=line; tname=pname[1:].strip()
+           if (eid!=-1) and pname[0]=='!' and (tname in S) and tname.startswith('iof_'):
+              line=line.replace('!',' ',1); pname=tname; P[pname]=None #uncomment output channel 
            if (eid!=-1) and (pname in S):
               if P[pname]!=S[pname]:
                  svalue=' '.join([str(i) for i in S[pname]]) if isinstance(S[pname],list) else str(S[pname])
@@ -5130,13 +5132,14 @@ class schism_check(zdata):
        [fnames.append('source_input') for i in snames if i=='source_sink.in']           #source_input
        [snames.remove(i) for i in snames if i in ['source_sink.in','vsource.th','vsink.th','msource.th']]  #remove source_input
        snames=[i for i in snames if not i.startswith('vsource.')]                                        #remove vsource.th
-       [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_'))]  #other nc files
+       [fnames.append(i) for i in snames if i.endswith('.nc') and (i not in ['.source.nc',*fnames]) and (not i.startswith('.th_')) and (not i.startswith('WW3-'))]  #other nc files
        fnames.extend(unique(['*.th' for i in snames if i.endswith('.th')]))          #*.th
        [fnames.append(i) for i in snames if i.endswith('.ll')]                       #hgrid.gr3
        [fnames.append(i) for i in snames if i.endswith('.gr3') and (i not in fnames)]#gr3
        [fnames.append(i) for i in snames if i.endswith('.prop')]                     #prop
        mc=[i for i in snames if i.endswith('.ic') and ('hvar' in i)]                 #ic files
        [fnames.append(i) for i in snames if i.endswith('.ic') and (i not in mc)]; fnames.extend(mc)   #ic
+       [fnames.append(i) for i in snames if i.endswith('.nc') and i.startswith('WW3-')]  #WW3*.nc files
        self.fnames=fnames; self.thfiles=[i for i in snames if i.endswith('.th')]     #*.th
        self.sflux=[i[:-3] for i in os.listdir(self.run+'sflux') if i.endswith('nc')] if fexist(self.run+'sflux') else None
        # self.StartT=0 #update this later
