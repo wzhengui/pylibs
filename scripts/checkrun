@@ -5,7 +5,8 @@ import subprocess
 import datetime
 
 #-----input------------------------------------------------------------
-runs=['RUN01d','RUN02p','RUN02q']
+#runs=['RUN01d','RUN02p','RUN02q']
+runs=['.']
 
 if len(sys.argv)!=1: runs=sys.argv[1:]
 #--compute runtime----------------------------------------------------
@@ -18,11 +19,13 @@ for run in runs:
     #find start time
     with open(fname) as fid:
         line=fid.readline()
-    
-    R=re.findall('(\d+), (\d+).(\d+)',line)[0]
-    yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
-    HH=int(R[1][:2]); MM=int(R[1][2:4]); SS=int(R[1][4:]); mSS=int(R[2])*1000
-    t0=datetime.datetime(yyyy,mm,dd,HH,MM,SS,mSS)
+    sid=line.find('at')+2; line=line[sid:].replace(' ','').replace(',','')
+    yyyy=int(line[:4]); mm=int(line[4:6]); dd=int(line[6:8]); HH=int(line[8:10])
+    MM=int(line[10:12]); SS=int(line[12:14]); t0=datetime.datetime(yyyy,mm,dd,HH,MM,SS)
+    #R=re.findall('(\d+), (\d+).(\d+)',line)[0]
+    #yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
+    #HH=int(R[1][:2]); MM=int(R[1][2:4]); SS=int(R[1][4:]); mSS=int(R[2])*1000
+    #t0=datetime.datetime(yyyy,mm,dd,HH,MM,SS,mSS)
 
     #get the start time step
     fid=open(fname,'r'); nstep0=0
@@ -47,10 +50,13 @@ for run in runs:
     #find end time
     line=lines[0]
     if 'Run completed successfully' in line:
-        R=re.findall('(\d+), (\d+).(\d+)',line)[0]
-        yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
-        HH=int(R[1][:2]); MM=int(R[1][2:4]); SS=int(R[1][4:]);mSS=int(R[2])*1000
-        t1=datetime.datetime(yyyy,mm,dd,HH,MM,SS,mSS)
+       sid=line.find('at')+2; line=line[sid:].replace(' ','').replace(',','')
+       yyyy=int(line[:4]); mm=int(line[4:6]); dd=int(line[6:8]); HH=int(line[8:10])
+       MM=int(line[10:12]); SS=int(line[12:14]); t1=datetime.datetime(yyyy,mm,dd,HH,MM,SS)
+       # R=re.findall('(\d+), (\d+).(\d+)',line)[0]
+       # yyyy=int(R[0][:4]); mm=int(R[0][4:6]); dd=int(R[0][6:]); 
+       # HH=int(R[1][:2]); MM=int(R[1][2:4]); SS=int(R[1][4:]);mSS=int(R[2])*1000
+       # t1=datetime.datetime(yyyy,mm,dd,HH,MM,SS,mSS)
     else:
         t1=datetime.datetime.fromtimestamp(os.path.getmtime(fname))
 
