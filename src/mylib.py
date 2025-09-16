@@ -550,7 +550,6 @@ def get_qnode(qnode=None):
     if host in ['femto.sciclone.wm.edu','viz']: qnode='femto'
     if host in ['kuro.sciclone.wm.edu']: qnode='kuro'
     if host in ['gulf.sciclone.wm.edu']: qnode='gulf'
-    if re.match('bo\w+.sciclone.wm.edu',host)!=None: qnode='bora'
     if host.startswith('bo') and host.endswith('sciclone.wm.edu'): qnode='bora'
     if host in ['chesapeake.sciclone.wm.edu']: qnode='potomac'
     if qnode is None: qnode=os.environ['HOST'].split('.')[0]
