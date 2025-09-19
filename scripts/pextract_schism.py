@@ -4,6 +4,7 @@
 '''
 from pylib import *
 from mpi4py import MPI
+import multiprocessing as mp
 
 #-----------------------------------------------------------------------------
 #Input
@@ -29,6 +30,7 @@ walltime='00:10:00'; nnode=1;  ppn=4
 
 #optional: (frontera,levante,stampede2,etc.)
 ibatch     =1              #0: serial mode;  1: parallel mode
+nps        =1              #1: pure mpi;  >1: mpi+mp (nps is # of processes on each cpu)
 qnode      =None           #specify node name, or default qnode based on HOST will be used
 qname      =None           #partition name
 account    =None           #account name
@@ -63,19 +65,25 @@ modules, outfmt, dstacks, dvars, dvars_2d = schout_info(run+'/outputs',1)   #sch
 stacks=arange(stacks[0],stacks[1]+1) if ('stacks' in locals()) else dstacks #check stacks
 gd,vd=grd(run,fmt=2); gd.compute_bnd()                                      #read model grid
 
-#extract results
-irec=0; oname=odir+'/.schout_'+os.path.basename(os.path.abspath(sname))
-for svar in svars: 
-   ovars=schvar_info(svar,modules,fmt=outfmt)
-   if ovars[0][1] not in dvars: continue 
-   for istack in stacks:
-       fname='{}_{}_{}'.format(oname,svar,istack); irec=irec+1; t00=time.time()
-       if irec%nproc==myrank: 
-          try:
-             read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,hgrid=gd,vgrid=vd,fmt=itype,prj=prj,mdt=mdt)
-             dt=time.time()-t00; print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,dt)); sys.stdout.flush()
-          except:
-             pass
+#extract results: mpi + mp
+def fextract(fn): #function for extracting results
+    svar,istack=fn; fname='{}_{}_{}'.format(oname,svar,istack)
+    try:
+       t00=time.time()
+       read_schism_output(run,svar,bpfile,istack,ifs,nspool,fname=fname,hgrid=gd,vgrid=vd,fmt=itype,prj=prj,mdt=mdt)
+       print('finishing reading {}_{}.nc on myrank={}: {:.2f}s'.format(svar,istack,myrank,time.time()-t00)); sys.stdout.flush()
+    except:
+       pass
+
+#gather all jobs and distribute
+mvars=[i for i in svars if (schvar_info(i,modules,fmt=outfmt)[0][1] in dvars)]
+fns=[]; [fns.extend([(i,int(k)) for k in stacks]) for i in mvars]; fns=fns[myrank::nproc]
+#fns=[fn for i, fn in enumerate(fns) if i%nproc==myrank]
+oname=odir+'/.schout_'+os.path.basename(os.path.abspath(sname))
+if nps==1: #MPI
+   for fn in fns: fextract(fn)
+else: #MPI+MP
+   pp=mp.Pool(processes=nps); pd=pp.map(fextract,fns); pp.close(); pp.join()
 
 #combine results
 if ibatch==1: comm.Barrier()

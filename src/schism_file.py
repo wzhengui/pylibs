@@ -3332,7 +3332,8 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,
+                       hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None,scrout=0):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -3351,6 +3352,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        prj:     (optional) used to tranform xy (e.g. prj=['epsg:26918','epsg:4326'])
        zcor:    (optional) 0: zcoordinate computed from elev;  1: read from outputs
        sgrid:   (optional) side-based grid used to extract side values (FEM method); see gd.scatter_to_grid(fmt=2)
+       scrout:  (optional) print information for extracting variable and stack
     '''
 
     #get schism outputs information
@@ -3383,7 +3385,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     mtime=[]; mdata=[[] for i in varname]
     stacks=dstacks if (stacks is None) else [*array(stacks).ravel()] #check outputs stacks
     for istack in stacks:
-        print('reading stack: {}'.format(istack)); sys.stdout.flush()
+        if scrout==1: print('reading stack: {},{}'.format(istack,varname)); sys.stdout.flush()
         C0=ReadNC('{}/{}_{}.nc'.format(bdir,'out2d' if outfmt==0 else 'schout',istack),1)
         if fmt==0 and zcor==1: #open zcoordinates channel
             if outfmt==0:
