@@ -115,7 +115,7 @@ def sort_all(t,*args):
     '''
     sort all variables based on the 1st input
     '''
-    sind=argsort(t); t=t[sind]; args=[i[sind] for i in args]
+    sind=argsort(t); t=array(t)[sind]; args=[array(i)[sind] for i in args]
     return [t,*args]
 
 def nargout():
