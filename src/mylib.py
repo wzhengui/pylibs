@@ -1445,18 +1445,19 @@ class zdata:
         elif fname.endswith('.nc'):
            WriteNC(fname,self,fmt=1 if isinstance(self,ncfile) else 0, **args)
         else:
-           savez(fname,self)
+           savez(fname,self,**args)
 
 def savez(fname,data,fmt=0):
     '''
     save data as self-defined python format
-       fmt=0: save data as *.npz (small filesize, reads slower)
+       fmt=0 or 3: save data as *.npz (0: compressed, reads slower;  3: uncompressed, reads faster)
        fmt=1: save data as *.pkl (large filesize, reads faster)
+       fmt=2: save data as *.pp file (for mpl figures)
     if fname endswith *.npz or *.pkl, then fmt is reset to match fname
     '''
 
     #determine format
-    if fname.endswith('.npz'): fmt=0; fname=fname[:-4]
+    if fname.endswith('.npz'): fmt=3 if fmt==3 else 0; fname=fname[:-4]
     if fname.endswith('.pkl'): fmt=1; fname=fname[:-4]
     if fname.endswith('.pp'):  fmt=2
     if fmt==1: fname=fname+'.pkl'
@@ -1468,10 +1469,10 @@ def savez(fname,data,fmt=0):
          import cloudpickle; data._CLASS=cloudpickle.dumps(type(data))
 
     #save data
-    if fmt in [0,2]:
+    if fmt in [0,2,3]:
        #check variable types (list, string, int, float and method), and constrcut save_string
        zdict=data.__dict__;  svars=svars0 if isinstance(data,ncfile) else list(zdict.keys())
-       save_str='savez_compressed("{}" '.format(fname)
+       save_str='{}("{}" '.format('np.savez' if fmt==3 else 'savez_compressed', fname)
        lvars=[]; tvars=[]; ivars=[]; fvars=[]; mvars=[]
        for svar in svars:
            vi=zdict[svar]
@@ -1508,8 +1509,11 @@ class npzfile(zdata):
         fid.close(); [self.attr(i,read(fname,i)) for i in svars0] #read some variables
 
         #assign each numpy array
-        data=load(fname,allow_pickle=True,mmap_mode='r')
+        data=load(fname,allow_pickle=True,mmap_mode='r'); self._close=data.close
         for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
+
+    def close(self):
+        self._close(); self.delattr(self.attr())
 
 def loadz(fname,svars=None):
     '''
@@ -2708,11 +2712,12 @@ class ncfile(zdata):
       '''
       def __init__(self,fname,mode='r'):
           if isinstance(fname,str): import netCDF4; fname=netCDF4.Dataset(fname,mode=mode)
-          for i in [i for i in fname.__dir__() if (not i.startswith('_')) and (not ' ' in i)]:
+          for i in [i for i in fname.__dir__() if (not i.startswith('_')) and (not ' ' in i) and i!='close']:
               exec('self.{}=fname.{}'.format(i,i)) #get method and attributes
           for i in self.variables: self.__dict__[i]=ntype(self.variables[i],fmt=1,name=i) #get variables
           self.dimname=[*self.dimensions]; self.dims=[self.dimensions[i].size for i in self.dimname]
           self.dim_unlimited=[self.dimensions[i].isunlimited() for i in self.dimname]
+          self._close=fname.close
 
       #refine method
       def __getitem__(self,key):
@@ -2725,7 +2730,10 @@ class ncfile(zdata):
           else:
              cvar=value
       def __delattr__(self,key):
-          self.__dict__.pop(key); self.variables.pop(key)
+          self.__dict__.pop(key)
+          if hasattr(self,'variables') and (key in self.variables): self.variables.pop(key)
+      def close(self):
+          self._close(); self.delattr(self.attr())
 
 def ReadNC(fname,fmt=0,mode='r',order=0):
     '''
