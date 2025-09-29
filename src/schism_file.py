@@ -3730,6 +3730,44 @@ def convert_schism_source(run='.',fname='source.nc'):
     #save as netcdf
     WriteNC(sdir+fname,C)
 
+def checkrun(run='.'):
+    '''
+    return runtime information for schism runs
+    '''
+    import datetime
+    def gettime(line): #extract time from line string
+        sid=line.find('at')+2; line=line[sid:].replace(' ','').replace(',','')
+        yyyy=int(line[:4]); mm=int(line[4:6]); dd=int(line[6:8]); HH=int(line[8:10]); MM=int(line[10:12]); SS=int(line[12:14])
+        return datetime.datetime(yyyy,mm,dd,HH,MM,SS)
+    def getlines(fn): #read mirror.out
+        if not fexists(fn): return [0,0,0,0]
+        fid=open(fn,'r'); line0=fid.readline(); fid.seek(0,2); iend=fid.tell()
+        fid.seek(max([iend-1000,0]),0); rlines=fid.readlines()[::-1]; fid.seek(0,0)  #read from the end
+        line1=rlines[0]; nstep1=max([int(i.split(';')[0].split('=')[1]) if i.strip().startswith('TIME STEP=') else 0 for i in rlines])
+        while (fid.tell()!=iend):
+              line=fid.readline()
+              if line.strip().startswith('TIME STEP='): nstep0=float(line.split(';')[0].split('=')[1]); break
+        fid.close(); t0=gettime(line0)
+        t1=gettime(line1) if ('Run completed successfully' in line1) else datetime.datetime.fromtimestamp(os.path.getmtime(fn))
+        return t0,t1,nstep0,nstep1
+
+    fn0=run+'/mirror.out'; fn1=run+'/outputs/mirror.out'; pn0=run+'/param.nml'; pn1=run+'/../mirror.out'
+    fexists=os.path.exists; fn=fn0 if fexists(fn0) else fn1; pn=pn0 if fexists(pn0) else pn1
+    t0,t1,nstep0,nstep1=getlines(fn)
+    if nstep1==0: return [0,0,0,0,0]
+    P=read_schism_param(pn); dt=float(P['dt']); rnday=float(P['rnday'])
+
+    #output values
+    nstep=nstep1-nstep0; ds=(t1-t0).total_seconds(); RTR=(dt*nstep/86400)/(ds/86400)
+    nday=rnday; nday0=(dt*nstep0)/86400; nday1=(dt*nstep1)/86400
+    time_all=nday*24/RTR; time_left=(nday-nday1)*24/RTR; time_365=365*24/RTR
+
+    #print results
+    s0='{:.2f}'.format(nday1) if nday0*86400<2*dt else '{:.2f} ({:.1f})'.format(nday1-nday0,nday1)
+    s='{}: RTR={:.1f}; {} days finished in {:.1f} hrs ({:.0f} min); ({:.1f}, {:.1f}, {:.1f}) hrs needed for ({:.1f}, {:.1f}, {:.0f}) days'.format \
+             (run,RTR,s0,ds/3600,ds/60, time_left,time_all,time_365,(nday-nday1),nday, 365)
+    return [s,nday1,nday0,nday,RTR]
+
 def schism_view_tsdata(fn,fn0,svar,ks,sindp,pacor,f2d,facor):
     '''
     for parallel extracting time series in schism_view app (target fun in mp needs to be in top-module)

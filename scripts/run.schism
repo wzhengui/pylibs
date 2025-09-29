@@ -20,7 +20,7 @@ walltime='00:30:00'; nnode=2; ppn=64
 #qname=None              #partition name
 #account=None            #account name
 #reservation=None        #reservation information
-#ihot=0                  #submit hotstart run (0: NO,  1: YES)
+#ihot=1                  #submit hotstart run (0: NO,  1: YES)
 #runs=[]                 #used to submit multiple jobs
 #scrout='screen.out'     #fname for outout and error
 
@@ -40,6 +40,12 @@ if os.getenv('schism')==None:
 if os.getenv('schism')!=None: 
    fmt=1; bdir=os.getenv('schism').split()[0]; os.chdir(bdir)
    scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'schism')
+   def cmb_run():
+       p=read('param.nml',3); irec=int(ceil(p.rnday*86400/p.dt/p.ihfskip)); time.sleep(10)
+       if not fexist('outputs/out2d_{}.nc'.format(irec)):
+          fname=combine_schism_hotstart('outputs')[-1]; hid=max([*[int(i.split('.')[2]) for i in glob('hotstart.nc.*')],0])
+          if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
+          os.symlink('outputs/'+fname,'hotstart.nc'); chparam('param.nml','ihot','2')
 
    if len(runs)==0: #single jobs 
       if ihot==0:
@@ -47,18 +53,20 @@ if os.getenv('schism')!=None:
       else:
          #current run
          print(scode); sys.stdout.flush(); sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
-         t0=time.time(); wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
-         while((time.time()-t0)<(wt-dt)): time.sleep(60) #wait
+         t0=time.time(); t1=time.time(); n1=0; wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
+         while((time.time()-t0)<(wt-dt)):
+              time.sleep(60); t2=time.time() #wait
+              if (t2-t1)>1800: #check whether run hangs
+                 n2=checkrun()[1]
+                 if n2!=n1:
+                    n1=n2; t1=t2
+                 else: #re-submit job on nodes
+                    cmb_run(); os.killpg(os.getpgid(sjob.pid),signal.SIGTERM); time.sleep(60)  #kill current run
+                    sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
 
-         #submit hotstart
-         p=read_schism_param('param.nml',3); irec=int(ceil(p.rnday*86400/p.dt/p.ihfskip)); time.sleep(10)
-         if not fexist('outputs/out2d_{}.nc'.format(irec)):
-            fname=combine_schism_hotstart('outputs')[-1]
-            hid=max([*[int(i.split('.')[2]) for i in os.listdir(bdir) if i.startswith('hotstart.nc.')],0])
-            if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
-            os.symlink('outputs/'+fname,'hotstart.nc'); change_schism_param('param.nml','ihot','2')
-            os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
-            os.environ.pop('schism'); sbp.run('./run.schism')
+         #re-submit batch job
+         nday1,nday0,nday=checkrun()[1:4]; os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
+         if nday==0 or nday1<nday: os.environ.pop('schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)
