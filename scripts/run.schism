@@ -41,11 +41,11 @@ if os.getenv('schism')!=None:
    fmt=1; bdir=os.getenv('schism').split()[0]; os.chdir(bdir)
    scode=get_hpc_command(code,bdir,jname,qnode,nnode,ppn,walltime,scrout,1,'schism')
    def cmb_run():
-       p=read('param.nml',3); irec=int(ceil(p.rnday*86400/p.dt/p.ihfskip)); time.sleep(10)
-       if not fexist('outputs/out2d_{}.nc'.format(irec)):
-          fname=combine_schism_hotstart('outputs')[-1]; hid=max([*[int(i.split('.')[2]) for i in glob('hotstart.nc.*')],0])
-          if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
-          os.symlink('outputs/'+fname,'hotstart.nc'); chparam('param.nml','ihot','2')
+       p=read('param.nml',3); fns=combine_schism_hotstart('outputs')
+       if len(fns)==0: return
+       hid=max([*[int(i.split('.')[2]) for i in glob('hotstart.nc.*')],0])
+       if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
+       os.symlink('outputs/'+fns[-1],'hotstart.nc'); chparam('param.nml','ihot','2')
 
    if len(runs)==0: #single jobs 
       if ihot==0:
@@ -56,17 +56,18 @@ if os.getenv('schism')!=None:
          t0=time.time(); t1=time.time(); n1=0; wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
          while((time.time()-t0)<(wt-dt)):
               time.sleep(60); t2=time.time() #wait
-              if (t2-t1)>1800: #check whether run hangs
-                 n2=checkrun()[1]
-                 if n2!=n1:
-                    n1=n2; t1=t2
-                 else: #re-submit job on nodes
-                    cmb_run(); os.killpg(os.getpgid(sjob.pid),signal.SIGTERM); time.sleep(60)  #kill current run
-                    sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
+              if (t2-t1)>600: #check whether run hangs
+                 n2=checkrun()[1] #number of days finished
+                 if n2!=n1: n1=n2; t1=t2; continue
+                 if n2==0 and n1==0 and (t2-t1)<1200: continue #allow 20min initializaiton
+
+                 #re-submit job on nodes
+                 cmb_run(); os.killpg(os.getpgid(sjob.pid),signal.SIGTERM); time.sleep(60)  #kill current run
+                 sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid); t1=time.time(); n1=0
 
          #re-submit batch job
          nday1,nday0,nday=checkrun()[1:4]; os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
-         if nday==0 or nday1<nday: os.environ.pop('schism'); sbp.run('./run.schism')
+         if nday==0 or nday1<nday: cmb_run(); os.environ.pop('schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)

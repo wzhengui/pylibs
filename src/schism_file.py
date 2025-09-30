@@ -3743,7 +3743,7 @@ def checkrun(run='.'):
         if not fexists(fn): return [0,0,0,0]
         fid=open(fn,'r'); line0=fid.readline(); fid.seek(0,2); iend=fid.tell()
         fid.seek(max([iend-1000,0]),0); rlines=fid.readlines()[::-1]; fid.seek(0,0)  #read from the end
-        line1=rlines[0]; nstep1=max([int(i.split(';')[0].split('=')[1]) if i.strip().startswith('TIME STEP=') else 0 for i in rlines])
+        line1=rlines[0]; nstep0=0; nstep1=max([int(i.split(';')[0].split('=')[1]) if i.strip().startswith('TIME STEP=') else 0 for i in rlines])
         while (fid.tell()!=iend):
               line=fid.readline()
               if line.strip().startswith('TIME STEP='): nstep0=float(line.split(';')[0].split('=')[1]); break
