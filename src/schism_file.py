@@ -3333,7 +3333,7 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
    return gd
 
 def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,
-                       hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None,scrout=0):
+                       hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None,scrout=0,ispool=0):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -3353,6 +3353,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        zcor:    (optional) 0: zcoordinate computed from elev;  1: read from outputs
        sgrid:   (optional) side-based grid used to extract side values (FEM method); see gd.scatter_to_grid(fmt=2)
        scrout:  (optional) print information for extracting variable and stack
+       ispool:  (optional) the 1st record to start from (var[ispool::nspool])
     '''
 
     #get schism outputs information
@@ -3392,7 +3393,8 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
               Z0=ReadNC('{}/zCoordinates_{}.nc'.format(bdir,istack),1); Z=Z0.variables['zCoordinates']
             else:
               Z=C0.variables['zcor']
-        mti0=array(C0.variables['time'])/86400; nt=len(mti0); mti=mti0[::nspool]; nrec=len(mti); mtime.extend(mti); ntime=len(mti); zii=None
+        mti0=array(C0.variables['time'])/86400; nt=len(mti0); its=arange(ispool,nt,nspool)
+        mti=mti0[its]; nrec=len(mti); mtime.extend(mti); ntime=len(mti); zii=None
         if istack==stacks[0]: nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
 
         for m,varnamei in enumerate(varname):
@@ -3401,21 +3403,21 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                 if svar in dvars_2d: #2D
                     C=C0.variables[svar]; np=C.shape[1]
                     if np==gd.ns: _sindex(sgrid,P)
-                    if np==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in arange(0,nt,nspool)])
-                    if np==gd.ne: vi=array([C[i,pie] for i in arange(0,nt,nspool)])
-                    if (np==gd.ns) and (sgrid is None): vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in arange(0,nt,nspool)])
-                    if (np==gd.ns) and (sgrid is not None): vi=array([sum(array(C[i][P.pip]*P.pacor),axis=1) for i in arange(0,nt,nspool)])
+                    if np==gd.np: vi=array([(array([C[i,j] for j in pip])*pacor).sum(axis=0) for i in its])
+                    if np==gd.ne: vi=array([C[i,pie] for i in its])
+                    if (np==gd.ns) and (sgrid is None): vi=array([(sum(array(C[i,P.ins.ravel()]).reshape(P.ds)*P.fp,axis=2)*pacor/P.nns).sum(axis=0) for i in its])
+                    if (np==gd.ns) and (sgrid is not None): vi=array([sum(array(C[i][P.pip]*P.pacor),axis=1) for i in its])
                     vs.append(vi)
                 else: #3D
                     #read zcoor,and extend zcoor downward
                     if (zii is None) and fmt==0:
                        if n==0:
                           if zcor==0:
-                             eta=array([C0.variables['elevation'][i][pip] for i in arange(0,nt,nspool)]).ravel(); sindp=tile(pip,[ntime,1,1]).ravel()
+                             eta=array([C0.variables['elevation'][i][pip] for i in its]).ravel(); sindp=tile(pip,[ntime,1,1]).ravel()
                              sigma=vd.sigma[sindp] if vd.ivcor==1 else 0; zii0=compute_zcor(sigma,gd.dp[sindp],eta,ivcor=vd.ivcor,vd=vd)
                              zii=(zii0.reshape([ntime,3,npt,nvrt])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                           else:
-                             zii=(array([array(Z[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
+                             zii=(array([array(Z[i])[pip] for i in its])*pacor[None,...,None]).sum(axis=1).transpose([2,0,1])
                        for k in arange(nvrt-1): z1=zii[nvrt-k-2]; z2=zii[nvrt-k-1]; z1[abs(z1)>1e8]=z2[abs(z1)>1e8]
                        if ifs==0: zii=zii-zii[-1][None,...]
 
@@ -3423,11 +3425,11 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
                     C1=ReadNC('{}/{}_{}.nc'.format(bdir,svar,istack),1) if outfmt==0 else C0
                     C=C1.variables[svar]; np=C.shape[1]; nd=C.ndim
                     if np==gd.ns: _sindex(sgrid,P)
-                    if np==gd.np and nd==3: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None]).sum(axis=1)
-                    if np==gd.np and nd==4: vii=(array([array(C[i])[pip] for i in arange(0,nt,nspool)])*pacor[None,...,None,None]).sum(axis=1)
-                    if np==gd.ne: vii=array([C[i][pie] for i in arange(0,nt,nspool)])
-                    if (np==gd.ns) and (sgrid is None): vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in arange(0,nt,nspool)])
-                    if (np==gd.ns) and (sgrid is not None): vii=array([sum(C[i][P.pip]*P.pacor[...,None],axis=1) for i in arange(0,nt,nspool)])
+                    if np==gd.np and nd==3: vii=(array([array(C[i])[pip] for i in its])*pacor[None,...,None]).sum(axis=1)
+                    if np==gd.np and nd==4: vii=(array([array(C[i])[pip] for i in its])*pacor[None,...,None,None]).sum(axis=1)
+                    if np==gd.ne: vii=array([C[i][pie] for i in its])
+                    if (np==gd.ns) and (sgrid is None): vii=array([(sum(C[i][P.ins]*P.fp[...,None],axis=2)*pacor[...,None]/P.nns[...,None]).sum(axis=0) for i in its])
+                    if (np==gd.ns) and (sgrid is not None): vii=array([sum(C[i][P.pip]*P.pacor[...,None],axis=1) for i in its])
                     vii=vii.transpose([2,0,1]) if nd==3 else vii.transpose([2,0,1,3]) #from (nt,npt,nvrt) to (nvrt,nt,npt)
                     if extend==0:
                        for k in arange(nvrt-1)[::-1]: z1=vii[k]; z2=vii[k+1]; fpn=abs(z1)>1e8; z1[fpn]=z2[fpn] #extend value at bottom
@@ -3455,7 +3457,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
     if fname is not None: S.save(fname)
     return S
 
-def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None,reg=None):
+def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None,fname=None,reg=None,ispool=0):
     '''
     extract slabs of SCHISM results (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3,vgrid.in) and outputs are located
@@ -3467,6 +3469,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
        sname:   (optional) variable name for save
        fname:   (optional) save the results as fname.npz
        reg:     (optional) subsetting reslts inside region (*.reg, or *.bp, or gd_subgrid)
+       ispool:  (optional) the 1st record to start from (var[ispool::nspool])
     '''
     #proc
     fgz=run+'/grid.npz'; fgd=run+'/hgrid.gr3'; fvd=run+'/vgrid.in'; fexist=os.path.exists; P=zdata()
@@ -3484,7 +3487,7 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
     for istack in [*unique(stacks).ravel()]:
         if outfmt==0:
            C0=ReadNC('{}/out2d_{}.nc'.format(bdir,istack),1); nvrt=C0.dimensions['nSCHISM_vgrid_layers'].size
-           mt=array(C0.variables['time'][:])/86400; nt=len(mt); mtime.extend(mt[::nspool])
+           mt=array(C0.variables['time'][:])/86400; nt=len(mt); its=arange(ispool,nt,nspool); mtime.extend(mt[its])
            zs=arange(nvrt,0,-1) if levels=='all' else array(levels)
 
         for ivar, varnamei in enumerate(varname):
@@ -3492,20 +3495,20 @@ def read_schism_slab(run,varname,levels,stacks=None,nspool=1,mdt=None,sname=None
             for m,[vari,svar] in enumerate(svars):
                 C=C0 if (svar in dvars_2d) else read('{}/{}_{}.nc'.format(bdir,svar,istack),1); cvar=C.variables[svar]; vi=[]; npt=cvar.shape[1]
                 if svar in dvars_2d:  #2D
-                   vi=array([array(cvar[i]).astype('float32') for i in arange(nt) if i%nspool==0])
+                   vi=array([array(cvar[i]).astype('float32') for i in its])
                    if reg is not None: vi=vi[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                 else:   #3D
                    if levels=='all':
-                      vi=array([flipud(array(cvar[i]).astype('float32').T) for i in arange(nt) if i%nspool==0])
+                      vi=array([flipud(array(cvar[i]).astype('float32').T) for i in its])
                    else:
                       for n,k in enumerate(zs):
                           if k>nvrt:
                              if (not hasattr(P,'kbp')) and npt==np: vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sindp,P.kbp=arange(np),vd.kbp
                              if (not hasattr(P,'kbe')) and npt==ne: vd=read(fgz,'vgrid') if fexist(fgz) else read(fvd); P.sinde,P.kbe=arange(ne),gd.compute_kb(vd.kbp)
                              sindi,kbi=[P.sindp,P.kbp] if npt==np else [P.sinde,P.kbe]
-                             vii=array([array(cvar[i][sindi,kbi]).astype('float32') for i in arange(nt) if i%nspool==0])
+                             vii=array([array(cvar[i][sindi,kbi]).astype('float32') for i in its])
                           else:
-                             vii=array([array(cvar[i,:,nvrt-k]).astype('float32') for i in arange(nt) if i%nspool==0])
+                             vii=array([array(cvar[i,:,nvrt-k]).astype('float32') for i in its])
                           if reg is not None: vii=vii[:,sindp if npt==np else sinde if npt==ne else sinds] #subset
                           vi.append(vii)
                       vi=vi[0] if len(zs)==1 else array(vi).transpose([1,0,2]); C.close()
