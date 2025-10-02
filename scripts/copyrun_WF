@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 # -----------------------------------------------------------------------------
-# Script Name: copy_run
+# Script Name: copyrun
 #
 # Description:
 #   Copy or link files from a given directory into the current working directory.
 #
 # Usage:
-#   ./copy_run <source_directory>
+#   ./copyrun <source_directory>
 #
 # Rules:
 #   1. If the target file already exists in the current directory → skip (green).
 #   2. Files to skip (grey):
-#        - hotstart*, slurm*, outputs, results, screen*
+#        - hotstart*, outputs, results → (new outputs link will be created)
+#        - fort*, slurm*, screen*
 #        - *.py, *.sh
 #   3. Files to copy (red):
 #        - *.nml
 #        - pschism*
 #        - run.schism*
-#        - fort*
 #   4. All other files → soft link to current directory (orange).
 #
 # Author: Wenfan Wu, 08/26/2025
@@ -34,31 +34,27 @@ RED = "\033[91m"
 ORANGE = "\033[38;5;208m"
 RESET = "\033[0m"
 
+wdir='/sciclone/data10/wwu09'   # workpath
+sdir='/sciclone/scr30/wwu09'    # scracth path (used to store outputs)
+
 def ensure_outputs_link():
     cwd = Path.cwd().resolve()
     local_outputs = cwd / "outputs"
 
     if local_outputs.exists() or local_outputs.is_symlink():
         return
-
-    parts = list(cwd.parts)
+    
+    remote_outputs = Path(str(local_outputs).replace(wdir,sdir))
     try:
-        if len(parts) >= 3 and parts[1] == "sciclone":
-            parts[2] = "pscr"
-            remote_base = Path(*parts)
-            remote_outputs = remote_base / "outputs"
-            remote_outputs.mkdir(parents=True, exist_ok=True)
-
-            os.symlink(remote_outputs, local_outputs, target_is_directory=True)
-            print(f"{ORANGE}Linked outputs -> {remote_outputs}{RESET}")
-        else:
-            print(f"{GREY}Skipped: outputs (cwd not under /sciclone/*){RESET}")
+        remote_outputs.mkdir(parents=True, exist_ok=True)
+        os.symlink(remote_outputs, local_outputs, target_is_directory=True)
+        print(f"{ORANGE}Linked outputs -> {remote_outputs}{RESET}")
     except Exception as e:
         print(f"{GREY}Skipped: outputs (reason: {e}){RESET}")
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: copy_run filepath")
+        print("Usage: copyrun filepath")
         sys.exit(1)
 
     src_dir = Path(sys.argv[1]).resolve()
@@ -76,7 +72,7 @@ def main():
 
         # handle directories
         if f.is_dir():
-            if fname == "sflux":
+            if fname == "sflux" or fname == "hydro_out":
                 if dst_path.exists():
                     print(f"{GREEN}Skipped (exists): {fname}{RESET}")
                 else:
