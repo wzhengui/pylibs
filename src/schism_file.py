@@ -179,6 +179,7 @@ class schism_grid(zdata):
         if ax is None: ax=gca()
         if (mask is None) and ('nodata' in args): mask=args['nodata'] #for back compatiblity 
         x,y=(self.xy if xy==0 else self.lxy if xy==1 else xy).T; fp3,fp4=self.fp3,self.fp4; vm=clim
+        sca(ax)
 
         if fmt in [1,2]: #plot contours
            trs=r_[self.elnode[:,:3],self.elnode[fp4][:,[0,2,3]]]

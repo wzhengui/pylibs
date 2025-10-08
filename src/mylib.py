@@ -2137,7 +2137,7 @@ def fig_IFNO(hf=None,ax=None):
     if hf is None: hf=gcf()
     if ax is None: ax=gca()
     f='figure(figsize=[{},{}])'.format(hf.get_figwidth(),hf.get_figheight())
-    a='xm={}; ym={}'.format(ax.get_xlim(),ax.get_ylim())
+    a='xm=[{},{}]; ym=[{},{}]'.format(*array(ax.get_xlim()),*array(ax.get_ylim()))
     b='setp(gca(),xticks=[],yticks=[],xlim=xm,ylim=ym)'
     c='gcf().tight_layout()'; d='show(block=False); mvfig()'
     print('\n'.join([f,a,b,c,d]))
