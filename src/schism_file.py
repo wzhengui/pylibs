@@ -1873,7 +1873,7 @@ class schism_grid(zdata):
            C.attname=['id_elem']; C.attvalue=arange(self.ne)+1
            if include_bathy: C.attname.append(bathy_name); C.attvalue=array([C.attvalue,v],dtype='O')
         if fmt==1: #node
-           C.xy=self.xy; C.attname=['id_elem']; C.attvalue=arange(self.np)+1
+           C.xy=self.xy; C.attname=['id_node']; C.attvalue=arange(self.np)+1
            if include_bathy: C.attname.append(bathy_name); C.attvalue=array([C.attvalue,v],dtype='O')
         if fmt==2:  #bnd
            C.xy=concatenate([r_[nan*ones([1,2]),self.xy[i if k==0 else r_[i,i[0]]]] \
