@@ -1270,158 +1270,7 @@ class schism_grid(zdata):
         #check fname, and output as *.npz or *.pkl format
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0]) #check fname
         if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
-
-        #GeoTIFF export with bathymetry and mesh metadata
-        if fname.endswith('.tif') or fname.endswith('.tiff'):
-            try:
-                import rasterio
-                from rasterio.transform import from_origin
-                from rasterio.crs import CRS
-            except ImportError as exc:
-                raise ImportError('GeoTIFF export requires the "rasterio" package.') from exc
-
-            #collect bathymetry values
-            bathy=args.pop('value', None)
-            if bathy is None:
-                bathy=array(self.dp)
-            else:
-                bathy=array(bathy)
-                if bathy.size==1:
-                    bathy=ones(self.np)*bathy.item()
-                elif bathy.size==self.ne:
-                    bathy=self.interp_elem_to_node(bathy)
-                elif bathy.size!=self.np:
-                    raise ValueError('value must be scalar, size of nodes, or size of elements')
-
-            #grid configuration
-            resolution=args.pop('resolution', None)
-            nx=args.pop('nx', None)
-            ny=args.pop('ny', None)
-            fill_value=args.pop('fill_value', nan)
-            nearest_fill=args.pop('nearest', True)
-            include_mask=args.pop('include_mask', True)
-            include_element=args.pop('include_element_id', True)
-            max_cells=int(args.pop('max_cells', 5_000_000))
-            extra_tags=args.pop('tags', {})
-            crs_input=args.pop('crs', args.pop('prj', None))
-
-            if extra_tags is None:
-                extra_tags={}
-            if not isinstance(extra_tags,dict):
-                raise ValueError('tags must be a dictionary if provided')
-
-            xm=self.xm; ym=self.ym
-            width=xm[1]-xm[0]; height=ym[1]-ym[0]
-            if width<=0 or height<=0:
-                raise ValueError('GeoTIFF export requires a 2D grid with positive extent')
-
-            if resolution is not None:
-                resolution=float(resolution)
-                if resolution<=0: raise ValueError('resolution must be positive')
-            if nx is not None: nx=int(nx)
-            if ny is not None: ny=int(ny)
-
-            if resolution is not None:
-                if nx is None: nx=max([2,int(ceil(width/resolution))+1])
-                if ny is None: ny=max([2,int(ceil(height/resolution))+1])
-            if nx is None and ny is None:
-                base=max([100,min([1500,int(sqrt(self.np)*2)])])
-                nx=base
-                ny=max([2,int(ceil(base*height/width))]) if width>0 else base
-            elif nx is None:
-                nx=max([2,int(ceil(width/height*ny))]) if height>0 else max([2,int(ny)])
-            elif ny is None:
-                ny=max([2,int(ceil(height/width*nx))]) if width>0 else max([2,int(nx)])
-
-            cells=nx*ny
-            if cells>max_cells:
-                scale=sqrt(cells/max_cells)
-                nx=max([2,int(nx/scale)])
-                ny=max([2,int(ny/scale)])
-                cells=nx*ny
-            #coordinate grid
-            x_coords=linspace(xm[0],xm[1],nx)
-            y_coords_asc=linspace(ym[0],ym[1],ny)
-            grid_x,grid_y=meshgrid(x_coords,y_coords_asc)
-
-            #interpolate bathymetry to regular grid
-            linear=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='linear')
-            mask_band=(~isnan(linear)).astype(float)
-            if nearest_fill:
-                nearest=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='nearest')
-                bathy_grid=where(isnan(linear),nearest,linear)
-            else:
-                bathy_grid=linear
-            if fill_value is not None and not isnan(fill_value):
-                bathy_grid=where(isnan(bathy_grid),float(fill_value),bathy_grid)
-
-            element_band=None
-            if include_element:
-                pts=c_[grid_x.ravel(),grid_y.ravel()]
-                elem_id,_,_=self.compute_acor(pts,out=0)
-                element_band=elem_id.reshape(ny,nx).astype(float)+1
-                element_band[element_band<1]=0
-
-            bathy_out=flipud(bathy_grid.astype(float32))
-            bands=[bathy_out]
-            band_names=['bathymetry']
-            if include_mask:
-                bands.append(flipud(mask_band.astype(float32)))
-                band_names.append('mesh_mask')
-            if element_band is not None:
-                bands.append(flipud(element_band.astype(float32)))
-                band_names.append('mesh_element_id')
-
-            if nx>1:
-                xres=x_coords[1]-x_coords[0]
-            else:
-                xres=1.0
-            if ny>1:
-                yres=y_coords_asc[1]-y_coords_asc[0]
-            else:
-                yres=1.0
-            transform=from_origin(x_coords[0]-xres/2,y_coords_asc[-1]+yres/2,xres,yres)
-
-            if crs_input is None and self.wrap==1:
-                crs_input='EPSG:4326'
-            raster_crs=None
-            if crs_input is not None:
-                raster_crs=CRS.from_user_input(crs_input)
-
-            nodata=None if (fill_value is None or isnan(fill_value)) else float(fill_value)
-
-            dataset_kwargs={
-                'driver':'GTiff',
-                'height':ny,
-                'width':nx,
-                'count':len(bands),
-                'dtype':'float32',
-                'transform':transform,
-                'nodata':nodata,
-            }
-            if raster_crs is not None:
-                dataset_kwargs['crs']=raster_crs
-
-            metadata={'mesh_nodes':int(getattr(self,'np',0)),
-                      'mesh_elements':int(getattr(self,'ne',0)),
-                      'mesh_source':getattr(self,'source_file',None) or '',
-                      'mesh_bounds':'{:.6f},{:.6f},{:.6f},{:.6f}'.format(xm[0],ym[0],xm[1],ym[1]),
-                      'mesh_resolution':'{:.6f},{:.6f}'.format(xres,yres)}
-            metadata.update({k:str(v) for k,v in extra_tags.items()})
-            metadata={k:str(v) for k,v in metadata.items() if v not in [None,'']}
-            if raster_crs is not None:
-                metadata.setdefault('mesh_crs',raster_crs.to_string())
-
-            with rasterio.open(fname,'w',**dataset_kwargs) as dst:
-                for i,band in enumerate(bands,1):
-                    dst.write(band.astype(float32),i)
-                    try:
-                        dst.set_band_description(i,band_names[i-1])
-                    except Exception:
-                        pass
-                if metadata:
-                    dst.update_tags(**metadata)
-            return
+        if fname.endswith('.tif') or fname.endswith('.tiff'): self.write_tiff(fname,**args); return
 
         #outputs grid as other format
         F=None
@@ -1436,6 +1285,160 @@ class schism_grid(zdata):
         alias to self.write
         '''
         self.write(fname,**args)
+
+    def write_tiff(self,fname,**args):
+        '''
+        Kyungmin's work:  GeoTIFF export with bathymetry and mesh metadata
+        '''
+        try:
+            import rasterio
+            from rasterio.transform import from_origin
+            from rasterio.crs import CRS
+        except ImportError as exc:
+            raise ImportError('GeoTIFF export requires the "rasterio" package.') from exc
+
+        #collect bathymetry values
+        bathy=args.pop('value', None)
+        if bathy is None:
+            bathy=array(self.dp)
+        else:
+            bathy=array(bathy)
+            if bathy.size==1:
+                bathy=ones(self.np)*bathy.item()
+            elif bathy.size==self.ne:
+                bathy=self.interp_elem_to_node(bathy)
+            elif bathy.size!=self.np:
+                raise ValueError('value must be scalar, size of nodes, or size of elements')
+
+        #grid configuration
+        resolution=args.pop('resolution', None)
+        nx=args.pop('nx', None)
+        ny=args.pop('ny', None)
+        fill_value=args.pop('fill_value', nan)
+        nearest_fill=args.pop('nearest', True)
+        include_mask=args.pop('include_mask', True)
+        include_element=args.pop('include_element_id', True)
+        max_cells=int(args.pop('max_cells', 5_000_000))
+        extra_tags=args.pop('tags', {})
+        crs_input=args.pop('crs', args.pop('prj', None))
+
+        if extra_tags is None:
+            extra_tags={}
+        if not isinstance(extra_tags,dict):
+            raise ValueError('tags must be a dictionary if provided')
+
+        xm=self.xm; ym=self.ym
+        width=xm[1]-xm[0]; height=ym[1]-ym[0]
+        if width<=0 or height<=0:
+            raise ValueError('GeoTIFF export requires a 2D grid with positive extent')
+
+        if resolution is not None:
+            resolution=float(resolution)
+            if resolution<=0: raise ValueError('resolution must be positive')
+        if nx is not None: nx=int(nx)
+        if ny is not None: ny=int(ny)
+
+        if resolution is not None:
+            if nx is None: nx=max([2,int(ceil(width/resolution))+1])
+            if ny is None: ny=max([2,int(ceil(height/resolution))+1])
+        if nx is None and ny is None:
+            base=max([100,min([1500,int(sqrt(self.np)*2)])])
+            nx=base
+            ny=max([2,int(ceil(base*height/width))]) if width>0 else base
+        elif nx is None:
+            nx=max([2,int(ceil(width/height*ny))]) if height>0 else max([2,int(ny)])
+        elif ny is None:
+            ny=max([2,int(ceil(height/width*nx))]) if width>0 else max([2,int(nx)])
+
+        cells=nx*ny
+        if cells>max_cells:
+            scale=sqrt(cells/max_cells)
+            nx=max([2,int(nx/scale)])
+            ny=max([2,int(ny/scale)])
+            cells=nx*ny
+        #coordinate grid
+        x_coords=linspace(xm[0],xm[1],nx)
+        y_coords_asc=linspace(ym[0],ym[1],ny)
+        grid_x,grid_y=meshgrid(x_coords,y_coords_asc)
+
+        #interpolate bathymetry to regular grid
+        linear=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='linear')
+        mask_band=(~isnan(linear)).astype(float)
+        if nearest_fill:
+            nearest=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='nearest')
+            bathy_grid=where(isnan(linear),nearest,linear)
+        else:
+            bathy_grid=linear
+        if fill_value is not None and not isnan(fill_value):
+            bathy_grid=where(isnan(bathy_grid),float(fill_value),bathy_grid)
+
+        element_band=None
+        if include_element:
+            pts=c_[grid_x.ravel(),grid_y.ravel()]
+            elem_id,_,_=self.compute_acor(pts,out=0)
+            element_band=elem_id.reshape(ny,nx).astype(float)+1
+            element_band[element_band<1]=0
+
+        bathy_out=flipud(bathy_grid.astype(float32))
+        bands=[bathy_out]
+        band_names=['bathymetry']
+        if include_mask:
+            bands.append(flipud(mask_band.astype(float32)))
+            band_names.append('mesh_mask')
+        if element_band is not None:
+            bands.append(flipud(element_band.astype(float32)))
+            band_names.append('mesh_element_id')
+
+        if nx>1:
+            xres=x_coords[1]-x_coords[0]
+        else:
+            xres=1.0
+        if ny>1:
+            yres=y_coords_asc[1]-y_coords_asc[0]
+        else:
+            yres=1.0
+        transform=from_origin(x_coords[0]-xres/2,y_coords_asc[-1]+yres/2,xres,yres)
+
+        if crs_input is None and self.wrap==1:
+            crs_input='EPSG:4326'
+        raster_crs=None
+        if crs_input is not None:
+            raster_crs=CRS.from_user_input(crs_input)
+
+        nodata=None if (fill_value is None or isnan(fill_value)) else float(fill_value)
+
+        dataset_kwargs={
+            'driver':'GTiff',
+            'height':ny,
+            'width':nx,
+            'count':len(bands),
+            'dtype':'float32',
+            'transform':transform,
+            'nodata':nodata,
+        }
+        if raster_crs is not None:
+            dataset_kwargs['crs']=raster_crs
+
+        metadata={'mesh_nodes':int(getattr(self,'np',0)),
+                  'mesh_elements':int(getattr(self,'ne',0)),
+                  'mesh_source':getattr(self,'source_file',None) or '',
+                  'mesh_bounds':'{:.6f},{:.6f},{:.6f},{:.6f}'.format(xm[0],ym[0],xm[1],ym[1]),
+                  'mesh_resolution':'{:.6f},{:.6f}'.format(xres,yres)}
+        metadata.update({k:str(v) for k,v in extra_tags.items()})
+        metadata={k:str(v) for k,v in metadata.items() if v not in [None,'']}
+        if raster_crs is not None:
+            metadata.setdefault('mesh_crs',raster_crs.to_string())
+
+        with rasterio.open(fname,'w',**dataset_kwargs) as dst:
+            for i,band in enumerate(bands,1):
+                dst.write(band.astype(float32),i)
+                try:
+                    dst.set_band_description(i,band_names[i-1])
+                except Exception:
+                    pass
+            if metadata:
+                dst.update_tags(**metadata)
+        return
 
     def write_hgrid(self,fname,value=None,fmt=0,outfmt='{:<.8f}',elnode=1,bndfile=None,Info=None,xy=0):
         '''
