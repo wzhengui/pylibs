@@ -1853,72 +1853,25 @@ class schism_grid(zdata):
         '''
         generic function to write grid elem/node/bnd as shapefile
         fmt=0: elem (default);   fmt=1: node;    fmt=2: bnd
+        include_bathy=Ture: add bathymetry (or other data) in the attributes
+        bathy_name: name of the attributes to be added
+        value: attribute data to be added
         '''
         C=zdata(); C.type='POLYGON' if fmt==0 else 'POINT' if fmt==1 else 'POLYLINE'; C.prj=get_prj_file(prj)
-        bathy_name=str(bathy_name) if bathy_name is not None else 'depth'
-        bathy_field=bathy_name[:10] if len(bathy_name)>10 else bathy_name
 
-        def _resolve_bathy(target_fmt):
-            if not include_bathy:
-                return None
-            if target_fmt==0: #element values
-                if value is None:
-                    if hasattr(self,'dpe'):
-                        v=array(self.dpe)
-                    else:
-                        v=self.interp_node_to_elem()
-                else:
-                    v=array(value)
-            elif target_fmt==1: #node values
-                if value is None:
-                    v=array(self.dp)
-                else:
-                    v=array(value)
-            else:
-                return None
-
-            v=v.astype('float64',copy=False)
-            if v.ndim>1:
-                raise ValueError('bathy value must be 1D for shapefile export')
-
-            if target_fmt==0:
-                if v.size==1:
-                    v=ones(self.ne)*v.item()
-                elif v.size==self.ne:
-                    pass
-                elif v.size==self.np:
-                    v=self.interp_node_to_elem(v)
-                else:
-                    raise ValueError('bathy value must match number of elements or nodes')
-            elif target_fmt==1:
-                if v.size==1:
-                    v=ones(self.np)*v.item()
-                elif v.size==self.np:
-                    pass
-                elif v.size==self.ne:
-                    v=self.interp_elem_to_node(v)
-                else:
-                    raise ValueError('bathy value must match number of nodes or elements')
-            return v
+        if include_bathy and (fmt in [0,1]): #kyungmin's work to add bathymety data
+           bathy_name=str(bathy_name)[:10] if bathy_name is not None else 'depth'; npt=self.ne if fmt==0 else self.np
+           v=array(value) if (value is not None) else self.ze if fmt==0 else self.z
+           if v.size not in [1,self.np,self.ne]: raise ValueError('bathy value must match number of elements or nodes')
+           v=ones(npt)*v.item() if v.size==1 else self.interp(v) if v.size!=npt else v
 
         if fmt==0: #elem
            ie=self.elnode.copy(); ie[self.fp3,-1]=ie[self.fp3,0]; C.xy=self.xy[fliplr(ie)]
-           attrs=['id_elem']; values=[arange(self.ne)+1]
-           ebathy=_resolve_bathy(0)
-           if ebathy is not None:
-               attrs.append(bathy_field)
-               values.append(ebathy)
-           C.attname=attrs
-           C.attvalue=array(values,dtype='O') if len(values)>1 else values[0]
+           C.attname=['id_elem']; C.attvalue=arange(self.ne)+1
+           if include_bathy: C.attname.append(bathy_name); C.attvalue=array([C.attvalue,v],dtype='O')
         if fmt==1: #node
-           C.xy=self.xy
-           attrs=['id_node']; values=[arange(self.np)+1]
-           nbathy=_resolve_bathy(1)
-           if nbathy is not None:
-               attrs.append(bathy_field)
-               values.append(nbathy)
-           C.attname=attrs
-           C.attvalue=array(values,dtype='O') if len(values)>1 else values[0]
+           C.xy=self.xy; C.attname=['id_elem']; C.attvalue=arange(self.np)+1
+           if include_bathy: C.attname.append(bathy_name); C.attvalue=array([C.attvalue,v],dtype='O')
         if fmt==2:  #bnd
            C.xy=concatenate([r_[nan*ones([1,2]),self.xy[i if k==0 else r_[i,i[0]]]] \
                 for i,k in zip([*self.iobn,*self.ilbn],[*zeros(self.nob),*self.island])])
