@@ -1271,6 +1271,158 @@ class schism_grid(zdata):
         if fname is None: fname = '{}.npz'.format(os.path.splitext(self.source_file)[0]) #check fname
         if fname.endswith('.npz') or fname.endswith('.pkl'): savez(fname,self,**args); return
 
+        #GeoTIFF export with bathymetry and mesh metadata
+        if fname.endswith('.tif') or fname.endswith('.tiff'):
+            try:
+                import rasterio
+                from rasterio.transform import from_origin
+                from rasterio.crs import CRS
+            except ImportError as exc:
+                raise ImportError('GeoTIFF export requires the "rasterio" package.') from exc
+
+            #collect bathymetry values
+            bathy=args.pop('value', None)
+            if bathy is None:
+                bathy=array(self.dp)
+            else:
+                bathy=array(bathy)
+                if bathy.size==1:
+                    bathy=ones(self.np)*bathy.item()
+                elif bathy.size==self.ne:
+                    bathy=self.interp_elem_to_node(bathy)
+                elif bathy.size!=self.np:
+                    raise ValueError('value must be scalar, size of nodes, or size of elements')
+
+            #grid configuration
+            resolution=args.pop('resolution', None)
+            nx=args.pop('nx', None)
+            ny=args.pop('ny', None)
+            fill_value=args.pop('fill_value', nan)
+            nearest_fill=args.pop('nearest', True)
+            include_mask=args.pop('include_mask', True)
+            include_element=args.pop('include_element_id', True)
+            max_cells=int(args.pop('max_cells', 5_000_000))
+            extra_tags=args.pop('tags', {})
+            crs_input=args.pop('crs', args.pop('prj', None))
+
+            if extra_tags is None:
+                extra_tags={}
+            if not isinstance(extra_tags,dict):
+                raise ValueError('tags must be a dictionary if provided')
+
+            xm=self.xm; ym=self.ym
+            width=xm[1]-xm[0]; height=ym[1]-ym[0]
+            if width<=0 or height<=0:
+                raise ValueError('GeoTIFF export requires a 2D grid with positive extent')
+
+            if resolution is not None:
+                resolution=float(resolution)
+                if resolution<=0: raise ValueError('resolution must be positive')
+            if nx is not None: nx=int(nx)
+            if ny is not None: ny=int(ny)
+
+            if resolution is not None:
+                if nx is None: nx=max([2,int(ceil(width/resolution))+1])
+                if ny is None: ny=max([2,int(ceil(height/resolution))+1])
+            if nx is None and ny is None:
+                base=max([100,min([1500,int(sqrt(self.np)*2)])])
+                nx=base
+                ny=max([2,int(ceil(base*height/width))]) if width>0 else base
+            elif nx is None:
+                nx=max([2,int(ceil(width/height*ny))]) if height>0 else max([2,int(ny)])
+            elif ny is None:
+                ny=max([2,int(ceil(height/width*nx))]) if width>0 else max([2,int(nx)])
+
+            cells=nx*ny
+            if cells>max_cells:
+                scale=sqrt(cells/max_cells)
+                nx=max([2,int(nx/scale)])
+                ny=max([2,int(ny/scale)])
+                cells=nx*ny
+            #coordinate grid
+            x_coords=linspace(xm[0],xm[1],nx)
+            y_coords_asc=linspace(ym[0],ym[1],ny)
+            grid_x,grid_y=meshgrid(x_coords,y_coords_asc)
+
+            #interpolate bathymetry to regular grid
+            linear=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='linear')
+            mask_band=(~isnan(linear)).astype(float)
+            if nearest_fill:
+                nearest=sp.interpolate.griddata(self.xy,bathy,(grid_x,grid_y),method='nearest')
+                bathy_grid=where(isnan(linear),nearest,linear)
+            else:
+                bathy_grid=linear
+            if fill_value is not None and not isnan(fill_value):
+                bathy_grid=where(isnan(bathy_grid),float(fill_value),bathy_grid)
+
+            element_band=None
+            if include_element:
+                pts=c_[grid_x.ravel(),grid_y.ravel()]
+                elem_id,_,_=self.compute_acor(pts,out=0)
+                element_band=elem_id.reshape(ny,nx).astype(float)+1
+                element_band[element_band<1]=0
+
+            bathy_out=flipud(bathy_grid.astype(float32))
+            bands=[bathy_out]
+            band_names=['bathymetry']
+            if include_mask:
+                bands.append(flipud(mask_band.astype(float32)))
+                band_names.append('mesh_mask')
+            if element_band is not None:
+                bands.append(flipud(element_band.astype(float32)))
+                band_names.append('mesh_element_id')
+
+            if nx>1:
+                xres=x_coords[1]-x_coords[0]
+            else:
+                xres=1.0
+            if ny>1:
+                yres=y_coords_asc[1]-y_coords_asc[0]
+            else:
+                yres=1.0
+            transform=from_origin(x_coords[0]-xres/2,y_coords_asc[-1]+yres/2,xres,yres)
+
+            if crs_input is None and self.wrap==1:
+                crs_input='EPSG:4326'
+            raster_crs=None
+            if crs_input is not None:
+                raster_crs=CRS.from_user_input(crs_input)
+
+            nodata=None if (fill_value is None or isnan(fill_value)) else float(fill_value)
+
+            dataset_kwargs={
+                'driver':'GTiff',
+                'height':ny,
+                'width':nx,
+                'count':len(bands),
+                'dtype':'float32',
+                'transform':transform,
+                'nodata':nodata,
+            }
+            if raster_crs is not None:
+                dataset_kwargs['crs']=raster_crs
+
+            metadata={'mesh_nodes':int(getattr(self,'np',0)),
+                      'mesh_elements':int(getattr(self,'ne',0)),
+                      'mesh_source':getattr(self,'source_file',None) or '',
+                      'mesh_bounds':'{:.6f},{:.6f},{:.6f},{:.6f}'.format(xm[0],ym[0],xm[1],ym[1]),
+                      'mesh_resolution':'{:.6f},{:.6f}'.format(xres,yres)}
+            metadata.update({k:str(v) for k,v in extra_tags.items()})
+            metadata={k:str(v) for k,v in metadata.items() if v not in [None,'']}
+            if raster_crs is not None:
+                metadata.setdefault('mesh_crs',raster_crs.to_string())
+
+            with rasterio.open(fname,'w',**dataset_kwargs) as dst:
+                for i,band in enumerate(bands,1):
+                    dst.write(band.astype(float32),i)
+                    try:
+                        dst.set_band_description(i,band_names[i-1])
+                    except Exception:
+                        pass
+                if metadata:
+                    dst.update_tags(**metadata)
+            return
+
         #outputs grid as other format
         F=None
         if fname.endswith('.prop'): F=self.write_prop
@@ -1697,29 +1849,88 @@ class schism_grid(zdata):
         gdn.elnode=r_[self.elnode[dinde],elnode]; gdn.ne=len(gdn.elnode); gdn.i34=sum(gdn.elnode!=-2,axis=1); gdn.iep=r_[dinde,iep]
         return gdn
 
-    def write_shp(self,fname,fmt=0,prj='epsg:4326'):
+    def write_shp(self,fname,fmt=0,prj='epsg:4326',include_bathy=False,value=None,bathy_name='depth'):
         '''
         generic function to write grid elem/node/bnd as shapefile
         fmt=0: elem (default);   fmt=1: node;    fmt=2: bnd
         '''
         C=zdata(); C.type='POLYGON' if fmt==0 else 'POINT' if fmt==1 else 'POLYLINE'; C.prj=get_prj_file(prj)
+        bathy_name=str(bathy_name) if bathy_name is not None else 'depth'
+        bathy_field=bathy_name[:10] if len(bathy_name)>10 else bathy_name
+
+        def _resolve_bathy(target_fmt):
+            if not include_bathy:
+                return None
+            if target_fmt==0: #element values
+                if value is None:
+                    if hasattr(self,'dpe'):
+                        v=array(self.dpe)
+                    else:
+                        v=self.interp_node_to_elem()
+                else:
+                    v=array(value)
+            elif target_fmt==1: #node values
+                if value is None:
+                    v=array(self.dp)
+                else:
+                    v=array(value)
+            else:
+                return None
+
+            v=v.astype('float64',copy=False)
+            if v.ndim>1:
+                raise ValueError('bathy value must be 1D for shapefile export')
+
+            if target_fmt==0:
+                if v.size==1:
+                    v=ones(self.ne)*v.item()
+                elif v.size==self.ne:
+                    pass
+                elif v.size==self.np:
+                    v=self.interp_node_to_elem(v)
+                else:
+                    raise ValueError('bathy value must match number of elements or nodes')
+            elif target_fmt==1:
+                if v.size==1:
+                    v=ones(self.np)*v.item()
+                elif v.size==self.np:
+                    pass
+                elif v.size==self.ne:
+                    v=self.interp_elem_to_node(v)
+                else:
+                    raise ValueError('bathy value must match number of nodes or elements')
+            return v
+
         if fmt==0: #elem
            ie=self.elnode.copy(); ie[self.fp3,-1]=ie[self.fp3,0]; C.xy=self.xy[fliplr(ie)]
-           C.attname=['id_elem']; C.attvalue=arange(self.ne)+1
+           attrs=['id_elem']; values=[arange(self.ne)+1]
+           ebathy=_resolve_bathy(0)
+           if ebathy is not None:
+               attrs.append(bathy_field)
+               values.append(ebathy)
+           C.attname=attrs
+           C.attvalue=array(values,dtype='O') if len(values)>1 else values[0]
         if fmt==1: #node
-           C.xy=self.xy; C.attname=['id_node']; C.attvalue=arange(self.np)+1
+           C.xy=self.xy
+           attrs=['id_node']; values=[arange(self.np)+1]
+           nbathy=_resolve_bathy(1)
+           if nbathy is not None:
+               attrs.append(bathy_field)
+               values.append(nbathy)
+           C.attname=attrs
+           C.attvalue=array(values,dtype='O') if len(values)>1 else values[0]
         if fmt==2:  #bnd
            C.xy=concatenate([r_[nan*ones([1,2]),self.xy[i if k==0 else r_[i,i[0]]]] \
                 for i,k in zip([*self.iobn,*self.ilbn],[*zeros(self.nob),*self.island])])
         C.save(fname if fname.endswith('.shp') else fname+'.shp')
         return C
 
-    def write_shapefile_elem(self,fname,prj='epsg:4326'):
-        return self.write_shp(fname,0,prj)
-    def write_shapefile_node(self,fname,prj='epsg:4326'):
-        return self.write_shp(fname,1,prj)
-    def write_shapefile_bnd(self,fname,prj='epsg:4326'):
-        return self.write_shp(fname,2,prj)
+    def write_shapefile_elem(self,fname,prj='epsg:4326',**kwargs):
+        return self.write_shp(fname,0,prj,**kwargs)
+    def write_shapefile_node(self,fname,prj='epsg:4326',**kwargs):
+        return self.write_shp(fname,1,prj,**kwargs)
+    def write_shapefile_bnd(self,fname,prj='epsg:4326',**kwargs):
+        return self.write_shp(fname,2,prj,**kwargs)
 
     def create_bnd(self):
         '''
