@@ -4406,7 +4406,9 @@ class schism_view(zdata):
            vd=loadz(grd).vgrid if fexist(grd) else read_schism_vgrid(vrd) if fexist(vrd) else None
            if gd==None: #create hgrid
               if cvar==None: return
-              gd=get_schism_output_info(self.outputs,4)
+              gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
+              gd.elnode=array(cvar['SCHISM_hgrid_face_nodes'])-1; gd.np,gd.ne=gd.dp.size,len(gd.elnode)
+              gd.elnode[(gd.elnode<0)|(abs(gd.elnode)>1e8)]=-2; gd.i34=sum(gd.elnode!=-2,axis=1); gd.ns=cvar['SCHISM_hgrid_edge_x'].size
            if not hasattr(gd,'x0'): gd.x0,gd.y0=[gd.x,gd.y]
            if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
            gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
