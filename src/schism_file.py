@@ -1246,16 +1246,19 @@ class schism_grid(zdata):
         if value.size==self.ne: value=self.interp_elem_to_node(value)
 
         #plot contour and extract the lines
-        trs=r_[self.elnode[:,:3],self.elnode[fp4][:,[0,2,3]]]
+        trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
         hf=figure(); hf.set_visible(False)
         P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
-        for k in arange(len(P.collections)):
-            p=P.collections[k].get_paths()
-            for i in arange(len(p)):
-                xii,yii=p[i].vertices.T
-                xi=r_[xii,nan] if i==0 else r_[xi,xii,nan]
-                yi=r_[yii,nan] if i==0 else r_[yi,yii,nan]
-            cxy.append(c_[xi,yi])
+        if hasattr(P,'allsegs'):
+           cxy=[vstack([r_[i,ones([1,2])*nan] for i in k]) for k in P.allsegs]
+        else: #old methods
+           for k in arange(len(P.collections)):
+               p=P.collections[k].get_paths()
+               for i in arange(len(p)):
+                   xii,yii=p[i].vertices.T
+                   xi=r_[xii,nan] if i==0 else r_[xi,xii,nan]
+                   yi=r_[yii,nan] if i==0 else r_[yi,yii,nan]
+               cxy.append(c_[xi,yi])
         return array(cxy) if len(cxy)==1 else array(cxy,dtype='O')
 
     def write(self, fname=None,**args):
