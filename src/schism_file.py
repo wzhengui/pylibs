@@ -1541,16 +1541,17 @@ class schism_grid(zdata):
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname=None):
+    def split_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname=None):
         '''
         1). check the quality of quads, violations can be:
             a. angle_min/angle_max <= angle_ratio
-            b. internal angle <= angle_min,
-            c. internal angle >= angle_max,
+            b. side_max/side_min >= side_ratio
+            c. internal angle <= angle_min,
+            d. internal angle >= angle_max,
             if no parameters are provided, angle_ratio=0.5 will be use
         2). fname: output a new grid "fname" if fname!=None
         '''
-        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,angle_min,angle_max)
+        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,side_ratio,angle_min,angle_max)
 
         #compute (angle_max-angle_min) in splitted triangle
         qind=self.index_bad_quad; x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]]
@@ -1574,23 +1575,21 @@ class schism_grid(zdata):
         #write new grids
         if fname is not None: self.write_hgrid(fname)
 
-    def check_quads(self,angle_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp'):
+    def check_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp'):
         '''
-        1). check the quality of quads, violations can be:
-            a. angle_min/angle_max <= angle_ratio
-            b. internal angle <= angle_min,
-            c. internal angle >= angle_max,
-            if no parameters are provided, angle_ratio=0.5 will be used
-        2). the locations of bad quads are saved in file "fname"
+        see docs in split_quads
         '''
 
-        if angle_ratio is None and angle_min is None and angle_max is None: angle_ratio=0.5
+        if (angle_ratio is None) and (side_ratio is None) and (angle_min is None) and (angle_max is None): angle_ratio=0.5
         if not hasattr(self,'angles'): self.compute_angle()
         if not hasattr(self,'xctr'): self.compute_ctr()
+        if not hasattr(self,'distj') and (side_ratio is not None): self.compute_side(2)
+        if not hasattr(self,'elside') and (side_ratio is not None): self.compute_ic3()
 
         #check violation
         qind=pindex(self.i34,4); A=self.angles[qind]; fp=qind==-999
-        if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<angle_ratio)
+        if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<=angle_ratio)
+        if side_ratio is not None: L=self.distj[self.elside[qind]]; fp=fp|((L.max(axis=1)/L.min(axis=1))>=side_ratio) 
         if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
         if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
         self.index_bad_quad=qind[pindex(fp)]
@@ -2482,6 +2481,7 @@ def save_schism_grid(fmt=0,path='.',method=0):
     if (gd is None) and (gd0 is not None): gd=gd0
     if (gd is not None) and (gd0 is not None): gd.lon,gd.lat=gd0.x,gd0.y
     if (gd is not None) and method!=0: gd.compute_all(method)
+    if gd is not None: gd.compute_lines()
 
     #save grid
     if fmt==1:
