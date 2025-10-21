@@ -5,7 +5,7 @@ close('all')
 #----------------------------------------------------------------
 #inputs
 #----------------------------------------------------------------
-fnames=['a.asc', 'b.asc' ]  #DEM files (*npz, *.asc, *.tif, *.tiff); For tif/tiff file, center position is assumed
+fnames=['a.asc', 'b.asc' ]  #DEM files (*npz, *.asc, *.tif, *.tiff); For tif/tiff file, center position is assumed. From lowest to highest priority
 sname='DEM_contour' #name of shapefile to be outputted
 levels=[-10,-5, 0]  #contour values (note ocean depth is usually negative)
 
