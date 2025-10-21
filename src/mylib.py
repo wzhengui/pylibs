@@ -709,14 +709,16 @@ def _compute_dem_contour(fns,ifile,levels,reg,scrout): #compute contour for each
         return xy
 
     #region inside and DEM domain info
-    fn=fns[ifile]; x=read(fn,'lon'); y=read(fn,'lat'); x1,x2,y1,y2=x.min(),x.max(),y.min(),y.max(); bxy=ones([0,2])
+    fn=fns[ifile]; s=read(fn,['lon','lat']) if fn.endswith('.npz') else read_dem(fn,fmt=1)
+    x,y=s.lon,s.lat; x1,x2,y1,y2=x.min(),x.max(),y.min(),y.max(); bxy=ones([0,2])
     bp=reg if (reg is None) else read(reg) if isinstance(reg,str) else sbp(*reg.T) #region inside
     if (bp is not None) and ((bp.xm[0]>x2) or (bp.xm[1]<x1) or (bp.ym[0]>y2) or (bp.ym[1]<y1)): #no pts inside reg
        c=zdata(); c.xy=[[] for i in levels]; c.levels=levels; c.name=fn; return c
 
     #region outside
     for rn in fns[(ifile+1):]:
-        x=read(rn,'lon'); y=read(rn,'lat'); x1,x2,y1,y2=x.min(),x.max(),y.min(),y.max()
+        s=read(rn,['lon','lat']) if rn.endswith('.npz') else read_dem(rn,fmt=1)
+        x,y=s.lon,s.lat; x1,x2,y1,y2=x.min(),x.max(),y.min(),y.max()
         bxy=r_[bxy,array([[x1,y1],[x2,y1],[x2,y2],[x1,y2]]),ones([1,2])*nan]
     bpn=sbp(*bxy.T)
 
