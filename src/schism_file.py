@@ -2158,15 +2158,18 @@ class schism_bpfile(zdata):
     @property
     def xyz(self):
         return c_[self.x,self.y,self.z]
-
     @property
     def xy(self):
         return c_[self.x,self.y]
-
     @property
     def cxy(self):
         return self.x+1j*self.y
-
+    @property
+    def xm(self):
+        return [self.x.min(),self.x.max()]
+    @property
+    def ym(self):
+        return [self.y.min(),self.y.max()]
     @property
     def dist(self):
         if not hasattr(self,'_dist'): self._dist=r_[0,cumsum(abs(diff(self.cxy)))]
