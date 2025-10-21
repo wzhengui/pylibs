@@ -1541,7 +1541,7 @@ class schism_grid(zdata):
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname=None):
+    def split_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname=None,mask=None):
         '''
         1). check the quality of quads, violations can be:
             a. angle_min/angle_max <= angle_ratio
@@ -1550,9 +1550,9 @@ class schism_grid(zdata):
             d. internal angle >= angle_max,
             if no parameters are provided, angle_ratio=0.5 will be use
         2). fname: output a new grid "fname" if fname!=None
+            mask: ignore the mask defined by *.reg if mask!=None
         '''
-        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,side_ratio,angle_min,angle_max)
-
+        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,side_ratio,angle_min,angle_max,mask=mask)
         #compute (angle_max-angle_min) in splitted triangle
         qind=self.index_bad_quad; x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]]
 
@@ -1575,7 +1575,7 @@ class schism_grid(zdata):
         #write new grids
         if fname is not None: self.write_hgrid(fname)
 
-    def check_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp'):
+    def check_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp',mask=None):
         '''
         see docs in split_quads
         '''
@@ -1592,6 +1592,11 @@ class schism_grid(zdata):
         if side_ratio is not None: L=self.distj[self.elside[qind]]; fp=fp|((L.max(axis=1)/L.min(axis=1))>=side_ratio) 
         if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
         if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
+        
+        if mask is not None:
+            reg=read(mask); idx=(inside_polygon(c_[self.xctr,self.yctr],reg.x,reg.y)==1)[qind]
+            fp[idx]=False
+
         self.index_bad_quad=qind[pindex(fp)]
 
         #output bad_quad location as bp file
