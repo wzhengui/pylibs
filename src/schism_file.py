@@ -1541,7 +1541,7 @@ class schism_grid(zdata):
             lines.append('ND {} {:.8f} {:.8f} {:.8f}\n'.format(i+1,self.x[i],self.y[i],self.dp[i]))
         fid=open(fname,'w+'); fid.writelines(lines); fid.close()
 
-    def split_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname=None,mask=None):
+    def split_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname=None,reg_in=None,reg_out=None):
         '''
         1). check the quality of quads, violations can be:
             a. angle_min/angle_max <= angle_ratio
@@ -1550,9 +1550,10 @@ class schism_grid(zdata):
             d. internal angle >= angle_max,
             if no parameters are provided, angle_ratio=0.5 will be use
         2). fname: output a new grid "fname" if fname!=None
-            mask: ignore the mask defined by *.reg if mask!=None
+            reg_in:  only split quads inside reg_in (*.bp, or xy)
+            reg_out: exclude quads inside reg_out   (*.bp, or xy)
         '''
-        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,side_ratio,angle_min,angle_max,mask=mask)
+        if not hasattr(self,'index_bad_quad'): self.check_quads(angle_ratio,side_ratio,angle_min,angle_max,reg_in=reg_in,reg_out=reg_out)
         #compute (angle_max-angle_min) in splitted triangle
         qind=self.index_bad_quad; x=self.x[self.elnode[qind,:]]; y=self.y[self.elnode[qind,:]]
 
@@ -1575,7 +1576,7 @@ class schism_grid(zdata):
         #write new grids
         if fname is not None: self.write_hgrid(fname)
 
-    def check_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp',mask=None):
+    def check_quads(self,angle_ratio=None,side_ratio=None,angle_min=None,angle_max=None,fname='bad_quad.bp',reg_in=None,reg_out=None):
         '''
         see docs in split_quads
         '''
@@ -1587,20 +1588,15 @@ class schism_grid(zdata):
         if not hasattr(self,'elside') and (side_ratio is not None): self.compute_ic3()
 
         #check violation
-        qind=pindex(self.i34,4); A=self.angles[qind]; fp=qind==-999
+        qind=pindex(self.i34,4); A=self.angles[qind]; fp=qind==-999; exy=self.exy[qind]
         if angle_ratio is not None: fp=fp|((A.min(axis=1)/A.max(axis=1))<=angle_ratio)
         if side_ratio is not None: L=self.distj[self.elside[qind]]; fp=fp|((L.max(axis=1)/L.min(axis=1))>=side_ratio) 
         if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
         if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
-        
-        if mask is not None:
-            reg=read(mask); idx=(inside_polygon(c_[self.xctr,self.yctr],reg.x,reg.y)==1)[qind]
-            fp[idx]=False
-
+        if reg_in is not None: bp=read(reg_in) if isinstance(reg_in,str) else schism_bpfile(*reg_in.T); fp[bp.outside(exy)]=False
+        if reg_out is not None: bp=read(reg_out) if isinstance(reg_out,str) else schism_bpfile(*reg_out.T); fp[bp.inside(exy)]=False
         self.index_bad_quad=qind[pindex(fp)]
-
-        #output bad_quad location as bp file
-        sbp=schism_bpfile(); sbp.x,sbp.y=self.exy[self.index_bad_quad].T; sbp.save(fname)
+        schism_bpfile(*self.exy[self.index_bad_quad].T).save(fname) #output bad_quad location as bp file
         return self.index_bad_quad
 
     def plot_bad_quads(self,color='r',ms=12,*args):

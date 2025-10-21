@@ -624,7 +624,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
 
     return scmd
 
-def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,nx=5000,ny=5000):
+def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,nx=5000,ny=5000,scrout=True):
     '''
     compute contour lines
     Input:
@@ -668,7 +668,7 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
             fpn=~isnan(szi); zmin=szi[fpn].min(); zmax=szi[fpn].max()
             fpz=(levels>=zmin)*(levels<=zmax); levels_sub=sort(levels[fpz])
             if len(levels_sub)==0: continue
-            print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
+            if scrout: print('extracting contours in subdomain: {}/{}'.format(n+1+m*len(iys),len(ixs)*len(iys)))
 
             hf=figure(visible=False); P=contour(sxi,syi,szi,levels_sub); close(hf)
             if 'get_paths' in P.__dir__():
@@ -693,6 +693,52 @@ def compute_contour(x,y,z,levels,fname=None,prj='epsg:4326',show_contour=False,n
         for i,vi in enumerate(levels): plot(*S.xy[i].T,color=cs[i%7],lw=0.5)
         legend([*levels])
     return S
+
+def _compute_dem_contour(fname,levels,reg,scrout): #compute contour
+    if (reg is not None): rxy=reg if isinstance(reg,ndarray) else read(reg).xy
+    S=read(fname); x,y=S.lon,S.lat; x1,x2,y1,y2=x.min(),x.max(),y.min(),y.max()
+    c=compute_contour(x,y,S.elev,levels=[-i for i in levels],scrout=False)
+    if reg is not None: c.xy=[[] if len(i)==0 else i[inside_polygon(i,*rxy)] for i in c.xy]
+    c.bxy=array([[x1,y1],[x2,y1],[x2,y2],[x1,y2]]); c.levels=[-i for i in c.levels]
+    if scrout==1: print('finishing computing contour: {}'.format(fname))
+    return c
+def compute_dem_contour(fnames,levels,sname=None,reg=None,prj='epsg:4326',nproc=10,scrout=1,**args):
+    '''
+    compute contour lines and output as *.shp
+       fnames: DEM files (*.npz,*.asc, *tif, or *tiff), the later dem will replace the former ones
+       levels: values of contour lines to be extracted (note, opposite values are used as DEM values are negative in ocean)
+       sname: name for shapefiles to be outputted
+       reg: region where contours are extracted (xy, or *.bp)
+       prj: project (default is lon&lat)
+       nproc: number of threads
+       scrout: print information of computation
+    '''
+    import multiprocessing as mp
+
+    def remove_nan(xy):
+        x=xy[:,0]; ip=pindex(isnan(x)); xy=xy[setdiff1d(arange(len(x)),ip[isnan(x[ip-1])])] #continous nan
+        x=xy[:,0]; ip=arange(1,len(x)-1); ip=ip[isnan(x[ip-1])*isnan(x[ip+1])] #single points
+        if len(ip)!=0: xy=xy[setdiff1d(arange(len(x)),r_[ip,ip+1])]
+        return xy
+    def remove_contour_pts(xy,bxy): #remove pts inside region
+        if len(xy)<5: return xy
+        xy[pindex(inside_polygon(xy,*bxy.T)==1)]=nan; xy=remove_nan(xy)
+        return xy
+    
+    #compute and combine contours
+    pp=mp.Pool(processes=nproc); ps=pp.starmap(_compute_dem_contour,[(i,levels,reg,scrout) for i in fnames]); pp.close(); pp.join()
+    C=zdata(); C.xy=[[] for i in levels]; C.levels=levels
+    for p in ps:
+        for level,xy in zip(p.levels,p.xy):
+            i=C.levels.index(level); C.xy[i]=xy if len(C.xy[i])==0 else r_[remove_contour_pts(C.xy[i],p.bxy),xy]
+
+    #write contours
+    if sname is not None:
+       for xy,z in zip(C.xy,C.levels):
+           if len(xy)==0: continue
+           c=zdata(); c.type='POLYLINE'; c.xy=xy; c.prj=get_prj_file(prj)
+           c.save('{}_{}.shp'.format(sname,str(z).replace('-','n').replace('.','p')))
+    return C 
 
 def load_dem(x,y,fname,z=None,fmt=0,position='center'):
     '''
