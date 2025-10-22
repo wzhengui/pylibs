@@ -65,6 +65,10 @@ class schism_grid(zdata):
     @property
     def lym(self):
         return [self.lat.min(),self.lat.max()]
+    @property
+    def indnd0(self):
+        if not hasattr(self,'indnd'): self.compute_nne(1)
+        return c_[arange(self.np)[:,None],self.indnd]
 
     #element alias
     @property
