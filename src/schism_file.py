@@ -368,9 +368,9 @@ class schism_grid(zdata):
            #xy3=xy[fp3][:,[0,1,2,0,0]].reshape([5*sum(fp3),2]); xy4=xy[fp4][:,[0,1,2,3,0,0]].reshape([6*sum(fp4),2])
            #xy3[4::5]=nan; xy4[5::6]=nan; return r_[xy3,xy4]
         elif fmt==1:
-           xy1=[]; [xy1.extend(r_[nan*ones([1,2]),xy[i]]) for i in self.iobn if len(i)!=0] #open
-           xy2=[]; [xy2.extend(r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]]) for i,k in zip(self.ilbn,self.island) if len(i)!=0]
-           xy1=zeros([0,2]) if len(xy1)==0 else array(xy1); xy2=zeros([0,2]) if len(xy2)==0 else array(xy2)
+           if not hasattr(self,'iobn'): self.compute_bnd()
+           xy1=zeros([0,2]) if self.nob==0 else vstack([r_[nan*ones([1,2]),xy[i]] for i in self.iobn]) #open
+           xy2=zeros([0,2]) if self.nlb==0 else vstack([r_[nan*ones([1,2]),xy[i if k==0 else r_[i,i[0]]]] for i,k in zip(self.ilbn,self.island)])
            if wrap==1:
               x1,y1=xy1.T; x2,y2=xy2.T; n1=sum(abs(diff(x1))>dx_wrap); n2=sum(abs(diff(x2))>dx_wrap)
               x1=list(x1); y1=list(y1); x2=list(x2); y2=list(y2)
