@@ -3457,12 +3457,13 @@ def get_schism_grid_subdomain(grd,xy):
    gn.sindp,gn.sinde,gn.sinds=ip,ie,isd #save indices of node,elem. and side for subset
    return gn
 
-def get_schism_output_subset(fname,sname,xy=None,grd=None):
+def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None):
    '''
    compute subset of SCHIMS outputs
      fname: original schism outputs (*.nc)
      sname: subset of schism outputs (*.nc)
      xy:    subdomin region (c_[x,y], or reg file)
+     svars: variables to be included
      grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
    '''
    from netCDF4 import Dataset
@@ -3488,12 +3489,14 @@ def get_schism_output_subset(fname,sname,xy=None,grd=None):
 
    #create subset file
    C=ReadNC(fname,1); cdict=C.__dict__; cdim=C.dimensions; cvar=C.variables
+   gd.nvrt=C.dims[C.dimname.index('nSCHISM_vgrid_layers')]; gd.kbp=array(cvar['bottom_index_node'][:])
    fid=Dataset(sname,'w',format=C.file_format)     #open file
    fid.setncattr('file_format',C.file_format)      #set file_format
    for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
    for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else \
                   fid.createDimension(i,_subset(i,cdim[i].size)) #set dims
    for i in cvar: #set vars
+       if (svars is not None) and (i not in svars): continue
        vd=cvar[i].dimensions #;  print(i,vd)
        vid=fid.createVariable(i,cvar[i].dtype,vd,fill_value=True)
        [vid.setncattr(k,cvar[i].getncattr(k)) for k in cvar[i].ncattrs() if (k not in ['_FillValue'])]
