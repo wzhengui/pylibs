@@ -2205,6 +2205,41 @@ class schism_bpfile(zdata):
             self.x,self.y=array([i.split()[:2] for i in lines[3:(3+self.nsta)]]).astype('float').T
         self.check() 
 
+    def add(self,x,y,z=None,station=None):
+        '''
+        add stations
+        '''
+        x=array(x); y=array(y); npt=x.size
+        z=zeros(npt) if (z is None) else array(z)
+        station=[str(i) for i in arange(self.nsta+1,self.nsta+npt+1)] if (station is None) else array(station)
+        self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,z]; self.station=[*self.station,*station]
+        self.nsta=self.nsta+npt; self.npt=self.nsta
+
+    def remove(self,x=None,y=None,z=None,station=None):
+        '''
+        remove one station
+        '''
+        if self.nsta==0: return
+        fp=ones(self.nsta,'bool')
+        if (x is not None): fp=fp*(self.x==x)
+        if (y is not None): fp=fp*(self.y==y)
+        if (z is not None): fp=fp*(self.z==z)
+        if (station is not None): fp=fp*(array(self.station)==station)
+        fp=~fp; self.x,self.y,self.z,self.station=self.x[fp],self.y[fp],self.z[fp],self.station[fp]
+        self.nsta=len(self.x); self.npt=self.nsta
+
+    def inside(self,x=None,y=None,z=None,station=None):
+        '''
+        whether a point is inside the file 
+        '''
+        if self.nsta==0: return False
+        fp=ones(self.nsta,'bool')
+        if (x is not None): fp=fp*(self.x==x)
+        if (y is not None): fp=fp*(self.y==y)
+        if (z is not None): fp=fp*(self.z==z)
+        if (station is not None): fp=fp*(array(self.station)==station)
+        return sum(fp)>=1
+
     def write(self,fname,**args):
         '''
         generic fun in saving file in different format (*.bp, *.reg, *.shp)
