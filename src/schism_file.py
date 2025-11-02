@@ -2211,8 +2211,9 @@ class schism_bpfile(zdata):
         '''
         x=array(x); y=array(y); npt=x.size
         z=zeros(npt) if (z is None) else array(z)
-        station=[str(i) for i in arange(self.nsta+1,self.nsta+npt+1)] if (station is None) else array(station)
-        self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,z]; self.station=[*self.station,*station]
+        station=array([str(i) for i in arange(self.nsta+1,self.nsta+npt+1)]) if (station is None) else array(station)
+        self.x=r_[self.x,x]; self.y=r_[self.y,y]; self.z=r_[self.z,z]
+        self.station=[*self.station,station] if station.size==1 else [*self.station,*station]
         self.nsta=self.nsta+npt; self.npt=self.nsta
 
     def remove(self,x=None,y=None,z=None,station=None):
@@ -2225,7 +2226,7 @@ class schism_bpfile(zdata):
         if (y is not None): fp=fp*(self.y==y)
         if (z is not None): fp=fp*(self.z==z)
         if (station is not None): fp=fp*(array(self.station)==station)
-        fp=~fp; self.x,self.y,self.z,self.station=self.x[fp],self.y[fp],self.z[fp],self.station[fp]
+        fp=~fp; self.x,self.y,self.z,self.station=self.x[fp],self.y[fp],self.z[fp],[*array(self.station)[fp]]
         self.nsta=len(self.x); self.npt=self.nsta
 
     def inside(self,x=None,y=None,z=None,station=None):
