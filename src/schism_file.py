@@ -3493,7 +3493,7 @@ def get_schism_grid_subdomain(grd,xy):
    gn.sindp,gn.sinde,gn.sinds=ip,ie,isd #save indices of node,elem. and side for subset
    return gn
 
-def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,copy=False):
+def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,copy=False,dimtype=0):
    '''
    compute subset of SCHIMS outputs
      fname: original schism outputs (*.nc)
@@ -3503,6 +3503,7 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,
      grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
      zlib:  whether compress the data
      copy:  make a copy of data with node/elements in the 1st dimension
+     dimtype=0: set all dimension to limited; dimtype=1: keep all dimension type
    '''
    from netCDF4 import Dataset
 
@@ -3531,7 +3532,7 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,
    fid=Dataset(sname,'w',format=C.file_format)     #open file
    fid.setncattr('file_format',C.file_format)      #set file_format
    for i in C.ncattrs(): fid.setncattr(i,cdict[i]) #set attrs
-   for i in cdim: fid.createDimension(i,None) if cdim[i].isunlimited() else \
+   for i in cdim: fid.createDimension(i,None) if (cdim[i].isunlimited() and dimtype==1) else \
                   fid.createDimension(i,_subset(i,cdim[i].size)) #set dims
    for i in cvar: #set vars
        if (svars is not None) and (i not in svars): continue
