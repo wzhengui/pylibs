@@ -3493,7 +3493,7 @@ def get_schism_grid_subdomain(grd,xy):
    gn.sindp,gn.sinde,gn.sinds=ip,ie,isd #save indices of node,elem. and side for subset
    return gn
 
-def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None):
+def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,copy=False):
    '''
    compute subset of SCHIMS outputs
      fname: original schism outputs (*.nc)
@@ -3501,6 +3501,8 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None):
      xy:    subdomin region (c_[x,y], or reg file)
      svars: variables to be included
      grd:   schism grid. a): old grid with xy; b): results from get_schism_grid_subdomain(grd,xy)
+     zlib:  whether compress the data
+     copy:  make a copy of data with node/elements in the 1st dimension
    '''
    from netCDF4 import Dataset
 
@@ -3533,8 +3535,8 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None):
                   fid.createDimension(i,_subset(i,cdim[i].size)) #set dims
    for i in cvar: #set vars
        if (svars is not None) and (i not in svars): continue
-       vd=cvar[i].dimensions #;  print(i,vd)
-       vid=fid.createVariable(i,cvar[i].dtype,vd,fill_value=True)
+       vd=cvar[i].dimensions
+       vid=fid.createVariable(i,cvar[i].dtype,vd,fill_value=True,zlib=zlib)
        [vid.setncattr(k,cvar[i].getncattr(k)) for k in cvar[i].ncattrs() if (k not in ['_FillValue'])]
        if i=='SCHISM_hgrid_face_nodes':
           fid.variables[i][:]=gd.elnode+1
@@ -3547,6 +3549,11 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None):
              for n,k in enumerate(cvar[i][:]): fid.variables[i][n]=_subset(vd[1],k,1)
           else:
              fid.variables[i][:]=_subset(vd[0],cvar[i][:],1)
+          #add a copy of data
+          if copy and vd[0]=='time' and len(vd)>1:
+             vid=fid.createVariable('_'+i,cvar[i].dtype,(vd[1],vd[0],*vd[2:]),fill_value=True,zlib=zlib); vid0=fid.variables[i]
+             [vid.setncattr(k,cvar[i].getncattr(k)) for k in cvar[i].ncattrs() if (k not in ['_FillValue'])]
+             for n,k in enumerate(vid0): fid.variables['_'+i][:,n]=k
    fid.close(); C.close()
    return gd
 
