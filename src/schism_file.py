@@ -447,17 +447,20 @@ class schism_grid(zdata):
         if len(evi)!=self.ne: sys.exit("check dimension: ne={}, prop={}".format(self.ne,len(evi)))
         return evi
 
-    def interp_node_to_elem(self,value=None):
+    def interp_node_to_elem(self,value=None,fmt=0):
         '''
         interpolate node values to element values (works for multi-dimensional data)
             default is self.dp => self.dpe
+            fmt=0: mean value; fmt=1: maximum value; fmt=2: minimum value, from node to element
         '''
         #interpolate
         dp=self.dp if (value is None) else value
         dms=[*dp.shape]; ip=dms.index(self.np); idm=arange(len(dms)); dms[ip]=self.ne
         if len(dms)>1:  idm[0],idm[ip]=ip,0; dms[0],dms[ip]=dms[ip],dms[0] #put dim=np 1st for multi-dimensional data
         fp3,fp4=self.fp3,self.fp4; dp=dp.transpose(idm); dpe=zeros(dms)
-        dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1); dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
+        if fmt==0: dpe[fp3]=dp[self.elnode[fp3,:3]].mean(axis=1); dpe[fp4]=dp[self.elnode[fp4]].mean(axis=1)
+        if fmt==1: dpe[fp3]=dp[self.elnode[fp3,:3]].max(axis=1); dpe[fp4]=dp[self.elnode[fp4]].max(axis=1)
+        if fmt==2: dpe[fp3]=dp[self.elnode[fp3,:3]].min(axis=1); dpe[fp4]=dp[self.elnode[fp4]].min(axis=1)
         return dpe.transpose(idm)
 
     def interp_elem_to_node(self,value=None,fmt=0,p=1):
