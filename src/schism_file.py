@@ -1245,7 +1245,7 @@ class schism_grid(zdata):
            dudy[fpn]=(dudy[fpn]+((x4-x3)*u1+(x1-x4)*u3+(x3-x1)*u4)[fpn]/(2*a2[fpn]))/2
         return dvdx-dudy
 
-    def compute_contour(self,levels,value=None):
+    def compute_contour(self,levels,value=None,trs=None):
         '''
         compute contour lines
         '''
@@ -1253,7 +1253,7 @@ class schism_grid(zdata):
         if value.size==self.ne: value=self.interp_elem_to_node(value)
 
         #plot contour and extract the lines
-        trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
+        if trs is None: trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
         hf=figure(); hf.set_visible(False)
         P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
         if hasattr(P,'allsegs'):
