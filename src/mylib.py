@@ -1733,7 +1733,9 @@ def near_pts(pts,pts0,method=0,N=100):
     '''
     return index of pts0 that pts is nearest
        usage: sind=near_pts(pts,pts0)
-       pts0: c_[x0,y0];  pts: c_[x,y]  (or, pts=x+1j*y)
+       a). pts0: c_[x0,y0];  pts: c_[x,y]
+       b). pts0, pts: x+1j*y complex arrays
+       b). pts0,pts: 1D arrays (treated as complex number where imag is zero)
        algorithm: using sp.spatial.cKDTree (default)
 
     old methods: method=1 and  method=2
