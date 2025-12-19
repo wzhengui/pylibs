@@ -359,7 +359,7 @@ def resize(data,shape,fill=0):
 def mklink(fname,fmt=0):
     '''
       execute in windows: convert symbolic links of directory  to mklink (DOS)
-      fname: directory name(s)
+      fname: 1) directory name(s) containing symbolic link, 2). symbolic links 
       fmt=0: skip symbolic sub-direcotries; fmt=1: include search in sub-directories
     '''
 
@@ -374,7 +374,10 @@ def mklink(fname,fmt=0):
        while len(sdirs)!=0:
            sdirs0=unique(array([os.path.abspath(i) for i in sdirs])); sdirs=[]
            for sdir in sdirs0:
-               os.chdir(sdir); fnames=os.listdir(sdir)
+               if os.path.islink(sdir):
+                  fnames=[sdir]
+               else:
+                  os.chdir(sdir); fnames=os.listdir(sdir)
 
                #change symlink
                for fname in fnames:
