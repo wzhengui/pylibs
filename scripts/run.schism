@@ -57,7 +57,8 @@ if os.getenv('schism')!=None:
          while((time.time()-t0)<(wt-dt)):
               time.sleep(60); t2=time.time() #wait
               if (t2-t1)>600: #check whether run hangs
-                 n2=checkrun()[1] #number of days finished
+                 n2,n0,nday=checkrun()[1:4] #number of days finished
+                 if n2==nday: break
                  if n2!=n1: n1=n2; t1=t2; continue
                  if n2==0 and n1==0 and (t2-t1)<1200: continue #allow 20min initializaiton
 

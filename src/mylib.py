@@ -1021,7 +1021,11 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
           sys.exit('install tifffile=2022.5.4')
        ginfo=tiff.TiffFile(fname).geotiff_metadata; S=zdata()
        if fmt==2: return ginfo
-       dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
+       if ('ModelPixelScale' in ginfo) and ('ModelTiepoint' in ginfo):
+          dx,dy=ginfo['ModelPixelScale'][:2]; xll,yll=ginfo['ModelTiepoint'][3:5]
+       else:
+          p=ginfo['ModelTransformation']; dx=p[0][0]; dy=-p[1][1]; xll=p[0][3]; yll=p[1][3]
+          S.prj='epsg:{}'.format(tiff.TiffFile(fname).geotiff_metadata['ProjectedCSTypeGeoKey'].value)
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
        try:
           from PIL import Image
