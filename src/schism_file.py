@@ -3217,8 +3217,8 @@ class schism_transect(schism_grid):
         #get sigma coordiante
         self._eta=0 if (eta is None) else eta
         if (bp!=None)*(gd!=None)*(vd!=None):
-           pie,pip,pacor=gd.compute_acor(bp.xy); self.z0=(gd.z[pip]*pacor).sum(axis=1); dist=bp.dist
-           self.sigma=(vd.sigma[pip]*pacor[...,None]).sum(axis=1); zcor=compute_zcor(self.sigma,self.z0,self.eta)
+           pie,pip,pacor=gd.compute_acor(bp.xy); self.z0=(gd.z[pip]*pacor).sum(axis=1); dist=bp.dist; v=vd.sigma
+           v=v[None,None,:] if v.ndim==1 else v[pip]; self.sigma=(v*pacor[...,None]).sum(axis=1); zcor=compute_zcor(self.sigma,self.z0,self.eta)
         elif zcor is not None:
            npt,nvrt=zcor.shape; dist=arange(npt) if (dist is None) else dist
            self.z0=-zcor[:,0]; self._eta=zcor[:,-1]; self.sigma=(zcor-zcor[:,-1][:,None])/(self.eta+self.z0)[:,None]
