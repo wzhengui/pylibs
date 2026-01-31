@@ -789,7 +789,9 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
     xi0=x.copy(); yi0=y.copy(); igrd=0
 
     #read DEM lon, lat
-    if fname.endswith('npz'):
+    if isinstance(fname,zdata):
+        S=fname; dx=abs(diff(S.lon)).mean(); dy=abs(diff(S.lat)).mean()
+    elif fname.endswith('npz'):
         try:
           S=loadz(fname,['ne','np']); igrd=1 #unstructured schism grid
         except:
@@ -817,7 +819,9 @@ def load_dem(x,y,fname,z=None,fmt=0,position='center'):
 
     if igrd==0: #raster file
        #load DEM data
-       if fname.endswith('npz'):
+       if isinstance(fname,zdata):
+          S=fname
+       elif fname.endswith('npz'):
            S=loadz(fname)
        else:
            S=read_dem(fname,position=position)
