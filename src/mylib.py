@@ -1004,13 +1004,15 @@ def rewrite(fname,fmt=0,replace=None,include=None,startswith=None,endswith=None,
     #write new line
     fid=open(fname,'w+'); fid.writelines(slines); fid.close()
 
-def read_dem(fname,sname=None,fmt=0,position='center'):
+def read_dem(fname,sname=None,fmt=0,position='center',ipart=0,npart=3):
     '''
     fname: name of source DEM (*.asc, *.tif, *.tiff) file
     sname (optional): name of file to be saved if value is provided 
     fmt=0: read all the DEM data
     fmt=1: only read domain information (lon, lat)
     fmt=2: return geotiff_metadata
+    fmt=3: return partial data of larger geotiff file (a. need rasterio package,
+           b. divide total data to npart**2 parts, c. only read the ipart data)
 
     Note: for *.tif and *.tiff files:
       position='center': elevation is defined at cell center
@@ -1032,13 +1034,23 @@ def read_dem(fname,sname=None,fmt=0,position='center'):
           S.prj='epsg:{}'.format(tiff.TiffFile(fname).geotiff_metadata['ProjectedCSTypeGeoKey'].value)
        if position=='corner': xll=xll+dx/2; yll=yll-dy/2
        try:
-          from PIL import Image
-          sinfo=Image.open(fname)
-          nrows=sinfo.height; ncols=sinfo.width
+         import rasterio
+         fid=rasterio.open(fname); ncols=fid.meta['width']; nrows=fid.meta['height']
        except:
-          nrows,ncols=tiff.imread(fname).shape
+         try:
+            from PIL import Image
+            sinfo=Image.open(fname)
+            nrows=sinfo.height; ncols=sinfo.width
+         except:
+            nrows,ncols=tiff.imread(fname).shape
        lon=xll+dx*arange(ncols); lat=yll-dy*arange(nrows)
-       if fmt==0: elev=tiff.imread(fname).astype('float32'); elev[abs(elev)>=9999]=-9999.0; S.elev=elev
+       if fmt==0: elev=tiff.imread(fname).astype('float32'); elev[(abs(elev)>=9999)|isnan(elev)]=-9999.0; S.elev=elev
+       if fmt==3: #only read partial data
+          nx=int(ncols/npart); ny=int(nrows/npart); m=int(ipart/npart); n=ipart%npart
+          col_off=nx*m; width, lon=[ncols-nx*m,lon[(m*nx):]] if m==(npart-1) else [nx,lon[(m*nx):((m+1)*nx)]]
+          row_off=ny*n; height,lat=[nrows-ny*n,lat[(n*ny):]] if n==(npart-1) else [ny,lat[(n*ny):((n+1)*ny)]]
+          elev=fid.read(1, window=rasterio.windows.Window(col_off=col_off, row_off=row_off, width=width, height=height)).astype('float32')
+          elev[(abs(elev)>=9999)|isnan(elev)]=-9999.0; S.elev=elev; fid.close()
        S.lon=lon; S.lat=lat; S.nodata=-9999.0
     else: #must be *.asc format
         if not fname.endswith('.asc'): fname=fname+'.asc'
