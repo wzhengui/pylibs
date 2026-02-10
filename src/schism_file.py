@@ -3064,29 +3064,25 @@ def read_schism_param(fname,fmt=0):
     '''
 
     #read all lines first
-    fid=open(fname,'r'); lines=[i.strip() for i in fid.readlines()]; fid.close()
-    lines=[i for i in lines if ('=' in i) and (i!='') and (i[0]!='!') and (i[0]!='&')]
+    fid=open(fname,'r'); lines=fid.readlines(); fid.close()
+    lines=[i for i in lines if ('=' in i) and (i.strip()!='') and (i.strip()[0]!='!') and (i.strip()[0]!='&')]
 
     #parse each line
-    P={}
-    for line in lines:
+    P={}; P0={}; S=zdata()
+    for n,line in enumerate(lines):
       if '!' in line: line=line[:line.find('!')]
-      keyi,vali=line.split('='); keyi=keyi.strip(); vali=vali.strip()
+      keyi,vali=line.strip().split('='); keyi=keyi.strip(); vali=vali.strip()
       if fmt in [1,3]:  #convert string to float
          try:
             vali=[float(i) if (('.' in i) or ('e' in i) or ('E' in i)) else int(i) for i in vali.replace(',',' ').replace(';',' ').split()]
             if len(vali)==1: vali=vali[0]
          except:
             pass
-      P[keyi]=vali
-    param=P
+      P[keyi]=vali; P0[keyi]=lines[n]
+    param=P; P['_lines']=P0
 
     #change output format as zdata
-    if fmt in [2,3]:
-       S=zdata()
-       for keyi,vali in P.items(): S.__dict__[keyi]=vali
-       param=S
-
+    if fmt in [2,3]: [S.attr(keyi,vali) for keyi,vali in P.items()]; param=S
     return param
 
 def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='!'):
@@ -3112,13 +3108,15 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
     #change parameter value based on refernece parameter file
     if source is not None:
        P=read_schism_param(fname,1); lines=slines[:]; slines=[]
-       S=read_schism_param(source,1) if isinstance(fname,str) else source
+       S=read_schism_param(source,1) if isinstance(fname,str) else source; lines0=S['_lines']
        for line in lines:
            eid=line.find('='); pname=line[:eid].strip(); sline=line; tname=pname[1:].strip()
            if (eid!=-1) and pname[0]=='!' and (tname in S) and tname.startswith('iof_'):
               line=line.replace('!',' ',1); pname=tname; P[pname]=None #uncomment output channel 
            if (eid!=-1) and (pname in S):
-              if P[pname]!=S[pname]:
+              if pname in lines0:
+                 sline=lines0[pname] #copy original line from source
+              elif P[pname]!=S[pname]:
                  svalue=' '.join([str(i) for i in S[pname]]) if isinstance(S[pname],list) else str(S[pname])
                  sline=_newline(line,pname,svalue)
            slines.append(sline)

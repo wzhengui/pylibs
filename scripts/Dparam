@@ -46,6 +46,7 @@ for i,fname in enumerate(files):
 print("{:20s}:    ".format('Parameters')+', '.join("{:10s}".format(vi) for vi in files))
 AKey=sorted(list(AKey)); lines=[]; vs=[]; slines=[]
 for ki in AKey:
+    if ki=='_lines': continue
     v=[p[ki] if (ki in k) else 'N/A' for k, p in zip(Key,Par)]  
     v=[str(i) if isinstance(i,list) else i for i in v]
     if len(unique(v))!=1:
