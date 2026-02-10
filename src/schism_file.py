@@ -3090,10 +3090,11 @@ def change_schism_param(fname,param=None,value=None,source=None,note_delimiter='
     change parameter values
       fname: the name of parameter file (param.nml,param.in, ...)
       param: parameter name to be changed
-      value: new parameter value are to be assigned
+      value: new parameter value are to be assigned; if value not provided, remove this parameter
       source: either a reference parameter file, or and object of "read_schism_param"
     '''
     def _newline(line,param,value):
+       if value is None: return ''
        eid=line.find('='); nid=line.find(note_delimiter)
        ns1=len(line)-len(line.lstrip())
        ns2=len(line[:eid])-len(line[:eid].rstrip())
