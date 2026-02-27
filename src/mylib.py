@@ -2542,17 +2542,23 @@ def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
         data(time,...): data with 1st dimension as time, other dimes for space
         npc: number of principal components (PCs) returned
         scale=0: normalized by eigenvalue; scale=1: normalized by the value of time series of each PC.
-        method=0: using eofs package; method=1: using xeofs package
+        method=0: using sklearn pakcage; method=1: using eofs package; method=2: using xeofs package
         rotation=1: return Varimax-rotated EOF analysis
         npc_r: optional number of rotation EOFs (fewer than npc)
         Note: the mean value is removed (center=True) in the analysis at default.
     Outputs: (PC,CC,VC,solver)
         PC: principal components
         CC: coefficients of each PC
-        VC: variation of each PC
+        VC: variance of each PC
         solver: EOF analysis solver, and all results can be derived from it (e.g., solver.reconstructedField(8))
     '''
     if method==0 and rotation==0:
+       from sklearn.decomposition import PCA
+       solver=PCA(npc).fit(data)
+       PC=solver.components_
+       CC=(data@PC.T).T
+       VC=solver.explained_variance_
+    elif method==1 and rotation==0:
        from eofs.standard import Eof
        solver=Eof(data,center=center,**args)
        PC=solver.eofs(neofs=npc,eofscaling=2)
@@ -2568,10 +2574,11 @@ def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
        VC=solver.explained_variance_ratio().data
 
     #normalize
-    for m,[pc,cc] in enumerate(zip(PC,CC)):
-        s=1 if cc.mean()>=0 else -1 #whether to reverse the sign
-        rat=sqrt(sum(pc**2)/pc.size) if scale==0 else sqrt(cc.size/sum(cc**2))
-        PC[m]=s*pc/rat; CC[m]=s*cc*rat
+    if method!=0: #already normalized in method 0
+       for m,[pc,cc] in enumerate(zip(PC,CC)):
+           s=1 if cc.mean()>=0 else -1 #whether to reverse the sign
+           rat=sqrt(sum(pc**2)/pc.size) if scale==0 else sqrt(cc.size/sum(cc**2))
+           PC[m]=s*pc/rat; CC[m]=s*cc*rat
     return PC, CC, VC, solver
 
 def REOF(data,npc=8,scale=0,center=True,npc_r=None,**args):
