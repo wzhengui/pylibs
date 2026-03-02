@@ -2536,7 +2536,7 @@ def cindex(index,shape):
        cid=ravel_multi_index(index,shape)
     return cid
 
-def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
+def EOF(data,npc=None,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
     '''
     EOF analysis
         data(time,...): data with 1st dimension as time, other dimes for space
@@ -2552,9 +2552,11 @@ def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
         VC: variance of each PC
         solver: EOF analysis solver, and all results can be derived from it (e.g., solver.reconstructedField(8))
     '''
+    if npc is None: npc=len(data)
+
     if method==0 and rotation==0:
        from sklearn.decomposition import PCA
-       solver=PCA(npc).fit(data)
+       solver=PCA(npc).fit(data) if npc!=len(data) else PCA().fit(data)
        PC=solver.components_
        CC=(data@PC.T).T
        VC=solver.explained_variance_
@@ -2566,6 +2568,7 @@ def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
        VC=solver.varianceFraction(npc)
     else:
        import xeofs as xe; import xarray as xr
+       npc_r=len(data) 
        ds=['d{}'.format(i) for i in arange(data.ndim)]; xs={i:arange(k) for i,k in zip(ds,data.shape)}
        solver=xe.single.EOF(npc).fit(xr.Dataset(data_vars={'data': xr.DataArray(data,dims=ds)},coords=xs),'d0')
        if rotation==1: solver=xe.single.EOFRotator(n_modes=min([npc,npc_r])).fit(solver)
@@ -2579,7 +2582,7 @@ def EOF(data,npc=8,scale=0,center=True,method=0,rotation=0,npc_r=None,**args):
            s=1 if cc.mean()>=0 else -1 #whether to reverse the sign
            rat=sqrt(sum(pc**2)/pc.size) if scale==0 else sqrt(cc.size/sum(cc**2))
            PC[m]=s*pc/rat; CC[m]=s*cc*rat
-    return PC, CC, VC, solver
+    return PC, CC.T, VC, solver
 
 def REOF(data,npc=8,scale=0,center=True,npc_r=None,**args):
     '''
