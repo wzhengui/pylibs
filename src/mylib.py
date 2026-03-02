@@ -2232,7 +2232,7 @@ def modify_figure(fmt=0,hf=None):
     except:
        pass
 
-def fig_IFNO(hf=None,ax=None):
+def fig_INFO(hf=None,ax=None):
     '''
     get figure information
     '''
