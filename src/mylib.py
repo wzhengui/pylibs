@@ -1199,12 +1199,12 @@ def get_subplot_position(p0,dxy,ds,dc=None,sindc=None,figsize=None):
 
     #compute subplot position
     x0,y0,xm,ym=p0; dx,dy=dxy; ny,nx=ds
-    ps=array([[[x0+i*(xm+dx),y0-k*(ym+dy),xm,ym] for i in arange(nx)] for k in arange(ny)])
+    ps=array([[[x0+i*(xm+dx),y0-k*(ym+dy),xm,ym] for i in range(nx)] for k in range(ny)])
     if dc!=None:
        xmc,dxc=dc; pc=zeros(ds).astype('O');  pc[:]=0
        if sindc!=None: pc.ravel()[setdiff1d(arange(prod(ds)),array(sindc))]=0
-       for k in arange(ny):
-           for i in arange(nx):
+       for k in range(ny):
+           for i in range(nx):
                if pc[k,i]!=None: pc[k,i]=[x0+xm+i*(xm+dx)+dxc,y0-k*(ym+dy),xmc,ym]
 
     #plot subplots
