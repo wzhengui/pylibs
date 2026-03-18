@@ -593,7 +593,10 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        else:
           #sys.exit('unknown qnode: {},tag=1'.format(qnode))
           print('warning: unknown qnode: {},tag=1'.format(qnode)); sys.stdout.flush() #assuming slurm system
-          scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
+          if isinstance(qnode,list): #submit to a specific node
+             scmd='sbatch --export=ALL --nodelist={} {} {} {} {} {} {} {} {} {} {}'.format(','.join(qnode),qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
+          else:
+             scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
        #if qnode in ['stampede2',]: scmd='sbatch "--export=ALL" {} {} {} {} -n {} {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
     elif fmt==1:
        #for run parallel jobs
