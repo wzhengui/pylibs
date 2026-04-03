@@ -559,7 +559,7 @@ def get_qnode(qnode=None):
     return qnode
 
 def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:00:00',scrout='screen.out',
-                    fmt=0,ename='param',qname=None,account=None,reservation=None,mem=None,exclusive=0):
+                    fmt=0,ename='param',qname=None,account=None,reservation=None,gpu=None,mem=None,exclusive=0):
     '''
     get command for batch jobs on sciclone/ches/viz3
        code: job script
@@ -584,19 +584,20 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
     reservation='' if reservation==None else '--reservation='+reservation
     mem='' if mem==None else '--mem='+mem
     exclusive='' if exclusive==0 else '--exclusive' #'levante','hercules'
+    gpu='' if gpu==None else '--gpus='+str(gpu)
 
     if fmt==0:
        os.environ[ename]='{} {}'.format(bdir,os.path.abspath(code)); os.environ['run_schism']=os.getenv(ename)
        #for submit jobs
        if qnode in ['femto','gulf','kuro','bora','frontera','levante','hercules','eagle','deception','grace','stampede2','stampede3']:
-          scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
+          scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,gpu,wtime,code)
        else:
           #sys.exit('unknown qnode: {},tag=1'.format(qnode))
           print('warning: unknown qnode: {},tag=1'.format(qnode)); sys.stdout.flush() #assuming slurm system
           if isinstance(qnode,list): #submit to a specific node
-             scmd='sbatch --export=ALL --nodelist={} {} {} {} {} {} {} {} {} {} {}'.format(','.join(qnode),qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
+             scmd='sbatch --export=ALL --nodelist={} {} {} {} {} {} {} {} {} {} {} {}'.format(','.join(qnode),qname,account,reservation,mem,exclusive,jname,nnode,ppn,gpu,wtime,code)
           else:
-             scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,wtime,code)
+             scmd='sbatch --export=ALL {} {} {} {} {} {} {} {} {} {} {}'.format(qname,account,reservation,mem,exclusive,jname,nnode,ppn,gpu,wtime,code)
        #if qnode in ['stampede2',]: scmd='sbatch "--export=ALL" {} {} {} {} -n {} {} {}'.format(jname,qname,account,nnode,nproc,wtime,code)
     elif fmt==1:
        #for run parallel jobs
