@@ -2872,8 +2872,12 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
     from netCDF4 import Dataset
     C=Dataset(fname,mode=mode);
 
-    if fmt=='vars':
-      svars=[*C.variables]; C.close(); return svars
+    if isinstance(fmt,str):
+      if fmt=='vars':
+         svars=[*C.variables]; C.close(); return svars
+      else: #return single variable
+         fid=read(fname,1); v=fid.attr(fmt)[:]; fid.close()  
+         return v
     elif fmt==1:
         return ncfile(C,mode=mode) #return C
     elif fmt in [0,2]:
