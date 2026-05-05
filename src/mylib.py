@@ -1608,7 +1608,13 @@ class npzfile(zdata):
         import zipfile; fid=zipfile.ZipFile(fname); ff=np.lib.format; svars0,svars,dms,dts=[],[],[],[]
         [svars0.extend(ff.read_array(fid.open(i))) for i in fid.namelist() if i.endswith('_variables.npy')]
         for name in [i for i in fid.namelist() if i.endswith('npy') and (i[:-4] not in svars0) and not i.endswith('_variables.npy')]:
-            npy=fid.open(name); dm,_,dt=ff._read_array_header(npy, ff.read_magic(npy))
+            npy=fid.open(name); version=ff.read_magic(npy)
+            if version==(1,0):
+               dm,_,dt=ff.read_array_header_1_0(npy)
+            elif version==(2,0):
+               dm,_,dt=ff.read_array_header_2_0(npy)
+            else:
+               sys.exit('unknown format for npy data: {}'.format(version))
             svars.append(name[:-4]); dms.append(dm); dts.append(dt)
         fid.close(); [self.attr(i,read(fname,i)) for i in svars0] #read some variables
 
