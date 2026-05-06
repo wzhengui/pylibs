@@ -1425,7 +1425,9 @@ def get_INFO(data,fmt=0):
     if ('dimname' in skeys) and ('dims' in skeys) and ('file_format' in skeys): fnc=1 #netcdf
     stypes=[int,int8,int16,int32,int64, float,float16,float32,float64]
     snames=['int','int8','int16','int32','int64','float','float16','float32','float64']
+
     for i in skeys:
+        if fnc==0 and (i in ['_name_','_close_']): continue
         try:
             vi=sdict[i]; dt=type(vi); dta=''
             if (fnc==1) and (dt is zdata): vi=vi.val; dt=np.ndarray #netcdf file
