@@ -1605,7 +1605,7 @@ class npzfile(zdata):
     '''
     def __init__(self,fname):
         #collect all variable information
-        import zipfile; fid=zipfile.ZipFile(fname); ff=np.lib.format; svars0,svars,dms,dts=[],[],[],[]
+        import zipfile; fid=zipfile.ZipFile(fname); ff=np.lib.format; svars0,svars,dms,dts=[],[],[],[]; self._name_=fname
         [svars0.extend(ff.read_array(fid.open(i))) for i in fid.namelist() if i.endswith('_variables.npy')]
         for name in [i for i in fid.namelist() if i.endswith('npy') and (i[:-4] not in svars0) and not i.endswith('_variables.npy')]:
             npy=fid.open(name); version=ff.read_magic(npy)
@@ -1619,11 +1619,36 @@ class npzfile(zdata):
         fid.close(); [self.attr(i,read(fname,i)) for i in svars0] #read some variables
 
         #assign each numpy array
-        data=load(fname,allow_pickle=True,mmap_mode='r'); self._close=data.close
+        data=load(fname,allow_pickle=True,mmap_mode='r'); self._close_=[data.close,]
         for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
 
+    def add(self,names,values):
+        '''add new variables: add(names,values)'''
+        if isinstance(names,str): names=[names]; values=[values]
+        addz(self._name_,names,values); data=load(self._name_,allow_pickle=True,mmap_mode='r'); self._close_.append(data.close)
+        for svar,value in zip(names,values): #add data object to self
+            dt=str(type(value))
+            if 'ndarray' in dt:
+               self.attr(svar,read(self._name_,svar) if str(value.dtype)=='object' else ntype(data,0,name=svar,vshape=value.shape,vtype=value.dtype))
+            elif ('int' in dt) or ('float' in dt) or ('str' in dt) or ('list' in dt):
+               self.attr(svar,value)
+
     def close(self):
-        self._close(); self.delattr(self.attr())
+        [i() for i in self._close_]; self.delattr(self.attr())
+
+def addz(fname,names,values,rname=None):
+    ''' add new data to existing npz file: npz_add('example.npz',names,values)'''
+    import zipfile,io
+    if isinstance(names,str): names=[names]; values=[values]
+    fname=fname if fname.endswith('.npz') else fname+'.npz'
+    fid=load(fname); nvs=[[i,fid[i]] for i in fid if i.endswith('_variables')]; fid.close()
+    for name,value in zip(names,values):
+       buf = io.BytesIO(); np.save(buf, value); buf.seek(0) #Create a buffer to hold value in .npy format
+       with zipfile.ZipFile(fname, mode='a') as fid: #write data to fild
+             fid.writestr(name+'.npy', buf.read())
+             for n,v in nvs: #updat the lists for ['list','str','int','float'] values
+                 if n.split('_')[1] in str(type(value)):
+                    with fid.open(n+'.npy',mode='w', force_zip64=True) as f: np.lib.format.write_array(f, array([*v,name]))
 
 def loadz(fname,svars=None):
     '''
