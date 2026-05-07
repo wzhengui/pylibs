@@ -1640,7 +1640,8 @@ class npzfile(zdata):
 
 def addz(fname,names,values,rname=None):
     ''' add new data to existing npz file: npz_add('example.npz',names,values)'''
-    import zipfile,io
+    import zipfile,io, warnings
+    warnings.filterwarnings("ignore", category=UserWarning, message="Duplicate name")
     if isinstance(names,str): names=[names]; values=[values]
     fname=fname if fname.endswith('.npz') else fname+'.npz'
     fid=load(fname); nvs=[[i,fid[i]] for i in fid if i.endswith('_variables')]; fid.close()
@@ -1649,8 +1650,10 @@ def addz(fname,names,values,rname=None):
        with zipfile.ZipFile(fname, mode='a') as fid: #write data to fild
              fid.writestr(name+'.npy', buf.read())
              for n,v in nvs: #updat the lists for ['list','str','int','float'] values
-                 if n.split('_')[1] in str(type(value)):
+                 if (name not in v) and (n.split('_')[1] in str(type(value))):
                     with fid.open(n+'.npy',mode='w', force_zip64=True) as f: np.lib.format.write_array(f, array([*v,name]))
+                 elif (name in v) and (n.split('_')[1] not in str(type(value))):
+                    with fid.open(n+'.npy',mode='w', force_zip64=True) as f: np.lib.format.write_array(f, setdiff1d(v,name))
 
 def loadz(fname,svars=None):
     '''
@@ -3039,7 +3042,7 @@ def read(fname,*args0,**args):
                               read_schism_prop, read_schism_param,read_schism_th,sms2grd)
 
     #determine read function
-    if '.' not in fname: fname=fname+'.npz' #default file format
+    fname=fname if ('.' in fname) else fname+'.npz' if os.path.exists(fname+'.npz') else fname+'.nc'
     F=None
     if fname.endswith('.asc') or fname.endswith('.tif') or fname.endswith('.tiff'): F=read_dem
     if fname.endswith('.gr3') or fname.endswith('.ll') or fname.endswith('.ic'): F=read_schism_hgrid
