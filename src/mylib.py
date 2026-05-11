@@ -1621,39 +1621,46 @@ class npzfile(zdata):
         fid.close(); [self.attr(i,read(fname,i)) for i in svars0] #read some variables
 
         #assign each numpy array
-        data=load(fname,allow_pickle=True,mmap_mode='r'); self._close_=[data.close,]
+        data=load(fname,allow_pickle=True,mmap_mode='r'); self._close=data.close
         for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
 
     def add(self,names,values):
         '''add new variables: add(names,values)'''
-        if isinstance(names,str): names=[names]; values=[values]
-        addz(self._name_,names,values); data=load(self._name_,allow_pickle=True,mmap_mode='r'); self._close_.append(data.close)
-        for svar,value in zip(names,values): #add data object to self
-            dt=str(type(value))
-            if 'ndarray' in dt:
-               self.attr(svar,read(self._name_,svar) if str(value.dtype)=='object' else ntype(data,0,name=svar,vshape=value.shape,vtype=value.dtype))
-            elif ('int' in dt) or ('float' in dt) or ('str' in dt) or ('list' in dt):
-               self.attr(svar,value)
+        fn=self._name_; addz(fn,names,values); self.close(); self.__init__(fn)
+    def remove(self,names):
+        '''remove variables'''
+        self.add(names,None if isinstance(names,str) else [None for i in names])
 
     def close(self):
-        [i() for i in self._close_]; self.delattr(self.attr())
+        self._close(); self.delattr(self.attr())
 
 def addz(fname,names,values,rname=None):
-    ''' add new data to existing npz file: npz_add('example.npz',names,values)'''
-    import zipfile,io, warnings
-    warnings.filterwarnings("ignore", category=UserWarning, message="Duplicate name")
+    ''' add new data to existing npz file
+        1). addz('t.npz',names,values); or  addz('t.npz',names,values,'t_new.npz')
+        3). remove data: add('t','var',None)
+    '''
+    #import warnings
+    #warnings.filterwarnings("ignore", category=UserWarning, message="Duplicate name")
+    import zipfile,io
     if isinstance(names,str): names=[names]; values=[values]
-    fname=fname if fname.endswith('.npz') else fname+'.npz'
-    fid=load(fname); nvs=[[i,fid[i]] for i in fid if i.endswith('_variables')]; fid.close()
-    for name,value in zip(names,values):
-       buf = io.BytesIO(); np.save(buf, value); buf.seek(0) #Create a buffer to hold value in .npy format
-       with zipfile.ZipFile(fname, mode='a') as fid: #write data to fild
-             fid.writestr(name+'.npy', buf.read())
-             for n,v in nvs: #updat the lists for ['list','str','int','float'] values
-                 if (name not in v) and (n.split('_')[1] in str(type(value))):
-                    with fid.open(n+'.npy',mode='w', force_zip64=True) as f: np.lib.format.write_array(f, array([*v,name]))
-                 elif (name in v) and (n.split('_')[1] not in str(type(value))):
-                    with fid.open(n+'.npy',mode='w', force_zip64=True) as f: np.lib.format.write_array(f, setdiff1d(v,name))
+
+    #read information about fname
+    fname=fname if fname.endswith('.npz') else fname+'.npz'; fid0=zipfile.ZipFile(fname,'r')
+    fs=fid0.infolist(); ns=[i.filename[:-4] for i in fs]; n0=[i for i in ns if i.endswith('_variables') and i.startswith('_')]
+    fid=load(fname); v0=[list(fid[i]) for i in n0]; fid.close()
+
+    #rewrite fname and modify variables:
+    bname='__'+fname; fid=zipfile.ZipFile(bname,'w')
+    [fid.writestr(f,fid0.read(f.filename)) for n,f in zip(ns,fs) if (n not in names) and (n not in n0)] #copy other data
+    for n,v in zip(names,values): b=io.BytesIO(); np.save(b,v); b.seek(0); 0 if v==None else fid.writestr(n+'.npy',b.read()) #write new data
+
+    #update variable list
+    [[v0[i].remove(n) for i,v in enumerate(v0) if (n in v)] for n in names] #remove name from variable list
+    [[v0[i].append(n) for i,k in enumerate(n0) if (k.split('_')[1] in str(type(v)))]for n,v in zip(names,values)]
+    for n,v in zip(n0,v0):  b=io.BytesIO(); np.save(b,v); b.seek(0); fid.writestr(n+'.npy',b.read())
+
+    #finalize
+    rname=fname if (rname is None) else rname if rname.endswith('.npz') else rname+'.npz'; os.rename(bname,rname)
 
 def loadz(fname,svars=None):
     '''
