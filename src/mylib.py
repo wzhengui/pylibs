@@ -1652,7 +1652,7 @@ def addz(fname,names,values,rname=None):
     #rewrite fname and modify variables:
     bname='__'+fname; fid=zipfile.ZipFile(bname,'w')
     [fid.writestr(f,fid0.read(f.filename)) for n,f in zip(ns,fs) if (n not in names) and (n not in n0)] #copy other data
-    for n,v in zip(names,values): b=io.BytesIO(); np.save(b,v); b.seek(0); 0 if v==None else fid.writestr(n+'.npy',b.read()) #write new data
+    for n,v in zip(names,values): b=io.BytesIO(); np.save(b,v); b.seek(0); 0 if v is None else fid.writestr(n+'.npy',b.read()) #write new data
 
     #update variable list
     [[v0[i].remove(n) for i,v in enumerate(v0) if (n in v)] for n in names] #remove name from variable list
