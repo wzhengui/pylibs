@@ -404,13 +404,18 @@ class schism_grid(zdata):
 
         #read ne and np; lx,ly and dp
         self.ne,self.np=[*array(lines[1].split()[0:2]).astype('int')]
-        self.x,self.y,self.dp=array([i.split()[1:4] for i in lines[2:(2+self.np)]]).astype('float').T
+        #self.x,self.y,self.dp=array([i.split()[1:4] for i in lines[2:(2+self.np)]]).astype('float').T
+        self.x,self.y,self.dp=loadtxt(lines[2:(2+self.np)]).T[1:] #speed up
         if len(lines)<(2+self.np+self.ne): return
 
         #read elnode and i34
-        fdata=[i.strip().split() for i in lines[(2+self.np):(2+self.np+self.ne)]]
-        fdata=array([i if len(i)==6 else [*i,'-1'] for i in fdata]).astype('int')
-        self.i34=fdata[:,1]; self.elnode=fdata[:,2:]-1; fdata=None
+        try: #try to speed up
+            v=loadtxt(lines[(2+self.np):(2+self.np+self.ne)]).astype('int').T
+            self.i34=v[1]; v=v[2:]-1; self.elnode=v.T if len(v)==4 else r_[v,-2*ones([1,self.ne],'int')].T; v=None
+        except:
+            fdata=[i.strip().split() for i in lines[(2+self.np):(2+self.np+self.ne)]]
+            fdata=array([i if len(i)==6 else [*i,'-1'] for i in fdata]).astype('int')
+            self.i34=fdata[:,1]; self.elnode=fdata[:,2:]-1; fdata=None
 
         #compute ns
         self.compute_side()
