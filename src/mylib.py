@@ -310,7 +310,25 @@ def add_basemap(xm=None,ym=None,fmt=0,dpi=300,service='World_Imagery',resolution
         if i==5: bm.etopo(scale=scale)
         if i==6: bm.shadedrelief(scale=scale)
         if i==7: bm.bluemarble(scale=scale)
+    gca().set_aspect('auto')
     return bm
+
+def get_basemap(figsize=[8,8],*args0,**args):
+    '''
+    return basemap data for plotting. parameters can be see from add_basemap
+    example:
+          xm=[-124.538,-123.75]; ym=[45.75,46.3]; fs=[5,5]
+          mdata=get_basemap(fs,xm,ym,dpi=500); figure(figsize=fs)
+          imshow(mdata,extent=[*xm,*ym],origin='lower',aspect='auto'); show(block=False) 
+    '''
+    import io
+    dpi=args0[3] if len(args0)>=4 else args['dpi'] if ('dpi' in args) else 300
+    figure(figsize=figsize)
+    bm=add_basemap(*args0,**args); ax=gca(); hf=gcf()
+    hf.patch.set_alpha(0.0); ax.axis('off')
+    buf = io.BytesIO(); hf.savefig(buf, format='png', dpi=dpi, bbox_inches='tight', pad_inches=0, transparent=True)
+    buf.seek(0); data=imread(buf)[::-1]; ny,nx=data.shape[:2]; buf.close(); close()
+    return data
 
 class _COMM_WORLD:
       def __init__(self):
