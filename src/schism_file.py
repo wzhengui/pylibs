@@ -52,19 +52,19 @@ class schism_grid(zdata):
         return c_[self.lon,self.lat,self.z] if hasattr(self,'lon') else self.xyz
     @property
     def xm(self):
-        return [self.x.min(),self.x.max()]
+        return [float(self.x.min()),float(self.x.max())]
     @property
     def ym(self):
-        return [self.y.min(),self.y.max()]
+        return [float(self.y.min()),float(self.y.max())]
     @property
     def zm(self):
-        return [self.z.min(),self.z.max()]
+        return [float(self.z.min()),float(self.z.max())]
     @property
     def lxm(self):
-        return [self.lon.min(),self.lon.max()]
+        return [float(self.lon.min()),float(self.lon.max())]
     @property
     def lym(self):
-        return [self.lat.min(),self.lat.max()]
+        return [float(self.lat.min()),float(self.lat.max())]
     @property
     def indnd0(self):
         if not hasattr(self,'indnd'): self.compute_nne(1)
@@ -2583,7 +2583,7 @@ class schism_vgrid(zdata):
             for i in arange(self.nsig):
                 irec=irec+1
                 self.sigma.append(lines[irec].strip().split()[1])
-            self.sigma=array(self.sigma).astype('float'); self.kbp=0
+            self.sigma=array(self.sigma).astype('float')
         return self.sigma
 
     def compute_zcor(self,dp,eta=0,fmt=0,method=0,sigma=None,kbp=None,ifix=0):
@@ -2605,6 +2605,14 @@ class schism_vgrid(zdata):
            zcor,kbp=compute_zcor(self.sigma,dp,eta=eta,fmt=fmt,ivcor=2,vd=self,method=1,ifix=ifix)
            if method==0: return zcor
            if method==1: return [zcor,kbp]
+
+    def compute_kbp(self,dp):
+        '''
+        compute bottom node index for ivcor==2; input is the node depth
+        '''
+        if self.ivcor==1: print('compute_kbp only works for ivcor=2'); return
+        return self.compute_zcor(dp,method=1)[1]
+
     def save(self,fname='vgrid.in',fmt=0,**args):
         '''
         alias to write_vgrid
@@ -2686,6 +2694,7 @@ def read_schism_grid(source='.',fmt=0):
             fns=glob(os.path.abspath(source)+os.sep+'*'); fnames=[]
             [fnames.append(i) for i in fns if i.endswith('grid.npz')]; [fnames.append(i) for i in fns if i.endswith('vgrid.in')]
             vd=read_schism_grid(fnames[0],1)
+            if (not hasattr(vd,'kbp')) and vd.ivcor==2 and fmt==2: vd.kbp=vd.compute_kbp(gd.z)
     return gd if fmt==0 else vd if fmt==1 else [gd,vd] 
 
 def compute_zcor(sigma,dp,eta=0,fmt=0,kbp=None,ivcor=1,vd=None,method=0,ifix=0):
@@ -4082,7 +4091,7 @@ class schism_view(zdata):
            if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
            if p.bnd==1: p.hb=gd.plot_bnd(lw=0.5,alpha=0.5,animated=anim)
            if self.itp==1 and p.bnd==1: p.hb.extend(plot(gd.xm,[0,0],'k:',lw=1,zorder=3))
-           if p.map!='none': self.add_map()
+           if p.map!='none': self.add_map(); imshow(p.mp.data,extent=[*p.mp.xm,*p.mp.ym],origin='lower',aspect='auto');
            p.ht=title('{}, layer={}, {}'.format(p.var,p.layer,mls[p.it]),animated=anim)
 
            #add pts for time series
@@ -4227,13 +4236,15 @@ class schism_view(zdata):
            tp.config(relief=tk.RAISED,bg='gray88' if itp==0 else 'grey'); self.itp=itp
 
     def add_map(self):
-        if hasattr(self,'mp'):
-           mp=self.mp; sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}; p=self.fig
-           mp.llcrnrlon=p.xm[0]; mp.urcrnrlon=p.xm[1]; mp.llcrnrlat=p.ym[0]; mp.urcrnrlat=p.ym[1]
-           mp.arcgisimage(xpixels=1500,service=sd[p.map],cachedir=self.runpath)
-        else:
-           from mpl_toolkits.basemap import Basemap
-           xm,ym=self.xml,self.yml; self.mp=Basemap(llcrnrlon=xm[0],urcrnrlon=xm[1],llcrnrlat=ym[0],urcrnrlat=ym[1],epsg=4326); self.add_map()
+        w=self.wp; p=self.fig; sd={'Image':'World_Imagery','Topo':'World_Topo_Map','Street':'World_Street_Map'}
+        def get_map(xm,ym):
+            m=zdata(); m.map=w.map.get(); m.xm=xm; m.ym=ym
+            if self.prj!='epsg:4326':
+               x1,x2=xm; y1,y2=ym; xy=c_[[x1,x2,x2,x1],[y1,y1,y2,y2]].T; x,y=proj_pts(*xy,self.prj,'epsg:4326')
+               xm=[float(x.min()),float(x.max())]; ym=[float(y.min()),float(y.max())]
+            m.data=get_basemap(p.figsize,xm,ym,service=sd[m.map],dpi=650)
+            return m
+        if (not hasattr(p,'mp')) or (p.mp.map!=w.map.get()) or (p.mp.xm!=p.xm) or (p.mp.ym!=p.ym): p.mp=get_map(p.xm,p.ym)
 
     def query(self,sp=None):
         if not (hasattr(self,'fig') and hasattr(self.fig,'hpt') and hasattr(self.fig,'hf')): return
@@ -4410,17 +4421,6 @@ class schism_view(zdata):
             p.it=self.istack.index(int(p.StartT)); p.it2=len(self.istack)-self.istack[::-1].index(int(p.EndT))
         return p
 
-    def update_xy(self):
-        w=self.wp; gd=self.hgrid; mp=w.map.get()
-        if gd.ics==1:
-           gd.x,gd.y,xm,ym=[gd.x0,gd.y0,self.xm,self.ym] if mp=='none' else [gd.lon,gd.lat,self.xml,self.yml]
-           if hasattr(self,'fig'):
-              p=self.fig
-              if int(p.map=='none') +int(mp=='none')==1: w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1]); p.xm=xm; p.ym=ym
-              p.map=mp
-           else:
-              w.xmin.set(xm[0]); w.xmax.set(xm[1]); w.ymin.set(ym[0]); w.ymax.set(ym[1])
-
     def fid(self,fname): #output chanenl
         if not hasattr(self,'_fid'): self._fid={}
         if fname not in self._fid: self._fid[fname]=ReadNC(fname,1)
@@ -4470,6 +4470,7 @@ class schism_view(zdata):
                return gd0
            gd=loadz(grd).hgrid if fexist(grd) else _read_hgrid() if fexist(gr3) else None
            vd=loadz(grd).vgrid if fexist(grd) else read_schism_vgrid(vrd) if fexist(vrd) else None
+           if (vd is not None) and (not hasattr(vd,'kbp')) and vd.ivcor==2: vd.kbp=vd.compute_kbp(gd.z)
            if gd==None: #create hgrid
               if cvar==None: return
               gd=schism_grid(); gd.x=array(cvar['SCHISM_hgrid_node_x']); gd.y=array(cvar['SCHISM_hgrid_node_y']); gd.dp=array(cvar['depth'])
@@ -4478,6 +4479,7 @@ class schism_view(zdata):
            if not hasattr(gd,'x0'): gd.x0,gd.y0=[gd.x,gd.y]
            if not hasattr(gd,'lon'): gd.lon,gd.lat=[gd.x,gd.y]
            gd.ics=1 if abs(gd.x-gd.lon).max()>1e-5 else 2
+           if gd.ics==2: self.prj='epsg:4326'
            self.hgrid=gd; self.xm=gd.xm; self.ym=gd.ym; self.xml=[gd.lon.min(),gd.lon.max()]; self.yml=[gd.lat.min(),gd.lat.max()]
            self.vm=gd.zm; self.fp3=pindex(gd.i34,3)
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
@@ -4626,6 +4628,20 @@ class schism_view(zdata):
         rbn=ttk.Button(fm, text= "save",command=self.anim_exec,width=6); rbn.grid(row=0,column=2)
         cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
 
+    def get_prj(self):
+        import tkinter as tk
+        from tkinter import ttk
+        if 'prj' in self.attr(): return
+        def save_prj(): self.prj=prj.get(); cw.destroy()
+        prj=tk.StringVar(self.window)
+        cw=tk.Toplevel(self.window); cw.geometry("300x30"); cw.title('projection')
+        fm=tk.Frame(master=cw); fm.grid(row=0,column=0)
+        ttk.Label(master=fm,text='name',font=("Arial", 16)).grid(row=0,column=0)
+        ttk.Entry(master=fm,textvariable=prj,width=20,font=("Arial", 16)).grid(row=0,column=1,pady=5,padx=3)
+        style=ttk.Style(); style.configure("Big.TButton", font=("Arial", 16,))
+        rbn=ttk.Button(fm, text= "save",command=save_prj,width=6,style="Big.TButton"); rbn.grid(row=0,column=2)
+        cw.update(); cw.geometry('{}x{}'.format(fm.winfo_width()+12,rbn.winfo_height()+5)); cw.update()
+
     def update_transect(self):
         import tkinter as tk
         from tkinter import filedialog
@@ -4720,7 +4736,8 @@ class schism_view(zdata):
         tk.Checkbutton(master=sfm2,text='ctr',variable=w.med,onvalue=1,offvalue=0).grid(row=0,column=2,sticky='W')
         ttk.Label(master=sfm2,text=', map').grid(row=0,column=3,sticky='W')
         w._map=ttk.Combobox(master=sfm2,textvariable=w.map,values=['none','Image','Topo','Street'],width=6); w._map.grid(row=0,column=4,sticky='W')
-        w._map.bind("<<ComboboxSelected>>",lambda x: self.update_xy())
+        #w._map.bind("<<ComboboxSelected>>",lambda x: self.update_xy())
+        w._map.bind("<<ComboboxSelected>>",lambda x: self.get_prj())
 
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
