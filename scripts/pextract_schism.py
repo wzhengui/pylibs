@@ -92,7 +92,7 @@ if myrank==0:
    for i,[k,m] in enumerate(zip(svars,rvars)):
        fns=['{}_{}_{}.npz'.format(oname,k,n) for n in stacks]; fnss.extend(fns)
        data=[read(fn,k).astype('float32') for fn in fns if fexist(fn)]; mtime=[read(fn,'time') for fn in fns if fexist(fn)]
-       if len(data)>0: S.attr(m,concatenate(data,axis=1)); mtime=concatenate(mtime)
+       if len(data)>0: S.attr(m,concatenate(data,axis=0 if S.bp.npt==1 else 0)); mtime=concatenate(mtime)
        if len(mtime)>len(S.time): S.time=array(mtime)
    [S.attr(pn,read('{}/{}.nml'.format(run,pn),3)) for pn in ['param','icm','sediment','cosine','wwminput'] if fexist('{}/{}.nml'.format(run,pn))]
    S.save(sname); [os.remove(fn) for fn in fnss if fexist(fn)] 
