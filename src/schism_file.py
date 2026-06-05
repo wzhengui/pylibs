@@ -1254,13 +1254,14 @@ class schism_grid(zdata):
         '''
         compute contour lines
         '''
+        BG=mpl.get_backend(); mpl.use('Agg')
         value=self.dp if value is None else value
         if value.size==self.ne: value=self.interp_elem_to_node(value)
 
         #plot contour and extract the lines
         if trs is None: trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
         hf=figure(); hf.set_visible(False)
-        P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]
+        P=tricontour(self.x,self.y,trs,value,levels=levels); close(hf); cxy=[]; mpl.use(BG)
         if hasattr(P,'allsegs'):
            cxy=[vstack([r_[i,ones([1,2])*nan] for i in k]) for k in P.allsegs]
         else: #old methods
