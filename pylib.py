@@ -140,7 +140,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
    sys.modules['pyUtility']=sys.modules['src']
 
    #---------------------------------------------------------------------
-   #alias 
+   #alias
    #---------------------------------------------------------------------
    from os.path import exists as fexist
    from numpy import array_equal as eq
