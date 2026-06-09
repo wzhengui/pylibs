@@ -2187,6 +2187,9 @@ class schism_bpfile(zdata):
     def dist(self):
         if not hasattr(self,'_dist'): self._dist=r_[0,cumsum(abs(diff(self.cxy)))]
         return self._dist
+    @property
+    def item(self):
+        return zip(self.x,self.y,self.z,self.station)
 
     def read_reg(self,*args0,**args):
         self.read(fname,*args0,**args)
