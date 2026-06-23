@@ -427,7 +427,7 @@ def rtext(x,y,note,xm=None,ym=None,ax=None,**args):
     sca(ax)
     if xm is None: xm=xlim()
     if ym is None: ym=ylim()
-    text(xm[0]+x*diff(xm),ym[0]+y*diff(ym)*y,note,**args)
+    return text(xm[0]+x*diff(xm),ym[0]+y*diff(ym)*y,note,**args)
     
 def read_excel(fname,sht=0,fmt=0):
     '''
@@ -2673,7 +2673,7 @@ def get_stat(xi_model,xi_obs,fmt=0):
     S.R=corrcoef(x1,x2)[0,1] if (npt>=3 and std2!=0 and std1!=0) else nan #R
     S.ME=mean(dx)
     S.MAE=mean(abs(dx))
-    S.RMSD=sqrt((dx**2).mean())
+    S.RMSD=sqrt((dx**2).mean()); S.RMSE=RMSD
     S.std=std(dx)
     S.ms=1-sum(dx**2)/sum((abs(x1-mx2)+abs(x2-mx2))**2)
     if fmt==1: a,S.pvalue=sp.stats.pearsonr(x1,x2)
