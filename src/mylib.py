@@ -1316,7 +1316,7 @@ def datenum(*args,fmt=0):
           dargs=[*args]; y,m,d=dargs[:3]; nday=[31,29 if (((y%4==0) and (y%100!=0)) or (y%400==0)) else 28 ,31,30,31,30,31,31,30,31,30,31]
           if m>12: dargs[0]=y+int(m/12); dargs[1]=max([1,m%12]); m=dargs[1] #if month >12: convert
           if d>nday[m-1]: #day>nday in month
-             dargs[2]=1; dnum=datetime.datetime(*dargs)+datetime.timedelta(days=d-1)
+             dargs[2]=1; dnum=datetime.datetime(*dargs)+datetime.timedelta(days=int(d-1))
           else:
              dnum=datetime.datetime(*dargs) #time array (e.g. [2002,1,1])
           if fmt==0: dnum=mpl.dates.date2num(dnum)
