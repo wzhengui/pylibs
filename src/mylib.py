@@ -3528,5 +3528,37 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
 
     return S
 
+#-----------------------------------------------------------
+#add pytorch functions
+#-----------------------------------------------------------
+def torch_device():
+    import torch
+    return torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+
+def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
+    '''
+      convert a numpy array to torch tensor
+      fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
+      device: automatically detect available accelerator (cuda) if not provided
+      dtype: 'float32' or 'float64' (float32 is the default
+      copy=True: use torch.tensor; copy=False: use torch.from
+    '''
+    import torch
+    if copy is True:
+       b=torch.tensor(a,dtype=torch.float64 if dtype=='float64' else torch.float32)
+       return b.to(torch_device() if (device is None) else device) if fmt==0 else b
+    else:
+       if str(a.dtype)!=dtype: a=a.astype(dtype)
+       b=torch.from_numpy(a)
+       return b.to(torch_device() if (device is None) else device) if fmt==0 else b
+
+def t2n(a):
+    '''
+      convert torch tensor to numpy array
+      fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
+    '''
+    import torch
+    return torch.Tensor.cpu(a).detach().numpy()
+
 if __name__=="__main__":
     pass
