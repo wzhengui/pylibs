@@ -111,6 +111,11 @@ def add_var(svar,value,sdict,fmt=0):
     else:  #list of values
        for i, k in zip(svar,value): add_var(i,k,sdict,fmt)
 
+def copyfile(*args):
+    ''' shutil.copyfile; e.g. copyfile(fn,tn)'''
+    import shutil
+    shutil.copyfile(*args)
+
 def sort_all(t,*args):
     '''
     sort all variables based on the 1st input
@@ -3532,7 +3537,11 @@ def get_hycom(Time,xyz,vind,hdir='./HYCOM',method=0):
 #add pytorch functions
 #-----------------------------------------------------------
 def torch_device():
-    import torch
+    import sys
+    if 'torch' in sys.modules:
+        torch=sys.modules['torch']
+    else:
+        import torch
     return torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
 def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
@@ -3543,7 +3552,11 @@ def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
       dtype: 'float32' or 'float64' (float32 is the default
       copy=True: use torch.tensor; copy=False: use torch.from
     '''
-    import torch
+    import sys
+    if 'torch' in sys.modules:
+        torch=sys.modules['torch']
+    else:
+        import torch
     if copy is True:
        b=torch.tensor(a,dtype=torch.float64 if dtype=='float64' else torch.float32)
        return b.to(torch_device() if (device is None) else device) if fmt==0 else b
@@ -3557,7 +3570,11 @@ def t2n(a):
       convert torch tensor to numpy array
       fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
     '''
-    import torch
+    import sys
+    if 'torch' in sys.modules:
+        torch=sys.modules['torch']
+    else:
+        import torch
     return torch.Tensor.cpu(a).detach().numpy()
 
 if __name__=="__main__":
