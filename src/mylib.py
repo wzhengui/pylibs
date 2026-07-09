@@ -1471,6 +1471,8 @@ def get_INFO(data,fmt=0):
             elif 'npzfile' in str(dt).lower(): #npz variable
                if i.startswith('_') and i.endswith('_variables') and i[1]!='_': continue
                nd=': array{}, {}'.format(vi.shape,str(vi.dtype))
+            elif 'torch.tensor' in str(dt).lower(): #torch.Tensor
+               nd=': torch{},{}'.format(tuple(vi.shape),str(vi.dtype).split('.')[-1])
             else:
                nd=': {}'.format(type(vi))
 
