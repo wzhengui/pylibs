@@ -344,6 +344,36 @@ class schism_grid(zdata):
         self.add_actions()
         return self.hb
 
+    def hplot(self,fmt=0,value=None,c='None',wrap=None,dx_wrap=270,xy=0,width=600,height=500,lw=0.3,xlim=None,ylim=None,
+              ticks=11,cmap='jet',cb=1,rater=1,var='z',alpha=1,clim=None):
+        '''
+        return holoviews plots
+        '''
+        import holoviews as hv
+        hv.extension('bokeh')
+
+        xm=tuple(xlim if (xlim is not None) else self.xm if xy==0 else self.lxm)
+        ym=tuple(ylim if (ylim is not None) else self.ym if xy==0 else self.lym)
+        c=['k','k'] if c=='None' else [c,c] if isinstance(c,str) else c
+        if fmt in [1,2]:
+           from holoviews.operation.datashader import rasterize
+           trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
+           value=self.z if (value is None) else value
+           clim=tuple(self.zm if clim is None else clim)
+
+        if fmt==0: #grid
+           hp=hv.Curve([self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T]).opts(color=c[0],line_width=lw)
+        elif fmt==1: #color
+           hp=hv.TriMesh((trs,hv.Points(c_[self.xy,value],vdims=var))).opts(filled=True)
+           hp=rasterize(hp,precompute=True,pixel_ratio=2,width=width,height=height).opts(
+                     tools=['hover'],colorbar=True if cb==1 else False,cmap=cmap,cnorm='linear',alpha=alpha,clim=clim,cticks=ticks)
+        elif fmt==3: # boundary
+           xy1,xy2=self.lines(1,wrap=wrap,dx_wrap=dx_wrap,xy=xy)
+           hp=hv.Curve([xy1.T]).opts(color=c[0],line_width=lw) * hv.Curve([xy2.T]).opts(color=c[1],line_width=lw)
+
+        hp=hp.opts(width=width,height=height,xlim=xm,ylim=ym)
+        return hp
+
     def lines(self,fmt=0,xy=0,wrap=0,dx_wrap=270):
         '''
         return lines in format of c_[x,y] for plotting purpose
