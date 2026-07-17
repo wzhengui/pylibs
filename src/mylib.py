@@ -115,6 +115,10 @@ def copyfile(*args):
     ''' shutil.copyfile; e.g. copyfile(fn,tn)'''
     import shutil
     shutil.copyfile(*args)
+def copydir(*args):
+    ''' shutil.copytree; e.g. copydir(fn,tn)'''
+    import shutil
+    shutil.copytree(*args)
 
 def sort_all(t,*args):
     '''
