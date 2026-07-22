@@ -903,27 +903,54 @@ class schism_grid(zdata):
 
         return self.nne
 
-    def compute_nee(self):
+    def compute_nee(self,ie=None,fmt=0,outfmt=0):
         '''
         compute element ball:
-          mnee:  maximum number of elements in element ball (exclude itself)
+          mnee:  maximum number of elements in element ball (outfmt=0/1: exclude/include itself)
           nee:   number of elements in element ball
-          ielel: indices for each element ball
-          iee:   indices for each element ball, but in maxtrix " shape=[ne,max(nee)]"
+          ielel: element indices for each element ball
+          iee:   element indices for each element ball, but in maxtrix " shape=[ne,mnee]"
+        fmt=0: only compute element table inside element ball; ftm=1: also compute node table in the ball.
+          mnen:  maximum number of nodes in element ball
+          nen:   number of nodes in element ball
+          ielnd: node indices for each element ball
+          ien:   node indices for each element ball, but in maxtrix " shape=[ne,mnen]"
+        outfmt=0: exclude self-element, outfmt=1: include
+        ie!=None : only compute element ball for a list of element numbers
         '''
         if not hasattr(self,'nne'): self.compute_nne()
-        nee=zeros(self.ne).astype('int'); iee=arange(self.ne).astype('int')[:,None]
-        for m in arange(4):
-            ies=self.ine[self.elnode[:,m]].T; ies[:,self.elnode[:,m]==-2]=-1
-            for n in arange(self.mnei):
-                ie=ies[n]; mnee=iee.shape[1]; fp=ie!=-1
-                for k in arange(mnee): fp=fp*(ie!=iee[:,k])
-                if sum(fp)==0: continue
-                nee[fp]=nee[fp]+1 #add new elem
-                if nee.max()>=mnee: iee=c_[iee,-ones(self.ne).astype('int')[:,None]]
-                iee[pindex(fp),nee[fp]]=ie[fp]
-        self.nee=nee; self.iee=iee[:,1:]; self.mnee=self.iee.shape[1]; self.ielel=array([k[:i] for i,k in zip(nee,self.iee)],dtype='O')
-        return self.nee
+
+        #compute element table (mnee,nee,ielel,iee)
+        fpe=ie is None; ie=arange(self.ne) if fpe else ie; ne=len(ie)
+        iee=self.ine[self.elnode[ie]]; iee[self.fp3[ie],-1]=-1; iee=sort(iee.reshape(ne,4*self.mnei),axis=1)[:,::-1]
+        for i in arange(4*self.mnei-1): fp=iee[:,i]==iee[:,i+1]; iee[fp,i]=-1 #remove same elem
+        iee=sort(iee,axis=1)[:,::-1]; mnee=sum(iee!=-1,axis=1).max(); iee=iee[:,:mnee]
+        if outfmt==0: iee[iee==tile(ie,[mnee,1]).T]=-1; iee=sort(iee,axis=1)[:,::-1][:,:-1]; mnee=mnee-1;
+        nee=sum(iee!=-1,axis=1); ielel=array([k[:i] for i,k in zip(nee,iee)],'O')
+        if fpe: self.mnee,self.nee,self.ielel,self.iee=mnee,nee,ielel,iee
+
+        #compute node table
+        if fmt==1:
+           ien=self.elnode[iee]; ien[ien==-2]=-1; ien[iee==-1,:]=-1; ien=sort(ien.reshape([ne,4*mnee]),axis=1)[:,::-1]
+           for i in arange(4*mnee-1): fp=ien[:,i]==ien[:,i+1]; ien[fp,i]=-1
+           ien=sort(ien,axis=1)[:,::-1]; mnen=sum(ien!=-1,axis=1).max(); ien=ien[:,:mnen]
+           nen=sum(ien!=-1,axis=1); ielnd=array([k[:i] for i,k in zip(nen,ien)],'O')
+           if fpe: self.mnen,self.nen,self.ielnd,self.ien=mnen,nen,ielnd,ien
+
+        return self.nee if fpe else [mnee,nee,ielel,iee] if fmt==0 else [mnee,nee,ielel,iee,mnen,nen,ielnd,ien]
+
+        #old method
+        #nee=zeros(self.ne).astype('int'); iee=arange(self.ne).astype('int')[:,None]
+        #for m in arange(4):
+        #    ies=self.ine[self.elnode[:,m]].T; ies[:,self.elnode[:,m]==-2]=-1
+        #    for n in arange(self.mnei):
+        #        ie=ies[n]; mnee=iee.shape[1]; fp=ie!=-1
+        #        for k in arange(mnee): fp=fp*(ie!=iee[:,k])
+        #        if sum(fp)==0: continue
+        #        nee[fp]=nee[fp]+1 #add new elem
+        #        if nee.max()>=mnee: iee=c_[iee,-ones(self.ne).astype('int')[:,None]]
+        #        iee[pindex(fp),nee[fp]]=ie[fp]
+        #self.nee=nee; self.iee=iee[:,1:]; self.mnee=self.iee.shape[1]; self.ielel=array([k[:i] for i,k in zip(nee,self.iee)],dtype='O')
 
     def compute_ic3(self):
         '''
