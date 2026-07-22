@@ -925,17 +925,15 @@ class schism_grid(zdata):
         iee=self.ine[self.elnode[ie]]; iee[self.fp3[ie],-1]=-1; iee=sort(iee.reshape(ne,4*self.mnei),axis=1)[:,::-1]
         for i in arange(4*self.mnei-1): fp=iee[:,i]==iee[:,i+1]; iee[fp,i]=-1 #remove same elem
         iee=sort(iee,axis=1)[:,::-1]; mnee=sum(iee!=-1,axis=1).max(); iee=iee[:,:mnee]
-        if outfmt==0: iee[iee==tile(ie,[mnee,1]).T]=-1; iee=sort(iee,axis=1)[:,::-1][:,:-1]; mnee=mnee-1;
-        nee=sum(iee!=-1,axis=1); ielel=array([k[:i] for i,k in zip(nee,iee)],'O')
-        if fpe: self.mnee,self.nee,self.ielel,self.iee=mnee,nee,ielel,iee
-
-        #compute node table
-        if fmt==1:
+        if fmt==1: #compute node table
            ien=self.elnode[iee]; ien[ien==-2]=-1; ien[iee==-1,:]=-1; ien=sort(ien.reshape([ne,4*mnee]),axis=1)[:,::-1]
            for i in arange(4*mnee-1): fp=ien[:,i]==ien[:,i+1]; ien[fp,i]=-1
            ien=sort(ien,axis=1)[:,::-1]; mnen=sum(ien!=-1,axis=1).max(); ien=ien[:,:mnen]
            nen=sum(ien!=-1,axis=1); ielnd=array([k[:i] for i,k in zip(nen,ien)],'O')
            if fpe: self.mnen,self.nen,self.ielnd,self.ien=mnen,nen,ielnd,ien
+        if outfmt==0: iee[iee==tile(ie,[mnee,1]).T]=-1; iee=sort(iee,axis=1)[:,::-1][:,:-1]; mnee=mnee-1 #remove self elem.
+        nee=sum(iee!=-1,axis=1); ielel=array([k[:i] for i,k in zip(nee,iee)],'O')
+        if fpe: self.mnee,self.nee,self.ielel,self.iee=mnee,nee,ielel,iee
 
         return self.nee if fpe else [mnee,nee,ielel,iee] if fmt==0 else [mnee,nee,ielel,iee,mnen,nen,ielnd,ien]
 
