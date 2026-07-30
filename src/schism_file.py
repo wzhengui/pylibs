@@ -1176,6 +1176,31 @@ class schism_grid(zdata):
            if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
            return c.data
 
+    def interp_3rd_order(self,pxy,value=None,nmin=8):
+        '''
+        interploation using 3rd order curve: f=a+bx+cy+d*x2+e*xy+f*y2; TBD
+        nmin: for nen<=min elem. ball, use 2nd order
+        '''
+        value=self.z if (value is None) else value
+        if not hasattr(self,'area'): self.compute_area()
+        ie,ip,acor=self.compute_acor(pxy); px,py=pxy.T
+
+        #quadratic fit
+        mnen,nen,ielnd,ien=self.compute_nee(ie,fmt=1)[4:] #elem. ball
+        x0,y0=self.exy[ie].T; rat=1/sqrt(self.area[ie]); x,y=self.xy[ien].T; x=rat*(x-x0[None,:]); y=rat*(y-y0[None,:])
+        X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T; X[ien==-1,:]=0
+        P=X.transpose([0,2,1])@X; fp=matrix_rank(P)<6; P[fp]=resize(inv(P[fp,:3,:3]),[sum(fp),6,6]); P[~fp]=inv(P[~fp])
+        P=P@X.transpose([0,2,1])
+
+        #get interp value
+        x=rat*(px-x0); y=rat*(py-y0); X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T
+        z=X[:,None,:]@(P@value[ien][...,None]); z=z[:,0,0]
+
+        #use 2nd order for small stencil
+        fps=nen<=nmin; z[fps]=self.interp(pxy[fps],value)
+
+        return z
+
     def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
         construct a new schism grid based on:
