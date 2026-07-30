@@ -1176,30 +1176,29 @@ class schism_grid(zdata):
            if np.issubdtype(v.dtype,np.floating): c.data=c.data.astype(v.dtype)
            return c.data
 
-    def interp_3rd_order(self,pxy,value=None,nmin=8):
+    def interp_3rd(self,pxy,value=None,nmin=8):
         '''
-        interploation using 3rd order curve: f=a+bx+cy+d*x2+e*xy+f*y2; TBD
+        interploation using 3rd order curve: f=a+bx+cy+d*x2+e*xy+f*y2; only work for node value so far
         nmin: for nen<=min elem. ball, use 2nd order
         '''
         value=self.z if (value is None) else value
         if not hasattr(self,'area'): self.compute_area()
-        ie,ip,acor=self.compute_acor(pxy); px,py=pxy.T
+        ie,ip,acor=self.compute_acor(pxy); v=zeros(len(pxy))*nan
 
         #quadratic fit
         mnen,nen,ielnd,ien=self.compute_nee(ie,fmt=1)[4:] #elem. ball
-        x0,y0=self.exy[ie].T; rat=1/sqrt(self.area[ie]); x,y=self.xy[ien].T; x=rat*(x-x0[None,:]); y=rat*(y-y0[None,:])
-        X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T; X[ien==-1,:]=0
-        P=X.transpose([0,2,1])@X; fp=matrix_rank(P)<6; P[fp]=resize(inv(P[fp,:3,:3]),[sum(fp),6,6]); P[~fp]=inv(P[~fp])
-        P=P@X.transpose([0,2,1])
+        fp=nen>nmin; sindp=pindex(fp); sindn=pindex(~fp); ien=ien[fp]; ie=ie[fp]; px,py=pxy[fp].T; fpn=ien==-1
+        if len(sindp)>0: #get interp value
+           x0,y0=self.exy[ie].T; rat=1/sqrt(self.area[ie]); x,y=self.xy[ien].T; x=rat*(x-x0[None,:]); y=rat*(y-y0[None,:])
+           X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T;  X[fpn,:]=0; P=inv(X.transpose([0,2,1])@X)@X.transpose([0,2,1])
+           x=rat*(px-x0); y=rat*(py-y0); X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T
+           z=value[ien]; z[fpn]=inf; z1=z.min(axis=1); z[fpn]=-inf; z2=z.max(axis=1); z[fpn]=0
+           v0=X[:,None,:]@(P@value[ien][...,None]); v0=v0[:,0,0]
+           fp=(v0<z1)|(v0>z2); sindn=r_[sindn,sindp[fp]]; sindp=sindp[~fp]; v[sindp]=v0[~fp]
 
-        #get interp value
-        x=rat*(px-x0); y=rat*(py-y0); X=array([ones(x.shape),x,y,x**2,x*y,y**2]).T
-        z=X[:,None,:]@(P@value[ien][...,None]); z=z[:,0,0]
-
-        #use 2nd order for small stencil
-        fps=nen<=nmin; z[fps]=self.interp(pxy[fps],value)
-
-        return z
+        #use FEM for small stencil and outliers
+        v[sindn]=self.interp(pxy[sindn],value)
+        return v
 
     def scatter_to_grid(self,fmt=0,reg_in=1,reg_out=1,**args):
         '''
