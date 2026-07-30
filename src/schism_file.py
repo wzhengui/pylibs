@@ -1180,6 +1180,9 @@ class schism_grid(zdata):
         '''
         interploation using 3rd order curve: f=a+bx+cy+d*x2+e*xy+f*y2; only work for node value so far
         nmin: for nen<=min elem. ball, use 2nd order
+        Note:  
+           Y(n,1)=X(n,6)*A(6,1) => X'(6,n)*Y(n,1)=X'(6,n)*X(n,6)*A(6,1) => A(6,1)=inv(X'(6,n)*X(n,6))*X'(6,n)*Y(n,1)
+           y(1,1)=x(1,6)*A(6,1) => y(1,1)=x(1,6)*inv(X'(6,n)*X(n,6))*X'(6,n)*Y(n,1)
         '''
         value=self.z if (value is None) else value
         if not hasattr(self,'area'): self.compute_area()
