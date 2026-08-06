@@ -3564,7 +3564,9 @@ def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
     else:
         import torch
     if copy is True:
-       b=torch.tensor(a,dtype=torch.float64 if dtype=='float64' else torch.float32)
+       dt=torch.float64 if dtype=='float64' else torch.float32
+       if iscomplexobj(a): dt=torch.cdouble if dtype=='float64' else torch.cfloat
+       b=torch.tensor(a,dtype=dt)
        return b.to(torch_device() if (device is None) else device) if fmt==0 else b
     else:
        if str(a.dtype)!=dtype: a=a.astype(dtype)
