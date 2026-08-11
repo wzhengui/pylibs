@@ -187,6 +187,9 @@ class TimeHistory:
         Note that you need to provide the start time and the time unit.
         """
 
+        if not np.isclose(data_array[0, 0], 0.0):
+            raise ValueError('time must start from 0.0')
+
         # list of main attributes
         self.df = pd.DataFrame(data_array)
 
@@ -239,33 +242,78 @@ class TimeHistory:
         and columns names, so you need to provide them.
         """
         data = np.loadtxt(file_name)
+        if not np.isclose(data[0, 0], 0.0):
+            raise ValueError('time must start from 0.0')
         return cls(data_array=data, th_unit=th_unit, start_time_str=start_time_str, columns=columns)
 
     def __getitem__(self, selector):
-        """Subset the TimeHistory object by column names"""
+        """
+        Subset the TimeHistory object
 
-        # parse row and col selectors from selector
-        if isinstance(selector, str):
+        Base case, 2D indexing by time and station names:
+            selector must be a tuple of (row_index, column_index),
+            with each index being a boolean array or slice
+
+            th_obj[(slice(start_idx, end_idx), slice(0, 2))]
+            th_obj[(slice(start_time, end_time), slice(0, 2))], where *_time is a datetime object
+            th_obj[(slice(start_idx, end_idx), [0, 1])]
+            col index does not include time, i.e, th_obj[:, 0] subsets the first column of data
+        
+        Special cases (only one dimension is specified):
+            - by column names (subset stations), when the selector is made of strings:
+                th_obj['station1']
+                th_obj[station_name_array]
+                th_obj[['station1', 'station2']]
+
+            - otherwise, by row index only (i.e., subset time), when the selector is made of a boolean array or a slice:
+                th_obj[slice(start_idx, end_idx)]
+                th_obj[slice(start_time, end_time)]
+                th_obj[bool_array]
+        
+        """
+        # pre-process the selector to simplify the logic
+        if isinstance(selector, str):  # assuming selector is a column name
             selector = [selector]
-        elif isinstance(selector, np.ndarray):
-            if len(selector.shape) == 1:  # 1D array of column names
-                selector = selector.astype(str).tolist()
-            else:
-                raise IndexError("Column names must be a 1D array")
+        if isinstance(selector, list):
+            selector = np.array(selector)
 
-        if isinstance(selector, list) and all(isinstance(x, str) for x in selector):  # subset by column names
-            column_names = selector
-            subset_data = np.array(self.df[column_names])
-            return TimeHistory(
-                start_time_str=self.df.index[0],
-                data_array=np.c_[self.time, subset_data],
-                columns=column_names,
-                th_unit=self.th_unit
-            )
+        if isinstance(selector, (slice, np.ndarray)):
+            # subset by row index only, i.e., by time
+            if isinstance(selector, np.ndarray) and all(isinstance(x, str) for x in selector):  # subset by column names
+                column_names = selector
+                subset_data = np.array(self.df[column_names])
+                return TimeHistory(
+                    start_time_str=self.df.index[0],
+                    data_array=np.c_[self.time, subset_data],
+                    columns=column_names,
+                    th_unit=self.th_unit
+                )
+            elif isinstance(selector, np.ndarray) and all(isinstance(x, (bool, np.bool_)) for x in selector) or isinstance(selector, slice):
+                # subset by row index only, i.e., by time
+                subset_df = self.df.loc[selector]
+                subset_data = subset_df.values
+
+                subset_time_str = subset_df.index
+                # re-allign start time to the beginning of the slice
+                subset_time = np.array(subset_df.index - subset_df.index[0])
+                subset_time = subset_time.astype('timedelta64[s]').astype(float) / self.sec_per_time_unit
+
+                col_idx = range(len(self.df.columns))
+
+                return TimeHistory(
+                    start_time_str=subset_time_str[0],
+                    data_array=np.c_[subset_time, subset_data],
+                    columns=self.df.columns[col_idx].tolist(),
+                    th_unit=self.th_unit
+                )
         elif isinstance(selector, tuple):  # subset by row and column indices; column index does not include time
             if len(selector) != 2:
                 raise IndexError("Only 2D indexing is supported")
             row_idx, col_idx = selector
+            if not isinstance(row_idx, (slice, np.ndarray)):
+                raise IndexError("Row index must be a slice or numpy array")
+            if not isinstance(col_idx, (slice, np.ndarray)):
+                raise IndexError("Column index must be a slice or numpy array")
 
             subset_data = self.data[row_idx, col_idx]
 
@@ -279,22 +327,6 @@ class TimeHistory:
                 data_array=np.c_[subset_time, subset_data],
                 columns=self.df.columns[col_idx].tolist(),
                 th_unit=self.th_unit
-            )
-        elif isinstance(selector, slice):  # subset by row index only, i.e., by time
-            subset_df = self.df.loc[selector]
-            subset_data = subset_df.values
-
-            subset_time_str = subset_df.index
-            # re-allign start time to the beginning of the slice
-            subset_time = np.array(subset_df.index - subset_df.index[0])
-            subset_time = subset_time.astype('timedelta64[s]').astype(float) / self.sec_per_time_unit
-
-            col_idx = range(len(self.df.columns))
-
-            return TimeHistory(
-                start_time_str=subset_time_str[0],
-                data_array=np.c_[subset_time, subset_data],
-                columns=self.df.columns[col_idx].tolist()
             )
         else:
             raise IndexError("Unknown type of index")
@@ -341,7 +373,7 @@ class TimeHistory:
     def writer(self, file_name, np_savetxt_args=None):
         ''' assemble data array in *.th format and write to file '''
         if np_savetxt_args is None:
-            np_savetxt_args = {'fmt': '%.4f', 'delimiter': ' ', 'newline': '\n'}
+            np_savetxt_args = {'fmt': '%.7f', 'delimiter': ' ', 'newline': '\n'}
         np.savetxt(file_name, np.c_[self.time, self.data], **np_savetxt_args)
 
 
@@ -461,7 +493,7 @@ class SourceSink:  # pylint: disable=invalid-name
         '''number of sink elements'''
         return self.source_sink_in.n_sink
 
-    def __init__(self, vsource: TimeHistory, vsink: TimeHistory, msource: list):
+    def __init__(self, vsource: TimeHistory, vsink: TimeHistory, msource: list, do_sanity_check=True):
         """initialize from TimeHistory objects,
         vsource: TimeHistory object for volume source
         vsink: TimeHistory object for volume sink
@@ -496,7 +528,8 @@ class SourceSink:  # pylint: disable=invalid-name
 
         self.source_sink_in = SourceSinkIn(ele_groups=[source_eles, sink_eles])
 
-        self.sanity_check()
+        if do_sanity_check:
+            self.sanity_check()
 
     @classmethod
     def dummy(
@@ -542,7 +575,7 @@ class SourceSink:  # pylint: disable=invalid-name
                 data_array=np.c_[np.array(timestamps), np.zeros([nt, nsinks])],
             )
 
-        return cls(vsource, vsink, msource)
+        return cls(vsource, vsink, msource, do_sanity_check=False)  # don't check dummy data
 
     @classmethod
     def from_files(cls, source_dir, start_time_str='2000-01-01 00:00:00', strict_check=False):
@@ -595,7 +628,7 @@ class SourceSink:  # pylint: disable=invalid-name
                 columns=source_sink_in.ele_groups[1]
             )
 
-        source_sink_obj = cls(vsource, vsink, msource)
+        source_sink_obj = cls(vsource, vsink, msource, do_sanity_check=False)  # check after initialization
         source_sink_obj.sanity_check(strict_check=strict_check)
         return source_sink_obj
 
@@ -643,15 +676,18 @@ class SourceSink:  # pylint: disable=invalid-name
                 columns=sink_elem.tolist()
             )
 
-        source_sink_obj = cls(vsource, vsink, msources)
-        source_sink_obj.sanity_check()
+        source_sink_obj = cls(vsource, vsink, msources, do_sanity_check=False)  # check after initialization
+        source_sink_obj.sanity_check(strict_check=True)
         return source_sink_obj
 
-    def subset_by_time(self, start_time_str, end_time_str):
+    def subset_by_time(self, start_time, end_time):
         '''
         Subset source/sink files by time.
         '''
-        time_slice = slice(start_time_str, end_time_str)
+        start_time = pd.to_datetime(start_time)
+        end_time = pd.to_datetime(end_time)
+        
+        time_slice = slice(start_time, end_time)
         if self.vsource is not None:
             subset_vsource = self.vsource[time_slice]
             subset_msource = [x[time_slice] for x in self.msource]
@@ -668,7 +704,7 @@ class SourceSink:  # pylint: disable=invalid-name
 
     def subset_by_idx(self, source_idx, sink_idx):
         '''
-        Subset source/sink files by index.
+        Subset source/sink files by station index.
         '''
         if sum(source_idx) == 0 or self.vsource is None:
             subset_vsource = None
@@ -864,7 +900,17 @@ class SourceSink:  # pylint: disable=invalid-name
         C.vars = []
         C.file_format = 'NETCDF4'
 
-        # create dummy source/sink if they are empty
+        if self.nsource == 0 and self.nsink == 0:
+            raise ValueError("Both nsource and nsink are zero, cannot write source.nc")
+        
+        vsource = self.vsource
+        msource = self.msource
+        vsink = self.vsink
+        nsource = self.nsource
+        nsink = self.nsink
+        ntracers = self.ntracers
+
+        # create dummy source/sink if one of them is missing
         if self.nsource == 0:
             dummy_ss = source_sink.dummy(
                 start_time_str=self.vsink.df.index[0],
@@ -873,22 +919,16 @@ class SourceSink:  # pylint: disable=invalid-name
             )
             vsource = dummy_ss.vsource
             msource = dummy_ss.msource
-            vsink = self.vsink
             nsource = 1
-            nsink = self.nsink
             ntracers = 2
-        else:
+        elif self.nsink == 0:
             dummy_ss = source_sink.dummy(
                 start_time_str=self.vsource.df.index[0],
                 timestamps=self.vsource.time,
                 source_eles=['1'], sink_eles=['1'], ntracers=self.ntracers
             )
-            vsource = self.vsource
-            msource = self.msource
             vsink = dummy_ss.vsink
-            nsource = self.nsource
             nsink = 1
-            ntracers = self.ntracers
 
         C.dimname = ['nsources', 'nsinks', 'ntracers', 'time_msource', 'time_vsource', 'time_vsink', 'one']
         C.dims = [nsource, nsink, ntracers, msource[0].n_time, vsource.n_time, vsink.n_time, 1]
@@ -989,6 +1029,7 @@ class SourceSink:  # pylint: disable=invalid-name
                               f"index {i}, Element {self.source_eles[i]}; "
                               f"mean value {np.mean(self.vsource.data[:, i])}")
                 print(f"{len(duplicate_sources)} potentially duplicate sources found")
+                print(f"Maximum value: {np.max(np.mean(self.vsource.data[:, duplicate_sources], axis=0))}")
             else:
                 print("No duplicate sources found")
 
@@ -1080,6 +1121,10 @@ class TestCreadSchismHgrid(unittest.TestCase):
         print(f'number of open boundaries: {gd.nob}')
 
 
+class TestSubsetSourceSink(unittest.TestCase):
+    pass
+
+
 class TestAddSourceSink(unittest.TestCase):
     '''unit test for add_source_sink'''
 
@@ -1140,9 +1185,15 @@ class TestCombineDataframes(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # sample comparing two TimeHistory objects
-    # ts1 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Relocated_SS/vsink.th')
-    # ts2 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Source_sink/USGS_adjusted_sources/vsink.th')
+    # # sample comparing two TimeHistory objects
+    # ss = SourceSink.from_ncfile(
+    #     '/sciclone/schism10/feiye/STOFS3D-v8/I09/Relocated_SS/source.nc'
+    # )
+    
+    # ts1 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Relocated_SS/vsource.th')
+    # ts2 = TimeHistory.from_file('/sciclone/schism10/feiye/STOFS3D-v8/I09/Source_sink/USGS_adjusted_sources/vsource.th')
+
+    # print(ss.vsource == ts1)
     # print(ts1 == ts2)
 
     # run unit tests
