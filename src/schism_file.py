@@ -359,7 +359,7 @@ class schism_grid(zdata):
            from holoviews.operation.datashader import rasterize
            trs=r_[self.elnode[:,:3],self.elnode[self.fp4][:,[0,2,3]]]
            value=self.z if (value is None) else value
-           clim=tuple(self.zm if clim is None else clim)
+           clim=tuple([value.min(),value.max()] if clim is None else clim)
 
         if fmt==0: #grid
            hp=hv.Curve([self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T]).opts(color=c[0],line_width=lw)
