@@ -12,7 +12,7 @@ import pandas as pd
 import netCDF4 as nc
 from sklearn.neighbors import KDTree
 
-from pylib import schism_grid, zdata, WriteNC, read_schism_vgrid
+from pylib import schism_grid, read_schism_vgrid
 from pylib import inside_polygon
 
 
@@ -843,9 +843,12 @@ class SourceSink:  # pylint: disable=invalid-name
 
         return inside_ss, outside_ss
 
-    def writer(self, output_dir):
+    def writer(self, output_dir, nc_writer_kwargs=None):
         '''
         Write source/sink files to the output_dir.
+
+        ``nc_writer_kwargs`` may override the NetCDF compression and chunking
+        defaults used by :meth:`nc_writer`.
         '''
         os.makedirs(output_dir, exist_ok=True)
 
@@ -862,7 +865,7 @@ class SourceSink:  # pylint: disable=invalid-name
             self.vsink.writer(f"{output_dir}/vsink.th")
 
         # additional outputs in *.nc format
-        self.nc_writer(output_dir=output_dir)
+        self.nc_writer(output_dir=output_dir, **(nc_writer_kwargs or {}))
 
     def diag_writer(self, hgrid, output_dir):
         '''writer for diagnostic files'''
@@ -887,22 +890,32 @@ class SourceSink:  # pylint: disable=invalid-name
                 ]
             )
 
-    def nc_writer(self, output_dir=None):
-        '''write source/sink files to netcdf format'''
+    def nc_writer(
+        self, output_dir=None, compression_level=1, shuffle=True,
+        vsink_time_chunk=16, station_chunk=8192
+    ):
+        '''Write source/sink files to a compressed NetCDF file.
+
+        SCHISM reads one complete time record at a time. Volume-source and
+        mass-source variables therefore use one-record chunks. ``vsink`` uses
+        a short time chunk so that the typically constant sink time series
+        deflate well without making each SCHISM read decompress the full time
+        dimension.
+        '''
 
         if output_dir is None:
             raise FileNotFoundError("output_dir is required.")
 
         os.makedirs(output_dir, exist_ok=True)
 
-        # create netcdf data using pylib's functions
-        C = zdata()
-        C.vars = []
-        C.file_format = 'NETCDF4'
-
         if self.nsource == 0 and self.nsink == 0:
             raise ValueError("Both nsource and nsink are zero, cannot write source.nc")
-        
+
+        if not 0 <= compression_level <= 9:
+            raise ValueError("compression_level must be between 0 and 9")
+        if vsink_time_chunk < 1 or station_chunk < 1:
+            raise ValueError("chunk sizes must be positive")
+
         vsource = self.vsource
         msource = self.msource
         vsink = self.vsink
@@ -930,55 +943,76 @@ class SourceSink:  # pylint: disable=invalid-name
             vsink = dummy_ss.vsink
             nsink = 1
 
-        C.dimname = ['nsources', 'nsinks', 'ntracers', 'time_msource', 'time_vsource', 'time_vsink', 'one']
-        C.dims = [nsource, nsink, ntracers, msource[0].n_time, vsource.n_time, vsink.n_time, 1]
+        dimension_names = [
+            'nsources', 'nsinks', 'ntracers', 'time_msource',
+            'time_vsource', 'time_vsink', 'one'
+        ]
+        dimension_sizes = [
+            nsource, nsink, ntracers, msource[0].n_time,
+            vsource.n_time, vsink.n_time, 1
+        ]
+        variable_names = [
+            'source_elem', 'vsource', 'msource', 'sink_elem', 'vsink',
+            'time_step_vsource', 'time_step_msource', 'time_step_vsink'
+        ]
 
-        C.vars.extend(['source_elem', 'vsource', 'msource'])
-        vi = zdata()
-        vi.dimname = ('nsources',)
-        vi.val = vsource.df.columns.values.astype(int)
-        C.source_elem = vi
+        def write_variable(dataset, name, dtype, dimensions, values, chunksizes):
+            variable = dataset.createVariable(
+                name, dtype, dimensions, zlib=compression_level > 0,
+                complevel=compression_level, shuffle=shuffle,
+                chunksizes=chunksizes, fill_value=False
+            )
+            variable.setncattr_string('dimname', list(dimensions))
+            variable[:] = values
 
-        vi = zdata()
-        vi.dimname = ('time_vsource', 'nsources')
-        vi.val = vsource.data
-        C.vsource = vi
-        # cast into a 3D array of shape (nt, ntracers, nsources)
-        msource_data = np.stack([x.data for x in msource], axis=1)
+        source_chunk = min(station_chunk, nsource)
+        sink_chunk = min(station_chunk, nsink)
+        with nc.Dataset(f'{output_dir}/source.nc', 'w', format='NETCDF4') as dataset:
+            for name, size in zip(dimension_names, dimension_sizes):
+                dataset.createDimension(name, size)
 
-        vi = zdata()
-        vi.dimname = ('time_msource', 'ntracers', 'nsources')
-        vi.val = msource_data
-        C.msource = vi
+            # Retain the metadata written by the previous pylib-based writer.
+            dataset.setncattr('file_format', 'NETCDF4')
+            dataset.setncattr_string('vars', variable_names)
+            dataset.setncattr_string('dimname', dimension_names)
+            dataset.setncattr('dims', np.asarray(dimension_sizes, dtype=np.int64))
 
-        C.vars.extend(['sink_elem', 'vsink'])
-        vi = zdata()
-        vi.dimname = ('nsinks',)
-        vi.val = vsink.df.columns.values.astype(int)
-        C.sink_elem = vi
+            write_variable(
+                dataset, 'source_elem', 'i8', ('nsources',),
+                vsource.df.columns.values.astype(np.int64), (source_chunk,)
+            )
+            write_variable(
+                dataset, 'vsource', 'f8', ('time_vsource', 'nsources'),
+                vsource.data, (1, source_chunk)
+            )
 
-        vi = zdata()
-        vi.dimname = ('time_vsink', 'nsinks',)
-        vi.val = vsink.data
-        C.vsink = vi
-
-        C.vars.extend(['time_step_vsource', 'time_step_msource', 'time_step_vsink'])
-        vi = zdata()
-        vi.dimname = ('one',)
-        vi.val = vsource.delta_t
-        C.time_step_vsource = vi
-
-        vi = zdata()
-        vi.dimname = ('one',)
-        vi.val = msource[0].delta_t
-        C.time_step_msource = vi
-
-        vi = zdata()
-        vi.dimname = ('one',)
-        vi.val = vsink.delta_t
-        C.time_step_vsink = vi
-
-        WriteNC(f'{output_dir}/source.nc', C)
+            # Shape: (time, tracer, source).
+            msource_data = np.stack([x.data for x in msource], axis=1)
+            write_variable(
+                dataset, 'msource', 'f8',
+                ('time_msource', 'ntracers', 'nsources'), msource_data,
+                (1, ntracers, source_chunk)
+            )
+            write_variable(
+                dataset, 'sink_elem', 'i8', ('nsinks',),
+                vsink.df.columns.values.astype(np.int64), (sink_chunk,)
+            )
+            write_variable(
+                dataset, 'vsink', 'f8', ('time_vsink', 'nsinks'), vsink.data,
+                (min(vsink_time_chunk, vsink.n_time), sink_chunk)
+            )
+            write_variable(
+                dataset, 'time_step_vsource', 'f8', ('one',),
+                np.asarray([vsource.delta_t]), (1,)
+            )
+            write_variable(
+                dataset, 'time_step_msource', 'f8', ('one',),
+                np.asarray([msource[0].delta_t]), (1,)
+            )
+            write_variable(
+                dataset, 'time_step_vsink', 'f8', ('one',),
+                np.asarray([vsink.delta_t]), (1,)
+            )
 
     def sanity_check(self, strict_check=False):
         '''
