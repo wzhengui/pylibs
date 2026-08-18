@@ -1649,7 +1649,8 @@ class npzfile(zdata):
 
         #assign each numpy array
         data=load(fname,allow_pickle=True,mmap_mode='r'); self._close=data.close
-        for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
+        #for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if str(dt)=='object' else ntype(data,0,name=svar,vshape=dm,vtype=dt))
+        for svar,dm, dt in zip(svars,dms,dts): self.attr(svar,read(fname,svar) if len(dm)==0 else ntype(data,0,name=svar,vshape=dm,vtype=dt))
 
     def add(self,names,values):
         '''add new variables: add(names,values)'''
@@ -3564,6 +3565,8 @@ def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
     else:
         import torch
     if copy is True:
+       nds=['float32','float64','int32','int64']; tds=[]
+
        dt=torch.float64 if dtype=='float64' else torch.float32
        if iscomplexobj(a): dt=torch.cdouble if dtype=='float64' else torch.cfloat
        b=torch.tensor(a,dtype=dt)
