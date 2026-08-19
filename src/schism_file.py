@@ -4399,14 +4399,14 @@ class schism_view(zdata):
                   p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
                   data=array(C0.variables[var][irec][tp.ip]*tp.acor).sum(axis=1)
            else:
-               C=self.fid('{}/{}_{}.nc'.format(output,var,istack))
+               C=self.fid('{}/{}_{}.nc'.format(output,var,istack)); dn=C.variables[var].dimensions[-1]
                if itp==0: #slab
                  if layer=='bottom':
                      npt=C.variables[var].shape[1]
                      if npt==gd.np: data=array(C.variables[var][irec][arange(gd.np),self.kbp])
                      if npt==gd.ne: data=array(C.variables[var][irec][arange(gd.ne),self.kbe])
                  else:
-                     ilayer=1 if layer=='surface' else int(layer); data=array(C.variables[var][irec,:,-ilayer])
+                     iz=1 if layer=='surface' else int(layer); data=array(C.variables[var][irec,:,-iz if (dn=='nSCHISM_vgrid_layers') else iz-1])
                elif itp==1: #transect
                  npt=C.variables[var].shape[1]
                  p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
@@ -4463,12 +4463,19 @@ class schism_view(zdata):
             else:
                 w.StartT.set(mls[0]); w.EndT.set(mls[-1]); w._StartT['values']=mls; w._EndT['values']=mls; #w._StartT['width']=6; w._EndT['width']=6
                 if event=='time': w._StartT['width']=20; w._EndT['width']=20
-        elif event=='vm': #reset data limit
+        elif event=='vm_layer': #reset data limit
             if not hasattr(self,'hgrid'): return
             p=self.get_param(); s=self.pdict[p.var]
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
             if s!=0: print('\ndefine var: {}\nevaluation: {}={}'.format(s.equation,s.name,s.exp))
             w._nan.set('none'); self.update_panel('mask')
+            if p.var in ['none','depth',*self.gr3,*self.vars_2d]: #update layers
+               w._layer['value']=0; w._layer.set(0)
+            else:
+               var=p.var if s==0 else s.vars[0]; v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0)
+               C=self.fid('{}/{}_{}.nc'.format(self.outputs,var,self.istack[0])).variables[var]; dn=C.dimensions[-1]; dm=C.shape[-1]
+               layers=['surface','bottom',*arange(1,dm+1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
+               w._layer['value']=layers; w._layer.set(v0 if (v0 in layers) else layers[0])
         elif event=='mask': #set mask 
             w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
         elif event=='old': #reset all panel variables from a previous figure
@@ -4570,7 +4577,7 @@ class schism_view(zdata):
            self.vm=gd.zm; self.fp3=pindex(gd.i34,3)
            self.kbp, self.nvrt=[vd.kbp, vd.nvrt] if vd!=None else [array(cvar['bottom_index_node']), cdim['nSCHISM_vgrid_layers'].size]; self.kbe=gd.compute_kb(self.kbp)
            while not hasattr(self,'wp'): time.sleep(0.01)
-           w=self.wp; w._layer['values']=['surface','bottom',*arange(2,self.nvrt+1)]; print('schismview ready')
+           w=self.wp; w._layer['values']='0'; print('schismview ready')
            w.vmin.set(self.vm[0]); w.vmax.set(self.vm[1]); w.xmin.set(self.xm[0]); w.xmax.set(self.xm[1]); w.ymin.set(self.ym[0]); w.ymax.set(self.ym[1])
            if gd.lon.min()<-180 or gd.lon.max()>180 or gd.lat.min()<-90 or gd.lat.max()>90: w._map['values']=['none',]
            try:
@@ -4799,7 +4806,7 @@ class schism_view(zdata):
         w.var=tk.StringVar(wd); w.var.set('depth')
         ttk.Label(master=fm,text='  variable').grid(row=0,column=0,sticky='W',pady=4)
         svar=ttk.Combobox(fm,textvariable=w.var,values=self.pvars,width=15,); svar.grid(row=0,column=1)
-        svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm')); w.svar=svar
+        svar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm_layer')); w.svar=svar
 
         #figure
         sfm=ttk.Frame(master=fm); sfm.grid(row=0,column=2,sticky='E',padx=5)
@@ -4809,9 +4816,9 @@ class schism_view(zdata):
         w._fn.bind("<<ComboboxSelected>>",lambda x: self.init_plot(1))
 
         #layer
-        w.layer=tk.StringVar(wd); w.layer.set('surface')
+        w.layer=tk.StringVar(wd); w.layer.set(0)
         ttk.Label(master=fm,text='  layer').grid(row=1,column=0,sticky='W',pady=4)
-        w._layer=ttk.Combobox(fm,textvariable=w.layer,values=['surface','bottom',*arange(2,self.nvrt+1)],width=15); w._layer.grid(row=1,column=1)
+        w._layer=ttk.Combobox(fm,textvariable=w.layer,values=0,width=15); w._layer.grid(row=1,column=1)
 
         #grid, bnd, method
         sfm2=ttk.Frame(master=fm); sfm2.grid(row=1,column=2)
