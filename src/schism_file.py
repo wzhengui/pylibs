@@ -4465,17 +4465,20 @@ class schism_view(zdata):
                 if event=='time': w._StartT['width']=20; w._EndT['width']=20
         elif event=='vm_layer': #reset data limit
             if not hasattr(self,'hgrid'): return
+            #update layers
             p=self.get_param(); s=self.pdict[p.var]
+            if p.var in ['none','depth',*self.gr3,*self.vars_2d]:
+               w._layer['value']=0; w._layer.set(0)
+            else:
+               var=p.var if s==0 else s.vars[0]; v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0); nv=len(w._layer['value'])
+               C=self.fid('{}/{}_{}.nc'.format(self.outputs,var,self.istack[0])).variables[var]; dn=C.dimensions[-1]; dm=C.shape[-1]
+               layers=['surface','bottom',*arange(1,dm+1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
+               w._layer['value']=layers; w._layer.set(v0 if ((v0 in layers) and nv==len(layers)) else layers[0])
+            #update vm
+            p=self.get_param()
             if p.var!='none': self.get_data(p); w.vmin.set(self.data.min()); w.vmax.set(self.data.max())
             if s!=0: print('\ndefine var: {}\nevaluation: {}={}'.format(s.equation,s.name,s.exp))
             w._nan.set('none'); self.update_panel('mask')
-            if p.var in ['none','depth',*self.gr3,*self.vars_2d]: #update layers
-               w._layer['value']=0; w._layer.set(0)
-            else:
-               var=p.var if s==0 else s.vars[0]; v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0)
-               C=self.fid('{}/{}_{}.nc'.format(self.outputs,var,self.istack[0])).variables[var]; dn=C.dimensions[-1]; dm=C.shape[-1]
-               layers=['surface','bottom',*arange(1,dm+1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
-               w._layer['value']=layers; w._layer.set(v0 if (v0 in layers) else layers[0])
         elif event=='mask': #set mask 
             w.sfm.grid(row=0,column=2,sticky='W') if w._nan.get()=='mask' else w.sfm.grid_forget()
         elif event=='old': #reset all panel variables from a previous figure
