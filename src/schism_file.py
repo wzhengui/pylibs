@@ -4638,20 +4638,17 @@ class schism_view(zdata):
     def show_attrs(self):
         import tkinter as tk
         from tkinter import ttk,font
-        cw=tk.Toplevel(self.window); cw.geometry("400x1000"); cw.title('attributes')
+        cw=tk.Toplevel(self.window); cw.geometry("400x800"); cw.title('attributes')
         cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
-
-        ats=self.attr()
         T=ttk.Treeview(cw,columns=['name','value'],show='headings')
-        T.heading("name", text="NAME")
-        T.heading("value", text="VALUE")
-        T.column("name", width=10, anchor="center")
-        T.column("value", width=50, anchor="center")
-        style=ttk.Style()
-        #style.configure("Treeview", font=font.Font(family="Arial",size=15))
+        T.heading("name", text="NAME"); T.heading("value", text="VALUE")
+        T.column("name", width=10, anchor="center"); T.column("value", width=50, anchor="center")
+        #style=ttk.Style(); #style.configure("Treeview", font=font.Font(family="Arial",size=15))
         #style.configure("Treeview.Heading", font=font.Font(family="Arial", size=15 ))
 
-        for at in ats: T.insert('',tk.END,values=[at,self.attr(at)])
+        for line in self.INFO:
+            at,av=line.split(':'); at=at.strip(); v=self.attr(at)
+            T.insert('',tk.END,values=[at,av if ((isinstance(v,list) or isinstance(v,np.ndarray)) and len(v)>100) else self.attr(at)])
         scrollbar = ttk.Scrollbar(cw, orient="vertical", command=T.yview)
         T.configure(yscrollcommand=scrollbar.set)
         T.pack(side="left", fill="both", expand=True)
