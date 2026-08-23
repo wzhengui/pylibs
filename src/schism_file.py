@@ -4635,6 +4635,29 @@ class schism_view(zdata):
            p=self.fig if hasattr(self,'fig') else None; mls=self.mls; self.wp.EndT.set(mls[-1])
            if p!=None: p.EndT=mls[-1]; p.it2=self.mls.index(mls[-1])+1
 
+    def show_attrs(self):
+        import tkinter as tk
+        from tkinter import ttk,font
+        cw=tk.Toplevel(self.window); cw.geometry("400x1000"); cw.title('attributes')
+        cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
+
+        ats=self.attr()
+        T=ttk.Treeview(cw,columns=['name','value'],show='headings')
+        T.heading("name", text="NAME")
+        T.heading("value", text="VALUE")
+        T.column("name", width=10, anchor="center")
+        T.column("value", width=50, anchor="center")
+        style=ttk.Style()
+        #style.configure("Treeview", font=font.Font(family="Arial",size=15))
+        #style.configure("Treeview.Heading", font=font.Font(family="Arial", size=15 ))
+
+        for at in ats: T.insert('',tk.END,values=[at,self.attr(at)])
+        scrollbar = ttk.Scrollbar(cw, orient="vertical", command=T.yview)
+        T.configure(yscrollcommand=scrollbar.set)
+        T.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        cw.update()
+
     def cmd_window(self,fmt,scaling):
         import tkinter as tk
         from tkinter import ttk, filedialog,font
@@ -4837,6 +4860,7 @@ class schism_view(zdata):
 
         #time
         w.time=tk.StringVar(wd); w.StartT=tk.StringVar(wd); w.EndT=tk.StringVar(wd); w.mls=self.mls; w.StartT.set(self.mls[0]); w.EndT.set(self.mls[-1])
+        w.time.set('time')
         #ttk.OptionMenu(fm,w.time,'time','time','stack','julian',command=self.update_panel).grid(row=2,column=0,sticky='W',pady=4)
         ttk.Label(master=fm,text='  time').grid(row=2,column=0,sticky='W',pady=4)
         w._StartT=ttk.Combobox(master=fm,textvariable=w.StartT,values=self.mls,width=20); w._StartT.grid(row=2,column=1,padx=0,sticky='W')
@@ -4897,6 +4921,7 @@ class schism_view(zdata):
         menu.add_command(label="schism_view", command=lambda: self.schism_instance('schism_view',scaling))
         menu.add_checkbutton(label="schism_compare",onvalue=1,offvalue=0,variable=w.cmp,command=lambda: self.schism_instance('compare',scaling))
         menu.add_command(label="schism_transect", command=self.update_transect)
+        menu.add_command(label="attrs", command=self.show_attrs)
         mbar['menu']=menu; mbar['direction']='below'
 
         sfm=ttk.Frame(master=fm); sfm.pack(side=tk.LEFT); w.ns=tk.IntVar(wd); w.ns.set(1)
