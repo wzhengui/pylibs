@@ -3551,13 +3551,13 @@ def torch_device():
         import torch
     return torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
-def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
+def n2t(a,fmt=0,device=None,dtype=None,copy=True):
     '''
       convert a numpy array to torch tensor
       fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
       device: automatically detect available accelerator (cuda) if not provided
-      dtype: 'float32' or 'float64' (float32 is the default
-      copy=True: use torch.tensor; copy=False: use torch.from
+      dtype: assign dtype ('float32' is the default for float number)
+      copy=True: use torch.tensor; copy=False: use torch.from (dtype follows a.dtype)
     '''
     import sys
     if 'torch' in sys.modules:
@@ -3565,16 +3565,12 @@ def n2t(a,fmt=0,device=None,dtype='float32',copy=True):
     else:
         import torch
     if copy is True:
-       nds=['float32','float64','int32','int64']; tds=[]
-
-       dt=torch.float64 if dtype=='float64' else torch.float32
+       at=str(a.dtype); dt=getattr(torch,dtype if dtype!=None else 'float32' if issubdtype(at,floating) else at)
        if iscomplexobj(a): dt=torch.cdouble if dtype=='float64' else torch.cfloat
        b=torch.tensor(a,dtype=dt)
-       return b.to(torch_device() if (device is None) else device) if fmt==0 else b
     else:
-       if str(a.dtype)!=dtype: a=a.astype(dtype)
        b=torch.from_numpy(a)
-       return b.to(torch_device() if (device is None) else device) if fmt==0 else b
+    return b.to(torch_device() if device==None else device) if fmt==0 else b
 
 def t2n(a):
     '''
