@@ -567,6 +567,10 @@ class schism_grid(zdata):
         a1=((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1))/2; a2=((x3-x1)*(y4-y1)-(x4-x1)*(y3-y1))/2;  self.area=a1+a2
         return self.area if fmt==0 else [self.area, a1, a2]
 
+    def grad(self,value,fmt=0):
+        '''see doc. in self.compute_gradient'''
+        return self.compute_gradient(fmt=fmt,value=value)
+
     def compute_gradient(self,fmt=0,value=None,outfmt=0,cpp=None,lon0=None,lat0=None):
         '''
         Compute gradient on each element first, then convert to node value
