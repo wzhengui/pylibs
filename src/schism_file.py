@@ -4638,21 +4638,22 @@ class schism_view(zdata):
     def show_attrs(self):
         import tkinter as tk
         from tkinter import ttk,font
-        cw=tk.Toplevel(self.window); cw.geometry("400x800"); cw.title('attributes')
-        cw.rowconfigure(0,minsize=150, weight=1); cw.columnconfigure(0,minsize=2, weight=1)
-        T=ttk.Treeview(cw,columns=['name','value'],show='headings')
-        T.heading("name", text="NAME"); T.heading("value", text="VALUE")
-        T.column("name", width=10, anchor="center"); T.column("value", width=50, anchor="center")
-        #style=ttk.Style(); #style.configure("Treeview", font=font.Font(family="Arial",size=15))
-        #style.configure("Treeview.Heading", font=font.Font(family="Arial", size=15 ))
-
-        for line in self.INFO:
-            at,av=line.split(':'); at=at.strip(); v=self.attr(at)
-            T.insert('',tk.END,values=[at,av if ((isinstance(v,list) or isinstance(v,np.ndarray)) and len(v)>100) else self.attr(at)])
-        scrollbar = ttk.Scrollbar(cw, orient="vertical", command=T.yview)
-        T.configure(yscrollcommand=scrollbar.set)
-        T.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        cw=tk.Toplevel(self.window); cw.geometry("400x1000"); cw.title('attributes')
+        paned = ttk.PanedWindow(cw,orient=tk.VERTICAL); paned.pack(fill=tk.BOTH, expand=True)
+        for n in arange(2):
+            sfm=ttk.Frame(paned); sfm.rowconfigure(0, weight=1); sfm.columnconfigure(0, weight=1)
+            if n==0: m=self; tn='self'
+            if n==1: m=self.fig if hasattr(self,'fig') else 0; tn='self.fig'
+            if m==0: continue
+            T=ttk.Treeview(master=sfm,columns=['name','value'],show='headings',height=450); T.grid(row=n,column=0,pady=0,padx=0,sticky='ew')
+            T.heading('name', text=tn); T.heading("value", text="VALUE")
+            T.column('name', width=10, anchor='w'); T.column("value", width=100, anchor='w')
+            for line in m.INFO:
+                i=line.find(':'); at=line[:i].strip(); av=line[(i+1):].strip(); at=at.strip(); v=m.attr(at)
+                T.insert('',tk.END,values=[at,av if ((isinstance(v,list) or isinstance(v,np.ndarray)) and len(v)>100) else v])
+            sbar=ttk.Scrollbar(sfm, orient="vertical", command=T.yview); T.configure(yscrollcommand=sbar.set)
+            sbar.grid(row=n,column=1,pady=0,padx=0,sticky='nsew')
+            paned.add(sfm,weight=1)
         cw.update()
 
     def cmd_window(self,fmt,scaling):
