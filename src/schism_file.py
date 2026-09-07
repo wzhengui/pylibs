@@ -4410,7 +4410,8 @@ class schism_view(zdata):
                      if npt==gd.np: data=array(C.variables[var][irec][arange(gd.np),self.kbp])
                      if npt==gd.ne: data=array(C.variables[var][irec][arange(gd.ne),self.kbe])
                  else:
-                     iz=1 if layer=='surface' else int(layer); data=array(C.variables[var][irec,:,-iz if (dn=='nSCHISM_vgrid_layers') else iz-1])
+                     #iz=1 if layer=='surface' else int(layer); data=array(C.variables[var][irec,:,-iz if (dn=='nSCHISM_vgrid_layers') else iz-1])
+                     iz=-1 if layer=='surface' else (int(layer)-1); data=array(C.variables[var][irec,:,iz])
                elif itp==1: #transect
                  npt=C.variables[var].shape[1]
                  p.td.eta=array(C0.variables['elevation'][irec][tp.ip]*tp.acor).sum(axis=1)
@@ -4452,7 +4453,9 @@ class schism_view(zdata):
                 kb=(self.kbp if npt==gd.np else self.kbe if npt==gd.ne else self.kbs)[sind]
                 u=array(C[0].variables[svar+'X'][irec][sind,kb]); v=array(C[1].variables[svar+'Y'][irec][sind,kb])
             else:
-                layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer][sind]),array(C[1].variables[svar+'Y'][irec,:,-layer][sind])
+                #layer=1 if layer=='surface' else int(layer); u,v=array(C[0].variables[svar+'X'][irec,:,-layer][sind]),array(C[1].variables[svar+'Y'][irec,:,-layer][sind])
+                iz=-1 if layer=='surface' else (int(layer)-1); u,v=array(C[0].variables[svar+'X'][irec,:,iz][sind]),array(C[1].variables[svar+'Y'][irec,:,iz][sind])
+        u[abs(u)>1e20]=nan; v[abs(v)>1e20]=nan
         return [u,v]
 
     def update_panel(self,event,p=None):  #update control panel
@@ -4476,7 +4479,7 @@ class schism_view(zdata):
             else:
                var=p.var if s==0 else s.vars[0]; v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0); nv=len(w._layer['value'])
                C=self.fid('{}/{}_{}.nc'.format(self.outputs,var,self.istack[0])).variables[var]; dn=C.dimensions[-1]; dm=C.shape[-1]
-               layers=['surface','bottom',*arange(1,dm+1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
+               layers=['surface','bottom',*arange(dm,0,-1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
                w._layer['value']=layers; w._layer.set(v0 if ((v0 in layers) and nv==len(layers)) else layers[0])
             #update vm
             p=self.get_param()
