@@ -5088,7 +5088,9 @@ class schism_check(zdata):
              p.vmin=tk.DoubleVar(wd); p.vmax=tk.DoubleVar(wd); p.scale=tk.DoubleVar(wd); p.vmin.set(0); p.vmax.set(0); p.scale.set(1)
              p.transpose=tk.IntVar(wd); p.grid=tk.IntVar(wd); p.bnd=tk.IntVar(wd); p.transpose.set(0); p.grid.set(0); p.bnd.set(0)
              p._nan=tk.StringVar(wd); p.nan=tk.DoubleVar(wd); p._nan.set('none'); p.nan.set(0)
-             if self.fmt==3: p.sctr=tk.IntVar(wd); p.srat=tk.DoubleVar(wd); p.ctr=tk.IntVar(wd); p.id=tk.IntVar(wd); p.sctr.set(0); p.srat.set(1); p.ctr.set(0); p.id.set(0)
+             if self.fmt==3:
+                p.sctr=tk.IntVar(wd); p.style=tk.StringVar(wd); p.srat=tk.DoubleVar(wd); p.id=tk.IntVar(wd);
+                p.sctr.set(0); p.style.set('point'); p.srat.set(1); p.id.set(0)
           if option==0: self.var.set(p.var); self.vars['values']=p.vars
 
           #update panel
@@ -5153,11 +5155,11 @@ class schism_check(zdata):
           if self.fmt==3:
              sfm=ttk.Frame(master=fm); sfm.grid(row=2,column=0,sticky='W',pady=5)
              tk.Checkbutton(master=sfm,text='scatter',variable=p.sctr,onvalue=1,offvalue=0).grid(row=0,column=0,sticky='W')
-             ttk.Label(master=sfm,text='  zoom').grid(row=0,column=1,sticky='W')
-             ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=2,sticky='W',padx=2)
-             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=3)
-             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=4,sticky='W')
-             tk.Checkbutton(master=sfm,text='color',variable=p.ctr,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
+             ttk.Combobox(sfm,textvariable=p.style,values=['point','color','both'],width=6).grid(row=0,column=1,sticky='W',padx=2)
+             ttk.Label(master=sfm,text='  zoom').grid(row=0,column=2,sticky='W')
+             ttk.Entry(sfm,textvariable=p.srat,width=10).grid(row=0,column=3,sticky='W',padx=2)
+             tk.Checkbutton(master=sfm,text='grid',variable=p.grid,onvalue=1,offvalue=0).grid(row=0,column=4)
+             tk.Checkbutton(master=sfm,text='bnd',variable=p.bnd,onvalue=1,offvalue=0).grid(row=0,column=5,sticky='W')
              tk.Checkbutton(master=sfm,text='id',variable=p.id,onvalue=1,offvalue=0).grid(row=0,column=6,sticky='W')
              wd.geometry('400x185')
 
@@ -5311,13 +5313,12 @@ class schism_check(zdata):
             if data.size==0: print('no valid points found!'); close(hf); return
 
             #plot and label
-            if p.ctr.get()==0:
+            if p.style.get()=='point':
                hg=scatter(xi,yi,s=data*srat,c='r')
+            elif p.style.get()=='color':
+               hg=scatter(xi,yi,s=srat*10,c=data,cmap='jet')
             else:
-               if isource==1 and srat<0 and p.ctr.get()==1:  
-                  hg=scatter(xi,yi,s=-data2*srat,c=data,cmap='jet'); data=data2
-               else:
-                  hg=scatter(xi,yi,s=srat*10,c=data,cmap='jet')
+               hg=scatter(xi,yi,s=data2*srat,c=data,cmap='jet')#; data=data2
             p.hp=gca(); slimit(gd.x,gd.y,data); pfmt=2
             if p.grid.get()==1: gd.plot()
             if p.bnd.get()==1:  gd.plot_bnd(c='k',lw=0.3)
@@ -5326,8 +5327,8 @@ class schism_check(zdata):
                for xii,yii,eidi in zip(xi,yi,eid): text(xii,yii,'{}'.format(eidi),fontsize=7)
 
             #legend
-            if p.ctr.get()==0 or (isource==1 and srat<0 and p.ctr.get()==1):
-               v1,v2=data.min(),data.max();  m1,m2=int(log10(v1)),int(log10(v2))
+            if p.style.get() in ['point','both']:
+               v1,v2=[data.min(),data.max()] if  p.style.get()=='point' else [data2.min(),data2.max()];  m1,m2=int(log10(v1)),int(log10(v2))
                m1=max([0,m1]) if m2>=0 else m2; ms=[i for i in arange(m1,m2+1) if (10.0**i>=v1) and (10.0**i<=v2)]
                if len(ms)==0:
                   hl=legend(*hg.legend_elements("sizes", num=[(v1+v2)/2])) #legend
@@ -5335,7 +5336,7 @@ class schism_check(zdata):
                   hl=legend(*hg.legend_elements("sizes", num=[abs(srat)*10.0**i for i in ms])) #legend
                   for i,m in enumerate(ms): hl.texts[i].set_text('$10^{'+str(m)+'}$')  #set legend value
             #colorbar
-            if p.ctr.get()==1 or (isource==1 and srat<0 and p.ctr.get()==1):
+            if p.style.get() in ['color','both']:
                cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
                hc=colorbar(fraction=0.05,aspect=50,spacing='proportional',pad=0.02); hc.set_ticks(linspace(*vm,11)); hc.ax.set_ylim(vm)
        elif self.fmt in [1,2,3,4]: # bnd, nudge, hotstart, source.nc
@@ -5446,7 +5447,7 @@ class schism_check(zdata):
              fid=fids[fname]; exec('p.data=array(concatenate((fid["su2"][{}][...,None],fid["sv2"][{}][...,None]),axis=-1))'.format(dind,dind))
           else:
              exec('p.data=array(cvar[{}])'.format(dind))
-             if isource==1: exec('p.data2=array(p.fvar[{}])'.format(dind2))
+             if isource==1: exec('p.data2=array(p.fvar[{}])'.format(dind2)) #plot msource
           if (p.vmin.get()==0 and p.vmax.get()==0) or (hasattr(p,'itr') and p.itr!=p.dvars[-1].get()) or isnan(p.vmin.get()+p.vmax.get()):
               p.vmin.set(p.data.min()); p.vmax.set(p.data.max())
           if self.fmt==1: p.itr=p.dvars[-1].get()
@@ -5462,6 +5463,7 @@ class schism_check(zdata):
 
           #perform operation, and get axis
           p.ax=[]; isht=0
+          if isource==1 and dns[0]=='mean': p.data=p.data*p.data2
           for n, dn in enumerate(dns):
               if dn=='all': p.ax.append(n)
               if dn in ['mean','min','max','sum']: exec('p.data=p.data.{}(axis={})'.format(dn,n-isht))
@@ -5471,6 +5473,7 @@ class schism_check(zdata):
              for n, dn in enumerate(dns2):
                  if dn in ['mean','min','max','sum']: exec('p.data2=p.data2.{}(axis={})'.format(dn,n-isht))
                  if dn!='all': isht=isht+1
+          if isource==1 and dns[0]=='mean': p.data=p.data/p.data2  #compute mean conc.
           #if p.data.ndim==2 and p.transpose.get()==1: p.ax=p.ax[::-1]; p.data=p.data.T
           if 'sum' in dns: p.info='  dim={}, [{}, {}]'.format(p.dims,'{:15f}'.format(p.data.min()).strip(),'{:15f}'.format(p.data.max()).strip())
           if not hasattr(p,'ax0'):
