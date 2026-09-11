@@ -127,6 +127,12 @@ def sort_all(t,*args):
     sind=argsort(t); t=array(t)[sind]; args=[array(i)[sind] for i in args]
     return [t,*args]
 
+def gif_to_avi(sname,fname,fps=10):
+    '''convert *.gif  to *.avi'''
+    import imageio.v3 as iio
+    fns = iio.imread(sname)
+    iio.imwrite(fname, fns, fps=fps, extension='.avi')
+
 def nargout():
    import traceback
    return len(traceback.extract_stack()[-3].line.split('=')[0].split(','))
