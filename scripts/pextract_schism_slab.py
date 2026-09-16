@@ -26,7 +26,7 @@ sname='RUN08a/slab'  #name for saving the resutls
 walltime='00:10:00'; nnode=1;  ppn=4
 
 #optional: (frontera,levante,stampede2,etc.)
-ibatch     =1              #0: serial mode;  1: parallel mode
+ibatch     =1              #0: serial mode;  1: parallel mode;   2: interactive parallel
 qnode      =None           #specify node name, or default qnode based on HOST will be used
 qname      =None           #partition name
 account    =None           #account name
@@ -36,7 +36,7 @@ reservation=None           #reservation information
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
 brun=os.path.basename(run); jname='Rd_'+brun; scrout='screen_{}.out'.format(brun); bdir=os.path.abspath(os.path.curdir)
-if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
+if ibatch in [0,2]: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('job_on_node')==None:
    if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]; os.environ['qnode']=get_qnode(qnode)
    if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
@@ -49,7 +49,7 @@ if os.getenv('job_on_node')==None:
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 odir=os.path.dirname(os.path.abspath(sname))
 if ibatch==0: nproc=1; myrank=0
-if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch in [1,2]: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 

@@ -33,7 +33,7 @@ positions=(0,0,0,0,0,0,0,0,0)  #0: cell center;  1: cell corner for DEM file (Pr
 #rvalues=(5,7,5,15,2,16,14,5,6,10,10,3,3,5,5,3,5) #minimum depth in regions (note: region will be skipped if not exist)
 
 #resource requst 
-ibatch=0     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional)
+ibatch=0     #0: serial mode;   1: parallel mode (for serial node, walltime/nnode/ppn are optional); 2: interactive parallel
 walltime='00:10:00'; nnode=1;  ppn=4
 #hpc: femto, hurricane, bora, vortex, potomac, james, frontera, levante, stampede2
 #ppn:   32,       8,     8,    12,       12,     20,     56,      128,      48
@@ -47,7 +47,7 @@ jname='load_dem'; scrout='screen.out'; bdir=os.path.abspath(os.path.curdir)
 #-----------------------------------------------------------------------------
 #on front node: 1). submit jobs first (qsub), 2) running parallel jobs (mpirun) 
 #-----------------------------------------------------------------------------
-if ibatch==0: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
+if ibatch in [0,2]: os.environ['job_on_node']='1'; os.environ['bdir']=bdir #run locally
 if os.getenv('job_on_node')==None:
    if os.getenv('param')==None: fmt=0; bcode=sys.argv[0]; os.environ['qnode']=get_qnode(qnode)
    if os.getenv('param')!=None: fmt=1; bdir,bcode=os.getenv('param').split(); os.chdir(bdir)
@@ -59,7 +59,7 @@ if os.getenv('job_on_node')==None:
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 if ibatch==0: nproc=1; myrank=0
-if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch in [1,2]: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 if 'regions' not in locals(): regions=None; rvalues=None
