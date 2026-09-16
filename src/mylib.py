@@ -1508,7 +1508,8 @@ class zdata:
         if isinstance(ivars,str): 
            self.attr(ivars,ivals)
         elif ivars is not None:
-           for i,ivar in enumerate(ivars): self.attr(ivar,ivals[i] if (hasattr(ivals,'__len__') and len(ivals)==len(ivars)) else ivals)
+            for i,ivar in enumerate(ivars):
+                self.attr(ivar,ivals[i] if (hasattr(ivals,'__len__') and len(ivals)==len(ivars)) else ivals.copy() if hasattr(ivals,'copy') else ivals)
 
     @property
     def INFO(self):
