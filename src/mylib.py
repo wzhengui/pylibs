@@ -1503,8 +1503,12 @@ class zdata:
     '''
     self-defined data structure by Zhengui Wang.  Attributes are used to store data
     '''
-    def __init__(self):
-        pass
+    def __init__(self,ivars=None,ivals=[]):
+        '''ivars: variables (string or list) to be initilized (string,list) with values from ivals (value or values)'''
+        if isinstance(ivars,str): 
+           self.attr(ivars,ivals)
+        elif ivars is not None:
+           for i,ivar in enumerate(ivars): self.attr(ivar,ivals[i] if (hasattr(ivals,'__len__') and len(ivals)==len(ivars)) else ivals)
 
     @property
     def INFO(self):
