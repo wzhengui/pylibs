@@ -45,6 +45,8 @@ if os.getenv('schism')!=None:
        if len(fns)==0: return
        hid=max([*[int(i.split('.')[2]) for i in glob('hotstart.nc.*')],0])
        if fexist('hotstart.nc'): os.rename('hotstart.nc','hotstart.nc.{}'.format(hid+1))
+       if fexist('screen.out'): os.rename('screen.out','screen.out_{}'.format(hid+1))
+       if fexist('outputs/fatal.error'): os.rename('outputs/fatal.error','fatal.error_{}'.format(hid+1))
        os.symlink('outputs/'+fns[-1],'hotstart.nc'); chparam('param.nml','ihot','2')
 
    if len(runs)==0: #single jobs 
