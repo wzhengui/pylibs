@@ -69,8 +69,9 @@ if os.getenv('schism')!=None:
                  sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid); t1=time.time(); n1=0
 
          #re-submit batch job
+         nday_hot=1.0 #threshold for restart
          nday1,nday0,nday=checkrun()[1:4]; os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
-         if nday==0 or nday1<nday: cmb_run(); os.environ.pop('schism'); sbp.run('./run.schism')
+         if nday==0 or (nday-nday1)>nday_hot: cmb_run(); os.environ.pop('schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
       for m,run in enumerate(runs): 
           print(scode); os.chdir(bdir+'/'+run); os.system(scode)

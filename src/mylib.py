@@ -112,9 +112,10 @@ def add_var(svar,value,sdict,fmt=0):
        for i, k in zip(svar,value): add_var(i,k,sdict,fmt)
 
 def copyfile(*args):
-    ''' shutil.copyfile; e.g. copyfile(fn,tn)'''
+    ''' shutil.copy; e.g. copyfile(fn,tn)'''
     import shutil
-    shutil.copyfile(*args)
+    #shutil.copyfile(*args)
+    shutil.copy(*args)
 def copydir(*args):
     ''' shutil.copytree; e.g. copydir(fn,tn)'''
     import shutil

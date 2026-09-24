@@ -4067,7 +4067,8 @@ def convert_schism_source(run='.',fname='source.nc'):
 
 def checkrun(run='.'):
     '''
-    return runtime information for schism runs
+    return runtime information for schism runs [s,nday1,nday0,nday,RTR]=checkrun()
+       s: summary info;  nday1: days finished; nday0: the starting day;  nday:  total days (from param.nml) 
     '''
     import datetime
     def gettime(line): #extract time from line string
