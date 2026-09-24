@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #check runtime for each run
 from pylib import *
+mpl.use('Agg')
 
 #input
 runs=['.'] #runs=['RUN01d','RUN02p','RUN02q']
