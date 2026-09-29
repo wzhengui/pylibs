@@ -1315,6 +1315,18 @@ class schism_grid(zdata):
         self.cfl[self.fp4]=self.cfl[self.fp4]*sqrt(2)
         return self.cfl
 
+    def compute_index(self,vd):
+        '''
+        compute indices for 3D schism outputs (np,nvrt) for compression purpose: i3d,iks=gd.compute_index(vd)
+        vd is object of vertical grid. i3d is 1d array index for all values. iks is the reconstruction index.
+        '''
+        kbp,nvrt=vd.kbp,vd.nvrt; iks=zeros([self.np,nvrt],'int')
+        for k in arange(nvrt-1): iks[k<kbp,k]=-1
+        i3d=pindex(iks.ravel()==0); iks.ravel()[i3d]=arange(i3d.size)
+        for k in arange(nvrt-1)[::-1]: fpn=iks[:,k]==-1; iks[fpn,k]=iks[fpn,k+1]
+        if array_equal(i3d,i3d.astype('int32')): i3d=i3d.astype('int32'); iks=iks.astype('int32')
+        return i3d, iks.T
+
     def compute_curl(self,u,v):
         '''
         compute curl of vector filed (u, v):  curl=dv/dx-du/dy
