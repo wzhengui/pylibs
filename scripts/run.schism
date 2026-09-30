@@ -54,22 +54,22 @@ if os.getenv('schism')!=None:
          print(scode); sys.stdout.flush(); os.system(scode)
       else:
          #current run
+         nday_hot=1.0 #threshold for restart
          print(scode); sys.stdout.flush(); sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid)
          t0=time.time(); t1=time.time(); n1=0; wt=int(walltime[:2])*3600+int(walltime[3:5])*60+int(walltime[-2:]); dt=600
          while((time.time()-t0)<(wt-dt)):
               time.sleep(60); t2=time.time() #wait
               if (t2-t1)>600: #check whether run hangs
                  n2,n0,nday=checkrun()[1:4] #number of days finished
-                 if n2==nday: break
-                 if n2!=n1: n1=n2; t1=t2; continue
-                 if n2==0 and n1==0 and (t2-t1)<1200: continue #allow 20min initializaiton
+                 if (nday-n2)<nday_hot: break #run finished
+                 if n2!=n1: n1=n2; t1=t2; continue #still running, reset counter
+                 if n2==0 and n1==0 and (t2-t1)<1200: continue #still initilize, allow 20min initializaiton
 
                  #re-submit job on nodes
                  cmb_run(); os.killpg(os.getpgid(sjob.pid),signal.SIGTERM); time.sleep(60)  #kill current run
                  sjob=sbp.Popen(scode,stdout=sbp.PIPE,shell=True,preexec_fn=os.setsid); t1=time.time(); n1=0
 
          #re-submit batch job
-         nday_hot=1.0 #threshold for restart
          nday1,nday0,nday=checkrun()[1:4]; os.killpg(os.getpgid(sjob.pid),signal.SIGTERM)  #kill current run
          if nday==0 or (nday-nday1)>nday_hot: cmb_run(); os.environ.pop('schism'); sbp.run('./run.schism')
    else: #multiple jobs: put script outside of run dir
