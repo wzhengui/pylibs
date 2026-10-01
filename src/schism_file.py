@@ -152,7 +152,7 @@ class schism_grid(zdata):
     #alias for grid properties
     #------------------------------------------------------------------------------------------------
 
-    def plot(self,fmt=0,value=None,ec=None,fc=None,lw=0.1,levels=None,shading='gouraud',xy=0,ticks=11,xlim=None,
+    def plot(self,fmt=0,value=None,ec=None,fc=None,bc=None,lw=0.3,levels=None,shading='gouraud',xy=0,ticks=11,xlim=None,
              ylim=None,clim=None,extend='both',method=0,cb=True,cb_aspect=30,cb_pad=0.02,ax=None,mask=None,bnd=0,
              cmap='jet',wrap=None,dx_wrap=270,actions=True,**args):
         '''
@@ -160,7 +160,8 @@ class schism_grid(zdata):
         fmt=0: plot grid only; fmt=1: plot filled contours; fmt=3: plot bnd
         fmt=2: plot contour lines at levels; colors and linewidths can be provided for each contour
         value: color value size(np,or ne)
-        ec: color of grid line;  fc: element color; lw: grid line width
+        ec: color of grid line;  fc: element color; bc: boundary color (bc='r', or ['r','g'])
+        lw: line width for grid and bondary (lw=0.3, or lw=[0.3,1]
         levels=100: number of colors for depths; levels=array([v1,v2,...]): depths for plot
         ticks=[v1,v2,...]: colorbar ticks; ticks=10: number of ticks
         clim=[vmin,vmax]: value range for plot/colorbar
@@ -177,15 +178,16 @@ class schism_grid(zdata):
         if (wrap is None): wrap=self.wrap
         if wrap==1: self.check_wrap_elem(dx_wrap=dx_wrap) #check whether to deal wrap-around elem.
         if hasattr(self,'pid') and (value is not None) and value.ndim==2: value=value[self.pid] #for schism transect
-        if ec is None: ec='None'
         if fc is None: fc='None'
+        if isnumber(lw): lw=[lw,lw]
         if levels is None: levels=51
         if ax is None: ax=gca()
         if (mask is None) and ('nodata' in args): mask=args['nodata'] #for back compatiblity 
         x,y=(self.xy if xy==0 else self.lxy if xy==1 else xy).T; fp3,fp4=self.fp3,self.fp4; vm=clim
-        sca(ax)
+        sca(ax); hg0=None; hg1=[]; hg2=[]
 
-        if fmt in [1,2]: #plot contours
+        #plot contourf or contour lines
+        if fmt in [1,2]:
            trs=r_[self.elnode[:,:3],self.elnode[fp4][:,[0,2,3]]]
            if value is None: value=self.dp
            if issubdtype(value.dtype,integer): value=value*1.0
@@ -210,34 +212,38 @@ class schism_grid(zdata):
               fp=x[ip]-x.min()>dx_wrap; trs.ravel()[idg[fp]]=arange(x.size,x.size+sum(fp)); x=r_[x,x[ip[fp]]-360]; y=r_[y,y[ip[fp]]]
               self.sindg=ip[fp]; value=r_[value,value[ip[fp]]] if npt==self.np else value
            if fmt==1 and method==1:  #tripcolor
-              if npt==self.np: hg=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,cmap=cmap,**args)
-              if npt==self.ne: hg=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
-              if npt==self.ne+sum(fp4) and sum(fp4)!=0: hg=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
+              if npt==self.np: hg0=tripcolor(x,y,trs,value,vmin=vm[0],vmax=vm[1],shading=shading,cmap=cmap,**args)
+              if npt==self.ne: hg0=tripcolor(x,y,trs,facecolors=r_[value,value[fp4]],vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
+              if npt==self.ne+sum(fp4) and sum(fp4)!=0: hg0=tripcolor(x,y,trs,facecolors=value,vmin=vm[0],vmax=vm[1],cmap=cmap,**args)
            else:  #contourf or contour
               if npt==self.ne: value=self.interp_elem_to_node(value=value) #elem value to node value
               if sum(isnan(value))!=0: trs=trs[~isnan(value[trs].sum(axis=1))] #set mask
               if not hasattr(levels,'__len__'): levels=linspace(*vm,int(levels)) #detemine levels
-              if fmt==1: hg=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
-              if fmt==2: hg=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
+              if fmt==1: hg0=tricontourf(x,y,trs,value,levels=levels,vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
+              if fmt==2: hg0=tricontour(x,y,trs,value,levels=levels, vmin=vm[0],vmax=vm[1],extend=extend,cmap=cmap,**args)
            if mask is not None: value0[fpnd]=value_nd
            self.data=value0
 
            #add colobar
-           cm.ScalarMappable.set_clim(hg,vmin=vm[0],vmax=vm[1])
+           cm.ScalarMappable.set_clim(hg0,vmin=vm[0],vmax=vm[1])
            if cb==True:
-              hc=colorbar(hg,aspect=cb_aspect,pad=cb_pad); self.hc=hc
+              hc=colorbar(hg0,aspect=cb_aspect,pad=cb_pad); self.hc=hc
               if not hasattr(ticks,'__len__'):
                  hc.set_ticks(linspace(*vm,int(ticks)))
               else:
                  hc.set_ticks(ticks)
 
-        if (fmt==0)|(ec!='None'): #plot grid
-           if ec=='None': ec=['k','k']
-           if isinstance(ec,str): ec=[ec,ec]
-           #if not hasattr(lw,'__len__'): lw=[lw,lw*0.75]
-           hg0=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T,lw=lw,color=ec[0],**args)
-        if fmt==3 or bnd!=0: hb=self.plot_bnd(lw=lw,xy=xy)
-        hg=hg0 if fmt==0 else hb if fmt==3 else hg if ec=='None' else [*hg0,hg]; self.hg=hg
+        #plot grid line
+        if fmt==0 or ec!=None: #plot grid
+           if ec==None: ec='k'
+           hg1=plot(*self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T,lw=lw[0],color=ec,**args)
+
+        #plot boundary line
+        if fmt==3 or bnd!=0 or bc!=None:
+           bc=['k','k'] if bc==None else [bc,bc] if isinstance(bc,str) else bc
+           hg2=self.plot_bnd(lw=lw[1],c=bc,xy=xy)
+
+        hg=[*hg1,*hg2] if hg0==None else [*hg1,*hg2,hg0]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
         if ylim is not None: setp(ax,ylim=ylim)
         self.add_actions()
@@ -340,7 +346,7 @@ class schism_grid(zdata):
         if len(c)==1:
            hb=plot(*r_[xy1,xy2].T,c,lw=lw,**args); self.hb=hb
         else:
-          hb1=plot(*xy1.T,c[0],lw=lw,**args); hb2=plot(*xy2.T,c[-1],lw=lw,**args); self.hb=[hb1,hb2]
+          hb1=plot(*xy1.T,c[0],lw=lw,**args); hb2=plot(*xy2.T,c[-1],lw=lw,**args); self.hb=[*hb1,*hb2]
         self.add_actions()
         return self.hb
 
@@ -375,7 +381,7 @@ class schism_grid(zdata):
 
         #plot grid line
         if fmt==0 or ec!=None:
-           if fmt==0 and ec==None: ec='k'
+           if ec==None: ec='k'
            hp=hv.Curve([self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T]).opts(color=ec,line_width=lw[0]); hpt=hpt*hp
 
         #plot boundary 
