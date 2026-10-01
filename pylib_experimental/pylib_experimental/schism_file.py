@@ -1084,11 +1084,11 @@ class SourceSink:  # pylint: disable=invalid-name
             vsource = None
             msource = None
         elif A.nsource == 0:  # only B has source
-            vsource = B.vsource
-            msource = B.msource
+            vsource = copy.deepcopy(B.vsource)
+            msource = copy.deepcopy(B.msource)
         elif B.nsource == 0:  # only A has source
-            vsource = A.vsource
-            msource = A.msource
+            vsource = copy.deepcopy(A.vsource)
+            msource = copy.deepcopy(A.msource)
         else:  # both have source
             vsource = A.vsource + B.vsource  # using TimeHistory.__add__
             msource = [None] * A.ntracers
@@ -1099,9 +1099,9 @@ class SourceSink:  # pylint: disable=invalid-name
         if A.nsink == 0 and B.nsink == 0:  # neither has sink
             vsink = None
         elif A.nsink == 0:  # only B has sink
-            vsink = B.vsink
+            vsink = copy.deepcopy(B.vsink)
         elif B.nsink == 0:  # only A has sink
-            vsink = A.vsink
+            vsink = copy.deepcopy(A.vsink)
         else:  # both have sink
             vsink = A.vsink + B.vsink  # using TimeHistory.__add__
 
@@ -1163,22 +1163,71 @@ class TestAddSourceSink(unittest.TestCase):
     '''unit test for add_source_sink'''
 
     def test_add_source_sink(self):
-        '''test add_source_sink by comparing the output with the prepared sample files'''
-        print('\n\n*************** test_add_source_sink ****************')
-        # read from prepared sample files
-        a = source_sink.from_files(
-            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
-            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample1')
-        b = source_sink.from_files(
-            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
-            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample2')
-        ab = source_sink.from_files(
-            '/sciclone/data10/feiye/SCHISM_REPOSITORY/schism/src/Utility/Pre-Processing/'
-            'STOFS-3D-Atl-shadow-VIMS/Pre_processing/Source_sink/Test_data/source_sink_sample12')
+        '''Test numerical addition and independence using generated inputs.'''
+        source_sink_a = source_sink.dummy(
+            timestamps=[0.0, 3600.0],
+            source_eles=[1, 2],
+            sink_eles=[10],
+        )
+        source_sink_b = source_sink.dummy(
+            timestamps=[0.0, 3600.0],
+            source_eles=[2, 3],
+            sink_eles=[10, 11],
+        )
+        source_sink_a.vsource.df[:] = [[1.0, 2.0], [3.0, 4.0]]
+        source_sink_b.vsource.df[:] = [[10.0, 20.0], [30.0, 40.0]]
+        source_sink_a.vsink.df[:] = [[-1.0], [-2.0]]
+        source_sink_b.vsink.df[:] = [[-3.0, -4.0], [-5.0, -6.0]]
+        source_sink_a.msource[0].df[:] = [[10.0, 20.0], [30.0, 40.0]]
+        source_sink_b.msource[0].df[:] = [[100.0, 200.0], [300.0, 400.0]]
 
-        a_add_b = a + b
+        combined = source_sink_a + source_sink_b
 
-        self.assertEqual(a_add_b, ab)
+        self.assertEqual(combined.source_eles.tolist(), [1, 2, 3])
+        self.assertEqual(combined.sink_eles.tolist(), [10, 11])
+        np.testing.assert_allclose(
+            combined.vsource.df.values,
+            [[1.0, 12.0, 20.0], [3.0, 34.0, 40.0]],
+        )
+        np.testing.assert_allclose(
+            combined.vsink.df.values,
+            [[-4.0, -4.0], [-7.0, -6.0]],
+        )
+        np.testing.assert_allclose(
+            combined.msource[0].df.values,
+            [
+                [10.0, (2.0 * 20.0 + 10.0 * 100.0) / 12.0, 200.0],
+                [30.0, (4.0 * 40.0 + 30.0 * 300.0) / 34.0, 400.0],
+            ],
+        )
+
+        source_only = source_sink.dummy(
+            timestamps=[0.0, 3600.0],
+            source_eles=[1],
+            sink_eles=[],
+        )
+        sink_only = source_sink.dummy(
+            timestamps=[0.0, 3600.0],
+            source_eles=[],
+            sink_eles=[2],
+        )
+
+        for combined in (
+            source_only + sink_only,
+            sink_only + source_only,
+        ):
+            self.assertIsNot(combined.vsource, source_only.vsource)
+            self.assertIsNot(combined.msource, source_only.msource)
+            self.assertIsNot(combined.msource[0], source_only.msource[0])
+            self.assertIsNot(combined.vsink, sink_only.vsink)
+
+            combined.vsource.df.iloc[0, 0] = 10.0
+            combined.msource[0].df.iloc[0, 0] = 20.0
+            combined.vsink.df.iloc[0, 0] = -30.0
+
+            self.assertEqual(source_only.vsource.df.iloc[0, 0], 0.0)
+            self.assertEqual(source_only.msource[0].df.iloc[0, 0], -9999.0)
+            self.assertEqual(sink_only.vsink.df.iloc[0, 0], 0.0)
 
 
 class TestCombineDataframes(unittest.TestCase):
