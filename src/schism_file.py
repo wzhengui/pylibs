@@ -243,7 +243,7 @@ class schism_grid(zdata):
            bc=['k','k'] if bc==None else [bc,bc] if isinstance(bc,str) else bc
            hg2=self.plot_bnd(lw=lw[1],c=bc,xy=xy)
 
-        hg=[*hg1,*hg2] if hg0==None else [*hg1,*hg2,hg0]; self.hg=hg
+        hg=[*hg1,*hg2] if hg0==None else [hg0,*hg1,*hg2]; self.hg=hg
         if xlim is not None: setp(ax,xlim=xlim)
         if ylim is not None: setp(ax,ylim=ylim)
         self.add_actions()
@@ -4207,8 +4207,8 @@ class schism_view(zdata):
            p.hp=[]; p.hg=[]; p.hb=[]; p.hv=[]; anim=True if p.med==0 else False
            if p.var!='none':
                self.get_data(p); v=self.data
-               if p.med==0: p.hp=[gd.plot(fmt=1,method=1,value=v,clim=p.vm,mask=mask,ticks=11,animated=True,cmap=self.cmap,zorder=1,cb_aspect=50)]
-               if p.med==1: p.hp=[gd.plot(fmt=1,method=0,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)]
+               if p.med==0: p.hp=gd.plot(fmt=1,method=1,value=v,clim=p.vm,mask=mask,ticks=11,animated=True,cmap=self.cmap,zorder=1,cb_aspect=50)
+               if p.med==1: p.hp=gd.plot(fmt=1,method=0,value=v,clim=p.vm,mask=mask,ticks=11,cmap=self.cmap,zorder=1,cb_aspect=50)
            if p.vvar!='none': u,v=self.get_vdata(p); p.hv=[quiver(p.vx,p.vy,u,v,animated=anim,scale=1.0/p.zoom,scale_units='inches',width=0.001,zorder=3)]
            if p.vvar!='none': quiverkey(p.hv[0], X=0.92, Y=1.01, U=1, label='1.0 m/s',color='r', labelpos='E',zorder=4)
            if p.grid==1: p.hg=gd.plot(animated=anim,zorder=2)
