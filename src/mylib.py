@@ -3139,7 +3139,7 @@ def read(fname,*args0,**args):
     else:
         return F(fname,*args0,**args)
 
-def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,height=None,xlim=None,ylim=None):
+def hplot(x,y,lstr='',lw=1,ms=6,width=500,height=500,axiswise=True,ls=None,color=None,marker=None,xlim=None,ylim=None):
     '''
     holoview plots for lines and points, following mpl.plot style
     '''
@@ -3156,24 +3156,20 @@ def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,
     lstr,color=pfind(colors,lstr,color); lstr,ls=pfind(lss,lstr,ls); lstr,marker=pfind(markers,lstr,marker)
     if color==None: color='k'
     if ls==None and marker==None: ls='-'
-    if lw==None: lw=1
-    if ms==None: ms=6
-    if width==None: width=500
-    if height==None: height=500
 
     #plots
     h1=None; h2=None; color='yellow' if color=='y' else color
     if ls!=None: #lines
        ldict={'-':'solid', '--':'dashed', ':':'dotted', '-.':'dashdot'}
-       h1=hv.Curve((x,y)).opts(color=color,line_dash=ldict[ls],line_width=lw)
+       h1=hv.Curve((x,y)).opts(color=color,line_dash=ldict[ls],line_width=lw,axiswise=axiswise)
     if marker!=None: #marker
         mdict={'.':'dot', '1':'y','P':'plus','*':'star', 'h':'hex','_':'dash'}
         marker=mdict[marker] if (marker in mdict) else marker
-        h2=hv.Points((x,y)).opts(color=color,marker=marker,size=ms)
+        h2=hv.Points((x,y)).opts(color=color,marker=marker,size=ms,axiswise=axiswise)
     hp=h1 if h2==None else h2 if h1==None else h1*h2
 
     #note
-    hp=hp.opts(width=width,height=height)
+    hp=hp.opts(width=width,height=height,axiswise=axiswise)
     if xlim!=None: hp=hp.opts(xlim=xlim)
     if ylim!=None: hp=hp.opts(ylim=ylim)
     return hp
