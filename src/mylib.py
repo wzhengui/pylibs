@@ -3139,7 +3139,7 @@ def read(fname,*args0,**args):
     else:
         return F(fname,*args0,**args)
 
-def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None):
+def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,height=None):
     '''
     holoview plots for lines and points, following mpl.plot style
     '''
@@ -3147,22 +3147,31 @@ def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None):
     hv.extension('bokeh')
 
     #parse lstr for supported line styles, colors and markers in lstr
-    cs=['b','g','r','c','m','y','k','w']; lss=['--','-.',':','-']; 
-    ms=['.',',','o','v','^','<','>','1','2','3','4','8','s','p','P','*','h','H','+','x','X','D','d','|','_']
+    colors=['b','g','r','c','m','y','k','w']; lss=['--','-.',':','-']
+    markers=['.','o','v','^','<','>','1','s','P','*','h','+','x','d','_']
     def pfind(options,pstr,option):
        ips=pindex(array([pstr.find(i) for i in options])!=-1);  option0='' if len(ips)==0 else options[ips[0]]
        pstr=pstr.replace(option0,''); option=option0 if (option==None and option0!='') else option 
        return pstr,option
-    lstr,color=pfind(cs,lstr,color); lstr,ls=pfind(lss,lstr,ls); lstr,marker=pfind(ms,lstr,marker)
+    lstr,color=pfind(colors,lstr,color); lstr,ls=pfind(lss,lstr,ls); lstr,marker=pfind(markers,lstr,marker)
     if color==None: color='k'
-    if ls==None and ms==None: ls='-'
+    if ls==None and marker==None: ls='-'
+    if lw==None: lw=1
+    if ms==None: ms=6
+    if width==None: width=500
+    if height==None: height=500
 
     #plots
-    hpt=hv.Curve(([], []))
-    if ls!=None: hp=hv.Curve((x,y)).opts(color=color); hpt=hpt*hp   
-    if marker!=None: hp=hv.Points((x,y)).opts(color=color); hpt=hpt*hp   
-
-    return hpt
+    h1=None; h2=None; color='yellow' if color=='y' else color
+    if ls!=None: #lines
+       ldict={'-':'solid', '--':'dashed', ':':'dotted', '-.':'dashdot'}
+       h1=hv.Curve((x,y)).opts(color=color,line_dash=ldict[ls],line_width=lw)
+    if marker!=None: #marker
+        mdict={'.':'dot', '1':'y','P':'plus','*':'star', 'h':'hex','_':'dash'}
+        marker=mdict[marker] if (marker in mdict) else marker
+        h2=hv.Points((x,y)).opts(color=color,marker=marker,size=ms)
+    hp=h1 if h2==None else h2 if h1==None else h1*h2
+    return hp.opts(width=width,height=height)
 
 def pplot(fnames):
     '''
