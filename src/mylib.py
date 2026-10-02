@@ -3139,7 +3139,7 @@ def read(fname,*args0,**args):
     else:
         return F(fname,*args0,**args)
 
-def hplot(x,y,lstr='',lw=1,ms=6,width=500,height=500,axiswise=True,ls=None,color=None,marker=None,xlim=None,ylim=None):
+def hplot(x,y,lstr='',lw=2,ms=6,width=500,height=500,axiswise=True,ls=None,color=None,marker=None,xlim=None,ylim=None):
     '''
     holoview plots for lines and points, following mpl.plot style
     '''
