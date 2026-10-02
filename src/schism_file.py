@@ -351,7 +351,7 @@ class schism_grid(zdata):
         return self.hb
 
     def hplot(self,fmt=0,value=None,ec=None,bc=None,wrap=None,dx_wrap=270,xy=0,width=600,height=500,lw=[0.3,1],xlim=None,ylim=None,
-              ticks=11,cmap='jet',cb=1,raster=1,var='z',alpha=1,clim=None,bnd=1):
+              ticks=11,cmap='jet',cb=1,raster=1,var='z',alpha=1,clim=None,bnd=1,axiswise=True):
         '''
         return holoviews plots
         fmt=0: grid;  fmt=1: filled contourf;  fmt=2: contour lines (not working yet);  fmt=3: boundary 
@@ -371,26 +371,27 @@ class schism_grid(zdata):
            value=self.z if (value is None) else value
            clim=tuple([value.min(),value.max()] if clim is None else clim)
 
-        hpt=hv.Curve(([], []))
+        hpt=hv.Curve(([], [])).opts(axiswise=axiswise)
         #plot contour
         if fmt==1:
            hp=hv.TriMesh((trs,hv.Points(c_[self.xy,value],vdims=var))).opts(filled=True)
            hp=rasterize(hp,precompute=True,pixel_ratio=2,width=width,height=height).opts(
                      tools=['hover'],colorbar=True if cb==1 else False,cmap=cmap,cnorm='linear',alpha=alpha,clim=clim,cticks=ticks)
-           hpt=hpt*hp
+           hpt=hpt*hp.opts(axiswise=axiswise)
 
         #plot grid line
         if fmt==0 or ec!=None:
            if ec==None: ec='k'
-           hp=hv.Curve([self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T]).opts(color=ec,line_width=lw[0]); hpt=hpt*hp
+           hp=hv.Curve([self.lines(wrap=wrap,dx_wrap=dx_wrap,xy=xy).T]).opts(color=ec,line_width=lw[0]); hpt=hpt*hp.opts(axiswise=axiswise)
 
         #plot boundary 
         if fmt==3 or bnd==1 or bc!=None:
            bc=['k','k'] if bc==None else [bc,bc] if isinstance(bc,str) else bc
            xy1,xy2=self.lines(1,wrap=wrap,dx_wrap=dx_wrap,xy=xy)
-           hp=hv.Curve([xy1.T]).opts(color=bc[0],line_width=lw[1]) * hv.Curve([xy2.T]).opts(color=bc[1],line_width=lw[1]); hpt=hpt*hp
+           hp1=hv.Curve([xy1.T]).opts(color=bc[0],line_width=lw[1],axiswise=axiswise)
+           hp2=hv.Curve([xy2.T]).opts(color=bc[1],line_width=lw[1])axiswise=axiswise); hpt=hpt*hp1*hp2
 
-        hpt=hpt.opts(width=width,height=height,xlim=xm,ylim=ym)
+        hpt=hpt.opts(width=width,height=height,xlim=xm,ylim=ym,axiswise=axiswise)
         return hpt
 
     def lines(self,fmt=0,xy=0,wrap=0,dx_wrap=270):
