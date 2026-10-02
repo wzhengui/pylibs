@@ -3139,7 +3139,7 @@ def read(fname,*args0,**args):
     else:
         return F(fname,*args0,**args)
 
-def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,height=None):
+def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,height=None,xlim=None,ylim=None):
     '''
     holoview plots for lines and points, following mpl.plot style
     '''
@@ -3171,7 +3171,12 @@ def hplot(x,y,lstr='',ls=None,color=None,marker=None,lw=None,ms=None,width=None,
         marker=mdict[marker] if (marker in mdict) else marker
         h2=hv.Points((x,y)).opts(color=color,marker=marker,size=ms)
     hp=h1 if h2==None else h2 if h1==None else h1*h2
-    return hp.opts(width=width,height=height)
+
+    #note
+    hp=hp.opts(width=width,height=height)
+    if xlim!=None: hp=hp.opts(xlim=xlim)
+    if ylim!=None: hp=hp.opts(ylim=ylim)
+    return hp
 
 def pplot(fnames):
     '''
