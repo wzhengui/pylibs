@@ -389,7 +389,7 @@ class schism_grid(zdata):
            bc=['k','k'] if bc==None else [bc,bc] if isinstance(bc,str) else bc
            xy1,xy2=self.lines(1,wrap=wrap,dx_wrap=dx_wrap,xy=xy)
            hp1=hv.Curve([xy1.T]).opts(color=bc[0],line_width=lw[1],axiswise=axiswise)
-           hp2=hv.Curve([xy2.T]).opts(color=bc[1],line_width=lw[1])axiswise=axiswise); hpt=hpt*hp1*hp2
+           hp2=hv.Curve([xy2.T]).opts(color=bc[1],line_width=lw[1],axiswise=axiswise); hpt=hpt*hp1*hp2
 
         hpt=hpt.opts(width=width,height=height,xlim=xm,ylim=ym,axiswise=axiswise)
         return hpt
