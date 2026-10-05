@@ -3598,12 +3598,12 @@ def torch_device():
         import torch
     return torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
-def n2t(a,fmt=0,device=None,dtype=None,copy=True):
+def n2t(a,device=None,dtype=None,fmt=0,copy=True):
     '''
       convert a numpy array to torch tensor
-      fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
       device: automatically detect available accelerator (cuda) if not provided
       dtype: assign dtype ('float32' is the default for float number)
+      fmt=0: torch.Tensor(a).to(device);  fmt=1: torch.Tensor(a)
       copy=True: use torch.tensor; copy=False: use torch.from (dtype follows a.dtype)
     '''
     import sys
