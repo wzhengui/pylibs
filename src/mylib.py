@@ -2932,6 +2932,22 @@ class ncfile(zdata):
       def __delattr__(self,key):
           self.__dict__.pop(key)
           if hasattr(self,'variables') and (key in self.variables): self.variables.pop(key)
+      def add(self,name,value,dns=None,dtype=None):
+          '''
+          append variable in the netcdf file
+            name: variable name
+            value: variable value
+            dns: dimension names (e.g. dns=('lat','lon'))
+          '''
+          if isinstance(value,ndarray):
+             dms=value.shape
+             if dns==None: dns=['dim_'+str(i) for i in dms]
+             if dtype==None: dtype=str(value.dtype)
+             [self.createDimension(dn,dm) for dn,dm in zip(dns,dms) if dn not in self.dimname] #create dims
+             vid=self.createVariable(name,dtype,dns); vid[:]=value
+          else:
+             self.setncattr(name,value)
+
       def close(self):
           self._close(); self.delattr(self.attr())
 
@@ -2954,6 +2970,7 @@ def ReadNC(fname,fmt=0,mode='r',order=0):
 
     #get file handle
     from netCDF4 import Dataset
+    if isinstance(fname,str) and mode=='r+' and (not os.path.exists(fname)): C=zdata(); C._=array([]); C.save(fname); fmt=1
     C=Dataset(fname,mode=mode);
 
     if isinstance(fmt,str):
