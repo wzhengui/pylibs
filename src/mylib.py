@@ -121,11 +121,12 @@ def copydir(*args):
     import shutil
     shutil.copytree(*args)
 
-def sort_all(t,*args):
+def sort_all(t,*args,fmt=0):
     '''
     sort all variables based on the 1st input
+    fmt=0: ascending order; fmt=1: descending order
     '''
-    sind=argsort(t); t=array(t)[sind]; args=[array(i)[sind] for i in args]
+    sind=argsort(t) if fmt==0 else argsort(t)[::-1]; t=array(t)[sind]; args=[array(i)[sind] for i in args]
     return [t,*args]
 
 def gif_to_avi(sname,fname,fps=10):
