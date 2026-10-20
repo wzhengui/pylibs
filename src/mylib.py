@@ -2943,7 +2943,7 @@ class ncfile(zdata):
              dms=value.shape
              if dns==None: dns=['dim_'+str(i) for i in dms]
              if dtype==None: dtype=str(value.dtype)
-             [self.createDimension(dn,dm) for dn,dm in zip(dns,dms) if dn not in self.dimname] #create dims
+             [[self.createDimension(dn,dm),self.dims.append(dm),self.dimname.append(dn)] for dn,dm in zip(dns,dms) if dn not in self.dimname] #create dims
              vid=self.createVariable(name,dtype,dns); vid[:]=value
           else:
              self.setncattr(name,value)
