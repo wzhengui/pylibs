@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #generate bctides.in's tide harmonics
-#specify inputs in the bottom
+#specify inputs in the bottom 
 from pylib import *
 
 def get_tide_nodal(tide_name,StartT,nday):
