@@ -111,6 +111,10 @@ def add_var(svar,value,sdict,fmt=0):
     else:  #list of values
        for i, k in zip(svar,value): add_var(i,k,sdict,fmt)
 
+def glob(*args):
+    import glob as gb
+    return array(gb.glob(*args))
+
 def copyfile(*args):
     ''' shutil.copy; e.g. copyfile(fn,tn)'''
     import shutil
