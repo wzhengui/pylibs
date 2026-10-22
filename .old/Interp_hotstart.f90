@@ -1,5 +1,6 @@
 !--------------------------------------------------------------
 ! written by ZG on 5/26/2016
+
 !generate hotstart based on previous hotstart.in
 !input: 
 !     old grid: bg.gr3, vgrid.bg, hotstart.in.0 
