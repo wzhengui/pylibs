@@ -1099,6 +1099,7 @@ class schism_grid(zdata):
         if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=10000; kb=kb.min(axis=1)+1
         if fmt==1:
            if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
+           #kb=kbp[self.isidenode].min(axis=1)
            kb=kbp[self.isidenode].max(axis=1)
         return kb
 
@@ -1335,17 +1336,26 @@ class schism_grid(zdata):
         self.cfl[self.fp4]=self.cfl[self.fp4]*sqrt(2)
         return self.cfl
 
-    def compute_index(self,vd):
+    def compute_index(self,vd,fmt=0):
         '''
-        compute indices for 3D schism outputs (np,nvrt) for compression purpose: i3d,iks=gd.compute_index(vd)
-        vd is object of vertical grid. i3d is 1d array index for all values. iks is the reconstruction index.
+        compute indices (ipd,ied,esd) to convert 3D schism outputs (np/ne/ns,nvrt) to 1D array for
+        compression purpose; (ikp,ike,iks) are indice converting 1D array back to 2D array.
+        Inputs:
+          vd= vgrid object or (kbp,nvrt)
+          fmt=0: only compute ipd and ikp;  fmt=1: compute all
+        Outputs:
+          fmt=0: ipd,ikp;   fmt=1: ipd,ied,isd, ikp,ike,iks
         '''
-        kbp,nvrt=vd.kbp,vd.nvrt; iks=zeros([self.np,nvrt],'int')
-        for k in arange(nvrt-1): iks[k<kbp,k]=-1
-        i3d=pindex(iks.ravel()==0); iks.ravel()[i3d]=arange(i3d.size)
-        for k in arange(nvrt-1)[::-1]: fpn=iks[:,k]==-1; iks[fpn,k]=iks[fpn,k+1]
-        if array_equal(i3d,i3d.astype('int32')): i3d=i3d.astype('int32'); iks=iks.astype('int32')
-        return i3d, iks.T
+        kbp,nvrt=[vd.kbp,vd.nvrt] if isinstance(vd,schism_vgrid) else vd; kbe=0; kbs=0
+        np,ne,ns=self.np,self.ne,self.ns; ixds=[]; ikxs=[]
+        if fmt==1: kbe=self.compute_kb(kbp); kbs=self.compute_kb(kbp,1)
+        for i,[kbx,nx] in enumerate(zip([kbp,kbe,kbs],[np,ne,ns])):
+            if fmt==0 and i!=0: continue
+            ixd=sort(hstack([k+nvrt*pindex(k>=kbx)  for k in arange(nvrt)]))
+            ikx=-ones([nx,nvrt],'int'); ikx.ravel()[ixd]=arange(len(ixd)); ik=ikx[arange(nx),kbx]
+            for k in arange(nvrt): fp=ikx[:,k]==-1; ikx[fp,k]=ik[fp]
+            ixds.append(ixd); ikxs.append(ikx)
+        return [*ixds,*ikxs]
 
     def compute_curl(self,u,v):
         '''
