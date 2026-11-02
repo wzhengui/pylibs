@@ -1099,8 +1099,7 @@ class schism_grid(zdata):
         if fmt==0: kb=kbp[self.elnode]; kb[self.i34==3,-1]=10000; kb=kb.min(axis=1)+1
         if fmt==1:
            if not hasattr(self,'isidenode'): self.compute_side(fmt=1)
-           #kb=kbp[self.isidenode].min(axis=1)
-           kb=kbp[self.isidenode].max(axis=1)
+           kb=kbp[self.isidenode].min(axis=1)
         return kb
 
     def compute_angle(self):
@@ -4516,12 +4515,15 @@ class schism_view(zdata):
         elif event=='vm_layer': #reset data limit
             if not hasattr(self,'hgrid'): return
             #update layers
-            p=self.get_param(); s=self.pdict[p.var]
-            if p.var in ['none','depth',*self.gr3,*self.vars_2d]:
+            v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0); nv=len(w._layer['value']) #save layer information
+            p=self.get_param(); s=self.pdict[p.var]; dns=['']; dms=[0]
+            v1=p.var if s==0 else s.vars[0]; v2=p.vvar if p.vvar=='none' else p.vvar+'X'; vs=['none','depth',*self.gr3,*self.vars_2d]
+            for v in [v1,v2]:
+                if v not in vs: C=self.fid('{}/{}_{}.nc'.format(self.outputs,v,self.istack[0])).variables[v]; dns.append(C.dimensions[-1]); dms.append(C.shape[-1])
+            dm=max(dms); dn=dns[dms.index(dm)] #get dimension information
+            if dm==0:
                w._layer['value']=0; w._layer.set(0)
             else:
-               var=p.var if s==0 else s.vars[0]; v0=w._layer.get(); v0=v0 if (v0 in ['surface','bottom']) else int(v0); nv=len(w._layer['value'])
-               C=self.fid('{}/{}_{}.nc'.format(self.outputs,var,self.istack[0])).variables[var]; dn=C.dimensions[-1]; dm=C.shape[-1]
                layers=['surface','bottom',*arange(dm,0,-1)] if dn=='nSCHISM_vgrid_layers' else [*arange(1,dm+1)]
                w._layer['value']=layers; w._layer.set(v0 if ((v0 in layers) and nv==len(layers)) else layers[0])
             #update vm
@@ -4933,6 +4935,7 @@ class schism_view(zdata):
         fm3=ttk.Frame(master=fm); fm3.grid(row=0,column=0,sticky='W')
         ttk.Label(master=fm3,text='  vector ').grid(row=1,column=0,sticky='W',pady=4)
         vvar=ttk.Combobox(fm3,textvariable=w.vvar,values=['none',*self.vvars],width=14,); vvar.grid(row=1,column=1)
+        vvar.bind("<<ComboboxSelected>>",lambda x: self.update_panel('vm_layer'))
         ttk.Entry(fm3,textvariable=w.zoom,width=5).grid(row=1,column=2)
 
         #time series
