@@ -110,7 +110,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
         get_qnode,modify_figure,parallel_jobs,fig_INFO,ceqstate,subdomain_index,interp,
         nargout,pause,isnumber,ncfile,urlsave,add_var,compute_dem_contour,copyfile,
-        copydir,torch_device,n2t,t2n,gif_to_avi,hplot,glob)
+        copydir,torch_device,n2t,t2n,gif_to_avi,hplot,glob,nshow)
 
    if os.path.exists(os.path.dirname(__file__)+'/pylibs/src'):
       import pylibs.src.schism_file as schism_file

@@ -115,6 +115,9 @@ def glob(*args):
     import glob as gb
     return array(gb.glob(*args))
 
+def nshow():
+    show(block=False)
+
 def copyfile(*args):
     ''' shutil.copy; e.g. copyfile(fn,tn)'''
     import shutil
