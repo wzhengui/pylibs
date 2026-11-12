@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import os
+
+#locate host and mpicc
+dirs={'bora': '/usr/local/bora/oneapi-2024.0/openmpi-4.1.6-k5dzmr/bin',
+       'gulf': '/usr/local/gulf/oneapi-2024.0/openmpi-4.1.6-7m7xnh/bin',
+       'kuro': '/sciclone/apps/intel/oneapi/mpi/2021.11/bin',
+       'femto': '/usr/local/femto/oneapi-2024.0/openmpi-4.1.6-f2lpiq/bin',
+     }
+host=os.getenv('HOST'); fn='{}/mpicc'.format(dirs[host])
+cmd='{} -shared -fPIC mpi.c -o libmpi_{}.so'.format(fn,host)
+print(cmd); os.system(cmd)
+

@@ -1,0 +1,3 @@
+#use system's mpicc to compile
+
+mpicc -shared -fPIC mpi.c -o libmpi_HOST.so

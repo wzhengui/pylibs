@@ -108,7 +108,7 @@ if not set(Libs).issubset(set(sys.modules.keys())):
         get_stat,get_subplot_position,get_subplot_position2,load_dem,plot_taylor_diagram,
         read_dem,get_hpc_command,least_square_fit,read_yaml,read_excel, write_excel,rtext,
         mklink,sindex,pindex,nindex,cindex,resize,savefig,pplot,blit_manager,read,add_xtick,
-        get_qnode,modify_figure,parallel_jobs,fig_INFO,ceqstate,subdomain_index,interp,
+        get_qnode,modify_figure,MPI_init,fig_INFO,ceqstate,subdomain_index,interp,
         nargout,pause,isnumber,ncfile,urlsave,add_var,compute_dem_contour,copyfile,
         copydir,torch_device,n2t,t2n,gif_to_avi,hplot,glob,nshow)
 

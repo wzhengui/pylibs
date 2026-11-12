@@ -354,41 +354,91 @@ def get_basemap(figsize=[8,8],*args0,**args):
     buf.seek(0); data=imread(buf)[::-1]; ny,nx=data.shape[:2]; buf.close(); close()
     return data
 
-class _COMM_WORLD:
-      def __init__(self):
-          self.pid=os.getpid()
-          self.myrank=None
+#class _COMM_WORLD:
+#      def __init__(self):
+#          self.pid=os.getpid()
+#          self.myrank=None
+#
+#      def Get_size(self):
+#          self.nproc=1 if os.getenv('nproc') is None else int(os.getenv('nproc'))
+#          return self.nproc
+#
+#      def Get_rank(self):
+#          header='.pylib_pjob_id_'; open(header+str(self.pid),'w+').close()
+#          if not hasattr(self,'nproc'): self.Get_size()
+#          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
+#          fnames=glob(header+'*'); pids=[*sort([int(i.split('_')[-1]) for i in fnames])]
+#          self.myrank=pids.index(self.pid); self.delete(header,0.2)
+#          return self.myrank
+#
+#      def Barrier(self):
+#          header='.pylib_pjob_lock_'; open(header+str(self.pid),'w+').close()
+#          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
+#          self.delete(header,dt=0.2)
+#
+#      def delete(self,header=None,dt=0):
+#          if self.myrank==0:
+#             time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
+#          else:
+#             time.sleep(2*dt)
+#
+#class parallel_jobs:
+#      '''
+#      compute nproc and myrank by dumping pid information on disk, when mpi4py fails.
+#      Note: this is not MPI, but only for the purpose in distributing parallel jobs
+#      '''
+#      def __init__(self):
+#          self.COMM_WORLD=_COMM_WORLD()
 
-      def Get_size(self):
-          self.nproc=1 if os.getenv('nproc') is None else int(os.getenv('nproc'))
-          return self.nproc
+def MPI_init(fmt=0):
+    '''
+    return MPI class either from mpi4py or pylib
+    fmt=0: try mpi4py 1st, then pylib's libmpi
+    fmt=1: use mpi4py; fmt=2: use pylib
+    '''
+    def get_MPI():
+        #defind comm_world with silimar format to mpi4py
+        class COMM_WORLD:
+             def __init__(self): pass
+             def Get_rank(self): return self.myrank
+             def Get_size(self): return self.nproc
 
-      def Get_rank(self):
-          header='.pylib_pjob_id_'; open(header+str(self.pid),'w+').close()
-          if not hasattr(self,'nproc'): self.Get_size()
-          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
-          fnames=glob(header+'*'); pids=[*sort([int(i.split('_')[-1]) for i in fnames])]
-          self.myrank=pids.index(self.pid); self.delete(header,0.2)
-          return self.myrank
 
-      def Barrier(self):
-          header='.pylib_pjob_lock_'; open(header+str(self.pid),'w+').close()
-          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
-          self.delete(header,dt=0.2)
+        comm=COMM_WORLD(); host=get_qnode()
+        fn='{}/../scripts/mpi/libmpi_{}.so'.format(os.path.dirname(__file__),host)
+        if os.path.exists(fn):
+           #read pylib's libmpi
+           import ctypes
+           C=ctypes.CDLL(fn)
+           C.mpi_init.restype = ctypes.c_int
+           C.mpi_barrier.restype = ctypes.c_int
+           C.mpi_rank.argtypes = [ctypes.POINTER(ctypes.c_int)]
+           C.mpi_size.argtypes = [ctypes.POINTER(ctypes.c_int)]
+           C.mpi_finalize.restype = ctypes.c_int
+           C.mpi_init(); rank = ctypes.c_int(); size = ctypes.c_int()
+           C.mpi_rank(ctypes.byref(rank)); C.mpi_size(ctypes.byref(size))
+           #C.mpi_barrier(); C.mpi_finalize()
 
-      def delete(self,header=None,dt=0):
-          if self.myrank==0:
-             time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
-          else:
-             time.sleep(2*dt)
+           #wrap function to COMM_WORLD
+           comm.myrank=rank.value; comm.nproc=size.value
+           comm.Barrier=C.mpi_barrier
+           comm.Finalize=C.mpi_finalize
+        else:
+           rvars=["OMPI_COMM_WORLD_RANK","PMI_RANK","PMIX_RANK","SLURM_PROCID","MV2_COMM_WORLD_RANK"]
+           svars=["OMPI_COMM_WORLD_SIZE","PMI_SIZE","PMIX_SIZE","SLURM_NTASKS","MV2_COMM_WORLD_SIZE"]
+           comm.myrank=[int(os.environ[i]) for i in rvars if i in os.environ][0]
+           comm.nproc =[int(os.environ[i]) for i in svars if i in os.environ][0]
+        MPI=zdata(); MPI.COMM_WORLD=comm
+        return MPI
 
-class parallel_jobs:
-      '''
-      compute nproc and myrank by dumping pid information on disk, when mpi4py fails.
-      Note: this is not MPI, but only for the purpose in distributing parallel jobs
-      '''
-      def __init__(self):
-          self.COMM_WORLD=_COMM_WORLD()
+    #choose MPI
+    if fmt==1: from mpi4py import MPI; return MPI
+    if fmt==2: MPI=get_MPI(); return MPI
+    try: 
+        from mpi4py import MPI
+    except:
+        MPI=get_MPI()
+    return MPI
 
 def resize(data,shape,fill=0):
     '''
@@ -645,7 +695,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        #for run parallel jobs
        ALL='ALL,' if ename=='schism' else '' #ALL='' if os.getenv('mpi_env')=='openmpi' else 'ALL,'
        if qnode in ['femto','gulf','kuro','bora','stampede3']:
-          scmd='srun --export={}PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
+          scmd='srun --export={}PATH={},HOST={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),qnode,os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
           #if ename=='schism': scmd='srun --export=ALL,job_on_node=1,bdir={},nproc={} {} >& {}'.format(bdir,nproc,code,scrout)
        elif qnode in ['frontera']:
           scmd="mpirun --env job_on_node 1 --env bdir='{}' --env nproc {} -np {} {} >& {}".format(bdir,nproc,nproc,code,scrout)
@@ -669,7 +719,7 @@ def get_hpc_command(code,bdir,jname='mpi4py',qnode=None,nnode=1,ppn=1,wtime='01:
        else:
           #sys.exit('unknown qnode: {},tag=2'.format(qnode))
           print('unknown qnode: {},tag=2'.format(qnode)); sys.stdout.flush() #assuming slurm system
-          scmd='srun --export={}PATH={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
+          scmd='srun --export={}PATH={},HOST={},LD_LIBRARY_PATH={},job_on_node=1,bdir={},nproc={} {} >& {}'.format(ALL,os.path.dirname(sys.executable),qnode,os.getenv('LD_LIBRARY_PATH'),bdir,nproc,code,scrout)
 
     return scmd
 
