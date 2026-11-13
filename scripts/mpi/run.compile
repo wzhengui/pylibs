@@ -6,6 +6,7 @@ dirs={'bora': '/usr/local/bora/oneapi-2024.0/openmpi-4.1.6-k5dzmr/bin',
        'gulf': '/usr/local/gulf/oneapi-2024.0/openmpi-4.1.6-7m7xnh/bin',
        'kuro': '/sciclone/apps/intel/oneapi/mpi/2021.11/bin',
        'femto': '/usr/local/femto/oneapi-2024.0/openmpi-4.1.6-f2lpiq/bin',
+       'hercules': '/apps/spack-managed/oneapi-2022.2.1/intel-oneapi-mpi-2021.7.1-zfmfvyc4a4wkhgxe2f34irg663e6dcoh/mpi/2021.7.1/bin',
      }
 host=os.getenv('HOST'); fn='{}/mpicc'.format(dirs[host])
 cmd='{} -shared -fPIC mpi.c -o libmpi_{}.so'.format(fn,host)
