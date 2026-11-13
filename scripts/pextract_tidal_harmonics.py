@@ -3,7 +3,6 @@
 perform harmonic analysis for tide in whole domain
 '''
 from pylib import *
-from mpi4py import MPI
 
 #-----------------------------------------------------------------------------
 #Input
@@ -46,7 +45,7 @@ if os.getenv('job_on_node')==None:
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 odir=os.path.dirname(os.path.abspath(sname))
 if ibatch==0: nproc=1; myrank=0
-if ibatch==1: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch==1: comm=MPI_init(); nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 if myrank==0 and (not fexist(odir)): os.mkdir(odir)
 

@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <stddef.h>
 
 int mpi_init(void)
 {

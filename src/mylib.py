@@ -392,7 +392,7 @@ def get_basemap(figsize=[8,8],*args0,**args):
 
 def MPI_init(fmt=0):
     '''
-    return MPI class either from mpi4py or pylib
+    return MPI.COMM_WORLD class either from mpi4py or pylib
     fmt=0: try mpi4py 1st, then pylib's libmpi
     fmt=1: use mpi4py; fmt=2: use pylib
     '''
@@ -403,19 +403,15 @@ def MPI_init(fmt=0):
              def Get_rank(self): return self.myrank
              def Get_size(self): return self.nproc
 
-
         comm=COMM_WORLD(); host=get_qnode()
         fn='{}/../scripts/mpi/libmpi_{}.so'.format(os.path.dirname(__file__),host)
         if os.path.exists(fn):
            #read pylib's libmpi
            import ctypes
-           C=ctypes.CDLL(fn)
-           C.mpi_init.restype = ctypes.c_int
-           C.mpi_barrier.restype = ctypes.c_int
-           C.mpi_rank.argtypes = [ctypes.POINTER(ctypes.c_int)]
-           C.mpi_size.argtypes = [ctypes.POINTER(ctypes.c_int)]
-           C.mpi_finalize.restype = ctypes.c_int
-           C.mpi_init(); rank = ctypes.c_int(); size = ctypes.c_int()
+           C=ctypes.CDLL(fn); dt=ctypes.c_int; at=ctypes.POINTER(dt)
+           C.mpi_init.restype=dt; C.mpi_barrier.restype=dt; C.mpi_rank.argtypes=[at]
+           C.mpi_size.argtypes=[at]; C.mpi_finalize.restype=dt
+           C.mpi_init(); rank=dt(); size=dt()
            C.mpi_rank(ctypes.byref(rank)); C.mpi_size(ctypes.byref(size))
            #C.mpi_barrier(); C.mpi_finalize()
 
@@ -428,17 +424,15 @@ def MPI_init(fmt=0):
            svars=["OMPI_COMM_WORLD_SIZE","PMI_SIZE","PMIX_SIZE","SLURM_NTASKS","MV2_COMM_WORLD_SIZE"]
            comm.myrank=[int(os.environ[i]) for i in rvars if i in os.environ][0]
            comm.nproc =[int(os.environ[i]) for i in svars if i in os.environ][0]
-        MPI=zdata(); MPI.COMM_WORLD=comm
-        return MPI
+        return comm
 
     #choose MPI
-    if fmt==1: from mpi4py import MPI; return MPI
-    if fmt==2: MPI=get_MPI(); return MPI
+    if fmt==2: comm=get_MPI(); return comm
     try: 
-        from mpi4py import MPI
+        from mpi4py import MPI; comm=MPI.COMM_WORLD
     except:
-        MPI=get_MPI()
-    return MPI
+        comm=get_MPI()
+    return comm
 
 def resize(data,shape,fill=0):
     '''

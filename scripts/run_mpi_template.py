@@ -4,7 +4,6 @@ Template for running MPI job on sciclone/ches
 Note: For MPI jobs demanding large memory, use small ppn
 '''
 from pylib import *
-from mpi4py import MPI
 
 #-----------------------------------------------------------------------------
 #Input
@@ -40,7 +39,7 @@ if os.getenv('job_on_node')==None:
 #-----------------------------------------------------------------------------
 bdir=os.getenv('bdir'); os.chdir(bdir) #enter working dir
 if ibatch==0: nproc=1; myrank=0
-if ibatch in [1,2]: comm=MPI.COMM_WORLD; nproc=comm.Get_size(); myrank=comm.Get_rank()
+if ibatch in [1,2]: comm=MPI_init(); nproc=comm.Get_size(); myrank=comm.Get_rank()
 if myrank==0: t0=time.time()
 
 #-----------------------------------------------------------------------------
