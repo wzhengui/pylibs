@@ -1733,7 +1733,7 @@ class schism_grid(zdata):
         if side_ratio is not None: L=self.distj[self.elside[qind]]; fp=fp|((L.max(axis=1)/L.min(axis=1))>=side_ratio) 
         if angle_min is not None: fp=fp|(A.min(axis=1)<=angle_min)
         if angle_max is not None: fp=fp|(A.max(axis=1)>=angle_max)
-        if reg_in is not None: bp=read(reg_in) if isinstance(reg_in,str) else schism_bpfile(*reg_in.T); fp[bp.outside(exy)]=False
+        if reg_in is not None: bp=read(reg_in) if isinstance(reg_in,str) else schism_bpfile(*reg_in.T); fp[bp.inside(exy)]=True
         if reg_out is not None: bp=read(reg_out) if isinstance(reg_out,str) else schism_bpfile(*reg_out.T); fp[bp.inside(exy)]=False
         self.index_bad_quad=qind[pindex(fp)]
         schism_bpfile(*self.exy[self.index_bad_quad].T).save(fname) #output bad_quad location as bp file
