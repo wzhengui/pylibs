@@ -406,18 +406,34 @@ def MPI_init(fmt=0):
         comm=COMM_WORLD(); host=get_qnode()
         fn='{}/../scripts/mpi/libmpi_{}.so'.format(os.path.dirname(__file__),host)
         if os.path.exists(fn):
+	   #define mpi_gather
+           def mpi_gather(data, root=0):
+               send_data=pickle.dumps(data); send_size=len(send_data); ns=np.empty(size,dtype=np.int32)
+               C.mpi_allgather_int(send_size,ns.ctypes.data_as(at))
+               displs=np.zeros(size,dtype=np.int32); displs[1:]=np.cumsum(ns[:-1])
+               total_size=int(ns.sum()); send_buf=ctypes.create_string_buffer(send_data)
+               if rank==root:
+                  recv_buf=ctypes.create_string_buffer(total_size); recv_ptr=ctypes.cast(recv_buf, dv)
+                  counts_ptr=ns.ctypes.data_as(at); displs_ptr=displs.ctypes.data_as(at)
+               else:
+                  recv_buf=None; recv_ptr=None; counts_ptr=None; displs_ptr=None
+               C.mpi_gatherv_bytes(ctypes.cast(send_buf,dv),send_size,recv_ptr,counts_ptr,displs_ptr,root)
+               if rank==root: return [(pickle.loads(recv_buf.raw[int(displs[i]):(int(displs[i])+int(ns[i]))])) for i in range(size)]
+
            #read pylib's libmpi
            import ctypes
-           C=ctypes.CDLL(fn); dt=ctypes.c_int; at=ctypes.POINTER(dt)
+           C=ctypes.CDLL(fn); dt=ctypes.c_int; dv=ctypes.c_void_p; at=ctypes.POINTER(dt)
            C.mpi_init.restype=dt; C.mpi_barrier.restype=dt; C.mpi_rank.argtypes=[at]
            C.mpi_size.argtypes=[at]; C.mpi_finalize.restype=dt
+           C.mpi_gatherv_bytes.argtypes=[dv,dt,dv,at,at,dt]
+           C.mpi_allgather_int.argtypes=[dt,at]
            C.mpi_init(); rank=dt(); size=dt()
            C.mpi_rank(ctypes.byref(rank)); C.mpi_size(ctypes.byref(size))
            #C.mpi_barrier(); C.mpi_finalize()
 
            #wrap function to COMM_WORLD
            comm.myrank=rank.value; comm.nproc=size.value
-           comm.Barrier=C.mpi_barrier
+           comm.Barrier=C.mpi_barrier; comm.gather=mpi_gather
            comm.Finalize=C.mpi_finalize
         else:
            rvars=["OMPI_COMM_WORLD_RANK","PMI_RANK","PMIX_RANK","SLURM_PROCID","MV2_COMM_WORLD_RANK"]

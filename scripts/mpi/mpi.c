@@ -28,6 +28,61 @@ int mpi_size(int *size)
     return MPI_Comm_size(MPI_COMM_WORLD, size);
 }
 
+int mpi_allgather_int(
+    int sendvalue,
+    int *recvvalues
+)
+{
+    return MPI_Allgather(
+        &sendvalue, 1, MPI_INT,
+        recvvalues, 1, MPI_INT,
+        MPI_COMM_WORLD
+    );
+}
+
+/* Gather arbitrary byte buffers */
+int mpi_gather_bytes(
+    const char *sendbuf,
+    int sendbytes,
+    char *recvbuf,
+    int root
+)
+{
+    return MPI_Gather(
+        sendbuf,
+        sendbytes,
+        MPI_BYTE,
+        recvbuf,
+        sendbytes,
+        MPI_BYTE,
+        root,
+        MPI_COMM_WORLD
+    );
+}
+
+/* Gather variable-size byte buffers */
+int mpi_gatherv_bytes(
+    const char *sendbuf,
+    int sendbytes,
+    char *recvbuf,
+    const int *recvcounts,
+    const int *displs,
+    int root
+)
+{
+    return MPI_Gatherv(
+        sendbuf,
+        sendbytes,
+        MPI_BYTE,
+        recvbuf,
+        recvcounts,
+        displs,
+        MPI_BYTE,
+        root,
+        MPI_COMM_WORLD
+    );
+}
+
 int mpi_finalize(void)
 {
     int initialized, finalized;
