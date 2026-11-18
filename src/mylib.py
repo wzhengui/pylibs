@@ -392,11 +392,16 @@ def get_basemap(figsize=[8,8],*args0,**args):
 
 def MPI_init(fmt=0):
     '''
-    return MPI.COMM_WORLD class either from mpi4py or pylib
+    return comm=MPI.COMM_WORLD class either from mpi4py or pylib
     fmt=0: try mpi4py 1st, then pylib's libmpi
     fmt=1: use mpi4py; fmt=2: use pylib
+
+    In pylib, comm include methods:
+          'init', 'finalize', 'Get_rank', 'Get_size', 'myrank', 'nproc',
+          'barrier', 'gather', 'allgather', 'reduce', 'allreduce', 'bcast', 'scatterv'
     '''
     def get_MPI():
+        import pickle
         #defind comm_world with silimar format to mpi4py
         class COMM_WORLD:
              def __init__(self): pass
@@ -406,35 +411,101 @@ def MPI_init(fmt=0):
         comm=COMM_WORLD(); host=get_qnode()
         fn='{}/../scripts/mpi/libmpi_{}.so'.format(os.path.dirname(__file__),host)
         if os.path.exists(fn):
-	   #define mpi_gather
+	       #define mpi_gather
            def mpi_gather(data, root=0):
-               send_data=pickle.dumps(data); send_size=len(send_data); ns=np.empty(size,dtype=np.int32)
-               C.mpi_allgather_int(send_size,ns.ctypes.data_as(at))
-               displs=np.zeros(size,dtype=np.int32); displs[1:]=np.cumsum(ns[:-1])
+               send_data=pickle.dumps(data)
+               send_size=len(send_data)
+               ns=np.zeros(size.value,dtype=np.int32)
+               C.mpi_allgather_int(send_size,ns.ctypes.data_as(ipt))
+               displs=np.zeros(size.value,dtype=np.int32); displs[1:]=np.cumsum(ns[:-1])
                total_size=int(ns.sum()); send_buf=ctypes.create_string_buffer(send_data)
-               if rank==root:
+               if myrank==root:
                   recv_buf=ctypes.create_string_buffer(total_size); recv_ptr=ctypes.cast(recv_buf, dv)
-                  counts_ptr=ns.ctypes.data_as(at); displs_ptr=displs.ctypes.data_as(at)
+                  counts_ptr=ns.ctypes.data_as(ipt); displs_ptr=displs.ctypes.data_as(ipt)
                else:
                   recv_buf=None; recv_ptr=None; counts_ptr=None; displs_ptr=None
                C.mpi_gatherv_bytes(ctypes.cast(send_buf,dv),send_size,recv_ptr,counts_ptr,displs_ptr,root)
-               if rank==root: return [(pickle.loads(recv_buf.raw[int(displs[i]):(int(displs[i])+int(ns[i]))])) for i in range(size)]
+               if myrank==root: return [(pickle.loads(recv_buf.raw[int(displs[i]):(int(displs[i])+int(ns[i]))])) for i in range(size.value)]
+          
+           def mpi_allgather(data):
+               send_data=pickle.dumps(data,protocol=pickle.HIGHEST_PROTOCOL); send_size=len(send_data); ns=np.empty(nproc,dtype=np.int32)
+               ierr=C.mpi_allgather_int(send_size, ns.ctypes.data_as(ctypes.POINTER(ctypes.c_int)))
+               if ierr!=0: raise RuntimeError("MPI_Allgather sizes failed")
+               displs= np.zeros(nproc,dtype=np.int32); displs[1:]=np.cumsum(ns[:-1]); total_size=int(ns.sum())
+               send_buf=ctypes.create_string_buffer(send_data); recv_buf=ctypes.create_string_buffer(total_size)
+               ierr=C.mpi_allgatherv_bytes(ctypes.cast(send_buf,dv),send_size,ctypes.cast(recv_buf,dv),ns.ctypes.data_as(ipt),displs.ctypes.data_as(ipt))
+               if ierr!=0: raise RuntimeError("MPI_Allgatherv failed")
+               return [(pickle.loads(recv_buf.raw[int(displs[i]):(int(displs[i])+int(ns[i]))])) for i in range(nproc)]
 
-           #read pylib's libmpi
+           def mpi_bcast(data=None, root=0):
+               if myrank==root:
+                  send_data=pickle.dumps(data,protocol=pickle.HIGHEST_PROTOCOL); send_size=len(send_data)
+               else:
+                  send_data=None;  send_size=0
+               send_size_c=ctypes.c_int(send_size); 
+               ierr=C.mpi_bcast_int(ctypes.byref(send_size_c), root); ns=int(send_size_c.value)
+               if ierr!=0: raise RuntimeError("MPI_Bcast size failed")
+               buf=ctypes.create_string_buffer(send_data if myrank==root else ns)
+               ierr=C.mpi_bcast_bytes(ctypes.cast(buf,dv), ns, root)
+               if ierr!= 0: raise RuntimeError("MPI_Bcast data failed")
+               return pickle.loads(buf.raw[:ns])
+
+           def mpi_scatterv(data, root=0):
+               #scatter size 
+               if myrank==root:
+                  send_data=[pickle.dumps(i) for i in data]; ns=np.array([len(i) for i in send_data],dtype=np.int32)
+                  displs=r_[0,cumsum(ns[:-1])].astype('int32'); sendbuf=np.frombuffer(b''.join(send_data), dtype=np.uint8)
+               else:
+                   ns=displs=sendbuf=array(0)
+               n=np.zeros(1,dtype=np.int32); pn=n.ctypes.data_as(ipt); pns=ns.ctypes.data_as(ipt) if myrank==root else None
+               C.mpi_scatter_int(pns,pn,root); #scatter size 
+               nbytes=int(n[0]); buf=ctypes.create_string_buffer(nbytes) #same as: buf=np.empty(nbytes,dtype=np.uint8)
+               C.mpi_scatterv_bytes(sendbuf.ctypes.data_as(dv),ns.ctypes.data_as(ipt),displs.ctypes.data_as(ipt),ctypes.cast(buf,dv),nbytes,root)
+               return pickle.loads(buf.raw)
+
+           def mpi_reduce(data, operation="sum", root=0):
+               data=np.ascontiguousarray(data,dtype=np.float64); ops={'sum':0,'max':1,'min':2,'prod':3}
+               if operation not in ops: raise ValueError("Unsupported reduction operation")
+               if myrank==root:
+                  result=np.empty_like(data); recv_ptr=result.ctypes.data_as(dpt)
+               else:
+                  result=None; recv_ptr=None
+               send_ptr=data.ctypes.data_as(dpt); ierr=C.mpi_reduce_double(send_ptr,recv_ptr,data.size,ops[operation],root)
+               if ierr!= 0: raise RuntimeError("MPI_Reduce failed")
+               return result
+
+           def mpi_allreduce(data,operation="sum"):
+               data=np.ascontiguousarray(data,dtype=np.float64); send_ptr=data.ctypes.data_as(dpt); ops={'sum':0,'max':1,'min':2,'prod':3}
+               if operation not in ops: raise ValueError("Unsupported reduction operation")
+               result=np.empty_like(data); recv_ptr=result.ctypes.data_as(dpt)
+               C.mpi_allreduce_double(send_ptr,recv_ptr,data.size,ops[operation])
+               return result
+
+           #read pylib's libmpi, and add mpi functions
            import ctypes
-           C=ctypes.CDLL(fn); dt=ctypes.c_int; dv=ctypes.c_void_p; at=ctypes.POINTER(dt)
-           C.mpi_init.restype=dt; C.mpi_barrier.restype=dt; C.mpi_rank.argtypes=[at]
-           C.mpi_size.argtypes=[at]; C.mpi_finalize.restype=dt
-           C.mpi_gatherv_bytes.argtypes=[dv,dt,dv,at,at,dt]
-           C.mpi_allgather_int.argtypes=[dt,at]
-           C.mpi_init(); rank=dt(); size=dt()
-           C.mpi_rank(ctypes.byref(rank)); C.mpi_size(ctypes.byref(size))
-           #C.mpi_barrier(); C.mpi_finalize()
+           C=ctypes.CDLL(fn); dv=ctypes.c_void_p; it=ctypes.c_int; ipt=ctypes.POINTER(it); dt=ctypes.c_double; dpt=ctypes.POINTER(dt) 
+           C.mpi_init.restype=it; C.mpi_barrier.restype=it; C.mpi_rank.argtypes=[ipt]
+           C.mpi_size.argtypes=[ipt]; C.mpi_finalize.restype=it
+           C.mpi_allgather_int.argtypes=[it,ipt]; C.mpi_allgather_int.restype=it
+           C.mpi_bcast_int.argtypes=[ipt,it]; C.mpi_bcast_int.restype=it
+           C.mpi_scatter_int.argtypes=[ipt,ipt,it]; C.mpi_scatter_int.restype=it
+
+           C.mpi_gatherv_bytes.argtypes=[dv,it,dv,ipt,ipt,it]; C.mpi_gatherv_bytes.restype=it
+           C.mpi_allgatherv_bytes.argtypes=[dv,it,dv,ipt,ipt]; C.mpi_allgatherv_bytes.restype=it
+           C.mpi_bcast_bytes.argtypes=[dv,it,it]; C.mpi_bcast_bytes.restype=it
+           C.mpi_scatterv_bytes.argtypes=[dv,ipt,ipt,dv,it,it]; C.mpi_scatterv_bytes.restype=it
+           C.mpi_reduce_double.argtypes=[dpt,dpt,it,it,it]; C.mpi_reduce_double.restype=it
+           C.mpi_allreduce_double.argtypes=[dpt,dpt,it]; C.mpi_allreduce_double.restype=it
+
+           C.mpi_init(); rank=it(); size=it();
+           C.mpi_rank(ctypes.byref(rank)); C.mpi_size(ctypes.byref(size)); nproc=int(size.value); myrank=int(rank.value)
 
            #wrap function to COMM_WORLD
            comm.myrank=rank.value; comm.nproc=size.value
-           comm.Barrier=C.mpi_barrier; comm.gather=mpi_gather
-           comm.Finalize=C.mpi_finalize
+           comm.init=C.mpi_init; comm.Finalize=C.mpi_finalize; comm.finalize=C.mpi_finalize
+           comm.Barrier=C.mpi_barrier; comm.barrier=C.mpi_barrier; 
+           comm.gather=mpi_gather; comm.scatterv=mpi_scatterv
+           comm.allgather=mpi_allgather; comm.bcast=mpi_bcast; comm.reduce=mpi_reduce; comm.allreduce=mpi_allreduce
         else:
            rvars=["OMPI_COMM_WORLD_RANK","PMI_RANK","PMIX_RANK","SLURM_PROCID","MV2_COMM_WORLD_RANK"]
            svars=["OMPI_COMM_WORLD_SIZE","PMI_SIZE","PMIX_SIZE","SLURM_NTASKS","MV2_COMM_WORLD_SIZE"]
