@@ -362,7 +362,7 @@ def MPI_init(fmt=0):
 
     In pylib, comm include methods:
           'init', 'finalize', 'Get_rank', 'Get_size', 'myrank', 'nproc',
-          'barrier', 'gather', 'allgather', 'reduce', 'allreduce', 'bcast', 'scatterv'
+          'barrier', 'gather', 'allgather', 'reduce', 'allreduce', 'bcast', 'scatter'
     '''
     def get_MPI():
         import pickle
@@ -468,7 +468,7 @@ def MPI_init(fmt=0):
            comm.myrank=rank.value; comm.nproc=size.value
            comm.init=C.mpi_init; comm.Finalize=C.mpi_finalize; comm.finalize=C.mpi_finalize
            comm.Barrier=C.mpi_barrier; comm.barrier=C.mpi_barrier; 
-           comm.gather=mpi_gather; comm.scatterv=mpi_scatterv
+           comm.gather=mpi_gather; comm.scatter=mpi_scatterv
            comm.allgather=mpi_allgather; comm.bcast=mpi_bcast; comm.reduce=mpi_reduce; comm.allreduce=mpi_allreduce
         else:
            rvars=["OMPI_COMM_WORLD_RANK","PMI_RANK","PMIX_RANK","SLURM_PROCID","MV2_COMM_WORLD_RANK"]
