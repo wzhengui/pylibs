@@ -354,42 +354,6 @@ def get_basemap(figsize=[8,8],*args0,**args):
     buf.seek(0); data=imread(buf)[::-1]; ny,nx=data.shape[:2]; buf.close(); close()
     return data
 
-#class _COMM_WORLD:
-#      def __init__(self):
-#          self.pid=os.getpid()
-#          self.myrank=None
-#
-#      def Get_size(self):
-#          self.nproc=1 if os.getenv('nproc') is None else int(os.getenv('nproc'))
-#          return self.nproc
-#
-#      def Get_rank(self):
-#          header='.pylib_pjob_id_'; open(header+str(self.pid),'w+').close()
-#          if not hasattr(self,'nproc'): self.Get_size()
-#          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
-#          fnames=glob(header+'*'); pids=[*sort([int(i.split('_')[-1]) for i in fnames])]
-#          self.myrank=pids.index(self.pid); self.delete(header,0.2)
-#          return self.myrank
-#
-#      def Barrier(self):
-#          header='.pylib_pjob_lock_'; open(header+str(self.pid),'w+').close()
-#          while len(glob(header+'*'))<self.nproc: time.sleep(0.1)
-#          self.delete(header,dt=0.2)
-#
-#      def delete(self,header=None,dt=0):
-#          if self.myrank==0:
-#             time.sleep(dt); [os.remove(i) for i in glob(header+'*')]
-#          else:
-#             time.sleep(2*dt)
-#
-#class parallel_jobs:
-#      '''
-#      compute nproc and myrank by dumping pid information on disk, when mpi4py fails.
-#      Note: this is not MPI, but only for the purpose in distributing parallel jobs
-#      '''
-#      def __init__(self):
-#          self.COMM_WORLD=_COMM_WORLD()
-
 def MPI_init(fmt=0):
     '''
     return comm=MPI.COMM_WORLD class either from mpi4py or pylib
@@ -408,8 +372,8 @@ def MPI_init(fmt=0):
              def Get_rank(self): return self.myrank
              def Get_size(self): return self.nproc
 
-        comm=COMM_WORLD(); host=get_qnode()
-        fn='{}/../scripts/mpi/libmpi_{}.so'.format(os.path.dirname(__file__),host)
+        comm=COMM_WORLD(); host=get_qnode(); cdir='{}/../scripts/mpi'.format(os.path.dirname(__file__))
+        fn='{}/libmpi_{}.so'.format(cdir,host)
         if os.path.exists(fn):
 	       #define mpi_gather
            def mpi_gather(data, root=0):
@@ -509,8 +473,24 @@ def MPI_init(fmt=0):
         else:
            rvars=["OMPI_COMM_WORLD_RANK","PMI_RANK","PMIX_RANK","SLURM_PROCID","MV2_COMM_WORLD_RANK"]
            svars=["OMPI_COMM_WORLD_SIZE","PMI_SIZE","PMIX_SIZE","SLURM_NTASKS","MV2_COMM_WORLD_SIZE"]
-           comm.myrank=[int(os.environ[i]) for i in rvars if i in os.environ][0]
-           comm.nproc =[int(os.environ[i]) for i in svars if i in os.environ][0]
+           myranks=[int(os.environ[i]) for i in rvars if i in os.environ] 
+           nprocs=[int(os.environ[i]) for i in svars if i in os.environ]
+           comm.myrank=0 if len(myranks)==0 else myranks[0]
+           comm.nproc=1 if len(nprocs)==0 else nprocs[0]
+
+           #compile the code
+           if comm.myrank==0:
+              try:
+                  for i in os.getenv('LD_LIBRARY_PATH').split(':'):
+                      fns=glob(i+'/libmpi*.so'); code=os.path.dirname(i)+'/bin/mpicc'
+                      if len(fns)==0: continue
+                      if os.path.exists(code): os.system('cd {}; {} -shared -fPIC mpi.c -o {}'.format(cdir,code,fn)); print('mpicc: '+code); break
+              except:
+                  pass
+           else:
+              time.sleep(1)
+           if os.path.exists(fn): comm=MPI_init(2)
+
         return comm
 
     #choose MPI
